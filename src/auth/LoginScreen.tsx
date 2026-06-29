@@ -170,6 +170,7 @@ export function LoginScreen({
 
         <Text style={styles.label}>{t('login.emailLabel')}</Text>
         <TextInput
+          testID="login-email"
           style={[styles.input, emailError ? styles.inputError : null]}
           value={email}
           onChangeText={(v) => {
@@ -194,6 +195,7 @@ export function LoginScreen({
         <Text style={styles.label}>{t('login.passwordLabel')}</Text>
         <View style={styles.passwordRow}>
           <TextInput
+            testID="login-password"
             style={[styles.input, styles.passwordInput]}
             value={password}
             onChangeText={setPassword}
@@ -222,6 +224,7 @@ export function LoginScreen({
         )}
 
         <TouchableOpacity
+          testID="login-submit"
           style={[styles.primaryButton, (!canSubmit || loading) && styles.primaryButtonDisabled]}
           onPress={onSubmit}
           disabled={!canSubmit || loading}

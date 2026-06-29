@@ -174,6 +174,7 @@ export function RegisterScreen({
 
         <Text style={styles.label}>{t('register.emailLabel')}</Text>
         <TextInput
+          testID="register-email"
           style={[styles.input, emailError ? styles.inputError : null]}
           value={email}
           onChangeText={(v) => {
@@ -199,6 +200,7 @@ export function RegisterScreen({
         <Text style={styles.label}>{t('register.passwordLabel')}</Text>
         <View style={styles.passwordRow}>
           <TextInput
+            testID="register-password"
             style={[
               styles.input,
               styles.passwordInput,
@@ -234,6 +236,7 @@ export function RegisterScreen({
         )}
 
         <TouchableOpacity
+          testID="register-submit"
           style={[styles.primaryButton, (!canSubmit || loading) && styles.primaryButtonDisabled]}
           onPress={onSubmit}
           disabled={!canSubmit || loading}

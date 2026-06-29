@@ -356,6 +356,7 @@ export function ProfileSetupScreen({
           </TouchableOpacity>
 
           <TouchableOpacity
+            testID="profile-mode-week"
             style={[
               styles.segmentBtn,
               inputMethod === 'current_week' && styles.segmentBtnSelected,
@@ -425,6 +426,7 @@ export function ProfileSetupScreen({
           <View>
             <Text style={styles.fieldLabel}>{t('profile.fieldCurrentWeek')}</Text>
             <View
+              testID="profile-week-stepper"
               style={styles.stepperRow}
               accessibilityLabel={`${t('profile.fieldCurrentWeek')}, ${t('profile.weekDisplay', { n: currentWeek })}`}
               accessibilityRole="adjustable"
@@ -502,6 +504,7 @@ export function ProfileSetupScreen({
 
         {/* Continue / Save button (§6.1 disabled state) */}
         <TouchableOpacity
+          testID="profile-save"
           style={[styles.primaryBtn, !isValid && styles.primaryBtnDisabled]}
           onPress={handleSave}
           disabled={!isValid || saving}

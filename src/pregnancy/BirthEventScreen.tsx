@@ -246,6 +246,7 @@ export function BirthEventScreen({
           <Text style={styles.required}>{' *'}</Text>
         </Text>
         <TouchableOpacity
+          testID="birth-date"
           style={styles.dateField}
           onPress={() => {
             setDateInputText(birthDate);
@@ -359,6 +360,7 @@ export function BirthEventScreen({
 
         {/* ── Save button (§4.2 — explicit confirm, If-Match guarded) ────── */}
         <TouchableOpacity
+          testID="birth-save"
           style={[styles.saveBtn, !canSave && styles.saveBtnDisabled]}
           onPress={() => void handleSave()}
           disabled={!canSave}

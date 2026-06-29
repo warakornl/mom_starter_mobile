@@ -224,6 +224,7 @@ function StageBanner({
 
   return (
     <View
+      testID="home-week-hero"
       style={bannerStyles.card}
       accessibilityRole="text"
       accessibilityLabel={bannerA11yLabel}
@@ -263,6 +264,7 @@ function StageBanner({
 
         {isT3 && (
           <TouchableOpacity
+            testID="home-birth-cta"
             style={bannerStyles.birthCta}
             onPress={onBirthEvent}
             accessibilityRole="button"
@@ -393,6 +395,7 @@ function PostpartumBanner({
 
   return (
     <View
+      testID="home-postpartum-banner"
       style={ppBannerStyles.card}
       accessibilityRole="text"
       accessibilityLabel={`${stageLabel} — ${ageLabel}`}

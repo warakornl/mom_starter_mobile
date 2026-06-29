@@ -50,6 +50,7 @@ export function WelcomeScreen({ navigation }: WelcomeScreenProps): React.JSX.Ele
       {/* Language toggle — top-right */}
       <View style={styles.topBar}>
         <TouchableOpacity
+          testID="lang-toggle"
           style={styles.langToggle}
           onPress={() => setLocale(locale === 'th' ? 'en' : 'th')}
           accessibilityRole="button"
@@ -74,6 +75,7 @@ export function WelcomeScreen({ navigation }: WelcomeScreenProps): React.JSX.Ele
       {/* CTA buttons */}
       <View style={styles.ctaBlock}>
         <TouchableOpacity
+          testID="welcome-register-btn"
           style={styles.primaryButton}
           onPress={() => navigation.navigate('Register')}
           accessibilityRole="button"
@@ -83,6 +85,7 @@ export function WelcomeScreen({ navigation }: WelcomeScreenProps): React.JSX.Ele
         </TouchableOpacity>
 
         <TouchableOpacity
+          testID="welcome-login-btn"
           style={styles.secondaryButton}
           onPress={() => navigation.navigate('Login')}
           accessibilityRole="button"

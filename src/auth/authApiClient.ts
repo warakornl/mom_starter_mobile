@@ -33,6 +33,10 @@ import type {
   ForgotPasswordResult,
   ResetPasswordRequest,
   ResetPasswordResult,
+  VerifyEmailRequest,
+  VerifyEmailResult,
+  ResendVerificationRequest,
+  ResendVerificationResult,
   AuthApiError,
 } from './types';
 
@@ -169,6 +173,45 @@ export function createAuthClient(baseUrl: string, fetchFn: FetchFn = fetch) {
     async resetPassword(req: ResetPasswordRequest): Promise<ResetPasswordResult> {
       const res = await jsonPost(baseUrl, fetchFn, '/v1/auth/reset-password', req);
       if (res.status === 204) {
+        return { ok: true };
+      }
+      return makeError(res.status, await parseError(res));
+    },
+
+    /**
+     * POST /auth/verify-email → 200 AuthTokens (the FIRST session for the account)
+     *
+     * Mints the initial refresh-token family bound to deviceId (§G/C9).
+     * This is the only session-minting event for a just-registered account;
+     * `register` itself issues no tokens (§G — "register issues NO AuthTokens").
+     *
+     * 410 `verify_token_invalid` — single generic code for bad/expired/used token
+     * (does not distinguish the cases — avoids token-probing oracle, §E/C9).
+     * Token is single-use, short-expiry, SHA-256-hashed server-side.
+     *
+     * 429 `rate_limited` — protects against verify-token guessing (§H).
+     */
+    async verifyEmail(req: VerifyEmailRequest): Promise<VerifyEmailResult> {
+      const res = await jsonPost(baseUrl, fetchFn, '/v1/auth/verify-email', req);
+      if (res.ok) {
+        const tokens = (await res.json()) as AuthTokens;
+        return { ok: true, tokens };
+      }
+      return makeError(res.status, await parseError(res));
+    },
+
+    /**
+     * POST /auth/resend-verification → always 202 (non-enumerating)
+     *
+     * ALWAYS returns 202 regardless of whether the email exists or is already
+     * verified — identical non-enumerating posture as `forgotPassword` (§E/C7).
+     * The server sends the verification email asynchronously, out-of-band.
+     *
+     * 429 `rate_limited` — rate-limited per-account to prevent email flooding (§H).
+     */
+    async resendVerification(req: ResendVerificationRequest): Promise<ResendVerificationResult> {
+      const res = await jsonPost(baseUrl, fetchFn, '/v1/auth/resend-verification', req);
+      if (res.status === 202) {
         return { ok: true };
       }
       return makeError(res.status, await parseError(res));

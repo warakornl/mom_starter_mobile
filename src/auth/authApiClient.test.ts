@@ -302,3 +302,116 @@ describe('authClient.resetPassword', () => {
     if (!r.ok) expect(r.code).toBe('password_breached');
   });
 });
+
+// ─── verifyEmail ──────────────────────────────────────────────────────────────
+
+describe('authClient.verifyEmail', () => {
+  it('returns ok:true + tokens on 200 (first session for the account)', async () => {
+    const client = createAuthClient(BASE, makeResponse(200, TOKENS));
+    const r = await client.verifyEmail({ token: 'ver-tok-abc' });
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.tokens).toEqual(TOKENS);
+  });
+
+  it('POSTs to /v1/auth/verify-email with token + optional deviceId', async () => {
+    const { fn, calls } = spyFetch(200, TOKENS);
+    await createAuthClient(BASE, fn).verifyEmail({
+      token: 'ver-tok-abc',
+      deviceId: 'device-001',
+    });
+    expect(calls).toHaveLength(1);
+    expect(calls[0].url).toBe('http://localhost:8080/v1/auth/verify-email');
+    expect(calls[0].init).toMatchObject({
+      method: 'POST',
+      body: JSON.stringify({ token: 'ver-tok-abc', deviceId: 'device-001' }),
+    });
+  });
+
+  it('returns ok:false + code "verify_token_invalid" on 410 (bad/expired/used token — §E/C9)', async () => {
+    // Single generic code — does not distinguish bad/expired/already-used (avoids oracle).
+    const client = createAuthClient(
+      BASE,
+      makeResponse(410, { code: 'verify_token_invalid', message: 'Gone.' }),
+    );
+    const r = await client.verifyEmail({ token: 'bad-token' });
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.status).toBe(410);
+      expect(r.code).toBe('verify_token_invalid');
+    }
+  });
+
+  it('returns ok:false on 422 (validation error)', async () => {
+    const client = createAuthClient(
+      BASE,
+      makeResponse(422, { code: 'validation_error', message: 'Invalid.' }),
+    );
+    const r = await client.verifyEmail({ token: '' });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.status).toBe(422);
+  });
+
+  it('returns ok:false + code "rate_limited" on 429', async () => {
+    const client = createAuthClient(
+      BASE,
+      makeResponse(429, { code: 'rate_limited', message: 'Too many.' }),
+    );
+    const r = await client.verifyEmail({ token: 'ver-tok' });
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.status).toBe(429);
+      expect(r.code).toBe('rate_limited');
+    }
+  });
+
+  it('returns ok:false with status 500 on server error', async () => {
+    const client = createAuthClient(
+      BASE,
+      makeResponse(500, { code: 'internal_error', message: 'Oops.' }),
+    );
+    const r = await client.verifyEmail({ token: 'ver-tok' });
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.status).toBe(500);
+  });
+});
+
+// ─── resendVerification ───────────────────────────────────────────────────────
+
+describe('authClient.resendVerification', () => {
+  it('returns ok:true on 202 (always — non-enumerating, same posture as forgotPassword)', async () => {
+    const client = createAuthClient(BASE, makeResponse(202));
+    const r = await client.resendVerification({ email: 'user@example.com' });
+    expect(r.ok).toBe(true);
+  });
+
+  it('returns ok:true on 202 even for a non-existent or already-verified email (non-enumerating, §E)', async () => {
+    // Server never reveals whether the email exists or is already verified.
+    const client = createAuthClient(BASE, makeResponse(202));
+    const r = await client.resendVerification({ email: 'ghost@nowhere.io' });
+    expect(r.ok).toBe(true);
+  });
+
+  it('POSTs to /v1/auth/resend-verification with the email', async () => {
+    const { fn, calls } = spyFetch(202);
+    await createAuthClient(BASE, fn).resendVerification({ email: 'user@example.com' });
+    expect(calls).toHaveLength(1);
+    expect(calls[0].url).toBe('http://localhost:8080/v1/auth/resend-verification');
+    expect(calls[0].init).toMatchObject({
+      method: 'POST',
+      body: JSON.stringify({ email: 'user@example.com' }),
+    });
+  });
+
+  it('returns ok:false + code "rate_limited" on 429', async () => {
+    const client = createAuthClient(
+      BASE,
+      makeResponse(429, { code: 'rate_limited', message: 'Too many.' }),
+    );
+    const r = await client.resendVerification({ email: 'user@example.com' });
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.status).toBe(429);
+      expect(r.code).toBe('rate_limited');
+    }
+  });
+});

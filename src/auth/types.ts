@@ -69,6 +69,17 @@ export interface ResetPasswordRequest {
   newPassword: string;
 }
 
+export interface VerifyEmailRequest {
+  /** The single-use verification token from the email link. */
+  token: string;
+  /** Client-generated stable per-install id (NOT a hardware identifier, C5). */
+  deviceId?: string;
+}
+
+export interface ResendVerificationRequest {
+  email: string;
+}
+
 // ─── Result shapes (discriminated unions) ─────────────────────────────────────
 
 /**
@@ -89,3 +100,16 @@ export type RegisterResult = { ok: true } | AuthApiError;
 export type RefreshResult = { ok: true; tokens: AuthTokens } | AuthApiError;
 export type ForgotPasswordResult = { ok: true } | AuthApiError;
 export type ResetPasswordResult = { ok: true } | AuthApiError;
+
+/**
+ * POST /auth/verify-email → 200 AuthTokens (the FIRST session for the account)
+ * 410 `verify_token_invalid` — single generic code for bad/expired/used token (§E/C9).
+ * 429 `rate_limited` — rate-limited per IP/token to prevent token guessing (§H).
+ */
+export type VerifyEmailResult = { ok: true; tokens: AuthTokens } | AuthApiError;
+
+/**
+ * POST /auth/resend-verification → always 202 (non-enumerating, §E/§G).
+ * 429 `rate_limited` — rate-limited per account to prevent email flooding (§H).
+ */
+export type ResendVerificationResult = { ok: true } | AuthApiError;

@@ -170,11 +170,20 @@ function createSyncClientWithAdapters(
         headers['Idempotency-Key'] = idempotencyKey;
       }
 
-      const res = await fetchFn(`${baseUrl}/v1/sync/push`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ changes, lastPulledAt }),
-      });
+      let res: Response;
+      try {
+        res = await fetchFn(`${baseUrl}/v1/sync/push`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ changes, lastPulledAt }),
+        });
+      } catch (err) {
+        // fetchFn rejected — device is offline or DNS failed.
+        // Return a network_error result so executePush can re-enqueue the
+        // drained changeset via the existing !result.ok path (contract §3 PINNED).
+        const msg = err instanceof Error ? err.message : 'Network error';
+        return { ok: false, status: 0, code: 'network_error', message: msg };
+      }
 
       if (!res.ok) {
         const problem = await parseError(res);
@@ -242,13 +251,22 @@ function createSyncClientWithAdapters(
           limit: '1000',
         });
 
-        const res = await fetchFn(url, {
-          method: 'GET',
-          headers: {
-            // NEVER log accessToken
-            Authorization: `Bearer ${accessToken}`,
-          },
-        });
+        let res: Response;
+        try {
+          res = await fetchFn(url, {
+            method: 'GET',
+            headers: {
+              // NEVER log accessToken
+              Authorization: `Bearer ${accessToken}`,
+            },
+          });
+        } catch (err) {
+          // fetchFn rejected — device is offline.
+          // Pull is read-only (no queue drain), so no re-enqueue needed.
+          // Return network_error so the caller can show an offline banner.
+          const msg = err instanceof Error ? err.message : 'Network error';
+          return { ok: false, status: 0, code: 'network_error', message: msg };
+        }
 
         if (!res.ok) {
           const problem = await parseError(res);

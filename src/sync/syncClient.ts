@@ -149,7 +149,8 @@ export function createSyncClient(
       // tombstone_won — tombstone wins unconditionally; client adopts tombstone.
       for (const conflict of resp.conflicts ?? []) {
         if (conflict.collection === 'supplyItems') {
-          store.adoptServerRecord(conflict.serverRecord);
+          // serverRecord is a SyncRecord union; narrow via collection discriminant
+          store.adoptServerRecord(conflict.serverRecord as import('./syncTypes').SupplyItemRecord);
         }
       }
 

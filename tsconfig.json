@@ -3,14 +3,16 @@
     "target": "ES2020",
     "module": "CommonJS",
     "moduleResolution": "node",
+    "jsx": "react-jsx",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "types": ["node", "jest"],
-    "rootDir": "src"
+    "types": ["node", "jest", "react"],
+    "resolveJsonModule": true,
+    "allowSyntheticDefaultImports": true,
+    "noEmit": true
   },
-  "include": ["src"],
-  "// exclude note": "RN screen (.tsx) files reference react/react-native + JSX, which aren't installed until Expo is scaffolded. Typecheck the testable .ts logic now; bring .tsx back into the check (with jsx + @types/react) when Expo lands.",
-  "exclude": ["src/**/*.tsx"]
+  "include": ["**/*.ts", "**/*.tsx"],
+  "exclude": ["node_modules"]
 }

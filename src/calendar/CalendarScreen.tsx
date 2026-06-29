@@ -355,22 +355,31 @@ export function CalendarScreen({
     // reEnqueueChangeset) — no banner needed beyond the error case.
   }, [tokenStorage, refreshFromStore, t]);
 
+  // ── Pull + push (sync all) ─────────────────────────────────────────────────
+  // Pull first to hydrate store, then push any pending mutations.
+  // syncPush is a no-op when getPendingCount() === 0, so safe to always call.
+
+  const syncAll = useCallback(async () => {
+    await syncPull();
+    await syncPush();
+  }, [syncPull, syncPush]);
+
   // ── Pull on mount and foreground ───────────────────────────────────────────
 
   useEffect(() => {
-    void syncPull();
+    void syncAll();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     function handleAppState(next: AppStateStatus): void {
       if (next === 'active') {
-        void syncPull();
+        void syncAll();
       }
     }
     const sub = AppState.addEventListener('change', handleAppState);
     return () => sub.remove();
-  }, [syncPull]);
+  }, [syncAll]);
 
   // ── Build calendar maps ────────────────────────────────────────────────────
 
@@ -489,7 +498,7 @@ export function CalendarScreen({
       {syncError && (
         <TouchableOpacity
           style={styles.errorBar}
-          onPress={() => void syncPull()}
+          onPress={() => void syncAll()}
         >
           <Text style={styles.errorBarText}>{syncError}</Text>
         </TouchableOpacity>

@@ -57,6 +57,7 @@ import {
   type AppStateStatus,
 } from 'react-native';
 import type { TokenStorage } from '../auth/tokenStorage';
+import { supplySyncStore } from '../sync/supplySyncStore';
 import { createPregnancyClient } from '../pregnancy/pregnancyApiClient';
 import {
   computeGestationalAge,
@@ -628,6 +629,9 @@ export function HomeScreen({
     } catch {
       // Storage clear failure is non-fatal
     }
+    // PDPA data-isolation: clear in-memory supply items so user A's data
+    // cannot be seen by user B who logs in during the same JS session.
+    supplySyncStore.reset();
     onLogout();
   }
 

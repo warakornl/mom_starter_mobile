@@ -86,8 +86,28 @@ export interface SyncStore {
    */
   drainQueue(): SyncChangeSet;
 
+  /**
+   * Re-enqueue a previously-drained changeset back into the pending queue.
+   *
+   * Call this when a push fails (network/5xx/403/409) or when the server
+   * returns rejected[] records that need retry — per contract §3:
+   * "client MUST keep rejected rows queued (retriable)".
+   *
+   * Note: only pass back the subset that needs retry (failed push → full
+   * changeset; rejected items → only the rejected subset).
+   */
+  reEnqueueChangeset(changeSet: SyncChangeSet): void;
+
   /** Number of queued mutations waiting to be pushed. */
   getPendingCount(): number;
+
+  /**
+   * Clear all in-memory items, the mutation queue, and the watermark.
+   *
+   * Call on user logout to prevent data from one user leaking into a
+   * subsequent session (PDPA compliance / data-isolation requirement).
+   */
+  reset(): void;
 
   // ── Watermark ──────────────────────────────────────────────────────────────
 
@@ -218,8 +238,24 @@ export function createSyncStore(): SyncStore {
       return changeSet;
     },
 
+    reEnqueueChangeset(changeSet: SyncChangeSet): void {
+      const si = changeSet.supplyItems;
+      if (!si) return;
+      pendingCreated.push(...si.created);
+      pendingUpdated.push(...si.updated);
+      pendingDeleted.push(...si.deleted);
+    },
+
     getPendingCount(): number {
       return pendingCreated.length + pendingUpdated.length + pendingDeleted.length;
+    },
+
+    reset(): void {
+      itemMap.clear();
+      pendingCreated.length = 0;
+      pendingUpdated.length = 0;
+      pendingDeleted.length = 0;
+      watermark = undefined;
     },
 
     // ── Watermark ────────────────────────────────────────────────────────────

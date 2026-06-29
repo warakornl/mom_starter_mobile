@@ -139,7 +139,8 @@ export function ProfileSetupScreen({
   const [dateInputText, setDateInputText] = useState<string>(existingProfile?.edd ?? '');
 
   // ── Current-week path ────────────────────────────────────────────────────────
-  const initWeek = existingProfile?.gestationalWeek
+  // gestationalWeek is number | null (null when postpartum) — check explicitly.
+  const initWeek = (existingProfile?.gestationalWeek != null)
     ? Math.max(1, Math.min(42, existingProfile.gestationalWeek))
     : 20;
   const [currentWeek, setCurrentWeek] = useState<number>(initWeek);

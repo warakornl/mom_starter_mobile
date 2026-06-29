@@ -5,19 +5,21 @@
  *   Welcome       — no params (landing screen)
  *   Login         — no params
  *   Register      — no params
- *   VerifyEmail   — email: the address the user registered with (display + resend)
- *   Home          — no params (dashboard; will check for profile on mount)
- *   ProfileSetup  — no params (initial pregnancy profile setup — first-run or on GET 404)
+ *   VerifyEmail   — email: address shown in check-inbox screen
+ *   Home          — no params (dashboard; checks profile lifecycle on mount)
+ *   ProfileSetup  — no params (initial pregnancy profile setup — first-run or GET 404)
+ *   BirthEvent    — profileVersion: current profile version (for If-Match header)
  *
  * Navigation flow:
  *   Login/VerifyEmail success → Home
  *   Home (GET 404 profile) → ProfileSetup (via onNeedsProfile callback)
  *   ProfileSetup complete → Home (via onSetupComplete callback + navigation.reset)
+ *   Home T3 banner "ลูกคลอดแล้ว" → BirthEvent (via onBirthEvent(version))
+ *   BirthEvent success → Home (via onBirthRecorded + navigation.reset)
  *
  * Deep-link carry-forward:
  *   VerifyEmail will also receive `pendingToken?: string` once Expo Linking
- *   is wired up (momstarter://verify?token=...). The navigator will extract
- *   the token from the URL and pass it via route.params.
+ *   is wired up (momstarter://verify?token=...).
  */
 export type RootStackParamList = {
   Welcome: undefined;
@@ -26,4 +28,6 @@ export type RootStackParamList = {
   VerifyEmail: { email: string; pendingToken?: string };
   Home: undefined;
   ProfileSetup: undefined;
+  /** Birth event screen — records birth and transitions lifecycle to postpartum. */
+  BirthEvent: { profileVersion: number };
 };

@@ -8,29 +8,30 @@
  *   VerifyEmail → Home (on verify success) | Register (change email)
  *   Home — checks for PregnancyProfile on mount:
  *     → ProfileSetup (if GET /v1/pregnancy-profile returns 404)
- *     → stays on Home (if profile exists)
+ *     → stays on Home (if profile exists — pregnant or postpartum)
+ *   Home (T3 lifecycle=pregnant) — "ลูกคลอดแล้ว" banner CTA:
+ *     → BirthEvent (profile version passed as route param)
  *   ProfileSetup — initial due-date / current-week entry:
- *     → Home (on PUT success; resets stack so Back returns to Welcome not Setup)
+ *     → Home (on PUT success; resets stack)
+ *   BirthEvent — records POST /v1/pregnancy-profile/birth-event:
+ *     → Home (on success; resets stack; Home reloads and switches to postpartum)
  *
  * Design decisions:
  * - Auth screens keep their callback-based prop API (onSuccess, onSignIn, etc.)
  *   and are wired to navigation via render-prop children inside Stack.Screen.
- *   This decouples the screen components from react-navigation and keeps their
- *   existing logic testable without a navigation environment.
+ *   This decouples screen components from react-navigation and keeps them
+ *   testable without a navigation environment.
  * - Login and VerifyEmail success use `navigation.reset` to clear the auth stack
  *   so the user cannot "back" into the sign-in screen after logging in.
- * - HomeScreen receives `apiBaseUrl` (for pregnancy profile GET) and
- *   `onNeedsProfile` (navigates to ProfileSetup when GET returns 404).
- * - ProfileSetup receives `onSetupComplete` which resets the stack to Home
- *   so the Back button does not return to Setup after the profile is saved.
- * - tokenStorage and apiBaseUrl are passed in from App.tsx (created once with
- *   useMemo) so auth screens share the same storage instance.
+ * - HomeScreen receives `onBirthEvent(profileVersion)` which navigates to the
+ *   BirthEvent screen with the version as a route param (for If-Match header).
+ * - BirthEventScreen receives `onBirthRecorded` which resets to Home; HomeScreen
+ *   then reloads on foreground and switches to postpartum mode.
  *
  * Carry-forward:
  * - ForgotPassword screen (onForgotPassword is currently a no-op)
- * - Expo Linking deep-link handler to extract `pendingToken` from the
- *   momstarter://verify?token=... URL and pass to VerifyEmailScreen
- * - Consent (general_health) screen between Register/VerifyEmail and ProfileSetup
+ * - Expo Linking deep-link for momstarter://verify?token= → VerifyEmailScreen
+ * - Consent screen between VerifyEmail and ProfileSetup
  */
 
 import React from 'react';
@@ -45,6 +46,7 @@ import { LoginScreen } from '../auth/LoginScreen';
 import { RegisterScreen } from '../auth/RegisterScreen';
 import { VerifyEmailScreen } from '../auth/VerifyEmailScreen';
 import { ProfileSetupScreen } from '../pregnancy/ProfileSetupScreen';
+import { BirthEventScreen } from '../pregnancy/BirthEventScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -137,7 +139,8 @@ export function RootNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps):
        *
        * Checks for PregnancyProfile on mount:
        *   GET 404 → calls onNeedsProfile → navigate to ProfileSetup
-       *   GET 200 → shows the gestational-age dashboard
+       *   GET 200, lifecycle=pregnant   → gestational-age dashboard + T3 birth CTA
+       *   GET 200, lifecycle=postpartum → baby-age dashboard (sage/green, postpartum)
        */}
       <Stack.Screen
         name="Home"
@@ -153,15 +156,14 @@ export function RootNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps):
             onNeedsProfile={() =>
               navigation.reset({ index: 0, routes: [{ name: 'ProfileSetup' }] })
             }
+            onBirthEvent={(profileVersion) =>
+              navigation.navigate('BirthEvent', { profileVersion })
+            }
           />
         )}
       </Stack.Screen>
 
-      {/* ProfileSetup — initial due-date / current-week entry (US-1)
-       *
-       * Reached when Home detects no profile (GET 404) or from Welcome.
-       * On completion resets stack to Home so Back does not return here.
-       */}
+      {/* ProfileSetup — initial due-date / current-week entry (US-1) */}
       <Stack.Screen
         name="ProfileSetup"
         options={{ title: 'ตั้งกำหนดคลอด', headerBackTitle: '' }}
@@ -173,6 +175,33 @@ export function RootNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps):
             onSetupComplete={() =>
               navigation.reset({ index: 0, routes: [{ name: 'Home' }] })
             }
+          />
+        )}
+      </Stack.Screen>
+
+      {/* BirthEvent — records birth and transitions lifecycle to postpartum
+       *
+       * Entry: T3 stage banner "ลูกคลอดแล้ว ›" in HomeScreen
+       * Exit: resets stack to Home; HomeScreen reloads on foreground and
+       *       switches to postpartum mode (lifecycle=postpartum from GET profile).
+       *
+       * Birth CTA placement (pregnancy-profile-ui §4.1):
+       *   Reached from the stage banner (T3 only) and Account ▸ Pregnancy.
+       *   Never a prominent card on the calendar surface.
+       */}
+      <Stack.Screen
+        name="BirthEvent"
+        options={{ title: 'ลูกคลอดแล้ว', headerBackTitle: 'กลับ' }}
+      >
+        {({ route, navigation }) => (
+          <BirthEventScreen
+            tokenStorage={tokenStorage}
+            apiBaseUrl={apiBaseUrl}
+            profileVersion={route.params.profileVersion}
+            onBirthRecorded={() =>
+              navigation.reset({ index: 0, routes: [{ name: 'Home' }] })
+            }
+            onCancel={() => navigation.goBack()}
           />
         )}
       </Stack.Screen>

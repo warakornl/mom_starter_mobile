@@ -1,0 +1,76 @@
+# 04-birth-event.yaml
+# Flow: login (T3 profile) → tap Birth CTA → enter birth date → save
+#       → assert postpartum banner on Home.
+#
+# Prerequisites:
+#   - Dev account dev@momstarter.local / DevTest-Password-2026 exists
+#   - Account has a pregnancy profile in T3 (week >= 28) so birth CTA shows
+#     (run 03-pregnancy.yaml first to set week 38, or seed via API)
+#   - Backend running
+
+appId: com.momstarter.app
+
+---
+
+- launchApp:
+    clearState: true
+
+# Login
+- assertVisible:
+    id: welcome-login-btn
+- tapOn:
+    id: welcome-login-btn
+
+- tapOn:
+    id: login-email
+- clearText
+- inputText: dev@momstarter.local
+
+- tapOn:
+    id: login-password
+- clearText
+- inputText: "DevTest-Password-2026"
+
+- tapOn:
+    id: login-submit
+
+# Wait for Home with T3 week hero and birth CTA
+- extendedWaitUntil:
+    visible:
+      id: home-birth-cta
+    timeout: 10000
+
+# Tap "ลูกคลอดแล้ว ›"
+- tapOn:
+    id: home-birth-cta
+
+# Wait for BirthEventScreen date field
+- extendedWaitUntil:
+    visible:
+      id: birth-date
+    timeout: 5000
+
+# Open date modal and enter today's date (2026-06-29 per dev context)
+- tapOn:
+    id: birth-date
+
+# Type the birth date in the modal input
+- tapOn:
+    accessibilityLabel: ".*[Bb]irth.*[Dd]ate.*"
+- clearText
+- inputText: "2026-06-29"
+
+# Confirm the date in the modal ("ยืนยัน" / Confirm button)
+- tapOn:
+    accessibilityLabel: ".*[Cc]onfirm.*"
+
+# The modal closes; birth-date field now shows the formatted date.
+# Tap Save
+- tapOn:
+    id: birth-save
+
+# Assert postpartum banner appears on Home after successful birth event
+- extendedWaitUntil:
+    visible:
+      id: home-postpartum-banner
+    timeout: 10000

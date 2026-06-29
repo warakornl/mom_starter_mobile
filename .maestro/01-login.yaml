@@ -1,0 +1,46 @@
+# 01-login.yaml
+# Flow: launch app → login with dev account → assert Home is visible.
+#
+# Prerequisites:
+#   - iOS Simulator running with dev build (npx expo run:ios)
+#   - Backend running on slice/feat-birth-event (or later) at localhost:8080
+#   - Dev account dev@momstarter.local / DevTest-Password-2026 must exist in DB
+#
+# Selector strategy: testID (id:) throughout — language-independent.
+
+appId: com.momstarter.app
+
+---
+
+- launchApp:
+    clearState: true
+
+# Wait for Welcome screen
+- assertVisible:
+    id: welcome-login-btn
+
+# Tap "เข้าสู่ระบบ"
+- tapOn:
+    id: welcome-login-btn
+
+# Fill credentials
+- tapOn:
+    id: login-email
+- clearText
+- inputText: dev@momstarter.local
+
+- tapOn:
+    id: login-password
+- clearText
+- inputText: "DevTest-Password-2026"
+
+# Submit
+- tapOn:
+    id: login-submit
+
+# Assert Home loaded — either the week hero (pregnant) or skeleton/onboarding.
+# We use extendedWaitUntil to allow API round-trip.
+- extendedWaitUntil:
+    visible:
+      id: home-week-hero
+    timeout: 10000

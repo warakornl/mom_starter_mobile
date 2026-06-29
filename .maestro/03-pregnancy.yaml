@@ -1,0 +1,100 @@
+# 03-pregnancy.yaml
+# Flow: login → set pregnancy profile via current-week mode (week 38)
+#       → assert week hero appears on Home.
+#
+# Prerequisites:
+#   - Dev account dev@momstarter.local / DevTest-Password-2026 exists
+#   - Account has NO pregnancy profile yet (or profile can be reset via API)
+#   - Backend running
+
+appId: com.momstarter.app
+
+---
+
+- launchApp:
+    clearState: true
+
+# Login
+- assertVisible:
+    id: welcome-login-btn
+- tapOn:
+    id: welcome-login-btn
+
+- tapOn:
+    id: login-email
+- clearText
+- inputText: dev@momstarter.local
+
+- tapOn:
+    id: login-password
+- clearText
+- inputText: "DevTest-Password-2026"
+
+- tapOn:
+    id: login-submit
+
+# If no profile, HomeScreen auto-navigates to ProfileSetupScreen.
+# Wait up to 10s for ProfileSetup to appear.
+- extendedWaitUntil:
+    visible:
+      id: profile-mode-week
+    timeout: 10000
+
+# Select "current week" mode
+- tapOn:
+    id: profile-mode-week
+
+# The stepper defaults to week 20. Tap the stepper value area to verify it
+# rendered, then increment to 38 via repeated taps on the "›" button.
+# Each tap increments by 1; we need 18 more taps (20 → 38).
+- assertVisible:
+    id: profile-week-stepper
+
+# Repeat tapOn increase button 18 times to reach week 38.
+# Maestro does not support loops; we list 18 taps explicitly.
+- tapOn:
+    accessibilityLabel: ".*[Ii]ncr.*"
+- tapOn:
+    accessibilityLabel: ".*[Ii]ncr.*"
+- tapOn:
+    accessibilityLabel: ".*[Ii]ncr.*"
+- tapOn:
+    accessibilityLabel: ".*[Ii]ncr.*"
+- tapOn:
+    accessibilityLabel: ".*[Ii]ncr.*"
+- tapOn:
+    accessibilityLabel: ".*[Ii]ncr.*"
+- tapOn:
+    accessibilityLabel: ".*[Ii]ncr.*"
+- tapOn:
+    accessibilityLabel: ".*[Ii]ncr.*"
+- tapOn:
+    accessibilityLabel: ".*[Ii]ncr.*"
+- tapOn:
+    accessibilityLabel: ".*[Ii]ncr.*"
+- tapOn:
+    accessibilityLabel: ".*[Ii]ncr.*"
+- tapOn:
+    accessibilityLabel: ".*[Ii]ncr.*"
+- tapOn:
+    accessibilityLabel: ".*[Ii]ncr.*"
+- tapOn:
+    accessibilityLabel: ".*[Ii]ncr.*"
+- tapOn:
+    accessibilityLabel: ".*[Ii]ncr.*"
+- tapOn:
+    accessibilityLabel: ".*[Ii]ncr.*"
+- tapOn:
+    accessibilityLabel: ".*[Ii]ncr.*"
+- tapOn:
+    accessibilityLabel: ".*[Ii]ncr.*"
+
+# Save profile
+- tapOn:
+    id: profile-save
+
+# Assert Home week hero is visible after successful save
+- extendedWaitUntil:
+    visible:
+      id: home-week-hero
+    timeout: 10000

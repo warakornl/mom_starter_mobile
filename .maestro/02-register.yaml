@@ -1,0 +1,48 @@
+# 02-register.yaml
+# Flow: launch → register a new account (timestamp-based email) → assert
+# navigation proceeds past registration (VerifyEmail screen appears).
+#
+# Prerequisites:
+#   - Backend running; registration endpoint POST /v1/auth/register is up
+#   - Dev environment auto-skips email verification OR verify flow is testable
+#
+# Note: The app never reveals whether an email already exists (non-enumeration
+# contract §E/C7). We use a timestamp-suffixed address to avoid collisions.
+
+appId: com.momstarter.app
+
+---
+
+- launchApp:
+    clearState: true
+
+# Wait for Welcome screen
+- assertVisible:
+    id: welcome-register-btn
+
+# Tap "สร้างบัญชี"
+- tapOn:
+    id: welcome-register-btn
+
+# Fill registration form
+- tapOn:
+    id: register-email
+- clearText
+- inputText: "e2e+${System.currentTimeMillis()}@momstarter.local"
+
+- tapOn:
+    id: register-password
+- clearText
+- inputText: "DevTest-Password-2026"
+
+# Submit — button is enabled only when both fields are valid
+- tapOn:
+    id: register-submit
+
+# After 202, the screen navigates to VerifyEmailScreen.
+# VerifyEmail has no testID yet; assert by text (English — dev locale default)
+# or adjust to whatever the VerifyEmailScreen renders.
+- extendedWaitUntil:
+    visible:
+      text: ".*[Vv]erif.*"
+    timeout: 8000

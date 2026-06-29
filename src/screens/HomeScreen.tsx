@@ -92,6 +92,11 @@ export interface HomeScreenProps {
    * Optional — no-op if not provided (keeps existing snapshots/tests working).
    */
   onSupplies?: () => void;
+  /**
+   * Navigate to CalendarScreen (month/agenda — appointments + reminders).
+   * Optional — no-op if not provided (keeps existing snapshots/tests working).
+   */
+  onCalendar?: () => void;
 }
 
 // ─── Screen state ─────────────────────────────────────────────────────────────
@@ -546,6 +551,7 @@ export function HomeScreen({
   onNeedsProfile,
   onBirthEvent,
   onSupplies,
+  onCalendar,
 }: HomeScreenProps): React.JSX.Element {
   const { t } = useT();
   const [state, setState] = useState<ScreenState>({ kind: 'loading' });
@@ -725,6 +731,17 @@ export function HomeScreen({
               <Text style={styles.suppliesBtnText}>{t('supplies.shortcutBtn')}</Text>
             </TouchableOpacity>
           )}
+          {onCalendar && (
+            <TouchableOpacity
+              testID="home-calendar-shortcut"
+              style={styles.calendarBtn}
+              onPress={onCalendar}
+              accessibilityRole="button"
+              accessibilityLabel={t('calendar.navTitle')}
+            >
+              <Text style={styles.calendarBtnText}>{t('calendar.viewAll')}</Text>
+            </TouchableOpacity>
+          )}
         </ScrollView>
 
         <TouchableOpacity
@@ -787,6 +804,17 @@ export function HomeScreen({
             accessibilityLabel={t('supplies.navTitle')}
           >
             <Text style={styles.suppliesBtnText}>{t('supplies.shortcutBtn')}</Text>
+          </TouchableOpacity>
+        )}
+        {onCalendar && (
+          <TouchableOpacity
+            testID="home-calendar-shortcut"
+            style={styles.calendarBtn}
+            onPress={onCalendar}
+            accessibilityRole="button"
+            accessibilityLabel={t('calendar.navTitle')}
+          >
+            <Text style={styles.calendarBtnText}>{t('calendar.viewAll')}</Text>
           </TouchableOpacity>
         )}
       </ScrollView>
@@ -897,6 +925,19 @@ const styles = StyleSheet.create({
     fontFamily: 'IBMPlexSans-SemiBold',
     fontSize: 14,
     color: '#A8505A',
+    textDecorationLine: 'underline',
+  },
+
+  // Calendar shortcut link (soft, in-scroll)
+  calendarBtn: {
+    alignSelf: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+  },
+  calendarBtnText: {
+    fontFamily: 'IBMPlexSans-SemiBold',
+    fontSize: 14,
+    color: '#3B8C8C',
     textDecorationLine: 'underline',
   },
 

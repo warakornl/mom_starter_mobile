@@ -455,3 +455,43 @@ describe('executePush — rejected[] re-enqueue for calendar collections', () =>
     expect(store.getPendingCount()).toBe(2);
   });
 });
+
+// ─── 🔴-A: fetchFn reject (true offline) must re-enqueue (contract §3 PINNED) ──
+
+describe('executePush — fetch reject (true offline) preserves calendar queue (§3 PINNED)', () => {
+  it('re-enqueues reminders when fetchFn rejects with network error', async () => {
+    const store = createCalendarSyncStore();
+    store.enqueueCreateReminder(makeReminder({ version: 0 }));
+
+    expect(store.getPendingCount()).toBe(1);
+
+    const client = createCalendarSyncClient(
+      BASE,
+      store,
+      () => Promise.reject(new TypeError('Network request failed')),
+    );
+    const result = await executePush(store, client, TOKEN, IDEM);
+
+    // Data must NOT be lost — contract §3 PINNED offline-first
+    expect(result.ok).toBe(false);
+    expect(store.getPendingCount()).toBe(1);
+  });
+
+  it('re-enqueues mixed calendar changeset (reminder + checklistItem) when fetchFn rejects', async () => {
+    const store = createCalendarSyncStore();
+    store.enqueueCreateReminder(makeReminder({ version: 0 }));
+    store.enqueueCreateChecklistItem(makeChecklist({ version: 0 }));
+
+    expect(store.getPendingCount()).toBe(2);
+
+    const client = createCalendarSyncClient(
+      BASE,
+      store,
+      () => Promise.reject(new TypeError('Network request failed')),
+    );
+    const result = await executePush(store, client, TOKEN, IDEM);
+
+    expect(result.ok).toBe(false);
+    expect(store.getPendingCount()).toBe(2);
+  });
+});

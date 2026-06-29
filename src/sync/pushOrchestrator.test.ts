@@ -132,6 +132,25 @@ describe('executePush — push fail → mutation stays in queue', () => {
     expect(store.getPendingCount()).toBe(3);
   });
 
+  // 🔴-A (contract §3 PINNED): fetchFn reject (true offline) must re-enqueue
+  it('re-enqueues entire changeset when fetchFn rejects (fetch reject — true offline)', async () => {
+    const store = createSyncStore();
+    store.enqueueCreate(makeItem({ id: 'offline-1', version: 0 }));
+
+    expect(store.getPendingCount()).toBe(1);
+
+    const client = createSyncClient(
+      BASE,
+      store,
+      () => Promise.reject(new TypeError('Network request failed')),
+    );
+    const result = await executePush(store, client, TOKEN, IDEM);
+
+    // Data must NOT be lost — contract §3 PINNED
+    expect(result.ok).toBe(false);
+    expect(store.getPendingCount()).toBe(1);
+  });
+
   it('does NOT re-enqueue on success (applied items should be stamped, not re-pushed)', async () => {
     const store = createSyncStore();
     store.enqueueUpdate(makeItem({ id: 'ok-item', version: 1 }));

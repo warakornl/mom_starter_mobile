@@ -86,6 +86,11 @@ export interface HomeScreenProps {
    * Called from the T3 stage banner "ลูกคลอดแล้ว" affordance.
    */
   onBirthEvent: (profileVersion: number) => void;
+  /**
+   * Navigate to SuppliesScreen (offline-first supply checklist).
+   * Optional — no-op if not provided (keeps existing snapshots/tests working).
+   */
+  onSupplies?: () => void;
 }
 
 // ─── Screen state ─────────────────────────────────────────────────────────────
@@ -539,6 +544,7 @@ export function HomeScreen({
   onLogout,
   onNeedsProfile,
   onBirthEvent,
+  onSupplies,
 }: HomeScreenProps): React.JSX.Element {
   const { t } = useT();
   const [state, setState] = useState<ScreenState>({ kind: 'loading' });
@@ -704,6 +710,17 @@ export function HomeScreen({
               {t('home.postpartumPlaceholder')}
             </Text>
           </View>
+          {onSupplies && (
+            <TouchableOpacity
+              testID="home-supplies-shortcut"
+              style={styles.suppliesBtn}
+              onPress={onSupplies}
+              accessibilityRole="button"
+              accessibilityLabel={t('supplies.navTitle')}
+            >
+              <Text style={styles.suppliesBtnText}>{t('supplies.shortcutBtn')}</Text>
+            </TouchableOpacity>
+          )}
         </ScrollView>
 
         <TouchableOpacity
@@ -757,6 +774,17 @@ export function HomeScreen({
         <View style={styles.placeholderCard}>
           <Text style={styles.placeholderText}>{t('home.pregnancyPlaceholder')}</Text>
         </View>
+        {onSupplies && (
+          <TouchableOpacity
+            testID="home-supplies-shortcut"
+            style={styles.suppliesBtn}
+            onPress={onSupplies}
+            accessibilityRole="button"
+            accessibilityLabel={t('supplies.navTitle')}
+          >
+            <Text style={styles.suppliesBtnText}>{t('supplies.shortcutBtn')}</Text>
+          </TouchableOpacity>
+        )}
       </ScrollView>
 
       <TouchableOpacity
@@ -853,6 +881,19 @@ const styles = StyleSheet.create({
     fontFamily: 'IBMPlexSans-Regular',
     fontSize: 14,
     color: '#94818A',
+  },
+
+  // Supplies shortcut link (soft, in-scroll)
+  suppliesBtn: {
+    alignSelf: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+  },
+  suppliesBtnText: {
+    fontFamily: 'IBMPlexSans-SemiBold',
+    fontSize: 14,
+    color: '#A8505A',
+    textDecorationLine: 'underline',
   },
 
   errorContainer: {

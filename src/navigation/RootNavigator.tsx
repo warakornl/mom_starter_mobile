@@ -52,6 +52,7 @@ import { RegisterScreen } from '../auth/RegisterScreen';
 import { VerifyEmailScreen } from '../auth/VerifyEmailScreen';
 import { ProfileSetupScreen } from '../pregnancy/ProfileSetupScreen';
 import { BirthEventScreen } from '../pregnancy/BirthEventScreen';
+import { SuppliesScreen } from '../supplies/SuppliesScreen';
 import { useT } from '../i18n/LanguageContext';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -164,6 +165,7 @@ export function RootNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps):
             onBirthEvent={(profileVersion) =>
               navigation.navigate('BirthEvent', { profileVersion })
             }
+            onSupplies={() => navigation.navigate('Supplies')}
           />
         )}
       </Stack.Screen>
@@ -207,6 +209,24 @@ export function RootNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps):
               navigation.reset({ index: 0, routes: [{ name: 'Home' }] })
             }
             onCancel={() => navigation.goBack()}
+          />
+        )}
+      </Stack.Screen>
+
+      {/* Supplies — offline-first supply checklist (sync engine slice 1)
+       *
+       * Entry: shortcut button on HomeScreen ("รายการเตรียมคลอด ›").
+       * The SyncStore is module-level in SuppliesScreen so data persists
+       * across in-session re-mounts; a full app restart triggers a fresh pull.
+       */}
+      <Stack.Screen
+        name="Supplies"
+        options={{ title: t('supplies.navTitle'), headerBackTitle: t('general.back') }}
+      >
+        {() => (
+          <SuppliesScreen
+            tokenStorage={tokenStorage}
+            apiBaseUrl={apiBaseUrl}
           />
         )}
       </Stack.Screen>

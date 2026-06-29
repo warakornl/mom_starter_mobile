@@ -30,4 +30,9 @@ export type RootStackParamList = {
   ProfileSetup: undefined;
   /** Birth event screen — records birth and transitions lifecycle to postpartum. */
   BirthEvent: { profileVersion: number };
+  /**
+   * Supplies screen — offline-first supply checklist (sync engine slice 1).
+   * Entry: shortcut button on HomeScreen.
+   */
+  Supplies: undefined;
 };

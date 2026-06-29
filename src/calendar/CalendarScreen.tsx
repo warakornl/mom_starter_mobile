@@ -68,7 +68,6 @@ import { executePush } from '../sync/pushOrchestrator';
 import { expand } from '../recurrence/recurrenceExpander';
 import { computeOccurrenceId } from '../occurrence/occurrenceId';
 import { bucketCivilDay } from './civilDayBucketer';
-import { dedupOccurrences } from './dedup';
 import type { TokenStorage } from '../auth/tokenStorage';
 import type { ChecklistItemRecord, ReminderOccurrenceRecord, OccurrenceStatus } from '../sync/syncTypes';
 

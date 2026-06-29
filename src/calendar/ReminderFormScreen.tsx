@@ -195,10 +195,14 @@ export function ReminderFormScreen({
    */
   function triggerPush(): void {
     if (!tokenStorage || !clientRef.current) return;
+    // Data is safe in the queue (🔴-A fix); .catch() prevents unhandled rejection
+    // if tokenStorage.load() itself fails (e.g. storage I/O error).
     tokenStorage.load().then((tokens) => {
       if (tokens?.accessToken && clientRef.current) {
         void executePush(calendarSyncStore, clientRef.current, tokens.accessToken, uuidv4());
       }
+    }).catch(() => {
+      // Swallow — item stays in calendarSyncStore queue and will retry next push.
     });
   }
 

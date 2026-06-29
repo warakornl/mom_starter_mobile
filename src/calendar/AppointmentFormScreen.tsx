@@ -23,7 +23,7 @@
  * TODO carry-forward: linked reminder (one_off at scheduledAt − 1 day, OQ-CAL-7).
  */
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -37,6 +37,9 @@ import {
 import { v4 as uuidv4 } from 'uuid';
 import { useT } from '../i18n/LanguageContext';
 import { calendarSyncStore } from '../sync/calendarSyncStore';
+import { createCalendarSyncClient } from '../sync/syncClient';
+import { executePush } from '../sync/pushOrchestrator';
+import type { TokenStorage } from '../auth/tokenStorage';
 import type { ChecklistItemRecord, ChecklistItemCategory } from '../sync/syncTypes';
 import { localCivilToday } from '../pregnancy/gestationalAge';
 
@@ -47,6 +50,10 @@ export interface AppointmentFormScreenProps {
   existingItem?: ChecklistItemRecord;
   /** Category to pre-fill on new items. Defaults to 'appointment'. */
   defaultCategory?: ChecklistItemCategory;
+  /** Token storage — required to trigger sync push after save. */
+  tokenStorage?: TokenStorage;
+  /** API base URL — required to trigger sync push after save. */
+  apiBaseUrl?: string;
   /** Called on successful save. */
   onSave?: () => void;
   /** Called on cancel / back. */
@@ -107,6 +114,8 @@ function parseNote(note: string): { location: string; doctor: string; extra: str
 export function AppointmentFormScreen({
   existingItem,
   defaultCategory = 'appointment',
+  tokenStorage,
+  apiBaseUrl,
   onSave,
   onCancel,
 }: AppointmentFormScreenProps): React.JSX.Element {
@@ -134,6 +143,24 @@ export function AppointmentFormScreen({
   const [extraNote, setExtraNote] = useState(parsedNote.extra);
   const [titleError, setTitleError] = useState('');
   const [dateError, setDateError] = useState('');
+
+  // Calendar sync client — created once per mount (bound to calendarSyncStore)
+  const clientRef = useRef(
+    apiBaseUrl ? createCalendarSyncClient(apiBaseUrl, calendarSyncStore) : null,
+  );
+
+  /**
+   * Trigger sync push fire-and-forget after a mutation.
+   * Does nothing if tokenStorage / apiBaseUrl are not provided.
+   */
+  function triggerPush(): void {
+    if (!tokenStorage || !clientRef.current) return;
+    tokenStorage.load().then((tokens) => {
+      if (tokens?.accessToken && clientRef.current) {
+        void executePush(calendarSyncStore, clientRef.current, tokens.accessToken, uuidv4());
+      }
+    });
+  }
 
   // ── Validation ─────────────────────────────────────────────────────────────
   function validate(): boolean {
@@ -187,8 +214,9 @@ export function AppointmentFormScreen({
       calendarSyncStore.enqueueCreateChecklistItem(created);
     }
 
-    // TODO carry-forward: trigger sync push immediately if online
+    // Navigate back first, then push (fire-and-forget — no await to not block UI)
     onSave?.();
+    triggerPush();
   }
 
   // ── Delete ─────────────────────────────────────────────────────────────────
@@ -205,6 +233,7 @@ export function AppointmentFormScreen({
           onPress: () => {
             calendarSyncStore.enqueueDeleteChecklistItem(existingItem.id);
             onSave?.();
+            triggerPush();
           },
         },
       ],

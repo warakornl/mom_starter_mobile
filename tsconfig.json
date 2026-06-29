@@ -10,5 +10,7 @@
     "types": ["node", "jest"],
     "rootDir": "src"
   },
-  "include": ["src"]
+  "include": ["src"],
+  "// exclude note": "RN screen (.tsx) files reference react/react-native + JSX, which aren't installed until Expo is scaffolded. Typecheck the testable .ts logic now; bring .tsx back into the check (with jsx + @types/react) when Expo lands.",
+  "exclude": ["src/**/*.tsx"]
 }

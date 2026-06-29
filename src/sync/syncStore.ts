@@ -30,7 +30,7 @@ export interface SyncStore {
   /** Live items only (deletedAt == null). Sorted by name for stable display. */
   getSupplyItems(): SupplyItemRecord[];
 
-  /** All items including tombstones — for internal/debugging use. */
+  /** Returns one item by id, including tombstones. Returns undefined if absent. */
   getSupplyItem(id: string): SupplyItemRecord | undefined;
 
   /**

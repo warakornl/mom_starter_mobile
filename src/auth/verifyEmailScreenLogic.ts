@@ -32,45 +32,54 @@
 import type { AuthClient } from './authApiClient';
 import type { TokenStorage } from './tokenStorage';
 import type { Locale } from './types';
+import { catalog } from '../i18n/messages';
 
 // ─── i18n strings ─────────────────────────────────────────────────────────────
 
-/** All strings used by the Check-inbox / Verify-email screen. */
+/**
+ * All strings used by the Check-inbox / Verify-email screen.
+ *
+ * Derived from the central catalog (src/i18n/messages.ts).
+ * Shape preserved exactly for test compatibility:
+ *   - verify.title (th)         → must contain 'อีเมล'
+ *   - verify.resentConfirm (th) → must NOT contain 'มีบัญชี', 'ถูกลงทะเบียน' (§E/C7)
+ *   - verify.tokenInvalid (th)  → must have length > 0
+ */
 export const verifyStrings = {
   th: {
-    title: 'ตรวจอีเมลของคุณ',
-    stepLabel: 'สร้างบัญชี · ขั้นที่ 2 จาก 3',
-    sentToPrefix: 'เราส่งลิงก์ยืนยันไปที่',
-    openLinkHint: 'เปิดลิงก์เพื่อเริ่มใช้งานสมุดของคุณ',
-    spamTip: 'ไม่เห็นอีเมล? ลองเปิดโฟลเดอร์สแปม',
-    resend: 'ส่งลิงก์อีกครั้ง',
+    title: catalog.th['verify.title'],
+    stepLabel: catalog.th['verify.stepLabel'],
+    sentToPrefix: catalog.th['verify.sentToPrefix'],
+    openLinkHint: catalog.th['verify.openLinkHint'],
+    spamTip: catalog.th['verify.spamTip'],
+    resend: catalog.th['verify.resend'],
     /**
      * Shown after a successful resend — non-enumerating.
      * Same copy whether the email is new, colliding, or already verified.
      * Must NOT say "resent to your email" in a way that confirms existence (§E/C7).
      */
-    resentConfirm: 'ส่งอีกครั้งแล้ว · ตรวจโฟลเดอร์สแปมด้วยนะคะ',
-    changeEmail: 'เปลี่ยนอีเมล',
+    resentConfirm: catalog.th['verify.resentConfirm'],
+    changeEmail: catalog.th['verify.changeEmail'],
     /** 429 — rate limited on resend. */
-    rateLimited: 'ลองอีกครั้งในอีกสักครู่',
+    rateLimited: catalog.th['verify.rateLimited'],
     /** 410 verify_token_invalid (deep-link verify). */
-    tokenInvalid: 'ลิงก์หมดอายุหรือถูกใช้ไปแล้ว · ขอลิงก์ใหม่ได้เลย',
-    offline: 'คุณออฟไลน์อยู่',
-    serverError: 'มีบางอย่างผิดพลาดทางฝั่งเรา · ลองอีกครั้ง',
+    tokenInvalid: catalog.th['verify.tokenInvalid'],
+    offline: catalog.th['verify.offline'],
+    serverError: catalog.th['verify.serverError'],
   },
   en: {
-    title: 'Check your inbox',
-    stepLabel: 'Create account · Step 2 of 3',
-    sentToPrefix: "We've sent a verification link to",
-    openLinkHint: 'Open the link to start using your handbook.',
-    spamTip: "Don't see it? Check spam or junk.",
-    resend: 'Resend link',
-    resentConfirm: "Sent! Check your spam folder too.",
-    changeEmail: 'Change email',
-    rateLimited: "Let's try again in a moment.",
-    tokenInvalid: 'This link has expired or already been used — request a new one.',
-    offline: "You're offline",
-    serverError: "Something went wrong on our end — try again.",
+    title: catalog.en['verify.title'],
+    stepLabel: catalog.en['verify.stepLabel'],
+    sentToPrefix: catalog.en['verify.sentToPrefix'],
+    openLinkHint: catalog.en['verify.openLinkHint'],
+    spamTip: catalog.en['verify.spamTip'],
+    resend: catalog.en['verify.resend'],
+    resentConfirm: catalog.en['verify.resentConfirm'],
+    changeEmail: catalog.en['verify.changeEmail'],
+    rateLimited: catalog.en['verify.rateLimited'],
+    tokenInvalid: catalog.en['verify.tokenInvalid'],
+    offline: catalog.en['verify.offline'],
+    serverError: catalog.en['verify.serverError'],
   },
 } satisfies Record<Locale, Record<string, string>>;
 

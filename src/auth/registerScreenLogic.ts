@@ -20,56 +20,63 @@
  */
 import type { AuthClient } from './authApiClient';
 import type { Locale } from './types';
+import { catalog } from '../i18n/messages';
 
 // ─── i18n strings ─────────────────────────────────────────────────────────────
 
-/** All strings used by the Register screen (S2), in th and en. */
+/**
+ * All strings used by the Register screen (S2), in th and en.
+ *
+ * Derived from the central catalog (src/i18n/messages.ts).
+ * Shape preserved exactly for test compatibility:
+ *   - th copy MUST NOT contain 'ใช้แล้ว', 'มีอยู่แล้ว', 'ถูกลงทะเบียน' (§E/C7)
+ *   - en copy MUST NOT contain 'already registered/taken/in use/email exists'
+ */
 export const registerStrings = {
   th: {
-    title: 'สร้างบัญชีของคุณ',
-    subtitle: 'สมุดสีชมพูของคุณ พร้อมเริ่มแล้ว',
-    emailLabel: 'อีเมล',
-    passwordLabel: 'รหัสผ่าน',
-    submit: 'สร้างบัญชี',
-    signIn: 'มีบัญชีอยู่แล้ว? เข้าสู่ระบบ',
-    emailPlaceholder: 'you@example.com',
+    title: catalog.th['register.title'],
+    subtitle: catalog.th['register.subtitle'],
+    emailLabel: catalog.th['register.emailLabel'],
+    passwordLabel: catalog.th['register.passwordLabel'],
+    submit: catalog.th['register.submit'],
+    signIn: catalog.th['register.signIn'],
+    emailPlaceholder: catalog.th['register.emailPlaceholder'],
     /** Shown on blur when email looks malformed. Non-blaming voice. */
-    emailHint: 'ตรวจสอบอีเมลอีกครั้ง',
+    emailHint: catalog.th['register.emailHint'],
     /** Helper text below the password field — shown before any server error. */
-    passwordHint: 'อย่างน้อย 8 ตัวอักษร — ยิ่งยาวยิ่งดี',
+    passwordHint: catalog.th['register.passwordHint'],
     /** 422 password_too_short returned by server (appsec policy, not a client gate). */
-    passwordTooShort: 'รหัสผ่านต้องมีอย่างน้อย 8 ตัวอักษร',
+    passwordTooShort: catalog.th['register.passwordTooShort'],
     /** 422 password_breached returned by server. */
-    passwordBreached: 'รหัสผ่านนี้ไม่ปลอดภัย กรุณาลองรหัสผ่านอื่น',
+    passwordBreached: catalog.th['register.passwordBreached'],
     /** 429 — calm inline, no counter exposed (§H/SEC-HOOK). */
-    rateLimited: 'ลองอีกครั้งในอีกสักครู่',
+    rateLimited: catalog.th['register.rateLimited'],
     /** Offline — warm-neutral strip (not red, not a modal). */
-    offline: 'คุณออฟไลน์อยู่ · ต้องต่ออินเทอร์เน็ตเพื่อสมัครสมาชิก',
+    offline: catalog.th['register.offline'],
     /** Unexpected server error — calm centered card. */
-    serverError: 'มีบางอย่างผิดพลาดทางฝั่งเรา · ข้อมูลของคุณปลอดภัย ลองอีกครั้ง',
-    showPassword: 'แสดงรหัสผ่าน',
-    hidePassword: 'ซ่อนรหัสผ่าน',
-    disclaimer: 'เริ่มต้นนี้ไม่ใช่คำวินิจฉัยทางการแพทย์',
+    serverError: catalog.th['register.serverError'],
+    showPassword: catalog.th['register.showPassword'],
+    hidePassword: catalog.th['register.hidePassword'],
+    disclaimer: catalog.th['register.disclaimer'],
   },
   en: {
-    title: 'Create your account',
-    subtitle: 'Your pink handbook, ready to start.',
-    emailLabel: 'Email',
-    passwordLabel: 'Password',
-    submit: 'Create account',
-    signIn: 'Already have an account? Sign in',
-    emailPlaceholder: 'you@example.com',
-    emailHint: 'Double-check this email',
-    passwordHint: 'At least 8 characters — longer is better.',
-    passwordTooShort: 'Password must be at least 8 characters.',
-    passwordBreached:
-      'This password has appeared in a data breach — please choose another.',
-    rateLimited: "Let's try again in a moment.",
-    offline: "You're offline — you'll need a connection to sign up.",
-    serverError: 'Something went wrong on our end. Your details are safe — try again.',
-    showPassword: 'Show password',
-    hidePassword: 'Hide password',
-    disclaimer: 'This is not a substitute for medical advice.',
+    title: catalog.en['register.title'],
+    subtitle: catalog.en['register.subtitle'],
+    emailLabel: catalog.en['register.emailLabel'],
+    passwordLabel: catalog.en['register.passwordLabel'],
+    submit: catalog.en['register.submit'],
+    signIn: catalog.en['register.signIn'],
+    emailPlaceholder: catalog.en['register.emailPlaceholder'],
+    emailHint: catalog.en['register.emailHint'],
+    passwordHint: catalog.en['register.passwordHint'],
+    passwordTooShort: catalog.en['register.passwordTooShort'],
+    passwordBreached: catalog.en['register.passwordBreached'],
+    rateLimited: catalog.en['register.rateLimited'],
+    offline: catalog.en['register.offline'],
+    serverError: catalog.en['register.serverError'],
+    showPassword: catalog.en['register.showPassword'],
+    hidePassword: catalog.en['register.hidePassword'],
+    disclaimer: catalog.en['register.disclaimer'],
   },
 } satisfies Record<Locale, Record<string, string>>;
 

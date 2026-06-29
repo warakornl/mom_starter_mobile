@@ -21,63 +21,69 @@
 import type { TokenStorage } from './tokenStorage';
 import type { AuthClient } from './authApiClient';
 import type { Locale } from './types';
+import { catalog } from '../i18n/messages';
 
 // ─── i18n strings ─────────────────────────────────────────────────────────────
 
-/** All strings used by the Sign-in screen (S4), in th and en. */
+/**
+ * All strings used by the Sign-in screen (S4), in th and en.
+ *
+ * Derived from the central catalog (src/i18n/messages.ts).
+ * The shape is preserved exactly so existing tests continue to pass:
+ *   loginStrings.th.wrongCredentials  → must contain 'รีเซ็ต' (§E/C7)
+ *   loginStrings.en.wrongCredentials  → must contain 'reset', not enumerate
+ */
 export const loginStrings = {
   th: {
-    title: 'เข้าสู่ระบบ',
-    emailLabel: 'อีเมล',
-    passwordLabel: 'รหัสผ่าน',
+    title: catalog.th['login.title'],
+    emailLabel: catalog.th['login.emailLabel'],
+    passwordLabel: catalog.th['login.passwordLabel'],
     /** Primary action button label. */
-    submit: 'เข้าสู่ระบบ',
+    submit: catalog.th['login.submit'],
     /** Quiet link below the form → Forgot password (S5). Always visible. */
-    forgotPassword: 'ลืมรหัสผ่าน?',
+    forgotPassword: catalog.th['login.forgotPassword'],
     /** Quiet link → Sign-up (S2). */
-    createAccount: 'ยังไม่มีบัญชี? สร้างบัญชี',
+    createAccount: catalog.th['login.createAccount'],
     /**
      * Inline message under the password field on 401 invalid_credentials.
      * §E/C7: NON-ENUMERATING — same copy whether the email doesn't exist
      * or the password is wrong. Never says "we don't know that email."
      * Includes a reset link per auth-login-ui.md §7.2.
      */
-    wrongCredentials: 'อีเมลหรือรหัสผ่านไม่ตรงกัน · รีเซ็ตรหัสผ่านได้',
+    wrongCredentials: catalog.th['login.wrongCredentials'],
     /** Inline calm message on 429 — no exposed attempt counter (§H/SEC-HOOK). */
-    rateLimited: 'ลองอีกครั้งในอีกสักครู่',
+    rateLimited: catalog.th['login.rateLimited'],
     /** Warm-neutral inline strip (not red, not a modal) on network failure. */
-    offline: 'คุณออฟไลน์อยู่ · ต้องต่ออินเทอร์เน็ตเพื่อเข้าสู่ระบบ',
+    offline: catalog.th['login.offline'],
     /** Calm centered card for unexpected server errors. */
-    serverError: 'มีบางอย่างผิดพลาดทางฝั่งเรา · ข้อมูลของคุณปลอดภัย ลองอีกครั้ง',
+    serverError: catalog.th['login.serverError'],
     /** Shown under the email field on blur when the value looks malformed. */
-    emailHint: 'ตรวจสอบอีเมลอีกครั้ง',
+    emailHint: catalog.th['login.emailHint'],
     /** Placeholder text for the email input. */
-    emailPlaceholder: 'you@example.com',
+    emailPlaceholder: catalog.th['login.emailPlaceholder'],
     /** Password show / hide toggle accessible label. */
-    showPassword: 'แสดงรหัสผ่าน',
-    hidePassword: 'ซ่อนรหัสผ่าน',
+    showPassword: catalog.th['login.showPassword'],
+    hidePassword: catalog.th['login.hidePassword'],
   },
   en: {
-    title: 'Sign in',
-    emailLabel: 'Email',
-    passwordLabel: 'Password',
-    submit: 'Sign in',
-    forgotPassword: 'Forgot password?',
-    createAccount: "Don't have an account? Create one",
+    title: catalog.en['login.title'],
+    emailLabel: catalog.en['login.emailLabel'],
+    passwordLabel: catalog.en['login.passwordLabel'],
+    submit: catalog.en['login.submit'],
+    forgotPassword: catalog.en['login.forgotPassword'],
+    createAccount: catalog.en['login.createAccount'],
     /**
      * §E/C7 non-enumerating: identical copy for wrong email AND wrong password.
      * Includes reset-link affordance per auth-login-ui.md §7.2.
      */
-    wrongCredentials:
-      "That email and password don't match. You can reset your password.",
-    rateLimited: "Let's try again in a moment.",
-    offline: "You're offline — you'll need a connection to sign in.",
-    serverError:
-      'Something went wrong on our end. Your details are safe — try again.',
-    emailHint: 'Double-check this email',
-    emailPlaceholder: 'you@example.com',
-    showPassword: 'Show password',
-    hidePassword: 'Hide password',
+    wrongCredentials: catalog.en['login.wrongCredentials'],
+    rateLimited: catalog.en['login.rateLimited'],
+    offline: catalog.en['login.offline'],
+    serverError: catalog.en['login.serverError'],
+    emailHint: catalog.en['login.emailHint'],
+    emailPlaceholder: catalog.en['login.emailPlaceholder'],
+    showPassword: catalog.en['login.showPassword'],
+    hidePassword: catalog.en['login.hidePassword'],
   },
 } satisfies Record<Locale, Record<string, string>>;
 

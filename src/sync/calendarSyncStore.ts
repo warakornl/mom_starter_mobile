@@ -1,0 +1,498 @@
+/**
+ * CalendarSyncStore — in-memory local store for calendar-feature collections:
+ *   reminders, reminderOccurrences (materialized done/snoozed), checklistItems.
+ *
+ * Design mirrors SyncStore (supplySyncStore pattern):
+ *   - Pure in-memory (no persistence this slice; SQLite = carry-forward).
+ *   - Tracks item maps, mutation queues, and the shared watermark.
+ *   - De-dup by (id, version) on upsert (safe-window overlap idempotency).
+ *   - Tombstones stored so IDs do not re-appear from a stale queue.
+ *   - getActive* helpers filter out tombstones for display.
+ *
+ * FLAG-7 / W-A (occurrence push model — OQ-CAL-4 PINNED):
+ *   Due occurrences are NEVER pushed — they are projected client-side from
+ *   the Reminder definition via the FLAG-4 expander.
+ *   Missed is derived on-device end-of-local-day and NOT pushed in MVP.
+ *   enqueueOccurrence() ONLY accepts status ∈ {done, snoozed};
+ *   drainQueue() filters occurrences to done/snoozed defensively.
+ *
+ * M1 status-merge precedence (applied on upsert):
+ *   If an existing occurrence row has status ∈ {done, snoozed}, an incoming
+ *   row with status=missed MUST NOT overwrite it (M1 rule).
+ *   Plain LWW (by version) is used for all other status transitions.
+ *
+ * Security: reminder displayTitle and checklist note are non-sensitive in
+ * this store (client-side plaintext; server enforces health consent gate).
+ * Do NOT log health data.
+ *
+ * OQ-CAL-6 (orphaned occurrences): tombstoning a Reminder does NOT cascade to
+ * its occurrence rows — past done/snoozed rows are retained as history.
+ * The calendar renders them from the occurrence's own scheduledLocalTime,
+ * falling back to a generic label when the parent Reminder is tombstoned.
+ */
+
+import type {
+  ReminderRecord,
+  ReminderOccurrenceRecord,
+  ChecklistItemRecord,
+  SyncChangeSet,
+  OccurrenceStatus,
+} from './syncTypes';
+import { computeOccurrenceId } from '../occurrence/occurrenceId';
+
+// ─── Terminal statuses (the only values push-accepted under W-A) ──────────────
+
+const TERMINAL: ReadonlySet<OccurrenceStatus> = new Set(['done', 'snoozed']);
+
+// ─── Interface ────────────────────────────────────────────────────────────────
+
+export interface CalendarSyncStore {
+  // ── Reminders ──────────────────────────────────────────────────────────────
+
+  /** Active (non-tombstoned) reminders, sorted by startAt ascending. */
+  getActiveReminders(): ReminderRecord[];
+  /** One reminder by id (including tombstones). */
+  getReminder(id: string): ReminderRecord | undefined;
+  /** Upsert by (id, version) de-dup. */
+  upsertReminder(item: ReminderRecord): void;
+  tombstoneReminder(id: string): void;
+  stampReminderApplied(id: string, version: number, updatedAt: string): void;
+  adoptReminderServerRecord(record: ReminderRecord): void;
+
+  enqueueCreateReminder(item: ReminderRecord): void;
+  enqueueUpdateReminder(item: ReminderRecord): void;
+  enqueueDeleteReminder(id: string): void;
+
+  // ── ReminderOccurrences ───────────────────────────────────────────────────
+
+  /**
+   * All materialized occurrences (done/snoozed/missed) for a given reminder,
+   * NOT including tombstoned rows.  `due` rows are never stored here (W-A).
+   */
+  getOccurrencesForReminder(reminderId: string): ReminderOccurrenceRecord[];
+  /** One occurrence by id (including tombstones). */
+  getOccurrence(id: string): ReminderOccurrenceRecord | undefined;
+  /**
+   * Upsert with M1 precedence:
+   *   done/snoozed arriving for an id that already has done/snoozed is plain LWW.
+   *   missed arriving for an id that already has done/snoozed is DROPPED (M1).
+   */
+  upsertOccurrence(occ: ReminderOccurrenceRecord): void;
+  tombstoneOccurrence(id: string): void;
+  stampOccurrenceApplied(id: string, version: number, updatedAt: string): void;
+  adoptOccurrenceServerRecord(record: ReminderOccurrenceRecord): void;
+
+  /**
+   * Enqueue a done/snoozed occurrence for push.
+   * Creates the deterministic id from (reminderId, scheduledLocalTime).
+   * ONLY status ∈ {done, snoozed} is accepted (FLAG-7/W-A).
+   */
+  enqueueOccurrence(
+    reminderId: string,
+    scheduledLocalTime: string,
+    status: 'done' | 'snoozed',
+    actedAt: string,
+    snoozedUntil?: string,
+  ): void;
+
+  // ── ChecklistItems ─────────────────────────────────────────────────────────
+
+  /** Active (non-tombstoned) checklist items, sorted by scheduledAt ascending. */
+  getActiveChecklistItems(): ChecklistItemRecord[];
+  /** One checklist item by id (including tombstones). */
+  getChecklistItem(id: string): ChecklistItemRecord | undefined;
+  upsertChecklistItem(item: ChecklistItemRecord): void;
+  tombstoneChecklistItem(id: string): void;
+  stampChecklistItemApplied(id: string, version: number, updatedAt: string): void;
+  adoptChecklistItemServerRecord(record: ChecklistItemRecord): void;
+
+  enqueueCreateChecklistItem(item: ChecklistItemRecord): void;
+  enqueueUpdateChecklistItem(item: ChecklistItemRecord): void;
+  enqueueDeleteChecklistItem(id: string): void;
+
+  // ── Queue / watermark ──────────────────────────────────────────────────────
+
+  /**
+   * Drain all queued mutations into a SyncChangeSet.
+   * Occurrences are filtered to done/snoozed only (W-A defensive guard).
+   */
+  drainQueue(): SyncChangeSet;
+  reEnqueueChangeset(changeSet: SyncChangeSet): void;
+  getPendingCount(): number;
+
+  /** Last adopted W1 watermark shared with the supply store. */
+  getWatermark(): string | undefined;
+  setWatermark(watermark: string): void;
+
+  /** PDPA logout: clear all maps, queues, watermark. */
+  reset(): void;
+}
+
+// ─── Factory ──────────────────────────────────────────────────────────────────
+
+function makeUpsert<T extends { id: string; version: number; deletedAt?: string | null }>(
+  map: Map<string, T>,
+) {
+  return (item: T): void => {
+    const existing = map.get(item.id);
+    if (
+      existing &&
+      existing.version > 0 &&
+      item.version > 0 &&
+      existing.version >= item.version
+    ) {
+      return;
+    }
+    map.set(item.id, { ...item });
+  };
+}
+
+export function createCalendarSyncStore(): CalendarSyncStore {
+  const reminderMap = new Map<string, ReminderRecord>();
+  const occurrenceMap = new Map<string, ReminderOccurrenceRecord>();
+  const checklistMap = new Map<string, ChecklistItemRecord>();
+
+  // Pending queues
+  const pendingRemindersCreated: ReminderRecord[] = [];
+  const pendingRemindersUpdated: ReminderRecord[] = [];
+  const pendingRemindersDeleted: string[] = [];
+
+  const pendingOccurrencesCreated: ReminderOccurrenceRecord[] = [];
+  const pendingOccurrencesUpdated: ReminderOccurrenceRecord[] = [];
+  const pendingOccurrencesDeleted: string[] = [];
+
+  const pendingChecklistCreated: ChecklistItemRecord[] = [];
+  const pendingChecklistUpdated: ChecklistItemRecord[] = [];
+  const pendingChecklistDeleted: string[] = [];
+
+  let watermark: string | undefined;
+
+  const upsertReminder = makeUpsert(reminderMap);
+  const upsertOccurrenceBase = makeUpsert(occurrenceMap);
+  const upsertChecklist = makeUpsert(checklistMap);
+
+  // ── M1 precedence wrapper for occurrences ──────────────────────────────────
+  function upsertOccurrenceWithM1(occ: ReminderOccurrenceRecord): void {
+    const existing = occurrenceMap.get(occ.id);
+    // M1: if existing is already done/snoozed, an incoming missed must not win
+    if (
+      existing &&
+      !existing.deletedAt &&
+      TERMINAL.has(existing.status) &&
+      occ.status === 'missed'
+    ) {
+      // Drop the incoming missed — the terminal status is protected
+      return;
+    }
+    upsertOccurrenceBase(occ);
+  }
+
+  return {
+    // ── Reminders ────────────────────────────────────────────────────────────
+
+    getActiveReminders(): ReminderRecord[] {
+      return Array.from(reminderMap.values())
+        .filter((r) => !r.deletedAt)
+        .sort((a, b) => a.startAt.localeCompare(b.startAt));
+    },
+
+    getReminder(id) {
+      return reminderMap.get(id);
+    },
+
+    upsertReminder(item) {
+      upsertReminder(item);
+    },
+
+    tombstoneReminder(id) {
+      const existing = reminderMap.get(id);
+      const now = new Date().toISOString();
+      if (existing) {
+        reminderMap.set(id, { ...existing, deletedAt: now });
+      } else {
+        // Skeleton tombstone
+        reminderMap.set(id, {
+          id,
+          type: 'custom',
+          displayTitle: '',
+          recurrenceRule: { freq: 'one_off' },
+          startAt: '',
+          active: false,
+          version: 1,
+          createdAt: now,
+          updatedAt: now,
+          deletedAt: now,
+        });
+      }
+    },
+
+    stampReminderApplied(id, version, updatedAt) {
+      const existing = reminderMap.get(id);
+      if (existing) reminderMap.set(id, { ...existing, version, updatedAt });
+    },
+
+    adoptReminderServerRecord(record) {
+      reminderMap.set(record.id, { ...record });
+    },
+
+    enqueueCreateReminder(item) {
+      reminderMap.set(item.id, { ...item });
+      pendingRemindersCreated.push({ ...item });
+    },
+
+    enqueueUpdateReminder(item) {
+      reminderMap.set(item.id, { ...item });
+      pendingRemindersUpdated.push({ ...item });
+    },
+
+    enqueueDeleteReminder(id) {
+      const existing = reminderMap.get(id);
+      if (existing) {
+        reminderMap.set(id, { ...existing, deletedAt: new Date().toISOString() });
+      }
+      pendingRemindersDeleted.push(id);
+    },
+
+    // ── ReminderOccurrences ──────────────────────────────────────────────────
+
+    getOccurrencesForReminder(reminderId) {
+      return Array.from(occurrenceMap.values()).filter(
+        (o) => !o.deletedAt && o.reminderId === reminderId,
+      );
+    },
+
+    getOccurrence(id) {
+      return occurrenceMap.get(id);
+    },
+
+    upsertOccurrence: upsertOccurrenceWithM1,
+
+    tombstoneOccurrence(id) {
+      const existing = occurrenceMap.get(id);
+      const now = new Date().toISOString();
+      if (existing) {
+        occurrenceMap.set(id, { ...existing, deletedAt: now });
+      } else {
+        occurrenceMap.set(id, {
+          id,
+          reminderId: '',
+          scheduledLocalTime: '',
+          status: 'done',
+          version: 1,
+          createdAt: now,
+          updatedAt: now,
+          deletedAt: now,
+        });
+      }
+    },
+
+    stampOccurrenceApplied(id, version, updatedAt) {
+      const existing = occurrenceMap.get(id);
+      if (existing) occurrenceMap.set(id, { ...existing, version, updatedAt });
+    },
+
+    adoptOccurrenceServerRecord(record) {
+      // M1 on adopt: server record with missed must not overwrite local done/snoozed
+      upsertOccurrenceWithM1({ ...record, version: record.version });
+    },
+
+    enqueueOccurrence(reminderId, scheduledLocalTime, status, actedAt, snoozedUntil) {
+      // FLAG-7/W-A: only done/snoozed are push-accepted
+      if (!TERMINAL.has(status)) {
+        return; // defensive guard — callers should never pass due/missed
+      }
+      const id = computeOccurrenceId(reminderId, scheduledLocalTime);
+      const existing = occurrenceMap.get(id);
+      const version = existing?.version ?? 0;
+      const now = new Date().toISOString();
+      const occ: ReminderOccurrenceRecord = {
+        id,
+        reminderId: reminderId.toLowerCase(), // 🟡-3
+        scheduledLocalTime,
+        status,
+        actedAt: actedAt ?? null,
+        snoozedUntil: snoozedUntil ?? null,
+        version,
+        createdAt: existing?.createdAt ?? now,
+        updatedAt: now,
+        deletedAt: null,
+      };
+      occurrenceMap.set(id, occ);
+      if (existing) {
+        pendingOccurrencesUpdated.push({ ...occ });
+      } else {
+        pendingOccurrencesCreated.push({ ...occ });
+      }
+    },
+
+    // ── ChecklistItems ────────────────────────────────────────────────────────
+
+    getActiveChecklistItems(): ChecklistItemRecord[] {
+      return Array.from(checklistMap.values())
+        .filter((c) => !c.deletedAt)
+        .sort((a, b) => {
+          // Sort by scheduledAt ascending; undated items last
+          const sa = a.scheduledAt ?? '9999';
+          const sb = b.scheduledAt ?? '9999';
+          return sa.localeCompare(sb);
+        });
+    },
+
+    getChecklistItem(id) {
+      return checklistMap.get(id);
+    },
+
+    upsertChecklistItem(item) {
+      upsertChecklist(item);
+    },
+
+    tombstoneChecklistItem(id) {
+      const existing = checklistMap.get(id);
+      const now = new Date().toISOString();
+      if (existing) {
+        checklistMap.set(id, { ...existing, deletedAt: now });
+      } else {
+        checklistMap.set(id, {
+          id,
+          category: 'checklist_task',
+          title: '',
+          done: false,
+          version: 1,
+          createdAt: now,
+          updatedAt: now,
+          deletedAt: now,
+        });
+      }
+    },
+
+    stampChecklistItemApplied(id, version, updatedAt) {
+      const existing = checklistMap.get(id);
+      if (existing) checklistMap.set(id, { ...existing, version, updatedAt });
+    },
+
+    adoptChecklistItemServerRecord(record) {
+      checklistMap.set(record.id, { ...record });
+    },
+
+    enqueueCreateChecklistItem(item) {
+      checklistMap.set(item.id, { ...item });
+      pendingChecklistCreated.push({ ...item });
+    },
+
+    enqueueUpdateChecklistItem(item) {
+      checklistMap.set(item.id, { ...item });
+      pendingChecklistUpdated.push({ ...item });
+    },
+
+    enqueueDeleteChecklistItem(id) {
+      const existing = checklistMap.get(id);
+      if (existing) {
+        checklistMap.set(id, { ...existing, deletedAt: new Date().toISOString() });
+      }
+      pendingChecklistDeleted.push(id);
+    },
+
+    // ── Queue / watermark ─────────────────────────────────────────────────────
+
+    drainQueue(): SyncChangeSet {
+      // FLAG-7/W-A defensive filter: only push done/snoozed occurrences
+      const terminalCreated = pendingOccurrencesCreated.filter((o) => TERMINAL.has(o.status));
+      const terminalUpdated = pendingOccurrencesUpdated.filter((o) => TERMINAL.has(o.status));
+
+      const changeSet: SyncChangeSet = {
+        reminders: {
+          created: [...pendingRemindersCreated],
+          updated: [...pendingRemindersUpdated],
+          deleted: [...pendingRemindersDeleted],
+        },
+        reminderOccurrences: {
+          created: terminalCreated,
+          updated: terminalUpdated,
+          deleted: [...pendingOccurrencesDeleted],
+        },
+        checklistItems: {
+          created: [...pendingChecklistCreated],
+          updated: [...pendingChecklistUpdated],
+          deleted: [...pendingChecklistDeleted],
+        },
+      };
+
+      pendingRemindersCreated.length = 0;
+      pendingRemindersUpdated.length = 0;
+      pendingRemindersDeleted.length = 0;
+      pendingOccurrencesCreated.length = 0;
+      pendingOccurrencesUpdated.length = 0;
+      pendingOccurrencesDeleted.length = 0;
+      pendingChecklistCreated.length = 0;
+      pendingChecklistUpdated.length = 0;
+      pendingChecklistDeleted.length = 0;
+
+      return changeSet;
+    },
+
+    reEnqueueChangeset(changeSet) {
+      if (changeSet.reminders) {
+        pendingRemindersCreated.push(...changeSet.reminders.created);
+        pendingRemindersUpdated.push(...changeSet.reminders.updated);
+        pendingRemindersDeleted.push(...changeSet.reminders.deleted);
+      }
+      if (changeSet.reminderOccurrences) {
+        pendingOccurrencesCreated.push(...changeSet.reminderOccurrences.created);
+        pendingOccurrencesUpdated.push(...changeSet.reminderOccurrences.updated);
+        pendingOccurrencesDeleted.push(...changeSet.reminderOccurrences.deleted);
+      }
+      if (changeSet.checklistItems) {
+        pendingChecklistCreated.push(...changeSet.checklistItems.created);
+        pendingChecklistUpdated.push(...changeSet.checklistItems.updated);
+        pendingChecklistDeleted.push(...changeSet.checklistItems.deleted);
+      }
+    },
+
+    getPendingCount(): number {
+      return (
+        pendingRemindersCreated.length +
+        pendingRemindersUpdated.length +
+        pendingRemindersDeleted.length +
+        pendingOccurrencesCreated.length +
+        pendingOccurrencesUpdated.length +
+        pendingOccurrencesDeleted.length +
+        pendingChecklistCreated.length +
+        pendingChecklistUpdated.length +
+        pendingChecklistDeleted.length
+      );
+    },
+
+    getWatermark() {
+      return watermark;
+    },
+
+    setWatermark(w) {
+      watermark = w;
+    },
+
+    reset() {
+      reminderMap.clear();
+      occurrenceMap.clear();
+      checklistMap.clear();
+      pendingRemindersCreated.length = 0;
+      pendingRemindersUpdated.length = 0;
+      pendingRemindersDeleted.length = 0;
+      pendingOccurrencesCreated.length = 0;
+      pendingOccurrencesUpdated.length = 0;
+      pendingOccurrencesDeleted.length = 0;
+      pendingChecklistCreated.length = 0;
+      pendingChecklistUpdated.length = 0;
+      pendingChecklistDeleted.length = 0;
+      watermark = undefined;
+    },
+  };
+}
+
+// ─── Module-level singleton ───────────────────────────────────────────────────
+
+/**
+ * Module-level singleton — survives component re-mounts within one JS session.
+ * Data is in-memory only; repopulated by syncClient.pull() on app launch.
+ * Call reset() on logout (PDPA: prevent data leakage between sessions).
+ */
+export const calendarSyncStore = createCalendarSyncStore();

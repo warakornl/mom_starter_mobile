@@ -8,11 +8,20 @@
  *      the FLAG-4 expander (recurrenceExpander.ts); never stored as rows (W-A)
  *
  * Projection window: today → today + PROJECTION_DAYS (60 days).
+ * // TODO(slice-next): extend projection window backwards to show missed past
+ * //   occurrences on the grid. MVP scope = today forward only.
  * Dedup: projected ↔ materialized merge by deterministic occurrence id —
  * materialized wins (dedupOccurrences from dedup.ts).
  * Missed: derived end-of-day on-device (occurrences before today with no
  * done/snoozed row derive status='missed').
  * Daily indicator per cell: indicatorPrecedence.ts.
+ *
+ * Sync:
+ *   - Pull runs on mount + AppState 'active' (repopulates store from server).
+ *   - Push triggered on: mark done/snooze occurrence (enqueueOccurrence →
+ *     executePush). Pattern mirrors SuppliesScreen.
+ *   - executePush drains calendarSyncStore queue, pushes, re-enqueues on fail
+ *     or rejected[] (no silent mutation loss).
  *
  * Screen states (spec §C):
  *   loading    — skeleton while store is seeding (brief; in-memory)
@@ -26,7 +35,7 @@
  *
  * Mark done/snoozed (FLAG-7/W-A):
  *   Tapping a due/snoozed occurrence → Alert → mark done / snooze
- *   → calendarSyncStore.enqueueOccurrence() → TODO: trigger sync push
+ *   → calendarSyncStore.enqueueOccurrence() → executePush (fire-and-forget)
  *   TODO carry-forward: OS notification firing (expo-notifications not added)
  *
  * Design tokens (design-system.md):
@@ -38,7 +47,7 @@
  * Security: no health data logged.
  */
 
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -47,14 +56,20 @@ import {
   StyleSheet,
   Alert,
   SafeAreaView,
+  AppState,
+  type AppStateStatus,
 } from 'react-native';
+import { v4 as uuidv4 } from 'uuid';
 import { useT } from '../i18n/LanguageContext';
 import { formatCivilDate } from '../i18n/messages';
 import { calendarSyncStore } from '../sync/calendarSyncStore';
+import { createCalendarSyncClient } from '../sync/syncClient';
+import { executePush } from '../sync/pushOrchestrator';
 import { expand } from '../recurrence/recurrenceExpander';
 import { computeOccurrenceId } from '../occurrence/occurrenceId';
 import { bucketCivilDay } from './civilDayBucketer';
 import { dedupOccurrences } from './dedup';
+import type { TokenStorage } from '../auth/tokenStorage';
 import type { ChecklistItemRecord, ReminderOccurrenceRecord, OccurrenceStatus } from '../sync/syncTypes';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -147,8 +162,7 @@ function buildProjectedItems(today: string): Map<string, CalendarItem[]> {
     const projected: RawOcc[] = civilStrings.map((civil) => {
       const id = computeOccurrenceId(reminder.id, civil);
       const materialized = materializedById.get(id);
-      const date = bucketCivilDay(civil);
-      const isMissed = civil < today + 'T99:99'; // civil < today means past
+      // Dead code removed (🟡 cleanup): `date` and `isMissed` were unused here.
       const isPastDate = bucketCivilDay(civil) < today;
 
       return {
@@ -255,6 +269,10 @@ function dayDotColor(items: CalendarItem[]): DotColor {
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 export interface CalendarScreenProps {
+  /** Token storage for auth — required for sync push/pull. */
+  tokenStorage: TokenStorage;
+  /** API base URL (e.g. "https://api.example.com"). */
+  apiBaseUrl: string;
   onAddAppointment?: () => void;
   onEditAppointment?: (itemId: string) => void;
   onAddReminder?: () => void;
@@ -264,6 +282,8 @@ export interface CalendarScreenProps {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function CalendarScreen({
+  tokenStorage,
+  apiBaseUrl,
   onAddAppointment,
   onEditAppointment,
   onAddReminder,
@@ -275,12 +295,93 @@ export function CalendarScreen({
   const [selectedDate, setSelectedDate] = useState<string>(today);
   const [displayMonth, setDisplayMonth] = useState<string>(today.slice(0, 7) + '-01');
 
-  // Build all items for the current view
+  // refreshKey forces useMemo to rebuild maps after pull or occurrence action
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [syncing, setSyncing] = useState(false);
+  const [syncError, setSyncError] = useState<string | null>(null);
+
+  // Calendar sync client — bound to calendarSyncStore singleton
+  const clientRef = useRef(createCalendarSyncClient(apiBaseUrl, calendarSyncStore));
+
+  // Refresh display maps from store (triggers useMemo re-run via refreshKey)
+  const refreshFromStore = useCallback(() => {
+    setRefreshKey((k) => k + 1);
+  }, []);
+
+  // ── Sync pull ──────────────────────────────────────────────────────────────
+
+  const syncPull = useCallback(async () => {
+    const tokens = await tokenStorage.load();
+    if (!tokens?.accessToken) return;
+
+    setSyncing(true);
+    setSyncError(null);
+
+    const result = await clientRef.current.pull(
+      tokens.accessToken,
+      calendarSyncStore.getWatermark(),
+    );
+
+    setSyncing(false);
+    refreshFromStore();
+
+    if (!result.ok) {
+      // 403 consent_required → health consent not granted; app works offline
+      setSyncError(t('calendar.syncError'));
+    }
+  }, [tokenStorage, refreshFromStore, t]);
+
+  // ── Sync push ──────────────────────────────────────────────────────────────
+
+  const syncPush = useCallback(async () => {
+    if (calendarSyncStore.getPendingCount() === 0) return;
+
+    const tokens = await tokenStorage.load();
+    if (!tokens?.accessToken) return;
+
+    // executePush drains queue, pushes, re-enqueues on fail/rejected (no silent loss)
+    const result = await executePush(
+      calendarSyncStore,
+      clientRef.current,
+      tokens.accessToken,
+      uuidv4(),
+    );
+
+    refreshFromStore();
+
+    if (!result.ok) {
+      setSyncError(t('calendar.syncError'));
+    }
+    // Conflicts and rejected are handled by the store (adoptServerRecord /
+    // reEnqueueChangeset) — no banner needed beyond the error case.
+  }, [tokenStorage, refreshFromStore, t]);
+
+  // ── Pull on mount and foreground ───────────────────────────────────────────
+
+  useEffect(() => {
+    void syncPull();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    function handleAppState(next: AppStateStatus): void {
+      if (next === 'active') {
+        void syncPull();
+      }
+    }
+    const sub = AppState.addEventListener('change', handleAppState);
+    return () => sub.remove();
+  }, [syncPull]);
+
+  // ── Build calendar maps ────────────────────────────────────────────────────
+
+  // refreshKey in deps triggers rebuild after pull or occurrence action
   const { checklistMap, occurrenceMap } = useMemo(() => {
     const c = buildChecklistItems();
     const o = buildProjectedItems(today);
     return { checklistMap: c, occurrenceMap: o };
-  }, [today]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [today, refreshKey]);
 
   const getItemsForDate = useCallback(
     (date: string): CalendarItem[] => {
@@ -317,53 +418,61 @@ export function CalendarScreen({
     );
   }
 
-  // Mark done / snooze for a reminder occurrence
-  function handleOccurrenceAction(
-    id: string,
-    reminderId: string,
-    scheduledLocalTime: string,
-    displayTitle: string,
-    currentStatus: OccurrenceStatus,
-  ) {
-    if (currentStatus === 'done') return;
+  // Mark done / snooze for a reminder occurrence (FLAG-7/W-A)
+  const handleOccurrenceAction = useCallback(
+    (
+      id: string,
+      reminderId: string,
+      scheduledLocalTime: string,
+      displayTitle: string,
+      currentStatus: OccurrenceStatus,
+    ) => {
+      if (currentStatus === 'done') return;
 
-    Alert.alert(
-      displayTitle,
-      scheduledLocalTime,
-      [
-        {
-          text: t('calendar.markDone'),
-          onPress: () => {
-            calendarSyncStore.enqueueOccurrence(
-              reminderId,
-              scheduledLocalTime,
-              'done',
-              new Date().toISOString(),
-            );
-            // TODO carry-forward: trigger sync push; OS notification cancel
+      Alert.alert(
+        displayTitle,
+        scheduledLocalTime,
+        [
+          {
+            text: t('calendar.markDone'),
+            onPress: () => {
+              calendarSyncStore.enqueueOccurrence(
+                reminderId,
+                scheduledLocalTime,
+                'done',
+                new Date().toISOString(),
+              );
+              refreshFromStore();
+              // Push immediately — fire-and-forget (no await to not block UI)
+              void syncPush();
+              // TODO carry-forward: cancel OS notification for this occurrence
+            },
           },
-        },
-        ...(currentStatus !== 'snoozed'
-          ? [
-              {
-                text: t('calendar.snooze1h'),
-                onPress: () => {
-                  const snoozedUntil = new Date(Date.now() + 60 * 60 * 1000).toISOString();
-                  calendarSyncStore.enqueueOccurrence(
-                    reminderId,
-                    scheduledLocalTime,
-                    'snoozed',
-                    new Date().toISOString(),
-                    snoozedUntil,
-                  );
+          ...(currentStatus !== 'snoozed'
+            ? [
+                {
+                  text: t('calendar.snooze1h'),
+                  onPress: () => {
+                    const snoozedUntil = new Date(Date.now() + 60 * 60 * 1000).toISOString();
+                    calendarSyncStore.enqueueOccurrence(
+                      reminderId,
+                      scheduledLocalTime,
+                      'snoozed',
+                      new Date().toISOString(),
+                      snoozedUntil,
+                    );
+                    refreshFromStore();
+                    void syncPush();
+                  },
                 },
-              },
-            ]
-          : []),
-        { text: t('general.cancel'), style: 'cancel' },
-      ],
-    );
-  }
+              ]
+            : []),
+          { text: t('general.cancel'), style: 'cancel' },
+        ],
+      );
+    },
+    [t, refreshFromStore, syncPush],
+  );
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
@@ -372,6 +481,21 @@ export function CalendarScreen({
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* Sync status banners */}
+      {syncing && (
+        <View style={styles.syncBar}>
+          <Text style={styles.syncBarText}>{t('calendar.loading')}</Text>
+        </View>
+      )}
+      {syncError && (
+        <TouchableOpacity
+          style={styles.errorBar}
+          onPress={() => void syncPull()}
+        >
+          <Text style={styles.errorBarText}>{syncError}</Text>
+        </TouchableOpacity>
+      )}
+
       <ScrollView>
         {/* ── Month header ──────────────────────────────────────────────── */}
         <View style={styles.monthHeader}>
@@ -555,6 +679,30 @@ const DOT_SIZE = 6;
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FBF6F1' },
+
+  // Sync banners
+  syncBar: {
+    backgroundColor: '#EBF2EC',
+    paddingVertical: 6,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+  },
+  syncBarText: {
+    fontFamily: 'IBMPlexSans-Regular',
+    fontSize: 13,
+    color: '#4A7A56',
+  },
+  errorBar: {
+    backgroundColor: '#FBEDEE',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+  },
+  errorBarText: {
+    fontFamily: 'IBMPlexSans-Regular',
+    fontSize: 13,
+    color: '#8E3A44',
+  },
 
   monthHeader: {
     flexDirection: 'row',

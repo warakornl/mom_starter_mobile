@@ -29,9 +29,11 @@
 import type { FetchFn } from '../auth/authApiClient';
 import type {
   PregnancyProfileInput,
+  BirthEventInput,
   PregnancyProfile,
   GetProfileResult,
   PutProfileResult,
+  RecordBirthEventResult,
   PregnancyApiError,
 } from './types';
 
@@ -178,6 +180,76 @@ export function createPregnancyClient(baseUrl: string, fetchFn: FetchFn = fetch)
         const profile = (await res.json()) as PregnancyProfile;
         const created = res.status === 201;
         return { ok: true, profile, created };
+      }
+
+      return makeError(res.status, await parseError(res));
+    },
+
+    /**
+     * POST /v1/pregnancy-profile/birth-event → lifecycle: pregnant → postpartum.
+     *
+     * Records the birth event and returns the updated PregnancyProfile with
+     * lifecycle === 'postpartum', currentStage === 'postpartum', and postpartum
+     * snapshot fields (postpartumDays/Week/Day).  Gestational numeric fields
+     * (gestationalWeek/Day/daysRemaining/progress) are null in the response.
+     *
+     * Headers REQUIRED by contract (api-contract §"Birth-event & postpartum"):
+     *   Authorization: Bearer <accessToken>
+     *   X-Client-Date: <clientDate>  — MUST send on every call; used to evaluate
+     *     the `birthDate ≤ today` bound and to compute the postpartum snapshot.
+     *     UTC fallback can false-reject a birth recorded just after local midnight
+     *     in TH (UTC+7), so this is a client MUST, not optional.
+     *   If-Match: "<version>"       — required (absent → 428 Precondition Required).
+     *     Pass the `version` from the last-pulled profile.
+     *
+     * Idempotency (OQ-12/PP6):
+     *   If the profile is already postpartum AND submitted birthDate equals the
+     *   stored birthDate → server returns 200 with current record, version not bumped.
+     *   A queued offline retry or a second device recording the same birth is safe.
+     *
+     * Status codes:
+     *   200 — success (or idempotent no-op)
+     *   404 — no profile exists yet
+     *   403 `consent_required (general_health)` — PDPA gate
+     *   409 — optimistic-concurrency mismatch (another device changed it first)
+     *   422 — validation: birthDate > today OR birthDate < edd − 126 days
+     *   428 — If-Match header absent
+     *
+     * Security: NEVER log accessToken, deliveryType, or birthNote.
+     * deliveryType and birthNote are client-encrypted fields (AES-GCM, TODO);
+     * do NOT add logging for these values.
+     *
+     * @param input       BirthEventInput { birthDate, deliveryType?, birthNote? }
+     * @param accessToken Bearer JWT — never logged.
+     * @param ifMatch     Profile version string (from PregnancyProfile.version).
+     * @param clientDate  YYYY-MM-DD device-local civil date (X-Client-Date MUST).
+     */
+    async recordBirthEvent(
+      input: BirthEventInput,
+      accessToken: string,
+      ifMatch: string,
+      clientDate: string,
+    ): Promise<RecordBirthEventResult> {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${accessToken}`,
+        // X-Client-Date MUST per contract (api-contract §"Birth-event & postpartum"):
+        // used to validate birthDate ≤ today and compute postpartum snapshot.
+        // UTC fallback risks a false 422 for births just after local midnight in TH.
+        'X-Client-Date': clientDate,
+        // If-Match required per contract B2 (absent → 428 Precondition Required).
+        'If-Match': `"${ifMatch}"`,
+      };
+
+      const res = await fetchFn(`${baseUrl}/v1/pregnancy-profile/birth-event`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(input),
+      });
+
+      if (res.ok) {
+        const profile = (await res.json()) as PregnancyProfile;
+        return { ok: true, profile };
       }
 
       return makeError(res.status, await parseError(res));

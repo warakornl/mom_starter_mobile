@@ -265,8 +265,6 @@ const th = {
   'supplies.unitPlaceholder': 'เช่น ชิ้น',
   'supplies.fieldOnHandQty': 'จำนวนที่มีอยู่',
   'supplies.fieldLowThreshold': 'แจ้งเตือนเมื่อต่ำกว่า (ไม่บังคับ)',
-  /** template: {n} = onHandQty */
-  'supplies.qtyLabel': 'มีอยู่ {n} {unit}',
   'supplies.category.diapers': 'ผ้าอ้อม',
   'supplies.category.feeding': 'อุปกรณ์นม',
   'supplies.category.hygiene': 'สุขอนามัย',
@@ -505,7 +503,6 @@ const en: MsgShape = {
   'supplies.unitPlaceholder': 'e.g. pcs',
   'supplies.fieldOnHandQty': 'Qty on hand',
   'supplies.fieldLowThreshold': 'Alert below (optional)',
-  'supplies.qtyLabel': '{n} {unit} on hand',
   'supplies.category.diapers': 'Diapers',
   'supplies.category.feeding': 'Feeding',
   'supplies.category.hygiene': 'Hygiene',

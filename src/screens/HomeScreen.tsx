@@ -16,7 +16,7 @@
  * i18n: all strings from useT() / catalog. Language toggle button in the
  * top-right area of the header.
  *
- * Date formatting: formatCivilDate from thaiDate.ts (locale-aware).
+ * Date formatting: formatCivilDate from messages.ts (locale-aware).
  *
  * Offline: the stage banner re-derives locally from cached edd (pregnant) or
  * birthDate (postpartum) and the device-local civil date on every foreground
@@ -215,7 +215,7 @@ function StageBanner({
 
   const deliveryWindowText = t('home.deliveryWindow');
   const overdueSublineText = t('home.overdueSubline');
-  const bannerA11yLabel = `${stageName} ${weekLabel}${ga.deliveryWindowActive ? ` ${deliveryWindowText}` : ''}${isOverdue ? ` ${t('home.overdueSubline')}` : ''}`;
+  const bannerA11yLabel = `${stageName} ${weekLabel}${ga.deliveryWindowActive ? ` ${deliveryWindowText}` : ''}${isOverdue ? ` ${overdueSublineText}` : ''}`;
 
   const eddLineText = t('home.eddLine', {
     date: formatCivilDate(profile.edd, locale),

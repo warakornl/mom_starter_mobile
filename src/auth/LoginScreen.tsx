@@ -70,7 +70,7 @@ export function LoginScreen({
   onCreateAccount,
   tokenStorage,
 }: LoginScreenProps): React.JSX.Element {
-  const { t, locale } = useT();
+  const { t } = useT();
 
   // Form state
   const [email, setEmail] = useState('');
@@ -246,22 +246,16 @@ export function LoginScreen({
           style={[styles.googleButton, styles.googleButtonDisabled]}
           disabled={true}
           accessibilityRole="button"
-          accessibilityLabel={
-            locale === 'th'
-              ? 'ดำเนินการต่อด้วย Google (เร็วๆ นี้)'
-              : 'Continue with Google (coming soon)'
-          }
+          accessibilityLabel={`${t('login.googleCta')} (${t('login.comingSoon')})`}
           accessibilityState={{ disabled: true }}
         >
           <View style={styles.googleButtonInner}>
             <Text style={[styles.googleButtonText, styles.googleButtonTextDisabled]}>
-              {locale === 'th'
-                ? 'G  ดำเนินการต่อด้วย Google'
-                : 'G  Continue with Google'}
+              {`G  ${t('login.googleCta')}`}
             </Text>
             <View style={styles.comingSoonBadge}>
               <Text style={styles.comingSoonBadgeText}>
-                {locale === 'th' ? 'เร็วๆ นี้' : 'Coming soon'}
+                {t('login.comingSoon')}
               </Text>
             </View>
           </View>

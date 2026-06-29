@@ -107,6 +107,8 @@ const th = {
   'login.emailPlaceholder': 'you@example.com',
   'login.showPassword': 'แสดงรหัสผ่าน',
   'login.hidePassword': 'ซ่อนรหัสผ่าน',
+  'login.googleCta': 'ดำเนินการต่อด้วย Google',
+  'login.comingSoon': 'เร็วๆ นี้',
 
   // ── Auth: Register (S2) ─────────────────────────────────────────────────────
   // NON-ENUMERATION (§E/C7): MUST NOT contain 'ใช้แล้ว', 'มีอยู่แล้ว', 'ถูกลงทะเบียน'
@@ -316,6 +318,8 @@ const en: MsgShape = {
   'login.emailPlaceholder': 'you@example.com',
   'login.showPassword': 'Show password',
   'login.hidePassword': 'Hide password',
+  'login.googleCta': 'Continue with Google',
+  'login.comingSoon': 'Coming soon',
 
   // ── Auth: Register ───────────────────────────────────────────────────────────
   // NON-ENUMERATION: must NOT contain 'already registered', 'already taken',

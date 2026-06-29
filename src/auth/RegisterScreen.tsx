@@ -112,7 +112,7 @@ export function RegisterScreen({
     const result = await handleRegister({
       email,
       password,
-      locale: locale as 'th' | 'en',
+      locale: locale,
       deviceId,
       client: authClient,
     });

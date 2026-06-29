@@ -2,17 +2,26 @@
  * Sync client — HTTP client for POST /v1/sync/push and GET /v1/sync/pull.
  *
  * Contract source: api-contract.md §"Offline-sync engine (PINNED)"
- * First entity: supplyItems (OQ-SYNC-18).
  *
- * Design mirrors pregnancyApiClient.ts:
- * - `createSyncClient(baseUrl, store, fetchFn?)` factory — injectable for tests.
- * - Every function returns a discriminated union (ok: true | false).
- * - Store is injected so apply logic (stampApplied, adoptServerRecord,
- *   tombstoneItem) runs inside the client without the caller needing to
- *   inspect wire responses.
+ * Generic adapter design:
+ *   `createSyncClient` and `createCalendarSyncClient` both delegate to an
+ *   internal factory that accepts a `Map<collectionName, SyncCollectionAdapter>`.
+ *   Each adapter exposes:
+ *     stampApplied   — called for every applied[] entry (contract §2)
+ *     adoptServerRecord — called for every conflict[] entry (contract §4)
+ *     upsertRecord   — called for pull updated[]/created[]
+ *     tombstoneRecord — called for pull deleted[]
+ *   Adding a new collection in a future slice = add one adapter entry.
+ *
+ * Public factories:
+ *   createSyncClient(baseUrl, supplyStore, fetchFn?)
+ *     → binds to SyncStore; handles collection='supplyItems' only.
+ *   createCalendarSyncClient(baseUrl, calendarStore, fetchFn?)
+ *     → binds to CalendarSyncStore; handles reminders, reminderOccurrences,
+ *        checklistItems (all MOTHER-health collections).
  *
  * Apply logic (contract §2/§4 — PINNED):
- *   applied[]  → stampApplied(id, version, updatedAt) on every entry.
+ *   applied[]  → stampApplied(id, version, updatedAt) for every entry.
  *                MUST NOT assume a mutable push left version un-bumped.
  *   conflicts[] → adoptServerRecord(serverRecord) for ALL resolutions
  *                (server_won, client_won, tombstone_won — client ALWAYS
@@ -22,27 +31,60 @@
  * Pull loop (contract §9 — PINNED):
  *   - Since is fixed across all cursor pages (same W1 snapshot).
  *   - Watermark (timestamp) adopted ONLY on the final page (nextCursor absent).
- *   - updated[] → upsertSupplyItem (upsert-by-id, de-dup by (id, version)).
- *   - deleted[] → tombstoneItem (soft-delete locally, NOT re-queued).
+ *   - updated[]/created[] → upsertRecord (upsert-by-id, de-dup by (id, version)).
+ *   - deleted[] → tombstoneRecord (soft-delete locally, NOT re-queued).
  *
  * Wire:
  *   - Authorization: Bearer <accessToken>  (NEVER log the token)
  *   - Idempotency-Key header (optional, caller provides uuid)
  *   - Content-Type: application/json on push
  *
- * Security: NEVER log the accessToken. supplyItems is NON-health but
- * standard at-rest encryption applies — no plaintext logging of item data.
+ * Security: NEVER log the accessToken. reminders/reminderOccurrences/
+ * checklistItems are MOTHER-health (general_health gate) — no plaintext logging.
  */
 
 import type { FetchFn } from '../auth/authApiClient';
 import type { SyncStore } from './syncStore';
+import type { CalendarSyncStore } from './calendarSyncStore';
 import type {
   SyncChangeSet,
   SyncPushResponse,
   SyncPullPage,
   SyncPushResult,
   SyncPullResult,
+  SyncRecord,
+  SupplyItemRecord,
+  ReminderRecord,
+  ReminderOccurrenceRecord,
+  ChecklistItemRecord,
 } from './syncTypes';
+
+// ─── Collection adapter interface ─────────────────────────────────────────────
+
+/**
+ * Per-collection adapter: maps sync apply operations to the right store method.
+ * Register one adapter per collection in the adapterMap passed to the internal
+ * factory. Adding a new collection in future slices = add one adapter entry.
+ */
+interface SyncCollectionAdapter {
+  /** Push apply logic: stamp server-assigned version+updatedAt (contract §2). */
+  stampApplied(id: string, version: number, updatedAt: string): void;
+  /**
+   * Push apply logic: adopt serverRecord for all conflict resolutions (§4).
+   * server_won | client_won | tombstone_won → always call adoptServerRecord.
+   */
+  adoptServerRecord(record: SyncRecord): void;
+  /** Pull apply logic: upsert a record received in updated[]/created[]. */
+  upsertRecord(record: SyncRecord): void;
+  /** Pull apply logic: soft-delete a record from deleted[] (not re-queued). */
+  tombstoneRecord(id: string): void;
+}
+
+/** Minimal watermark interface shared by SyncStore and CalendarSyncStore. */
+interface WatermarkStore {
+  getWatermark(): string | undefined;
+  setWatermark(watermark: string): void;
+}
 
 // ─── Internal helpers ─────────────────────────────────────────────────────────
 
@@ -77,33 +119,41 @@ function buildUrl(
   return query ? `${base}${path}?${query}` : `${base}${path}`;
 }
 
-// ─── Factory ──────────────────────────────────────────────────────────────────
-
 /**
- * Creates a sync client bound to a base URL, in-memory store, and fetch impl.
- *
- * @param baseUrl  e.g. `"https://api.example.com"` (no trailing slash)
- * @param store    In-memory sync store — apply logic mutates this store
- * @param fetchFn  Defaults to global `fetch`; inject a mock in tests
+ * Apply pull changes for a single collection.
+ * Unknown collections are silently ignored (no crash — forward-compat).
  */
-export function createSyncClient(
+function applyPullChanges(
+  collectionName: string,
+  changes: { created?: unknown[]; updated?: unknown[]; deleted?: string[] } | undefined,
+  adapterMap: Map<string, SyncCollectionAdapter>,
+): void {
+  if (!changes) return;
+  const adapter = adapterMap.get(collectionName);
+  if (!adapter) return;
+  // updated[] / created[] → upsert (OQ-SYNC-17: treat both as upsert-by-id)
+  for (const item of changes.updated ?? []) adapter.upsertRecord(item as SyncRecord);
+  for (const item of changes.created ?? []) adapter.upsertRecord(item as SyncRecord);
+  // deleted[] → tombstone locally (soft-delete, not re-queued)
+  for (const id of changes.deleted ?? []) adapter.tombstoneRecord(id);
+}
+
+// ─── Internal generic sync client factory ────────────────────────────────────
+
+function createSyncClientWithAdapters(
   baseUrl: string,
-  store: SyncStore,
-  fetchFn: FetchFn = fetch,
+  adapterMap: Map<string, SyncCollectionAdapter>,
+  watermarkStore: WatermarkStore,
+  fetchFn: FetchFn,
 ) {
   return {
     /**
      * POST /v1/sync/push
      *
-     * Sends `changes` to the server and applies the response to the store:
-     *   applied[]  → stampApplied() for every record (contract §2)
-     *   conflicts[] → adoptServerRecord() for every conflict (contract §4)
+     * Sends `changes` to the server and applies the response using adapters:
+     *   applied[]  → adapter.stampApplied() for every record (contract §2)
+     *   conflicts[] → adapter.adoptServerRecord() for every conflict (contract §4)
      *   rejected[] → returned to caller; caller decides retry / consent prompt
-     *
-     * @param changes         SyncChangeSet to push (caller builds from queue/drain)
-     * @param lastPulledAt    Watermark of last adopted pull (zero string = never pulled)
-     * @param accessToken     Bearer JWT — NEVER log
-     * @param idempotencyKey  Optional uuid for 24h Idempotency-Key header (§10)
      */
     async push(
       changes: SyncChangeSet,
@@ -133,25 +183,24 @@ export function createSyncClient(
 
       const resp = (await res.json()) as SyncPushResponse;
 
-      // ── Apply logic ──────────────────────────────────────────────────────
+      // ── Apply logic — generic adapter routing ────────────────────────────
       //
-      // Contract §2 (OQ-SYNC-1): stamp EVERY applied record — mutable records
-      // ALWAYS bump version; never assume un-bumped.
+      // Contract §2 (OQ-SYNC-1): stamp EVERY applied record.
+      // Route by collection — unknown collections are silently skipped.
       for (const applied of resp.applied ?? []) {
-        if (applied.collection === 'supplyItems') {
-          store.stampApplied(applied.id, applied.version, applied.updatedAt);
-        }
+        adapterMap.get(applied.collection)?.stampApplied(
+          applied.id,
+          applied.version,
+          applied.updatedAt,
+        );
       }
 
       // Contract §4 (OQ-SYNC-5): adopt serverRecord for ALL resolutions.
-      // server_won   — server row won (base < current); client adopts.
+      // server_won   — server row won; client adopts.
       // client_won   — client write won; client still learns server values.
       // tombstone_won — tombstone wins unconditionally; client adopts tombstone.
       for (const conflict of resp.conflicts ?? []) {
-        if (conflict.collection === 'supplyItems') {
-          // serverRecord is a SyncRecord union; narrow via collection discriminant
-          store.adoptServerRecord(conflict.serverRecord as import('./syncTypes').SupplyItemRecord);
-        }
+        adapterMap.get(conflict.collection)?.adoptServerRecord(conflict.serverRecord);
       }
 
       return {
@@ -166,19 +215,15 @@ export function createSyncClient(
      * GET /v1/sync/pull — with cursor loop.
      *
      * Loops pages until nextCursor is absent (hasMore false / nextCursor
-     * not present). On each page applies changes to the store:
-     *   updated[] → upsertSupplyItem (upsert-by-id, (id,version) de-dup)
-     *   deleted[] → tombstoneItem (soft-delete locally — NOT re-queued)
+     * not present). On each page applies changes via the adapter map:
+     *   updated[]/created[] → adapter.upsertRecord (upsert-by-id)
+     *   deleted[] → adapter.tombstoneRecord (soft-delete locally, not re-queued)
      *
      * Watermark adoption (contract §9 OQ-SYNC-12 — BINDING):
      *   The watermark (timestamp = W1 snapshot-start) is identical on every
      *   page and adopted ONLY on the final page (nextCursor absent).
-     *   Mid-drain watermark would lose writes landing during drain.
      *
      * Since is kept FIXED across all cursor pages (same W1 snapshot).
-     *
-     * @param accessToken  Bearer JWT — NEVER log
-     * @param since        Watermark from last pull; absent = cold start / full resync
      */
     async pull(
       accessToken: string,
@@ -217,34 +262,21 @@ export function createSyncClient(
 
         const page = (await res.json()) as SyncPullPage;
 
-        // Apply changes from this page to the store
-        const supplyChanges = page.changes?.supplyItems;
-        if (supplyChanges) {
-          // updated[] → upsert (OQ-SYNC-17: treat as upsert-by-id)
-          for (const item of supplyChanges.updated ?? []) {
-            store.upsertSupplyItem(item);
-          }
-          // Pull created[] is always empty per OQ-SYNC-17; upsert anyway (defensive)
-          for (const item of supplyChanges.created ?? []) {
-            store.upsertSupplyItem(item);
-          }
-          // deleted[] → tombstone locally (soft-delete, not re-queued)
-          for (const id of supplyChanges.deleted ?? []) {
-            store.tombstoneItem(id);
-          }
-        }
+        // Apply changes from this page using the adapter map
+        applyPullChanges('supplyItems', page.changes?.supplyItems, adapterMap);
+        applyPullChanges('reminders', page.changes?.reminders, adapterMap);
+        applyPullChanges('reminderOccurrences', page.changes?.reminderOccurrences, adapterMap);
+        applyPullChanges('checklistItems', page.changes?.checklistItems, adapterMap);
 
         const isLastPage = !page.nextCursor;
 
         if (isLastPage) {
           // Adopt watermark ONLY on the final page (OQ-SYNC-12 — BINDING).
-          // page.timestamp = W1 snapshot-start, fixed since the first request.
           adoptedWatermark = page.timestamp;
-          store.setWatermark(adoptedWatermark);
+          watermarkStore.setWatermark(adoptedWatermark);
           break;
         }
 
-        // Advance cursor for the next page; since stays fixed
         cursor = page.nextCursor;
       }
 
@@ -253,5 +285,96 @@ export function createSyncClient(
   };
 }
 
-/** The type of the object returned by `createSyncClient`. */
+// ─── Public factories ─────────────────────────────────────────────────────────
+
+/**
+ * Creates a sync client bound to a SyncStore (supplyItems collection).
+ *
+ * Backward-compatible signature — existing callers (SuppliesScreen, tests)
+ * do not need to change.
+ *
+ * @param baseUrl  e.g. `"https://api.example.com"` (no trailing slash)
+ * @param store    In-memory supply sync store
+ * @param fetchFn  Defaults to global `fetch`; inject a mock in tests
+ */
+export function createSyncClient(
+  baseUrl: string,
+  store: SyncStore,
+  fetchFn: FetchFn = fetch,
+) {
+  const adapterMap = new Map<string, SyncCollectionAdapter>([
+    [
+      'supplyItems',
+      {
+        stampApplied: (id, version, updatedAt) =>
+          store.stampApplied(id, version, updatedAt),
+        adoptServerRecord: (record) =>
+          store.adoptServerRecord(record as SupplyItemRecord),
+        upsertRecord: (record) =>
+          store.upsertSupplyItem(record as SupplyItemRecord),
+        tombstoneRecord: (id) => store.tombstoneItem(id),
+      },
+    ],
+  ]);
+  return createSyncClientWithAdapters(baseUrl, adapterMap, store, fetchFn);
+}
+
+/**
+ * Creates a sync client bound to a CalendarSyncStore.
+ * Handles collections: reminders, reminderOccurrences, checklistItems.
+ *
+ * Use this in calendar screens (CalendarScreen, AppointmentFormScreen,
+ * ReminderFormScreen) for push/pull of MOTHER-health data.
+ *
+ * @param baseUrl  API base URL (no trailing slash)
+ * @param store    CalendarSyncStore singleton
+ * @param fetchFn  Defaults to global `fetch`; inject a mock in tests
+ */
+export function createCalendarSyncClient(
+  baseUrl: string,
+  store: CalendarSyncStore,
+  fetchFn: FetchFn = fetch,
+) {
+  const adapterMap = new Map<string, SyncCollectionAdapter>([
+    [
+      'reminders',
+      {
+        stampApplied: (id, version, updatedAt) =>
+          store.stampReminderApplied(id, version, updatedAt),
+        adoptServerRecord: (record) =>
+          store.adoptReminderServerRecord(record as ReminderRecord),
+        upsertRecord: (record) =>
+          store.upsertReminder(record as ReminderRecord),
+        tombstoneRecord: (id) => store.tombstoneReminder(id),
+      },
+    ],
+    [
+      'reminderOccurrences',
+      {
+        stampApplied: (id, version, updatedAt) =>
+          store.stampOccurrenceApplied(id, version, updatedAt),
+        adoptServerRecord: (record) =>
+          store.adoptOccurrenceServerRecord(record as ReminderOccurrenceRecord),
+        upsertRecord: (record) =>
+          store.upsertOccurrence(record as ReminderOccurrenceRecord),
+        tombstoneRecord: (id) => store.tombstoneOccurrence(id),
+      },
+    ],
+    [
+      'checklistItems',
+      {
+        stampApplied: (id, version, updatedAt) =>
+          store.stampChecklistItemApplied(id, version, updatedAt),
+        adoptServerRecord: (record) =>
+          store.adoptChecklistItemServerRecord(record as ChecklistItemRecord),
+        upsertRecord: (record) =>
+          store.upsertChecklistItem(record as ChecklistItemRecord),
+        tombstoneRecord: (id) => store.tombstoneChecklistItem(id),
+      },
+    ],
+  ]);
+  return createSyncClientWithAdapters(baseUrl, adapterMap, store, fetchFn);
+}
+
+/** The type of the object returned by either sync client factory. */
 export type SyncClient = ReturnType<typeof createSyncClient>;

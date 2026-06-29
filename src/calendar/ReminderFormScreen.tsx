@@ -22,7 +22,7 @@
  *   Do NOT log displayTitle or any reminder field.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -36,7 +36,10 @@ import {
 import { v4 as uuidv4 } from 'uuid';
 import { useT } from '../i18n/LanguageContext';
 import { calendarSyncStore } from '../sync/calendarSyncStore';
+import { createCalendarSyncClient } from '../sync/syncClient';
+import { executePush } from '../sync/pushOrchestrator';
 import { localCivilToday } from '../pregnancy/gestationalAge';
+import type { TokenStorage } from '../auth/tokenStorage';
 import type { ReminderRecord, ReminderType, RecurrenceRuleWire } from '../sync/syncTypes';
 import type { MessageKey } from '../i18n/messages';
 
@@ -86,9 +89,9 @@ export function validateRecurrenceRule(
     if (timesOfDay.length === 0) {
       errors.push({ field: 'timesOfDay', message: 'timesOfDay must be non-empty' });
     } else {
-      // Validate each time: "HH:mm" zero-padded 24h
+      // Validate each time: strict 24h "HH:mm" — rejects 25:00, 08:99 etc.
       for (const t of timesOfDay) {
-        if (!/^\d{2}:\d{2}$/.test(t)) {
+        if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(t)) {
           errors.push({ field: 'timesOfDay', message: `Invalid time format: ${t}` });
         }
       }
@@ -136,6 +139,10 @@ const REMINDER_TYPES: ReminderType[] = [
 
 export interface ReminderFormScreenProps {
   existingReminder?: ReminderRecord;
+  /** Token storage — required to trigger sync push after save. */
+  tokenStorage?: TokenStorage;
+  /** API base URL — required to trigger sync push after save. */
+  apiBaseUrl?: string;
   onSave?: () => void;
   onCancel?: () => void;
 }
@@ -144,6 +151,8 @@ export interface ReminderFormScreenProps {
 
 export function ReminderFormScreen({
   existingReminder,
+  tokenStorage,
+  apiBaseUrl,
   onSave,
   onCancel,
 }: ReminderFormScreenProps): React.JSX.Element {
@@ -174,6 +183,24 @@ export function ReminderFormScreen({
 
   const [errors, setErrors] = useState<RuleValidationError[]>([]);
   const [titleError, setTitleError] = useState('');
+
+  // Calendar sync client — created once per mount (bound to calendarSyncStore)
+  const clientRef = useRef(
+    apiBaseUrl ? createCalendarSyncClient(apiBaseUrl, calendarSyncStore) : null,
+  );
+
+  /**
+   * Trigger sync push fire-and-forget after a mutation.
+   * Does nothing if tokenStorage / apiBaseUrl are not provided.
+   */
+  function triggerPush(): void {
+    if (!tokenStorage || !clientRef.current) return;
+    tokenStorage.load().then((tokens) => {
+      if (tokens?.accessToken && clientRef.current) {
+        void executePush(calendarSyncStore, clientRef.current, tokens.accessToken, uuidv4());
+      }
+    });
+  }
 
   // ── Validation ─────────────────────────────────────────────────────────────
   function validate(): boolean {
@@ -242,9 +269,10 @@ export function ReminderFormScreen({
     }
 
     // TODO carry-forward: schedule OS local notification (expo-notifications)
-    // TODO carry-forward: trigger sync push if online
 
+    // Navigate back first, then push (fire-and-forget — no await to not block UI)
     onSave?.();
+    triggerPush();
   }
 
   // ── Delete ─────────────────────────────────────────────────────────────────
@@ -262,6 +290,7 @@ export function ReminderFormScreen({
             calendarSyncStore.enqueueDeleteReminder(existingReminder.id);
             // TODO carry-forward: cancel OS alarms for this reminder
             onSave?.();
+            triggerPush();
           },
         },
       ],

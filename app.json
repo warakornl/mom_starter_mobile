@@ -30,7 +30,6 @@
       "bundler": "metro"
     },
     "extra": {
-      "apiBaseUrl": "http://localhost:8080",
       "eas": {
         "projectId": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
       }

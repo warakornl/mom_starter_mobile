@@ -13,9 +13,10 @@
  *   Home logout) operates on the same token pair — no risk of split-brain storage.
  *
  * API base URL:
- *   Sourced from src/config.ts (default: http://localhost:8080).
- *   For UAT on a physical device, change API_BASE_URL in that file to your
- *   dev machine's LAN IP (e.g. http://192.168.1.10:8080). See README.md.
+ *   Sourced from src/config.ts, which auto-resolves the dev machine's LAN IP
+ *   from Expo when running in Expo Go — no manual edit needed for same-Wi-Fi UAT.
+ *   For standalone EAS builds, set extra.apiBaseUrl in app.json
+ *   (see docs/uat-and-build.md §7).
  */
 
 import React, { useMemo } from 'react';

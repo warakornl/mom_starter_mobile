@@ -56,12 +56,19 @@ export class SecureTokenStorage implements TokenStorage {
   /**
    * Load the stored tokens.
    * Returns `null` if no tokens have been saved yet or after `clear()`.
-   * Throws if SecureStore is unavailable (e.g. device lacks hardware security).
+   * If the stored blob is corrupted/legacy and cannot be parsed, self-heals by
+   * clearing it and returning `null` (app falls back to signed-out, never stuck).
+   * Throws if SecureStore itself is unavailable (e.g. device lacks hardware security).
    */
   async load(): Promise<AuthTokens | null> {
     const raw = await SecureStore.getItemAsync(TOKENS_KEY, KEYCHAIN_OPTIONS);
     if (!raw) return null;
-    return JSON.parse(raw) as AuthTokens;
+    try {
+      return JSON.parse(raw) as AuthTokens;
+    } catch {
+      await this.clear();
+      return null;
+    }
   }
 
   /**

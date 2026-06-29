@@ -136,13 +136,16 @@ export function createSyncStore(): SyncStore {
 
     upsertSupplyItem(item: SupplyItemRecord): void {
       const existing = itemMap.get(item.id);
-      // De-dup by (id, version): skip if we already hold this exact version
-      // (safe-window overlap — both positive so this is a true server duplicate).
+      // De-dup by (id, version): skip if stored version is at least as new as
+      // the incoming record.  Using >= rather than === means an inadvertently
+      // replayed older record (e.g. from an overlap page) never overwrites a
+      // newer local state.  Both sides must be > 0 (version=0 = create sentinel,
+      // which must always be written so it appears in the queue).
       if (
         existing &&
         existing.version > 0 &&
         item.version > 0 &&
-        existing.version === item.version
+        existing.version >= item.version
       ) {
         return;
       }

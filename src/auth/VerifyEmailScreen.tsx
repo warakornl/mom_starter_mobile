@@ -8,6 +8,9 @@
  *   POST /v1/auth/resend-verification → always 202 (non-enumerating)
  *   POST /v1/auth/verify-email        → 200 AuthTokens (via deep-link, carry-forward)
  *
+ * All strings are sourced from useT() / catalog (src/i18n/messages.ts).
+ * Locale is read from LanguageContext — not a prop.
+ *
  * ── No render tests in this file ─────────────────────────────────────────────
  * See registerScreenLogic.ts / verifyEmailScreenLogic.ts for full unit-tested logic.
  * ─────────────────────────────────────────────────────────────────────────────
@@ -52,7 +55,6 @@ import {
 } from 'react-native';
 
 import {
-  verifyStrings,
   handleResend,
   handleVerifyToken,
   type ResendOutcome,
@@ -60,16 +62,19 @@ import {
 } from './verifyEmailScreenLogic';
 import { InMemoryTokenStorage } from './tokenStorage';
 import { createAuthClient } from './authApiClient';
-import type { Locale } from './types';
 import type { TokenStorage } from './tokenStorage';
+import { useT } from '../i18n/LanguageContext';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 export interface VerifyEmailScreenProps {
   /** Base URL for the auth API. */
   apiBaseUrl: string;
-  /** Current app locale. */
-  locale: Locale;
+  /**
+   * @deprecated — locale is now read from LanguageContext via useT().
+   * This prop is kept for backward compatibility but is ignored.
+   */
+  locale?: string;
   /**
    * The email the user registered with.
    * Displayed as "we sent a link to <email>".
@@ -103,7 +108,6 @@ export interface VerifyEmailScreenProps {
 
 export function VerifyEmailScreen({
   apiBaseUrl,
-  locale,
   email,
   deviceId,
   onVerified,
@@ -111,21 +115,13 @@ export function VerifyEmailScreen({
   pendingToken,
   tokenStorage,
 }: VerifyEmailScreenProps): React.JSX.Element {
-  const s = verifyStrings[locale];
+  const { t } = useT();
 
   // Stable references — prevents a new client/storage instance on every render
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const authClient = useMemo(() => createAuthClient(apiBaseUrl), [apiBaseUrl]);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const storage = useMemo(() => tokenStorage ?? new InMemoryTokenStorage(), [tokenStorage]);
-
-  // Local string for storage-failure edge case (token exchange succeeded but
-  // Keychain/Keystore save failed). Points user to "ส่งลิงก์อีกครั้ง".
-  // Carry-forward: move to verifyStrings once SA approves the copy.
-  const storageErrorHint =
-    locale === 'th'
-      ? 'บันทึกเซสชันไม่สำเร็จ · กด "ส่งลิงก์อีกครั้ง" แล้วยืนยันใหม่อีกครั้ง'
-      : 'Could not save your session — tap "Resend link" and verify again.';
 
   // Resend state
   const [resendLoading, setResendLoading] = useState(false);
@@ -212,19 +208,19 @@ export function VerifyEmailScreen({
     verifyOutcome?.kind === 'token_invalid' || verifyOutcome?.kind === 'server_error';
 
   function resendErrorText(): string {
-    if (resendOutcome?.kind === 'rate_limited') return s.rateLimited;
-    if (resendOutcome?.kind === 'network_error') return s.offline;
-    return s.serverError;
+    if (resendOutcome?.kind === 'rate_limited') return t('verify.rateLimited');
+    if (resendOutcome?.kind === 'network_error') return t('verify.offline');
+    return t('verify.serverError');
   }
 
   function tokenErrorText(): string {
-    if (verifyOutcome?.kind === 'token_invalid') return s.tokenInvalid;
+    if (verifyOutcome?.kind === 'token_invalid') return t('verify.tokenInvalid');
     // storage_error: token exchange succeeded but Keychain/Keystore failed.
     // Direct the user to resend so they can attempt verification again.
     if (verifyOutcome?.kind === 'server_error' && verifyOutcome.code === 'storage_error') {
-      return storageErrorHint;
+      return t('verify.storageErrorHint');
     }
-    return s.serverError;
+    return t('verify.serverError');
   }
 
   // ─── Render ─────────────────────────────────────────────────────────────────
@@ -236,11 +232,11 @@ export function VerifyEmailScreen({
     >
       {/* Step label — "สร้างบัญชี · ขั้นที่ 2 จาก 3" */}
       <View style={styles.topbar}>
-        <Text style={styles.stepLabel}>{s.stepLabel}</Text>
+        <Text style={styles.stepLabel}>{t('verify.stepLabel')}</Text>
       </View>
 
       {/* Progress pip row — done (sage) · active (rose) · waiting (hairline) */}
-      <View style={styles.stepDots} accessibilityLabel={s.stepLabel}>
+      <View style={styles.stepDots} accessibilityLabel={t('verify.stepLabel')}>
         <View style={[styles.dot, styles.dotDone]} />
         <View style={[styles.dot, styles.dotActive]} />
         <View style={[styles.dot, styles.dotWaiting]} />
@@ -254,15 +250,15 @@ export function VerifyEmailScreen({
 
       {/* Headline block */}
       <View style={styles.headlineBlock}>
-        <Text style={styles.title}>{s.title}</Text>
-        <Text style={styles.sentToPrefix}>{s.sentToPrefix}</Text>
+        <Text style={styles.title}>{t('verify.title')}</Text>
+        <Text style={styles.sentToPrefix}>{t('verify.sentToPrefix')}</Text>
         <Text style={styles.emailDisplay}>{email}</Text>
-        <Text style={styles.openLinkHint}>{s.openLinkHint}</Text>
+        <Text style={styles.openLinkHint}>{t('verify.openLinkHint')}</Text>
       </View>
 
       {/* Spam-folder tip */}
       <View style={styles.spamTip}>
-        <Text style={styles.spamTipText}>{s.spamTip}</Text>
+        <Text style={styles.spamTipText}>{t('verify.spamTip')}</Text>
       </View>
 
       {/* Deep-link token loading spinner */}
@@ -282,7 +278,7 @@ export function VerifyEmailScreen({
       {/* Resent confirmation — sage/100 background, calm */}
       {showResent && (
         <View style={styles.resentConfirm} accessibilityLiveRegion="polite">
-          <Text style={styles.resentConfirmText}>{s.resentConfirm}</Text>
+          <Text style={styles.resentConfirmText}>{t('verify.resentConfirm')}</Text>
         </View>
       )}
 
@@ -302,7 +298,7 @@ export function VerifyEmailScreen({
         onPress={onResend}
         disabled={isResendCoolingDown || resendLoading}
         accessibilityRole="button"
-        accessibilityLabel={s.resend}
+        accessibilityLabel={t('verify.resend')}
         accessibilityState={{
           disabled: isResendCoolingDown || resendLoading,
           busy: resendLoading,
@@ -315,7 +311,7 @@ export function VerifyEmailScreen({
             styles.resendButtonText,
             (isResendCoolingDown || resendLoading) && styles.resendButtonTextDisabled,
           ]}>
-            {s.resend}
+            {t('verify.resend')}
           </Text>
         )}
       </TouchableOpacity>
@@ -326,7 +322,7 @@ export function VerifyEmailScreen({
         onPress={onChangeEmail}
         accessibilityRole="link"
       >
-        <Text style={styles.changeEmailText}>{s.changeEmail}</Text>
+        <Text style={styles.changeEmailText}>{t('verify.changeEmail')}</Text>
       </TouchableOpacity>
     </ScrollView>
   );

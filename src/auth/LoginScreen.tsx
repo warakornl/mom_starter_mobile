@@ -1,38 +1,8 @@
 /**
  * LoginScreen — Sign-in screen (S4)
  *
- * Renders the email + masked-password form, the three distinct error states,
- * the "Forgot password?" and "Create account" quiet links, and a Google
- * placeholder button (per auth-login-ui.md §5.1–§5.4).
- *
- * ── No render tests in this file ─────────────────────────────────────────────
- * The project has no React / React Native installed (package.json has no
- * "react" or "react-native" dependency) and Jest is configured for the 'node'
- * environment. Adding @testing-library/react-native would require
- * react-test-renderer, Metro transforms, and babel-preset-expo — out of scope
- * for this auth slice. The decision is intentional and documented here.
- *
- * What IS tested (in loginScreenLogic.test.ts, 21 tests):
- *   • validateEmailField       (blur-time input sanity)
- *   • validatePasswordField    (submit-readiness gate)
- *   • loginStrings             (th/en i18n completeness + non-enumeration)
- *   • handleSignIn             (API call → storage → typed outcome)
- *
- * What is NOT tested (render / interaction):
- *   • The eye-icon show/hide toggle
- *   • Navigation callbacks (onForgotPassword, onCreateAccount, onSuccess)
- *   • Loading-spinner while async
- *   • Error state rendering (offline strip · server card · wrong-creds inline)
- *
- * These are validated by the UX spec + manual / visual QA, and would be added
- * when a RN testing framework is installed (e.g. @testing-library/react-native
- * with the Expo Jest preset).
- * ─────────────────────────────────────────────────────────────────────────────
- *
- * ── Dependencies (not yet installed — needed when Expo is scaffolded) ─────────
- *   npm install react react-native
- *   npx expo install expo-secure-store   (for real token storage binding)
- * ─────────────────────────────────────────────────────────────────────────────
+ * All strings from useT() / catalog (src/i18n/messages.ts).
+ * Locale is read from LanguageContext — not a prop.
  *
  * Design tokens (design-system.md §1–§5):
  *   bg/warm-milk  #FBF6F1   App background
@@ -42,9 +12,6 @@
  *   hairline      #EBE1D9   Dividers
  */
 
-// React and React Native are listed as peer deps — not installed yet.
-// This file is excluded from the current ts-jest test run because no test
-// file imports it. Add to tsconfig.json "jsx": "react-native" when RN lands.
 import React, { useState, useMemo } from 'react';
 import {
   View,
@@ -62,20 +29,17 @@ import {
   validateEmailField,
   validatePasswordField,
   handleSignIn,
-  loginStrings,
   type SignInOutcome,
 } from './loginScreenLogic';
 import { InMemoryTokenStorage, type TokenStorage } from './tokenStorage';
 import { createAuthClient } from './authApiClient';
-import type { Locale } from './types';
+import { useT } from '../i18n/LanguageContext';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 export interface LoginScreenProps {
   /** Base URL for the auth API (e.g. "https://api.example.com"). */
   apiBaseUrl: string;
-  /** Current app locale — drives which `loginStrings` set is shown. */
-  locale: Locale;
   /** Stable per-install device id (client-generated, not a hardware id — §D/C5). */
   deviceId?: string;
   /** Called after tokens are stored — navigate to Calendar Home or S3 consent. */
@@ -86,24 +50,27 @@ export interface LoginScreenProps {
   onCreateAccount: () => void;
   /**
    * Token storage implementation.
-   * Defaults to InMemoryTokenStorage; production binding is SecureTokenStorage
-   * (expo-secure-store, SEC-HOOK §A/C4). App.tsx injects SecureTokenStorage.
+   * Defaults to InMemoryTokenStorage; production binding is SecureTokenStorage.
    */
   tokenStorage?: TokenStorage;
+  /**
+   * @deprecated — locale is now read from LanguageContext via useT().
+   * This prop is kept for backward compatibility but is ignored.
+   */
+  locale?: string;
 }
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 export function LoginScreen({
   apiBaseUrl,
-  locale,
   deviceId,
   onSuccess,
   onForgotPassword,
   onCreateAccount,
   tokenStorage,
 }: LoginScreenProps): React.JSX.Element {
-  const s = loginStrings[locale];
+  const { t, locale } = useT();
 
   // Form state
   const [email, setEmail] = useState('');
@@ -118,8 +85,6 @@ export function LoginScreen({
   const [loading, setLoading] = useState(false);
   const [outcome, setOutcome] = useState<SignInOutcome | null>(null);
 
-  // Stable references — recreating these on every render would cause unnecessary
-  // HTTP client instances and could break the storage reference identity.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const authClient = useMemo(() => createAuthClient(apiBaseUrl), [apiBaseUrl]);
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -131,7 +96,7 @@ export function LoginScreen({
   function handleEmailBlur() {
     setEmailError(
       submitAttempted || email.length > 0
-        ? validateEmailField(email) !== null ? s.emailHint : null
+        ? validateEmailField(email) !== null ? t('login.emailHint') : null
         : null,
     );
   }
@@ -140,7 +105,7 @@ export function LoginScreen({
     setSubmitAttempted(true);
     const emailErr = validateEmailField(email);
     if (emailErr) {
-      setEmailError(s.emailHint);
+      setEmailError(t('login.emailHint'));
       return;
     }
     if (!validatePasswordField(password)) return;
@@ -167,19 +132,14 @@ export function LoginScreen({
 
   // ─── Error rendering ────────────────────────────────────────────────────────
 
-  /** inline below the password field — wrong-credentials */
   const showWrongCreds = outcome?.kind === 'wrong_credentials';
-
-  /** warm-neutral inline strip — offline */
   const showOffline = outcome?.kind === 'network_error';
-
-  /** calm centered card — server error or rate-limited */
   const showServerCard =
     outcome?.kind === 'server_error' || outcome?.kind === 'rate_limited';
 
   function serverCardText(): string {
-    if (outcome?.kind === 'rate_limited') return s.rateLimited;
-    if (outcome?.kind === 'server_error') return s.serverError;
+    if (outcome?.kind === 'rate_limited') return t('login.rateLimited');
+    if (outcome?.kind === 'server_error') return t('login.serverError');
     return '';
   }
 
@@ -194,24 +154,21 @@ export function LoginScreen({
         contentContainerStyle={styles.scroll}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Offline strip (§7.2) — warm-neutral, not red, not a modal */}
         {showOffline && (
           <View style={styles.offlineStrip} accessibilityLiveRegion="polite">
-            <Text style={styles.offlineText}>{s.offline}</Text>
+            <Text style={styles.offlineText}>{t('login.offline')}</Text>
           </View>
         )}
 
-        {/* Server-error / rate-limited card (§7.2) — calm centered */}
         {showServerCard && (
           <View style={styles.serverCard} accessibilityRole="alert">
             <Text style={styles.serverCardText}>{serverCardText()}</Text>
           </View>
         )}
 
-        <Text style={styles.title}>{s.title}</Text>
+        <Text style={styles.title}>{t('login.title')}</Text>
 
-        {/* Email field */}
-        <Text style={styles.label}>{s.emailLabel}</Text>
+        <Text style={styles.label}>{t('login.emailLabel')}</Text>
         <TextInput
           style={[styles.input, emailError ? styles.inputError : null]}
           value={email}
@@ -220,13 +177,13 @@ export function LoginScreen({
             if (emailError) setEmailError(null);
           }}
           onBlur={handleEmailBlur}
-          placeholder={s.emailPlaceholder}
+          placeholder={t('login.emailPlaceholder')}
           placeholderTextColor="#94818A"
           autoCapitalize="none"
           autoComplete="email"
           keyboardType="email-address"
           textContentType="emailAddress"
-          accessibilityLabel={s.emailLabel}
+          accessibilityLabel={t('login.emailLabel')}
         />
         {emailError && (
           <Text style={styles.fieldError} accessibilityRole="alert">
@@ -234,8 +191,7 @@ export function LoginScreen({
           </Text>
         )}
 
-        {/* Password field + show/hide eye */}
-        <Text style={styles.label}>{s.passwordLabel}</Text>
+        <Text style={styles.label}>{t('login.passwordLabel')}</Text>
         <View style={styles.passwordRow}>
           <TextInput
             style={[styles.input, styles.passwordInput]}
@@ -244,53 +200,48 @@ export function LoginScreen({
             secureTextEntry={!showPassword}
             autoComplete="current-password"
             textContentType="password"
-            accessibilityLabel={s.passwordLabel}
+            accessibilityLabel={t('login.passwordLabel')}
           />
           <TouchableOpacity
             style={styles.eyeButton}
             onPress={() => setShowPassword((v) => !v)}
-            accessibilityLabel={showPassword ? s.hidePassword : s.showPassword}
+            accessibilityLabel={showPassword ? t('login.hidePassword') : t('login.showPassword')}
             accessibilityRole="button"
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            {/* Icon placeholder — swap for a real eye icon when assets land */}
             <Text style={styles.eyeIcon}>{showPassword ? '🙈' : '👁'}</Text>
           </TouchableOpacity>
         </View>
 
-        {/* Wrong-credentials inline — under password, non-enumerating (§E/C7/§7.2) */}
         {showWrongCreds && (
           <TouchableOpacity onPress={onForgotPassword} accessibilityRole="link">
             <Text style={styles.wrongCreds} accessibilityRole="alert">
-              {s.wrongCredentials}
+              {t('login.wrongCredentials')}
             </Text>
           </TouchableOpacity>
         )}
 
-        {/* Primary action */}
         <TouchableOpacity
           style={[styles.primaryButton, (!canSubmit || loading) && styles.primaryButtonDisabled]}
           onPress={onSubmit}
           disabled={!canSubmit || loading}
           accessibilityRole="button"
-          accessibilityLabel={s.submit}
+          accessibilityLabel={t('login.submit')}
           accessibilityState={{ disabled: !canSubmit || loading, busy: loading }}
         >
           {loading ? (
             <ActivityIndicator color="#FFFFFF" size="small" />
           ) : (
-            <Text style={styles.primaryButtonText}>{s.submit}</Text>
+            <Text style={styles.primaryButtonText}>{t('login.submit')}</Text>
           )}
         </TouchableOpacity>
 
-        {/* "or" divider (§5.4) */}
         <View style={styles.dividerRow}>
           <View style={styles.dividerLine} />
-          <Text style={styles.dividerText}>{locale === 'th' ? 'หรือ' : 'or'}</Text>
+          <Text style={styles.dividerText}>{t('general.or')}</Text>
           <View style={styles.dividerLine} />
         </View>
 
-        {/* Google button placeholder (§5.4 — disabled until official SDK is integrated) */}
         <TouchableOpacity
           style={[styles.googleButton, styles.googleButtonDisabled]}
           disabled={true}
@@ -316,13 +267,12 @@ export function LoginScreen({
           </View>
         </TouchableOpacity>
 
-        {/* Quiet links */}
         <TouchableOpacity
           style={styles.quietLink}
           onPress={onForgotPassword}
           accessibilityRole="link"
         >
-          <Text style={styles.quietLinkText}>{s.forgotPassword}</Text>
+          <Text style={styles.quietLinkText}>{t('login.forgotPassword')}</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -330,48 +280,48 @@ export function LoginScreen({
           onPress={onCreateAccount}
           accessibilityRole="link"
         >
-          <Text style={styles.quietLinkText}>{s.createAccount}</Text>
+          <Text style={styles.quietLinkText}>{t('login.createAccount')}</Text>
         </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>
   );
 }
 
-// ─── Styles (design-system.md tokens) ────────────────────────────────────────
+// ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  flex: { flex: 1, backgroundColor: '#FBF6F1' /* bg/warm-milk */ },
+  flex: { flex: 1, backgroundColor: '#FBF6F1' },
   scroll: { flexGrow: 1, padding: 24 },
 
   title: {
-    fontFamily: 'IBMPlexSans-SemiBold', // design-system §2 — headline
+    fontFamily: 'IBMPlexSans-SemiBold',
     fontSize: 28,
     lineHeight: 38,
-    color: '#3A2A30', // ink
+    color: '#3A2A30',
     marginBottom: 32,
   },
 
   label: {
     fontFamily: 'IBMPlexSans-Regular',
     fontSize: 14,
-    color: '#5F4A52', // ink/soft
+    color: '#5F4A52',
     marginBottom: 6,
     marginTop: 16,
   },
 
   input: {
-    height: 52, // min-height per design-system §5.1
+    height: 52,
     borderWidth: 1,
-    borderColor: '#EBE1D9', // hairline
-    borderRadius: 12, // design-system §5.1 pill
-    backgroundColor: '#FFFFFF', // surface/page
+    borderColor: '#EBE1D9',
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
     paddingHorizontal: 16,
     fontSize: 16,
-    color: '#3A2A30', // ink
+    color: '#3A2A30',
     fontFamily: 'IBMPlexSans-Regular',
   },
   inputError: {
-    borderColor: '#C0762B', // status/attention — non-red per design-system §1.4
+    borderColor: '#C0762B',
   },
 
   passwordRow: { flexDirection: 'row', alignItems: 'center' },
@@ -380,7 +330,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 0,
     height: 52,
-    width: 52, // ≥48 touch target §5.1
+    width: 52,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -389,28 +339,28 @@ const styles = StyleSheet.create({
   fieldError: {
     fontFamily: 'IBMPlexSans-Regular',
     fontSize: 14,
-    color: '#5F4A52', // ink/soft — non-blaming, never red
+    color: '#5F4A52',
     marginTop: 4,
   },
 
   wrongCreds: {
     fontFamily: 'IBMPlexSans-Regular',
     fontSize: 14,
-    color: '#5F4A52', // ink/soft — §7.2: never red
+    color: '#5F4A52',
     marginTop: 8,
     marginBottom: 4,
   },
 
   primaryButton: {
     height: 52,
-    backgroundColor: '#A8505A', // rose/600
+    backgroundColor: '#A8505A',
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: 24,
   },
   primaryButtonDisabled: {
-    backgroundColor: '#DDA0A6', // rose/300
+    backgroundColor: '#DDA0A6',
   },
   primaryButtonText: {
     fontFamily: 'IBMPlexSans-SemiBold',
@@ -421,18 +371,18 @@ const styles = StyleSheet.create({
   dividerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 16, // space/4 per §5.4
+    marginVertical: 16,
   },
-  dividerLine: { flex: 1, height: 1, backgroundColor: '#EBE1D9' /* hairline */ },
+  dividerLine: { flex: 1, height: 1, backgroundColor: '#EBE1D9' },
   dividerText: {
     fontFamily: 'IBMPlexSans-Regular',
     fontSize: 12,
-    color: '#94818A', // ink/faint
+    color: '#94818A',
     marginHorizontal: 12,
   },
 
   googleButton: {
-    height: 52, // min-height matches Primary (§5.4)
+    height: 52,
     borderWidth: 1,
     borderColor: '#EBE1D9',
     borderRadius: 12,
@@ -473,12 +423,11 @@ const styles = StyleSheet.create({
   quietLinkText: {
     fontFamily: 'IBMPlexSans-Regular',
     fontSize: 14,
-    color: '#5F4A52', // ink/soft
+    color: '#5F4A52',
   },
 
-  // Error states — § 7.2
   offlineStrip: {
-    backgroundColor: '#FBF3EE', // surface/page-sunk
+    backgroundColor: '#FBF3EE',
     borderRadius: 8,
     padding: 12,
     marginBottom: 12,
@@ -488,21 +437,21 @@ const styles = StyleSheet.create({
   offlineText: {
     fontFamily: 'IBMPlexSans-Regular',
     fontSize: 14,
-    color: '#5F4A52', // ink/soft — warm, not red
+    color: '#5F4A52',
     flex: 1,
   },
   serverCard: {
-    backgroundColor: '#FFFFFF', // surface/page
+    backgroundColor: '#FFFFFF',
     borderRadius: 12,
     padding: 16,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: '#EBE1D9', // hairline
+    borderColor: '#EBE1D9',
   },
   serverCardText: {
     fontFamily: 'IBMPlexSans-Regular',
     fontSize: 16,
-    color: '#3A2A30', // ink — calm, no red
+    color: '#3A2A30',
     textAlign: 'center',
   },
 });

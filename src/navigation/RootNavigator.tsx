@@ -28,6 +28,11 @@
  * - BirthEventScreen receives `onBirthRecorded` which resets to Home; HomeScreen
  *   then reloads on foreground and switches to postpartum mode.
  *
+ * i18n:
+ * - Navigator header titles sourced from useT() so they update on locale change.
+ * - The `locale` prop on auth screens has been removed (deprecated; locale is
+ *   now read from LanguageContext inside each screen via useT()).
+ *
  * Carry-forward:
  * - ForgotPassword screen (onForgotPassword is currently a no-op)
  * - Expo Linking deep-link for momstarter://verify?token= → VerifyEmailScreen
@@ -47,6 +52,7 @@ import { RegisterScreen } from '../auth/RegisterScreen';
 import { VerifyEmailScreen } from '../auth/VerifyEmailScreen';
 import { ProfileSetupScreen } from '../pregnancy/ProfileSetupScreen';
 import { BirthEventScreen } from '../pregnancy/BirthEventScreen';
+import { useT } from '../i18n/LanguageContext';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -58,6 +64,8 @@ interface RootNavigatorProps {
 }
 
 export function RootNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps): React.JSX.Element {
+  const { t } = useT();
+
   return (
     <Stack.Navigator
       initialRouteName="Welcome"
@@ -78,12 +86,11 @@ export function RootNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps):
       {/* Login (S4) */}
       <Stack.Screen
         name="Login"
-        options={{ title: 'เข้าสู่ระบบ', headerBackTitle: '' }}
+        options={{ title: t('login.title'), headerBackTitle: '' }}
       >
         {({ navigation }) => (
           <LoginScreen
             apiBaseUrl={apiBaseUrl}
-            locale="th"
             tokenStorage={tokenStorage}
             onSuccess={() =>
               navigation.reset({ index: 0, routes: [{ name: 'Home' }] })
@@ -99,12 +106,11 @@ export function RootNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps):
       {/* Register (S2) */}
       <Stack.Screen
         name="Register"
-        options={{ title: 'สร้างบัญชี', headerBackTitle: '' }}
+        options={{ title: t('welcome.createAccount'), headerBackTitle: '' }}
       >
         {({ navigation }) => (
           <RegisterScreen
             apiBaseUrl={apiBaseUrl}
-            locale="th"
             onSuccess={(email) =>
               navigation.navigate('VerifyEmail', { email })
             }
@@ -116,12 +122,11 @@ export function RootNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps):
       {/* VerifyEmail / Check inbox (S3) */}
       <Stack.Screen
         name="VerifyEmail"
-        options={{ title: 'ยืนยันอีเมล', headerBackVisible: false }}
+        options={{ title: t('verify.navTitle'), headerBackVisible: false }}
       >
         {({ route, navigation }) => (
           <VerifyEmailScreen
             apiBaseUrl={apiBaseUrl}
-            locale="th"
             email={route.params.email}
             pendingToken={route.params.pendingToken}
             tokenStorage={tokenStorage}
@@ -166,7 +171,7 @@ export function RootNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps):
       {/* ProfileSetup — initial due-date / current-week entry (US-1) */}
       <Stack.Screen
         name="ProfileSetup"
-        options={{ title: 'ตั้งกำหนดคลอด', headerBackTitle: '' }}
+        options={{ title: t('profile.navTitle'), headerBackTitle: '' }}
       >
         {({ navigation }) => (
           <ProfileSetupScreen
@@ -191,7 +196,7 @@ export function RootNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps):
        */}
       <Stack.Screen
         name="BirthEvent"
-        options={{ title: 'ลูกคลอดแล้ว', headerBackTitle: 'กลับ' }}
+        options={{ title: t('birth.navTitle'), headerBackTitle: t('general.back') }}
       >
         {({ route, navigation }) => (
           <BirthEventScreen

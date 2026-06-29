@@ -6,7 +6,11 @@
  *   Login → Home (on success) | Register (create account link)
  *   Register → VerifyEmail (on 202) | Login (sign-in link)
  *   VerifyEmail → Home (on verify success) | Register (change email)
- *   Home — placeholder dashboard (logout → Welcome)
+ *   Home — checks for PregnancyProfile on mount:
+ *     → ProfileSetup (if GET /v1/pregnancy-profile returns 404)
+ *     → stays on Home (if profile exists)
+ *   ProfileSetup — initial due-date / current-week entry:
+ *     → Home (on PUT success; resets stack so Back returns to Welcome not Setup)
  *
  * Design decisions:
  * - Auth screens keep their callback-based prop API (onSuccess, onSignIn, etc.)
@@ -15,6 +19,10 @@
  *   existing logic testable without a navigation environment.
  * - Login and VerifyEmail success use `navigation.reset` to clear the auth stack
  *   so the user cannot "back" into the sign-in screen after logging in.
+ * - HomeScreen receives `apiBaseUrl` (for pregnancy profile GET) and
+ *   `onNeedsProfile` (navigates to ProfileSetup when GET returns 404).
+ * - ProfileSetup receives `onSetupComplete` which resets the stack to Home
+ *   so the Back button does not return to Setup after the profile is saved.
  * - tokenStorage and apiBaseUrl are passed in from App.tsx (created once with
  *   useMemo) so auth screens share the same storage instance.
  *
@@ -22,6 +30,7 @@
  * - ForgotPassword screen (onForgotPassword is currently a no-op)
  * - Expo Linking deep-link handler to extract `pendingToken` from the
  *   momstarter://verify?token=... URL and pass to VerifyEmailScreen
+ * - Consent (general_health) screen between Register/VerifyEmail and ProfileSetup
  */
 
 import React from 'react';
@@ -35,6 +44,7 @@ import { HomeScreen } from '../screens/HomeScreen';
 import { LoginScreen } from '../auth/LoginScreen';
 import { RegisterScreen } from '../auth/RegisterScreen';
 import { VerifyEmailScreen } from '../auth/VerifyEmailScreen';
+import { ProfileSetupScreen } from '../pregnancy/ProfileSetupScreen';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -123,7 +133,12 @@ export function RootNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps):
         )}
       </Stack.Screen>
 
-      {/* Home — placeholder dashboard */}
+      {/* Home — dashboard
+       *
+       * Checks for PregnancyProfile on mount:
+       *   GET 404 → calls onNeedsProfile → navigate to ProfileSetup
+       *   GET 200 → shows the gestational-age dashboard
+       */}
       <Stack.Screen
         name="Home"
         options={{ headerShown: false }}
@@ -131,8 +146,32 @@ export function RootNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps):
         {({ navigation }) => (
           <HomeScreen
             tokenStorage={tokenStorage}
+            apiBaseUrl={apiBaseUrl}
             onLogout={() =>
               navigation.reset({ index: 0, routes: [{ name: 'Welcome' }] })
+            }
+            onNeedsProfile={() =>
+              navigation.reset({ index: 0, routes: [{ name: 'ProfileSetup' }] })
+            }
+          />
+        )}
+      </Stack.Screen>
+
+      {/* ProfileSetup — initial due-date / current-week entry (US-1)
+       *
+       * Reached when Home detects no profile (GET 404) or from Welcome.
+       * On completion resets stack to Home so Back does not return here.
+       */}
+      <Stack.Screen
+        name="ProfileSetup"
+        options={{ title: 'ตั้งกำหนดคลอด', headerBackTitle: '' }}
+      >
+        {({ navigation }) => (
+          <ProfileSetupScreen
+            tokenStorage={tokenStorage}
+            apiBaseUrl={apiBaseUrl}
+            onSetupComplete={() =>
+              navigation.reset({ index: 0, routes: [{ name: 'Home' }] })
             }
           />
         )}

@@ -2,6 +2,12 @@
 
 React Native (Expo managed workflow) app for the Mom-Starter pregnancy companion.
 
+## คู่มือทดสอบ UAT และ Build (ภาษาไทย)
+
+สำหรับวิธีทดสอบแบบ step-by-step ครอบคลุม Expo Go, iOS Simulator, Android Emulator, และ EAS Build — รวมถึงการตั้ง API base URL ก่อน standalone build — ดูที่:
+
+**[docs/uat-and-build.md](./docs/uat-and-build.md)**
+
 ## Stack
 
 - Expo SDK 51 (managed workflow)
@@ -46,25 +52,27 @@ npx expo start --web       # or press 'w'
 
 ## UAT on a physical device (important — API base URL)
 
-The app connects to the Spring Boot API. By default `src/config.ts` uses
-`http://localhost:8080`. This works in:
+The app connects to the Spring Boot API. `src/config.ts` auto-resolves the
+dev machine's LAN IP from Expo's `hostUri` — no manual IP edits needed when
+using **Expo Go** on the same Wi-Fi network.
 
-- iOS Simulator (Mac) — shares the Mac's network stack
-- Android Emulator with host alias `10.0.2.2` (emulator-specific)
+For **standalone EAS builds** (`.ipa` / `.apk`), `hostUri` is not available,
+so the app falls back to `localhost`. Set `extra.apiBaseUrl` in `app.json`
+before building:
 
-**For physical Android devices or when localhost does not resolve**, change
-`API_BASE_URL` in `src/config.ts` to your dev machine's LAN IP:
-
-```ts
-// src/config.ts
-export const API_BASE_URL = 'http://192.168.1.10:8080';  // your Mac's LAN IP
+```json
+"extra": {
+  "apiBaseUrl": "http://192.168.1.10:8080"
+}
 ```
 
-How to find your Mac's LAN IP:
-- System Settings → Wi-Fi → [network name] → Details → IP Address
-- Or: `ipconfig getifaddr en0` in Terminal
+Replace `192.168.1.10` with your Mac's LAN IP (`ipconfig getifaddr en0`).
 
-Make sure the Spring Boot server is running and the firewall allows port 8080.
+Make sure the Spring Boot server is running, bound to `0.0.0.0` (not just
+`localhost`), and the firewall allows port 8080.
+
+See [docs/uat-and-build.md](./docs/uat-and-build.md) for the full walkthrough
+in Thai.
 
 ## Running tests
 

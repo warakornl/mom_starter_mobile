@@ -240,6 +240,7 @@ export function RootNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps):
        *
        * Entry: "ดูทั้งหมด" / calendar button on HomeScreen.
        * CalendarScreen receives navigation callbacks for add/edit forms.
+       * tokenStorage + apiBaseUrl enable sync push/pull for calendar data.
        */}
       <Stack.Screen
         name="Calendar"
@@ -247,6 +248,8 @@ export function RootNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps):
       >
         {({ navigation }) => (
           <CalendarScreen
+            tokenStorage={tokenStorage}
+            apiBaseUrl={apiBaseUrl}
             onAddAppointment={() =>
               navigation.navigate('AppointmentForm', {})
             }
@@ -288,6 +291,8 @@ export function RootNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps):
             <AppointmentFormScreen
               existingItem={existingItem}
               defaultCategory={defaultCategory}
+              tokenStorage={tokenStorage}
+              apiBaseUrl={apiBaseUrl}
               onSave={() => navigation.goBack()}
               onCancel={() => navigation.goBack()}
             />
@@ -316,6 +321,8 @@ export function RootNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps):
           return (
             <ReminderFormScreen
               existingReminder={existingReminder}
+              tokenStorage={tokenStorage}
+              apiBaseUrl={apiBaseUrl}
               onSave={() => navigation.goBack()}
               onCancel={() => navigation.goBack()}
             />

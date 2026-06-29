@@ -53,6 +53,10 @@ import { VerifyEmailScreen } from '../auth/VerifyEmailScreen';
 import { ProfileSetupScreen } from '../pregnancy/ProfileSetupScreen';
 import { BirthEventScreen } from '../pregnancy/BirthEventScreen';
 import { SuppliesScreen } from '../supplies/SuppliesScreen';
+import { CalendarScreen } from '../calendar/CalendarScreen';
+import { AppointmentFormScreen } from '../calendar/AppointmentFormScreen';
+import { ReminderFormScreen } from '../calendar/ReminderFormScreen';
+import { calendarSyncStore } from '../sync/calendarSyncStore';
 import { useT } from '../i18n/LanguageContext';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -166,6 +170,7 @@ export function RootNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps):
               navigation.navigate('BirthEvent', { profileVersion })
             }
             onSupplies={() => navigation.navigate('Supplies')}
+            onCalendar={() => navigation.navigate('Calendar')}
           />
         )}
       </Stack.Screen>
@@ -229,6 +234,93 @@ export function RootNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps):
             apiBaseUrl={apiBaseUrl}
           />
         )}
+      </Stack.Screen>
+
+      {/* Calendar — month/agenda (calendar + reminder occurrences + appointments)
+       *
+       * Entry: "ดูทั้งหมด" / calendar button on HomeScreen.
+       * CalendarScreen receives navigation callbacks for add/edit forms.
+       */}
+      <Stack.Screen
+        name="Calendar"
+        options={{ title: t('calendar.navTitle'), headerBackTitle: t('general.back') }}
+      >
+        {({ navigation }) => (
+          <CalendarScreen
+            onAddAppointment={() =>
+              navigation.navigate('AppointmentForm', {})
+            }
+            onEditAppointment={(itemId: string) =>
+              navigation.navigate('AppointmentForm', { itemId })
+            }
+            onAddReminder={() =>
+              navigation.navigate('ReminderForm', {})
+            }
+            onEditReminder={(reminderId: string) =>
+              navigation.navigate('ReminderForm', { reminderId })
+            }
+          />
+        )}
+      </Stack.Screen>
+
+      {/* AppointmentForm — add/edit ChecklistItem (category=appointment)
+       *
+       * Entry: CalendarScreen FAB or tapping an existing appointment.
+       * itemId present → edit mode (looks up calendarSyncStore.getChecklistItem).
+       */}
+      <Stack.Screen
+        name="AppointmentForm"
+        options={({ route }) => ({
+          title: route.params?.itemId
+            ? t('appointment.navTitleEdit')
+            : t('appointment.navTitleNew'),
+          headerBackTitle: t('general.back'),
+        })}
+      >
+        {({ route, navigation }) => {
+          const existingItem = route.params?.itemId
+            ? calendarSyncStore.getChecklistItem(route.params.itemId) ?? undefined
+            : undefined;
+          const defaultCategory =
+            (route.params?.defaultCategory as import('../sync/syncTypes').ChecklistItemCategory | undefined) ??
+            'appointment';
+          return (
+            <AppointmentFormScreen
+              existingItem={existingItem}
+              defaultCategory={defaultCategory}
+              onSave={() => navigation.goBack()}
+              onCancel={() => navigation.goBack()}
+            />
+          );
+        }}
+      </Stack.Screen>
+
+      {/* ReminderForm — add/edit Reminder with recurrenceRule (FLAG-4)
+       *
+       * Entry: CalendarScreen FAB or tapping an existing reminder.
+       * reminderId present → edit mode (looks up calendarSyncStore.getReminder).
+       */}
+      <Stack.Screen
+        name="ReminderForm"
+        options={({ route }) => ({
+          title: route.params?.reminderId
+            ? t('reminder.navTitleEdit')
+            : t('reminder.navTitleNew'),
+          headerBackTitle: t('general.back'),
+        })}
+      >
+        {({ route, navigation }) => {
+          const existingReminder = route.params?.reminderId
+            ? calendarSyncStore.getReminder(route.params.reminderId) ?? undefined
+            : undefined;
+          return (
+            <ReminderFormScreen
+              existingReminder={existingReminder}
+              onSave={() => navigation.goBack()}
+              onCancel={() => navigation.goBack()}
+            />
+          );
+        }}
       </Stack.Screen>
     </Stack.Navigator>
   );

@@ -56,17 +56,12 @@ import {
 import { v4 as uuidv4 } from 'uuid';
 
 import type { TokenStorage } from '../auth/tokenStorage';
-import { createSyncStore } from '../sync/syncStore';
 import { createSyncClient } from '../sync/syncClient';
+import { supplySyncStore } from '../sync/supplySyncStore';
+import { executePush } from '../sync/pushOrchestrator';
 import type { SupplyItemRecord, SupplyCategory, RejectedRecord } from '../sync/syncTypes';
 import { useT } from '../i18n/LanguageContext';
 import { interpolate } from '../i18n/messages';
-
-// ─── Module-level store + client (survive re-mounts in same JS session) ───────
-// In-memory only; repopulated by pull() on each app launch.
-// NOTE: shared across all mounted SuppliesScreen instances in the same session.
-
-const _store = createSyncStore();
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -418,8 +413,8 @@ export function SuppliesScreen({
 }: SuppliesScreenProps): React.JSX.Element {
   const { t } = useT();
 
-  // Display state — refreshed from _store after every sync operation
-  const [items, setItems] = useState<SupplyItemRecord[]>(_store.getSupplyItems());
+  // Display state — refreshed from supplySyncStore after every sync operation
+  const [items, setItems] = useState<SupplyItemRecord[]>(supplySyncStore.getSupplyItems());
   const [formVisible, setFormVisible] = useState(false);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [syncing, setSyncing] = useState(false);
@@ -427,12 +422,12 @@ export function SuppliesScreen({
   const [conflictCount, setConflictCount] = useState(0);
   const [rejectedItems, setRejectedItems] = useState<RejectedRecord[]>([]);
 
-  // SyncClient is cheap to create per session (store is module-level)
-  const clientRef = useRef(createSyncClient(apiBaseUrl, _store));
+  // SyncClient is cheap to create per session (store is module-level singleton)
+  const clientRef = useRef(createSyncClient(apiBaseUrl, supplySyncStore));
 
   // Refresh display from store
   const refreshFromStore = useCallback(() => {
-    setItems([..._store.getSupplyItems()]);
+    setItems([...supplySyncStore.getSupplyItems()]);
   }, []);
 
   // ── Sync pull ───────────────────────────────────────────────────────────────
@@ -446,7 +441,7 @@ export function SuppliesScreen({
 
     const result = await clientRef.current.pull(
       tokens.accessToken,
-      _store.getWatermark(),
+      supplySyncStore.getWatermark(),
     );
 
     setSyncing(false);
@@ -462,7 +457,7 @@ export function SuppliesScreen({
   // ── Sync push ───────────────────────────────────────────────────────────────
 
   const syncPush = useCallback(async () => {
-    if (_store.getPendingCount() === 0) return;
+    if (supplySyncStore.getPendingCount() === 0) return;
 
     const tokens = await tokenStorage.load();
     if (!tokens?.accessToken) return;
@@ -470,32 +465,27 @@ export function SuppliesScreen({
     setSyncing(true);
     setSyncError(null);
 
-    const changes = _store.drainQueue();
-    const idempotencyKey = uuidv4();
-    const watermark = _store.getWatermark() ?? '';
-
-    const result = await clientRef.current.push(
-      changes,
-      watermark,
+    // executePush: drains the queue, pushes, and re-enqueues on fail or
+    // rejection (contract §3 — mutations must never be silently lost).
+    const result = await executePush(
+      supplySyncStore,
+      clientRef.current,
       tokens.accessToken,
-      idempotencyKey,
+      uuidv4(),
     );
 
     setSyncing(false);
     refreshFromStore();
 
+    // Always set banner state unconditionally so a clean subsequent push
+    // clears a previously-displayed conflict/rejected banner (🟡-1 fix).
     if (!result.ok) {
-      // Re-queue on failure: data stays in queue from next syncPush attempt
-      // (drainQueue already cleared — in-memory loss on failure is noted
-      // as carry-forward for SQLite persistence)
       setSyncError(t('supplies.syncError'));
+      setConflictCount(0);
+      setRejectedItems([]);
     } else {
-      if (result.conflicts.length > 0) {
-        setConflictCount(result.conflicts.length);
-      }
-      if (result.rejected.length > 0) {
-        setRejectedItems(result.rejected);
-      }
+      setConflictCount(result.conflicts.length);
+      setRejectedItems(result.rejected);
     }
   }, [tokenStorage, refreshFromStore, t]);
 
@@ -565,7 +555,7 @@ export function SuppliesScreen({
 
     if (form.id) {
       // Update existing item
-      const existing = _store.getSupplyItem(form.id);
+      const existing = supplySyncStore.getSupplyItem(form.id);
       if (!existing) return;
       const updated: SupplyItemRecord = {
         ...existing,
@@ -576,7 +566,7 @@ export function SuppliesScreen({
         lowThreshold: threshold,
         updatedAt: now, // local estimate; server overrides on push
       };
-      _store.enqueueUpdate(updated);
+      supplySyncStore.enqueueUpdate(updated);
     } else {
       // Create new item (client-gen uuid, version=0 sentinel)
       const newItem: SupplyItemRecord = {
@@ -591,7 +581,7 @@ export function SuppliesScreen({
         updatedAt: now,
         deletedAt: null,
       };
-      _store.enqueueCreate(newItem);
+      supplySyncStore.enqueueCreate(newItem);
     }
 
     setFormVisible(false);
@@ -609,7 +599,7 @@ export function SuppliesScreen({
           text: t('supplies.deleteConfirmOk'),
           style: 'destructive',
           onPress: () => {
-            _store.enqueueDelete(item.id);
+            supplySyncStore.enqueueDelete(item.id);
             refreshFromStore();
             void syncPush();
           },

@@ -4,6 +4,10 @@
  * Implements pregnancy-profile-ui.md §4 (Birth event) + §4.2 (Review screen)
  * + §4.4 (Screen states).
  *
+ * All strings sourced from useT() / catalog (src/i18n/messages.ts).
+ * Dates formatted via formatCivilDate (locale-aware, no "วันที่" prefix).
+ * Delivery-type chip labels are derived from catalog keys.
+ *
  * Records the birth by calling POST /v1/pregnancy-profile/birth-event with:
  *   - birthDate  (required, YYYY-MM-DD civil date, ≤ today)
  *   - deliveryType (optional, 4 choices)
@@ -30,8 +34,8 @@
  *   saving   — POST in-flight (button spinner)
  *   error    — inline, non-blocking error note with Retry
  *
- * Accessibility: all touch targets ≥ 48dp (height set in StyleSheet), Thai
- * accessibilityLabel on every interactive element, non-color chip selection
+ * Accessibility: all touch targets ≥ 48dp (height set in StyleSheet),
+ * accessible labels on every interactive element, non-color chip selection
  * cue (checkmark + border change).
  *
  * Security: NEVER log accessToken, deliveryType, or birthNote.
@@ -53,6 +57,8 @@ import {
 import type { TokenStorage } from '../auth/tokenStorage';
 import { createPregnancyClient } from './pregnancyApiClient';
 import { localCivilToday } from './gestationalAge';
+import { useT } from '../i18n/LanguageContext';
+import { formatCivilDate, type MessageKey } from '../i18n/messages';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -73,29 +79,15 @@ export interface BirthEventScreenProps {
 
 type DeliveryType = 'vaginal' | 'cesarean' | 'other' | 'prefer_not';
 
-interface DeliveryOption {
-  value: DeliveryType;
-  labelTh: string;
-}
+const DELIVERY_TYPES: readonly DeliveryType[] = ['vaginal', 'cesarean', 'other', 'prefer_not'];
 
-const DELIVERY_OPTIONS: DeliveryOption[] = [
-  { value: 'vaginal',    labelTh: 'คลอดเอง' },
-  { value: 'cesarean',   labelTh: 'ผ่าคลอด' },
-  { value: 'other',      labelTh: 'อื่น ๆ' },
-  { value: 'prefer_not', labelTh: 'ไม่ระบุ' },
-];
-
-// ─── Date helpers ─────────────────────────────────────────────────────────────
-
-const THAI_MONTHS = [
-  'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
-  'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม',
-];
-
-function formatThaiDate(isoDate: string): string {
-  const [y, m, d] = isoDate.split('-').map(Number);
-  return `${d} ${THAI_MONTHS[m - 1]} พ.ศ. ${y + 543}`;
-}
+/** Type-safe map from DeliveryType → catalog key for chip labels. */
+const DELIVERY_LABEL_KEYS: Record<DeliveryType, MessageKey> = {
+  vaginal: 'birth.delivery.vaginal',
+  cesarean: 'birth.delivery.cesarean',
+  other: 'birth.delivery.other',
+  prefer_not: 'birth.delivery.prefer_not',
+};
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -106,6 +98,8 @@ export function BirthEventScreen({
   onBirthRecorded,
   onCancel: _onCancel,
 }: BirthEventScreenProps): React.JSX.Element {
+  const { t, locale } = useT();
+
   // ── Form state ────────────────────────────────────────────────────────────
   const [birthDate, setBirthDate] = useState<string>('');
   const [deliveryType, setDeliveryType] = useState<DeliveryType | null>(null);
@@ -127,7 +121,7 @@ export function BirthEventScreen({
   function handleDateConfirm(): void {
     const trimmed = dateInputText.trim();
     if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
-      Alert.alert('รูปแบบวันที่', 'กรุณากรอกวันที่ในรูปแบบ YYYY-MM-DD เช่น 2026-06-29');
+      Alert.alert(t('birth.dateFormatAlertTitle'), t('birth.dateFormatAlertMsg'));
       return;
     }
     // Soft guard: birth date should not be in the future (§5 — non-blocking typo hint).
@@ -135,12 +129,12 @@ export function BirthEventScreen({
     const today = localCivilToday();
     if (trimmed > today) {
       Alert.alert(
-        'ตรวจสอบวันที่',
-        'วันคลอดดูเหมือนจะเป็นอนาคต — ต้องการใช้วันนี้ไหมคะ?',
+        t('birth.futureDateTitle'),
+        t('birth.futureDateMessage'),
         [
-          { text: 'ยกเลิก', style: 'cancel' },
+          { text: t('birth.futureDateCancel'), style: 'cancel' },
           {
-            text: 'ใช้ต่อ',
+            text: t('birth.futureDateContinue'),
             onPress: () => {
               setBirthDate(trimmed);
               setShowDateModal(false);
@@ -170,7 +164,7 @@ export function BirthEventScreen({
       const tokens = await tokenStorage.load();
       const accessToken = tokens?.accessToken;
       if (!accessToken) {
-        setErrorMsg('กรุณาเข้าสู่ระบบใหม่');
+        setErrorMsg(t('birth.errorLogin'));
         setSaving(false);
         return;
       }
@@ -200,26 +194,25 @@ export function BirthEventScreen({
         // HomeScreen reloads on foreground and switches to postpartum mode.
         onBirthRecorded();
       } else {
-        // Map server error codes to calm Thai copy (pregnancy-profile-ui §4.4).
+        // Map server error codes to calm copy via catalog (pregnancy-profile-ui §4.4).
         if (result.status === 403 && result.code === 'consent_required') {
-          setErrorMsg('การบันทึกต้องเปิดสิทธิ "บันทึกสุขภาพในเครื่อง" ก่อน');
+          setErrorMsg(t('birth.errorConsentRequired'));
         } else if (result.status === 409) {
           // Another device already recorded the birth — intent may be satisfied.
-          // Prompt the user to go back and see the latest profile.
-          setErrorMsg('มีการบันทึกจากอุปกรณ์อื่น กรุณาดูข้อมูลล่าสุดในหน้าหลัก');
+          setErrorMsg(t('birth.errorConflict'));
         } else if (result.status === 422) {
-          setErrorMsg('ลองตรวจสอบวันที่อีกครั้ง (วันที่ไม่ถูกต้อง)');
+          setErrorMsg(t('birth.errorDateInvalid'));
         } else if (result.status === 428) {
-          setErrorMsg('ไม่สามารถบันทึกได้ กรุณาลองอีกครั้ง');
+          setErrorMsg(t('birth.errorPreconditionFailed'));
         } else if (result.status === 404) {
-          setErrorMsg('ไม่พบข้อมูลการตั้งครรภ์');
+          setErrorMsg(t('birth.errorNotFound'));
         } else {
-          setErrorMsg('บันทึกไม่สำเร็จในขณะนี้');
+          setErrorMsg(t('birth.errorGeneric'));
         }
       }
     } catch {
       // Network error — offline or unreachable server (§4.4.3 / §4.4.4)
-      setErrorMsg('ออฟไลน์ · บันทึกไว้ในเครื่องเมื่อออนไลน์');
+      setErrorMsg(t('birth.errorOffline'));
     } finally {
       setSaving(false);
     }
@@ -240,16 +233,16 @@ export function BirthEventScreen({
             {'🍃'}
           </Text>
           <Text style={styles.headline} accessibilityRole="header">
-            {'ยินดีด้วยนะคะ'}
+            {t('birth.headline')}
           </Text>
           <Text style={styles.subline}>
-            {'มาบันทึกการคลอดของคุณกัน'}
+            {t('birth.subline')}
           </Text>
         </View>
 
         {/* ── Birth date (required) ──────────────────────────────────────── */}
         <Text style={styles.fieldLabel}>
-          {'วันที่คลอด / Birth date'}
+          {t('birth.fieldBirthDate')}
           <Text style={styles.required}>{' *'}</Text>
         </Text>
         <TouchableOpacity
@@ -261,8 +254,8 @@ export function BirthEventScreen({
           accessibilityRole="button"
           accessibilityLabel={
             birthDate
-              ? `วันที่คลอด, ${formatThaiDate(birthDate)}, ปุ่ม`
-              : 'วันที่คลอด, เลือกวันที่, ปุ่ม — จำเป็นต้องกรอก'
+              ? `${t('birth.fieldBirthDate')}, ${formatCivilDate(birthDate, locale)}`
+              : `${t('birth.fieldBirthDate')}, ${t('birth.datePlaceholder')}`
           }
         >
           <Text
@@ -271,7 +264,7 @@ export function BirthEventScreen({
               !birthDate && styles.dateFieldPlaceholder,
             ]}
           >
-            {birthDate ? formatThaiDate(birthDate) : 'เลือกวันที่'}
+            {birthDate ? formatCivilDate(birthDate, locale) : t('birth.datePlaceholder')}
           </Text>
           <Text style={styles.chevron} accessibilityElementsHidden={true}>
             {' ›'}
@@ -280,23 +273,24 @@ export function BirthEventScreen({
 
         {/* ── Delivery type — optional, 4 chips (§4.2.2) ─────────────────── */}
         <Text style={styles.fieldLabel}>
-          {'วิธีคลอด (ถ้าต้องการ) / Delivery type (optional)'}
+          {t('birth.fieldDeliveryType')}
         </Text>
         <View
           style={styles.chipsRow}
           accessibilityRole="radiogroup"
-          accessibilityLabel="วิธีคลอด, ไม่บังคับ / Delivery type, optional"
+          accessibilityLabel={t('birth.fieldDeliveryType')}
         >
-          {DELIVERY_OPTIONS.map((opt, index) => {
-            const isSelected = deliveryType === opt.value;
+          {DELIVERY_TYPES.map((value) => {
+            const isSelected = deliveryType === value;
+            const label = t(DELIVERY_LABEL_KEYS[value]);
             return (
               <TouchableOpacity
-                key={opt.value}
+                key={value}
                 style={[styles.chip, isSelected && styles.chipSelected]}
-                onPress={() => handleDeliveryTypeSelect(opt.value)}
+                onPress={() => handleDeliveryTypeSelect(value)}
                 accessibilityRole="radio"
                 accessibilityState={{ selected: isSelected }}
-                accessibilityLabel={`${opt.labelTh}, ${isSelected ? 'เลือกแล้ว' : 'ไม่ได้เลือก'}, ${index + 1} จาก ${DELIVERY_OPTIONS.length}`}
+                accessibilityLabel={label}
               >
                 {/* Checkmark — non-color shape-based selected-state cue (§4.2.2) */}
                 {isSelected && (
@@ -305,7 +299,7 @@ export function BirthEventScreen({
                   </Text>
                 )}
                 <Text style={[styles.chipLabel, isSelected && styles.chipLabelSelected]}>
-                  {opt.labelTh}
+                  {label}
                 </Text>
               </TouchableOpacity>
             );
@@ -314,27 +308,27 @@ export function BirthEventScreen({
 
         {/* ── Note — optional free text (§4.2) ──────────────────────────── */}
         <Text style={styles.fieldLabel}>
-          {'บันทึกเพิ่มเติม (ถ้าต้องการ) / Note (optional)'}
+          {t('birth.fieldNote')}
         </Text>
         <TextInput
           style={styles.noteInput}
           value={birthNote}
           onChangeText={setBirthNote}
-          placeholder={'เพิ่มบันทึกสั้น ๆ ถ้าต้องการ'}
+          placeholder={t('birth.notePlaceholder')}
           placeholderTextColor={'#94818A'}
           multiline
           numberOfLines={3}
-          accessibilityLabel="บันทึกเพิ่มเติม, ไม่บังคับ"
+          accessibilityLabel={t('birth.fieldNote')}
           textAlignVertical="top"
         />
         <Text style={styles.encryptionNote} accessibilityElementsHidden={true}>
-          {'🔒 เก็บแบบเข้ารหัสในเครื่องและบนคลาวด์'}
+          {t('birth.encryptionNote')}
         </Text>
 
         {/* ── Consequence line (§4.2 — calm, not scary) ─────────────────── */}
         <View style={styles.consequenceBox}>
           <Text style={styles.consequenceText}>
-            {'สิ่งนี้จะปิดไทม์ไลน์การตั้งครรภ์ และเริ่มช่วงหลังคลอด บันทึกทั้งหมดของคุณยังอยู่ครบ'}
+            {t('birth.consequence')}
           </Text>
         </View>
 
@@ -349,9 +343,9 @@ export function BirthEventScreen({
                 void handleSave();
               }}
               accessibilityRole="button"
-              accessibilityLabel="ลองอีกครั้ง"
+              accessibilityLabel={t('general.retry')}
             >
-              <Text style={styles.retryLinkText}>{'ลองอีกครั้ง'}</Text>
+              <Text style={styles.retryLinkText}>{t('general.retry')}</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -359,7 +353,7 @@ export function BirthEventScreen({
         {/* Empty-state hint when date not yet selected */}
         {!birthDate && (
           <Text style={styles.emptyHint}>
-            {'เพิ่มวันที่คลอดเพื่อบันทึก'}
+            {t('birth.emptyHint')}
           </Text>
         )}
 
@@ -369,15 +363,15 @@ export function BirthEventScreen({
           onPress={() => void handleSave()}
           disabled={!canSave}
           accessibilityRole="button"
-          accessibilityLabel="บันทึกการคลอด / Save birth"
-          accessibilityHint={!birthDate ? 'เพิ่มวันที่คลอดก่อน' : undefined}
+          accessibilityLabel={t('birth.save')}
+          accessibilityHint={!birthDate ? t('birth.emptyHint') : undefined}
           accessibilityState={{ disabled: !canSave }}
         >
           {saving ? (
             <ActivityIndicator color="#FFFFFF" size="small" />
           ) : (
             <Text style={[styles.saveBtnText, !canSave && styles.saveBtnTextDisabled]}>
-              {'บันทึกการคลอด / Save birth'}
+              {t('birth.save')}
             </Text>
           )}
         </TouchableOpacity>
@@ -393,10 +387,10 @@ export function BirthEventScreen({
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>
-              {'เลือกวันที่คลอด / Choose birth date'}
+              {t('birth.dateModalTitle')}
             </Text>
             <Text style={styles.modalHint}>
-              {'กรอกในรูปแบบ YYYY-MM-DD เช่น 2026-06-29'}
+              {t('birth.dateModalHint')}
             </Text>
             <TextInput
               style={styles.modalInput}
@@ -406,7 +400,7 @@ export function BirthEventScreen({
               placeholderTextColor={'#94818A'}
               keyboardType="numeric"
               autoFocus
-              accessibilityLabel="วันที่คลอด รูปแบบ YYYY-MM-DD"
+              accessibilityLabel={t('birth.fieldBirthDate')}
               maxLength={10}
             />
             <View style={styles.modalBtns}>
@@ -414,17 +408,17 @@ export function BirthEventScreen({
                 style={styles.modalCancelBtn}
                 onPress={() => setShowDateModal(false)}
                 accessibilityRole="button"
-                accessibilityLabel="ยกเลิก"
+                accessibilityLabel={t('birth.dateModalCancel')}
               >
-                <Text style={styles.modalCancelText}>{'ยกเลิก'}</Text>
+                <Text style={styles.modalCancelText}>{t('birth.dateModalCancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.modalConfirmBtn}
                 onPress={handleDateConfirm}
                 accessibilityRole="button"
-                accessibilityLabel="ยืนยันวันที่"
+                accessibilityLabel={t('birth.dateModalConfirm')}
               >
-                <Text style={styles.modalConfirmText}>{'ยืนยัน'}</Text>
+                <Text style={styles.modalConfirmText}>{t('birth.dateModalConfirm')}</Text>
               </TouchableOpacity>
             </View>
           </View>

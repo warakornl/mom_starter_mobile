@@ -2,6 +2,8 @@
  * ProfileSetupScreen — "มาเริ่มจากกำหนดคลอดของคุณ"
  *
  * Implements pregnancy-profile-ui.md §2 (Setup) + §6 (States) + §8 (A11y).
+ * All strings sourced from useT() / catalog (src/i18n/messages.ts).
+ * Dates formatted via formatCivilDate (locale-aware, no "วันที่" prefix).
  *
  * Two input methods (segmented control):
  *   1. วันกำหนดคลอด / Due date (eddBasis = due_date)   ← default
@@ -50,6 +52,8 @@ import { createPregnancyClient } from './pregnancyApiClient';
 import { localCivilToday, computeGestationalAge } from './gestationalAge';
 import type { Stage } from './gestationalAge';
 import type { PregnancyProfile } from './types';
+import { useT } from '../i18n/LanguageContext';
+import { formatCivilDate, type MessageKey } from '../i18n/messages';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -70,37 +74,27 @@ type InputMethod = 'due_date' | 'current_week';
 
 // ─── Stage helpers ────────────────────────────────────────────────────────────
 
-const STAGE_LABELS: Record<Stage, string> = {
-  T1: 'ไตรมาส 1',
-  T2: 'ไตรมาส 2',
-  T3: 'ไตรมาส 3',
-};
-
 const STAGE_GLYPHS: Record<Stage, string> = {
   T1: '🌱', // icon/stage-t1 (seedling)
   T2: '🌿', // icon/stage-t2 (leaf/branch)
   T3: '🌳', // icon/stage-t3 (tree)
 };
 
-/** Derive the live stage label for the current-week stepper echo. */
+/** Type-safe map from Stage → catalog key, avoiding template-string casts. */
+const STAGE_KEY_MAP: Record<Stage, MessageKey> = {
+  T1: 'stage.T1',
+  T2: 'stage.T2',
+  T3: 'stage.T3',
+};
+
+/** Derive the live stage for the current-week stepper echo. */
 function stageFromWeek(week: number): Stage {
   if (week <= 13) return 'T1';
   if (week <= 27) return 'T2';
   return 'T3';
 }
 
-// ─── Date formatting helpers ──────────────────────────────────────────────────
-
-const THAI_MONTHS = [
-  'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
-  'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม',
-];
-
-/** Format a YYYY-MM-DD civil date as Thai "D MMMM พ.ศ. YYYY" (BE year). */
-function formatThaiDate(isoDate: string): string {
-  const [y, m, d] = isoDate.split('-').map(Number);
-  return `${d} ${THAI_MONTHS[m - 1]} พ.ศ. ${y + 543}`;
-}
+// ─── Date helpers ─────────────────────────────────────────────────────────────
 
 /** Add `n` calendar days to a YYYY-MM-DD string. */
 function addDays(dateStr: string, n: number): string {
@@ -126,6 +120,8 @@ export function ProfileSetupScreen({
   onSetupComplete,
   existingProfile,
 }: ProfileSetupScreenProps): React.JSX.Element {
+  const { t, locale } = useT();
+
   // ── Input method ────────────────────────────────────────────────────────────
   const [inputMethod, setInputMethod] = useState<InputMethod>(
     existingProfile?.eddBasis === 'current_week' ? 'current_week' : 'due_date',
@@ -176,14 +172,13 @@ export function ProfileSetupScreen({
   }
 
   function handleDateConfirm(): void {
-    // Validate YYYY-MM-DD format from text input
     const trimmed = dateInputText.trim();
     if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
       setEdd(trimmed);
       setShowDateModal(false);
       setErrorMsg(null);
     } else {
-      Alert.alert('รูปแบบวันที่', 'กรุณากรอกวันที่ในรูปแบบ YYYY-MM-DD');
+      Alert.alert(t('profile.dateFormatAlertTitle'), t('profile.dateFormatAlertMsg'));
     }
   }
 
@@ -197,7 +192,7 @@ export function ProfileSetupScreen({
       setShowLmpModal(false);
       setErrorMsg(null);
     } else {
-      Alert.alert('รูปแบบวันที่', 'กรุณากรอกวันที่ในรูปแบบ YYYY-MM-DD');
+      Alert.alert(t('profile.dateFormatAlertTitle'), t('profile.dateFormatAlertMsg'));
     }
   }
 
@@ -207,12 +202,10 @@ export function ProfileSetupScreen({
     setErrorMsg(null);
 
     try {
-      // Retrieve access token from secure storage
       const tokens = await tokenStorage.load();
       const accessToken = tokens?.accessToken;
       if (!accessToken) {
-        // Token expired — navigate to auth (caller's responsibility via onLogout/reset)
-        setErrorMsg('กรุณาเข้าสู่ระบบใหม่');
+        setErrorMsg(t('profile.errorLogin'));
         setSaving(false);
         return;
       }
@@ -220,13 +213,11 @@ export function ProfileSetupScreen({
       const clientDate = localCivilToday();
       const client = createPregnancyClient(apiBaseUrl);
 
-      // Build the request body — exactly one of edd | currentWeek (XOR)
       const reqBody =
         inputMethod === 'due_date'
           ? { edd }
           : { currentWeek };
 
-      // If-Match: send version when editing an existing profile
       const ifMatch = existingProfile?.version !== undefined
         ? String(existingProfile.version)
         : undefined;
@@ -236,22 +227,20 @@ export function ProfileSetupScreen({
       if (result.ok) {
         onSetupComplete(result.profile);
       } else {
-        // Map server error codes to calm Thai copy (pregnancy-profile-ui §5/§6.5/§6.6)
         if (result.status === 403 && result.code === 'consent_required') {
-          setErrorMsg('การบันทึกข้อมูลสุขภาพต้องเปิดสิทธิ "บันทึกสุขภาพในเครื่อง" ก่อน');
+          setErrorMsg(t('profile.errorConsentRequired'));
         } else if (result.status === 409) {
-          setErrorMsg('มีการอัปเดตจากอุปกรณ์อื่น กรุณาลองอีกครั้ง');
+          setErrorMsg(t('profile.errorConflict'));
         } else if (result.status === 422) {
-          setErrorMsg('ลองตรวจสอบวันที่อีกครั้ง');
+          setErrorMsg(t('profile.errorDateInvalid'));
         } else if (result.status === 428) {
-          setErrorMsg('ไม่สามารถบันทึกได้ในขณะนี้ กรุณาลองอีกครั้ง');
+          setErrorMsg(t('profile.errorPreconditionFailed'));
         } else {
-          setErrorMsg('บันทึกไม่สำเร็จในขณะนี้');
+          setErrorMsg(t('profile.errorGeneric'));
         }
       }
     } catch {
-      // Network error — offline or unreachable server
-      setErrorMsg('ออฟไลน์ · บันทึกไว้ในเครื่องเมื่อออนไลน์');
+      setErrorMsg(t('profile.errorOffline'));
     } finally {
       setSaving(false);
     }
@@ -267,7 +256,6 @@ export function ProfileSetupScreen({
     if (inputMethod === 'due_date') {
       previewEdd = edd;
     } else {
-      // edd = today + (280 - currentWeek*7)
       previewEdd = addDays(today, 280 - currentWeek * 7);
     }
 
@@ -280,13 +268,15 @@ export function ProfileSetupScreen({
       return null;
     }
 
-    const stageName = STAGE_LABELS[ga.currentStage];
+    const stageName = t(STAGE_KEY_MAP[ga.currentStage]);
     const stageGlyph = STAGE_GLYPHS[ga.currentStage];
+    const weekDisplay = t('profile.weekDisplay', { n: ga.displayedWeek });
     const weekStr = ga.suppressDayDisplay
-      ? `สัปดาห์ที่ ${ga.displayedWeek}`
+      ? weekDisplay
       : ga.gestationalDay > 0
-        ? `สัปดาห์ที่ ${ga.displayedWeek} +${ga.gestationalDay} วัน`
-        : `สัปดาห์ที่ ${ga.displayedWeek}`;
+        ? t('home.weekDisplayDays', { n: ga.displayedWeek, d: ga.gestationalDay })
+        : weekDisplay;
+    const formattedEdd = formatCivilDate(previewEdd, locale);
 
     return (
       <View style={styles.previewCard} accessibilityRole="text">
@@ -306,14 +296,14 @@ export function ProfileSetupScreen({
           <View
             style={styles.deliveryChip}
             accessibilityRole="text"
-            accessibilityLabel="เตรียมคลอด"
+            accessibilityLabel={t('profile.deliveryWindow')}
           >
-            <Text style={styles.deliveryChipText}>เตรียมคลอด</Text>
+            <Text style={styles.deliveryChipText}>{t('profile.deliveryWindow')}</Text>
           </View>
         )}
         {previewEdd && (
           <Text style={styles.previewEdd}>
-            {'กำหนดคลอด ' + formatThaiDate(previewEdd)}
+            {t('profile.eddPreviewPrefix', { date: formattedEdd })}
           </Text>
         )}
       </View>
@@ -330,19 +320,15 @@ export function ProfileSetupScreen({
         keyboardShouldPersistTaps="handled"
       >
         {/* Headline */}
-        <Text style={styles.headline}>
-          {'มาเริ่มจากกำหนดคลอดของคุณ'}
-        </Text>
-        <Text style={styles.subline}>
-          {'เราจะจัดปฏิทินให้เหมาะกับช่วงของคุณ'}
-        </Text>
+        <Text style={styles.headline}>{t('profile.headline')}</Text>
+        <Text style={styles.subline}>{t('profile.subline')}</Text>
 
         {/* Segmented control — method selection (§2.1) */}
-        <Text style={styles.sectionLabel}>{'บอกเราแบบที่คุณรู้'}</Text>
+        <Text style={styles.sectionLabel}>{t('profile.methodPrompt')}</Text>
         <View
           style={styles.segmentRow}
           accessibilityRole="radiogroup"
-          accessibilityLabel="วิธีกรอกข้อมูลการตั้งครรภ์"
+          accessibilityLabel={t('profile.methodGroupA11y')}
         >
           <TouchableOpacity
             style={[
@@ -352,7 +338,7 @@ export function ProfileSetupScreen({
             onPress={() => handleMethodChange('due_date')}
             accessibilityRole="radio"
             accessibilityState={{ selected: inputMethod === 'due_date' }}
-            accessibilityLabel="วันกำหนดคลอด"
+            accessibilityLabel={t('profile.methodDueDate')}
           >
             {inputMethod === 'due_date' && (
               <Text style={styles.segmentCheckMark} accessibilityElementsHidden={true}>
@@ -365,7 +351,7 @@ export function ProfileSetupScreen({
                 inputMethod === 'due_date' && styles.segmentLabelSelected,
               ]}
             >
-              {'วันกำหนดคลอด'}
+              {t('profile.methodDueDate')}
             </Text>
           </TouchableOpacity>
 
@@ -377,7 +363,7 @@ export function ProfileSetupScreen({
             onPress={() => handleMethodChange('current_week')}
             accessibilityRole="radio"
             accessibilityState={{ selected: inputMethod === 'current_week' }}
-            accessibilityLabel="อายุครรภ์ตอนนี้"
+            accessibilityLabel={t('profile.methodCurrentWeek')}
           >
             {inputMethod === 'current_week' && (
               <Text style={styles.segmentCheckMark} accessibilityElementsHidden={true}>
@@ -390,7 +376,7 @@ export function ProfileSetupScreen({
                 inputMethod === 'current_week' && styles.segmentLabelSelected,
               ]}
             >
-              {'อายุครรภ์ตอนนี้'}
+              {t('profile.methodCurrentWeek')}
             </Text>
           </TouchableOpacity>
         </View>
@@ -398,15 +384,15 @@ export function ProfileSetupScreen({
         {/* ── Due-date input (§2.2) ─────────────────────────────────────────── */}
         {inputMethod === 'due_date' && (
           <View>
-            <Text style={styles.fieldLabel}>{'วันกำหนดคลอด'}</Text>
+            <Text style={styles.fieldLabel}>{t('profile.fieldDueDate')}</Text>
             <TouchableOpacity
               style={styles.dateField}
               onPress={() => setShowDateModal(true)}
               accessibilityRole="button"
               accessibilityLabel={
                 edd
-                  ? `วันกำหนดคลอด, ${formatThaiDate(edd)}, ปุ่ม`
-                  : 'วันกำหนดคลอด, เลือกวันที่, ปุ่ม'
+                  ? `${t('profile.fieldDueDate')}, ${formatCivilDate(edd, locale)}`
+                  : `${t('profile.fieldDueDate')}, ${t('profile.datePlaceholder')}`
               }
             >
               <Text
@@ -415,7 +401,7 @@ export function ProfileSetupScreen({
                   !edd && styles.dateFieldPlaceholder,
                 ]}
               >
-                {edd ? formatThaiDate(edd) : 'เลือกวันที่'}
+                {edd ? formatCivilDate(edd, locale) : t('profile.datePlaceholder')}
               </Text>
               <Text style={styles.dateFieldChevron} accessibilityElementsHidden={true}>
                 {' ›'}
@@ -427,11 +413,9 @@ export function ProfileSetupScreen({
               style={styles.quietLink}
               onPress={() => setShowLmpModal(true)}
               accessibilityRole="button"
-              accessibilityLabel="คำนวณจากประจำเดือนล่าสุด"
+              accessibilityLabel={t('profile.lmpLink')}
             >
-              <Text style={styles.quietLinkText}>
-                {'ไม่แน่ใจ? คำนวณจากประจำเดือนล่าสุด ›'}
-              </Text>
+              <Text style={styles.quietLinkText}>{t('profile.lmpLink')}</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -439,10 +423,10 @@ export function ProfileSetupScreen({
         {/* ── Current-week stepper (§2.3) ───────────────────────────────────── */}
         {inputMethod === 'current_week' && (
           <View>
-            <Text style={styles.fieldLabel}>{'อายุครรภ์ตอนนี้'}</Text>
+            <Text style={styles.fieldLabel}>{t('profile.fieldCurrentWeek')}</Text>
             <View
               style={styles.stepperRow}
-              accessibilityLabel={`อายุครรภ์, สัปดาห์ที่ ${currentWeek}, ปรับค่าได้`}
+              accessibilityLabel={`${t('profile.fieldCurrentWeek')}, ${t('profile.weekDisplay', { n: currentWeek })}`}
               accessibilityRole="adjustable"
               accessibilityValue={{ min: 1, max: 42, now: currentWeek }}
             >
@@ -451,7 +435,7 @@ export function ProfileSetupScreen({
                 onPress={handleStepperDecrement}
                 disabled={currentWeek <= 1}
                 accessibilityRole="button"
-                accessibilityLabel="ลดสัปดาห์"
+                accessibilityLabel={t('profile.stepperDecrease')}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
                 <Text
@@ -468,7 +452,7 @@ export function ProfileSetupScreen({
                 style={styles.stepperValue}
                 accessibilityElementsHidden={true}
               >
-                {`สัปดาห์ที่ ${currentWeek}`}
+                {t('profile.weekDisplay', { n: currentWeek })}
               </Text>
 
               <TouchableOpacity
@@ -476,7 +460,7 @@ export function ProfileSetupScreen({
                 onPress={handleStepperIncrement}
                 disabled={currentWeek >= 42}
                 accessibilityRole="button"
-                accessibilityLabel="เพิ่มสัปดาห์"
+                accessibilityLabel={t('profile.stepperIncrease')}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
                 <Text
@@ -494,13 +478,13 @@ export function ProfileSetupScreen({
             <View
               style={styles.stageEcho}
               accessibilityLiveRegion="polite"
-              accessibilityLabel={`${STAGE_LABELS[liveStage]}`}
+              accessibilityLabel={t(STAGE_KEY_MAP[liveStage])}
             >
               <Text style={styles.stageEchoGlyph} accessibilityElementsHidden={true}>
                 {STAGE_GLYPHS[liveStage]}
               </Text>
               <Text style={styles.stageEchoText}>
-                {'ตอนนี้คุณอยู่ ' + STAGE_LABELS[liveStage]}
+                {t('profile.stageEchoPrefix', { stage: t(STAGE_KEY_MAP[liveStage]) })}
               </Text>
             </View>
           </View>
@@ -522,19 +506,15 @@ export function ProfileSetupScreen({
           onPress={handleSave}
           disabled={!isValid || saving}
           accessibilityRole="button"
-          accessibilityLabel={existingProfile ? 'บันทึก' : 'ถัดไป'}
+          accessibilityLabel={existingProfile ? t('profile.save') : t('profile.next')}
           accessibilityState={{ disabled: !isValid || saving }}
-          accessibilityHint={
-            !isValid
-              ? 'เพิ่มวันกำหนดคลอดเพื่อไปต่อ'
-              : undefined
-          }
+          accessibilityHint={!isValid ? t('profile.emptyHint') : undefined}
         >
           {saving ? (
             <ActivityIndicator color="#FFFFFF" size="small" />
           ) : (
             <Text style={styles.primaryBtnText}>
-              {existingProfile ? 'บันทึก' : 'ถัดไป'}
+              {existingProfile ? t('profile.save') : t('profile.next')}
             </Text>
           )}
         </TouchableOpacity>
@@ -542,13 +522,11 @@ export function ProfileSetupScreen({
         {/* Visible empty-state hint (§6.1 — not SR-only) */}
         {!isValid && (
           <Text style={styles.emptyHint} accessibilityRole="text">
-            {'เพิ่มวันกำหนดคลอดเพื่อไปต่อ'}
+            {t('profile.emptyHint')}
           </Text>
         )}
 
-        <Text style={styles.footnote}>
-          {'เปลี่ยนได้ทุกเมื่อในบัญชี'}
-        </Text>
+        <Text style={styles.footnote}>{t('profile.footnote')}</Text>
       </ScrollView>
 
       {/* ── Date input modal (carry-forward: replace with full BE calendar §2.2) */}
@@ -560,8 +538,8 @@ export function ProfileSetupScreen({
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>{'เลือกวันกำหนดคลอด'}</Text>
-            <Text style={styles.modalHint}>{'กรอกในรูปแบบ YYYY-MM-DD'}</Text>
+            <Text style={styles.modalTitle}>{t('profile.dateModalTitle')}</Text>
+            <Text style={styles.modalHint}>{t('profile.dateModalHint')}</Text>
             <TextInput
               style={styles.modalInput}
               value={dateInputText}
@@ -571,24 +549,24 @@ export function ProfileSetupScreen({
               keyboardType={Platform.OS === 'ios' ? 'numbers-and-punctuation' : 'default'}
               maxLength={10}
               autoFocus
-              accessibilityLabel="วันกำหนดคลอด"
+              accessibilityLabel={t('profile.fieldDueDate')}
             />
             <View style={styles.modalBtnRow}>
               <TouchableOpacity
                 style={styles.modalBtnSecondary}
                 onPress={() => setShowDateModal(false)}
                 accessibilityRole="button"
-                accessibilityLabel="ยกเลิก"
+                accessibilityLabel={t('profile.dateModalCancel')}
               >
-                <Text style={styles.modalBtnSecondaryText}>{'ยกเลิก'}</Text>
+                <Text style={styles.modalBtnSecondaryText}>{t('profile.dateModalCancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.modalBtnPrimary}
                 onPress={handleDateConfirm}
                 accessibilityRole="button"
-                accessibilityLabel="ยืนยันวันนี้"
+                accessibilityLabel={t('profile.dateModalConfirm')}
               >
-                <Text style={styles.modalBtnPrimaryText}>{'ยืนยันวันนี้'}</Text>
+                <Text style={styles.modalBtnPrimaryText}>{t('profile.dateModalConfirm')}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -604,10 +582,8 @@ export function ProfileSetupScreen({
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>
-              {'วันแรกของประจำเดือนครั้งสุดท้าย'}
-            </Text>
-            <Text style={styles.modalHint}>{'กรอกในรูปแบบ YYYY-MM-DD'}</Text>
+            <Text style={styles.modalTitle}>{t('profile.lmpModalTitle')}</Text>
+            <Text style={styles.modalHint}>{t('profile.lmpModalHint')}</Text>
             <TextInput
               style={styles.modalInput}
               value={lmpInputText}
@@ -617,13 +593,15 @@ export function ProfileSetupScreen({
               keyboardType={Platform.OS === 'ios' ? 'numbers-and-punctuation' : 'default'}
               maxLength={10}
               autoFocus
-              accessibilityLabel="วันแรกของประจำเดือนครั้งสุดท้าย"
+              accessibilityLabel={t('profile.lmpModalTitle')}
             />
             {lmpInputText.length === 10 && /^\d{4}-\d{2}-\d{2}$/.test(lmpInputText) && (
               <Text style={styles.lmpEstimate} accessibilityRole="text">
-                {'กำหนดคลอดโดยประมาณ: ' + formatThaiDate(eddFromLmp(lmpInputText))}
+                {t('profile.lmpEstimatePrefix', {
+                  date: formatCivilDate(eddFromLmp(lmpInputText), locale),
+                })}
                 {'\n'}
-                {'เป็นการประมาณ ปรับแก้ได้'}
+                {t('profile.lmpEstimateSuffix')}
               </Text>
             )}
             <View style={styles.modalBtnRow}>
@@ -631,17 +609,17 @@ export function ProfileSetupScreen({
                 style={styles.modalBtnSecondary}
                 onPress={() => setShowLmpModal(false)}
                 accessibilityRole="button"
-                accessibilityLabel="ยกเลิก"
+                accessibilityLabel={t('profile.dateModalCancel')}
               >
-                <Text style={styles.modalBtnSecondaryText}>{'ยกเลิก'}</Text>
+                <Text style={styles.modalBtnSecondaryText}>{t('profile.dateModalCancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.modalBtnPrimary}
                 onPress={handleLmpConfirm}
                 accessibilityRole="button"
-                accessibilityLabel="ใช้ค่านี้"
+                accessibilityLabel={t('profile.lmpModalConfirm')}
               >
-                <Text style={styles.modalBtnPrimaryText}>{'ใช้ค่านี้'}</Text>
+                <Text style={styles.modalBtnPrimaryText}>{t('profile.lmpModalConfirm')}</Text>
               </TouchableOpacity>
             </View>
           </View>

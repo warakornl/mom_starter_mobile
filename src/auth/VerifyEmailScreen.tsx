@@ -41,7 +41,7 @@
  *   surface/sunk  #FBF3EE   Spam-tip background
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -112,8 +112,20 @@ export function VerifyEmailScreen({
   tokenStorage,
 }: VerifyEmailScreenProps): React.JSX.Element {
   const s = verifyStrings[locale];
-  const authClient = createAuthClient(apiBaseUrl);
-  const storage = tokenStorage ?? new InMemoryTokenStorage();
+
+  // Stable references — prevents a new client/storage instance on every render
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const authClient = useMemo(() => createAuthClient(apiBaseUrl), [apiBaseUrl]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const storage = useMemo(() => tokenStorage ?? new InMemoryTokenStorage(), [tokenStorage]);
+
+  // Local string for storage-failure edge case (token exchange succeeded but
+  // Keychain/Keystore save failed). Points user to "ส่งลิงก์อีกครั้ง".
+  // Carry-forward: move to verifyStrings once SA approves the copy.
+  const storageErrorHint =
+    locale === 'th'
+      ? 'บันทึกเซสชันไม่สำเร็จ · กด "ส่งลิงก์อีกครั้ง" แล้วยืนยันใหม่อีกครั้ง'
+      : 'Could not save your session — tap "Resend link" and verify again.';
 
   // Resend state
   const [resendLoading, setResendLoading] = useState(false);
@@ -156,6 +168,21 @@ export function VerifyEmailScreen({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingToken]);
 
+  // ─── Resend cooldown auto-expire ────────────────────────────────────────────
+  // Sets a timer to clear `resendAt` when the 60-second cooldown expires,
+  // so the "ส่งลิงก์อีกครั้ง" button re-enables automatically without a
+  // manual refresh. The timer is cleaned up if the screen unmounts early.
+  useEffect(() => {
+    if (resendAt === null) return;
+    const remaining = resendAt - Date.now();
+    if (remaining <= 0) {
+      setResendAt(null);
+      return;
+    }
+    const timer = setTimeout(() => setResendAt(null), remaining);
+    return () => clearTimeout(timer);
+  }, [resendAt]);
+
   // ─── Resend handler ─────────────────────────────────────────────────────────
 
   async function onResend() {
@@ -192,6 +219,11 @@ export function VerifyEmailScreen({
 
   function tokenErrorText(): string {
     if (verifyOutcome?.kind === 'token_invalid') return s.tokenInvalid;
+    // storage_error: token exchange succeeded but Keychain/Keystore failed.
+    // Direct the user to resend so they can attempt verification again.
+    if (verifyOutcome?.kind === 'server_error' && verifyOutcome.code === 'storage_error') {
+      return storageErrorHint;
+    }
     return s.serverError;
   }
 

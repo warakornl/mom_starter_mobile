@@ -37,7 +37,7 @@
  *   was new or colliding. There is NEVER any "email already taken" feedback.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -88,7 +88,9 @@ export function RegisterScreen({
   onSignIn,
 }: RegisterScreenProps): React.JSX.Element {
   const s = registerStrings[locale];
-  const authClient = createAuthClient(apiBaseUrl);
+  // Stable reference — prevents a new HTTP client on every render
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const authClient = useMemo(() => createAuthClient(apiBaseUrl), [apiBaseUrl]);
 
   // Form state
   const [email, setEmail] = useState('');

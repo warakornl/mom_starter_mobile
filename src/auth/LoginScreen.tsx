@@ -45,7 +45,7 @@
 // React and React Native are listed as peer deps — not installed yet.
 // This file is excluded from the current ts-jest test run because no test
 // file imports it. Add to tsconfig.json "jsx": "react-native" when RN lands.
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   View,
   Text,
@@ -65,7 +65,7 @@ import {
   loginStrings,
   type SignInOutcome,
 } from './loginScreenLogic';
-import { InMemoryTokenStorage } from './tokenStorage';
+import { InMemoryTokenStorage, type TokenStorage } from './tokenStorage';
 import { createAuthClient } from './authApiClient';
 import type { Locale } from './types';
 
@@ -86,10 +86,10 @@ export interface LoginScreenProps {
   onCreateAccount: () => void;
   /**
    * Token storage implementation.
-   * Defaults to InMemoryTokenStorage; production binding is expo-secure-store
-   * (SEC-HOOK §A/C4 — swap in when Expo is scaffolded).
+   * Defaults to InMemoryTokenStorage; production binding is SecureTokenStorage
+   * (expo-secure-store, SEC-HOOK §A/C4). App.tsx injects SecureTokenStorage.
    */
-  tokenStorage?: InstanceType<typeof InMemoryTokenStorage>;
+  tokenStorage?: TokenStorage;
 }
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
@@ -118,9 +118,12 @@ export function LoginScreen({
   const [loading, setLoading] = useState(false);
   const [outcome, setOutcome] = useState<SignInOutcome | null>(null);
 
-  // Derived
-  const authClient = createAuthClient(apiBaseUrl);
-  const storage = tokenStorage ?? new InMemoryTokenStorage();
+  // Stable references — recreating these on every render would cause unnecessary
+  // HTTP client instances and could break the storage reference identity.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const authClient = useMemo(() => createAuthClient(apiBaseUrl), [apiBaseUrl]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const storage = useMemo(() => tokenStorage ?? new InMemoryTokenStorage(), [tokenStorage]);
   const canSubmit = validatePasswordField(password) && validateEmailField(email) === null;
 
   // ─── Handlers ──────────────────────────────────────────────────────────────
@@ -287,13 +290,30 @@ export function LoginScreen({
           <View style={styles.dividerLine} />
         </View>
 
-        {/* Google button placeholder (§5.4 — official SDK replaces this at integration) */}
-        <TouchableOpacity style={styles.googleButton} accessibilityRole="button">
-          <Text style={styles.googleButtonText}>
-            {locale === 'th'
-              ? 'G  ดำเนินการต่อด้วย Google'
-              : 'G  Continue with Google'}
-          </Text>
+        {/* Google button placeholder (§5.4 — disabled until official SDK is integrated) */}
+        <TouchableOpacity
+          style={[styles.googleButton, styles.googleButtonDisabled]}
+          disabled={true}
+          accessibilityRole="button"
+          accessibilityLabel={
+            locale === 'th'
+              ? 'ดำเนินการต่อด้วย Google (เร็วๆ นี้)'
+              : 'Continue with Google (coming soon)'
+          }
+          accessibilityState={{ disabled: true }}
+        >
+          <View style={styles.googleButtonInner}>
+            <Text style={[styles.googleButtonText, styles.googleButtonTextDisabled]}>
+              {locale === 'th'
+                ? 'G  ดำเนินการต่อด้วย Google'
+                : 'G  Continue with Google'}
+            </Text>
+            <View style={styles.comingSoonBadge}>
+              <Text style={styles.comingSoonBadgeText}>
+                {locale === 'th' ? 'เร็วๆ นี้' : 'Coming soon'}
+              </Text>
+            </View>
+          </View>
         </TouchableOpacity>
 
         {/* Quiet links */}
@@ -419,11 +439,34 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     justifyContent: 'center',
     alignItems: 'center',
+    paddingHorizontal: 16,
+  },
+  googleButtonDisabled: {
+    opacity: 0.55,
+  },
+  googleButtonInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   googleButtonText: {
     fontFamily: 'IBMPlexSans-Regular',
     fontSize: 16,
     color: '#3A2A30',
+  },
+  googleButtonTextDisabled: {
+    color: '#94818A',
+  },
+  comingSoonBadge: {
+    backgroundColor: '#EBE1D9',
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  comingSoonBadgeText: {
+    fontFamily: 'IBMPlexSans-Regular',
+    fontSize: 11,
+    color: '#5F4A52',
   },
 
   quietLink: { marginTop: 16, alignItems: 'center' },

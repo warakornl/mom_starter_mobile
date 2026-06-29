@@ -8,11 +8,21 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "types": ["node", "jest", "react"],
+    "types": [
+      "node",
+      "jest",
+      "react"
+    ],
     "resolveJsonModule": true,
     "allowSyntheticDefaultImports": true,
     "noEmit": true
   },
-  "include": ["**/*.ts", "**/*.tsx"],
-  "exclude": ["node_modules"]
+  "include": [
+    "**/*.ts",
+    "**/*.tsx"
+  ],
+  "exclude": [
+    "node_modules"
+  ],
+  "extends": "expo/tsconfig.base"
 }

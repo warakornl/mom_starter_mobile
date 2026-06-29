@@ -4,7 +4,7 @@
  * Implements calendar-home-ui.md §4 (screen states) and §6.1 (stage banner)
  * for BOTH lifecycles:
  *   pregnant   — gestational-age dashboard with T3 birth CTA
- *   postpartum — baby-age dashboard (sage/green tones, "ยินดีด้วย")
+ *   postpartum — baby-age dashboard (sage/green tones)
  *
  * Screen states (calendar-home-ui §4):
  *   loading         — skeleton while checking profile
@@ -13,9 +13,14 @@
  *   postpartum      — profile found, lifecycle === 'postpartum'
  *   error           — unexpected API error
  *
+ * i18n: all strings from useT() / catalog. Language toggle button in the
+ * top-right area of the header.
+ *
+ * Date formatting: formatCivilDate from thaiDate.ts (locale-aware).
+ *
  * Offline: the stage banner re-derives locally from cached edd (pregnant) or
  * birthDate (postpartum) and the device-local civil date on every foreground
- * event and local midnight.  No network is required once the anchor is known.
+ * event and local midnight. No network is required once the anchor is known.
  *
  * Birth CTA placement (calendar-home-ui §6.1 / pregnancy-profile-ui §4.1):
  *   "ลูกคลอดแล้ว ›" is a quiet, small affordance inside the T3 stage banner
@@ -61,6 +66,8 @@ import { computePostpartumAge } from '../pregnancy/postpartumAge';
 import type { GestationalAge, Stage } from '../pregnancy/gestationalAge';
 import type { PostpartumAge } from '../pregnancy/postpartumAge';
 import type { PregnancyProfile } from '../pregnancy/types';
+import { useT } from '../i18n/LanguageContext';
+import { formatCivilDate } from '../i18n/messages';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -90,35 +97,57 @@ type ScreenState =
   | { kind: 'needs-onboarding' }
   | { kind: 'error'; message: string };
 
-// ─── Stage glyph / label helpers (pregnant) ───────────────────────────────────
+// ─── Stage glyph helpers ──────────────────────────────────────────────────────
 
 const STAGE_GLYPHS: Record<Stage, string> = {
-  T1: '🌱', // icon/stage-t1 (seedling)
-  T2: '🌿', // icon/stage-t2 (leaf/branch)
-  T3: '🌳', // icon/stage-t3 (tree)
+  T1: '🌱',
+  T2: '🌿',
+  T3: '🌳',
 };
 
-const STAGE_LABELS: Record<Stage, string> = {
-  T1: 'ไตรมาส 1',
-  T2: 'ไตรมาส 2',
-  T3: 'ไตรมาส 3',
-};
+// ─── Language toggle ──────────────────────────────────────────────────────────
 
-// ─── Date formatting ──────────────────────────────────────────────────────────
-
-const THAI_MONTHS = [
-  'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
-  'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม',
-];
-
-function formatThaiDate(isoDate: string): string {
-  const [y, m, d] = isoDate.split('-').map(Number);
-  return `${d} ${THAI_MONTHS[m - 1]} พ.ศ. ${y + 543}`;
+function LangToggle(): React.JSX.Element {
+  const { locale, setLocale } = useT();
+  const label = locale === 'th' ? 'EN' : 'ไทย';
+  const a11y = locale === 'th' ? 'Switch to English' : 'เปลี่ยนเป็นภาษาไทย';
+  return (
+    <TouchableOpacity
+      style={toggleStyles.btn}
+      onPress={() => setLocale(locale === 'th' ? 'en' : 'th')}
+      accessibilityRole="button"
+      accessibilityLabel={a11y}
+      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+    >
+      <Text style={toggleStyles.text}>{label}</Text>
+    </TouchableOpacity>
+  );
 }
 
-// ─── Progress bar (carry-forward: replace with full ring) ─────────────────────
+const toggleStyles = StyleSheet.create({
+  btn: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: '#EBE1D9',
+    backgroundColor: '#FFFFFF',
+    minHeight: 34,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  text: {
+    fontFamily: 'IBMPlexSans-SemiBold',
+    fontSize: 13,
+    color: '#5F4A52',
+    letterSpacing: 0.3,
+  },
+});
+
+// ─── Progress bar ─────────────────────────────────────────────────────────────
 
 function ProgressBar({ progress }: { progress: number }): React.JSX.Element {
+  const { t } = useT();
   const pct = Math.round(progress * 100);
   const fillFlex = Math.max(0, pct);
   const remainFlex = 100 - fillFlex;
@@ -127,7 +156,7 @@ function ProgressBar({ progress }: { progress: number }): React.JSX.Element {
       style={barStyles.container}
       accessibilityRole="progressbar"
       accessibilityValue={{ min: 0, max: 100, now: pct }}
-      accessibilityLabel={`ความคืบหน้า ${pct}%`}
+      accessibilityLabel={t('home.progressA11y', { pct })}
     >
       <View style={barStyles.track}>
         <View style={[barStyles.fill, { flex: fillFlex }]} />
@@ -160,8 +189,6 @@ const barStyles = StyleSheet.create({
 });
 
 // ─── Pregnant stage banner ────────────────────────────────────────────────────
-// Birth CTA placement rule (calendar-home-ui §6.1 / pregnancy-profile-ui §4.1):
-// "ลูกคลอดแล้ว ›" is a quiet, small button inside the T3 banner only.
 
 function StageBanner({
   profile,
@@ -172,21 +199,28 @@ function StageBanner({
   ga: GestationalAge;
   onBirthEvent: () => void;
 }): React.JSX.Element {
+  const { t, locale } = useT();
   const stage = ga.currentStage;
-  const stageName = STAGE_LABELS[stage];
+  const stageName = t(`stage.${stage}` as 'stage.T1' | 'stage.T2' | 'stage.T3');
   const stageGlyph = STAGE_GLYPHS[stage];
 
-  // Week display (§6.1 / OQ-3): "สัปดาห์ที่ N" or "สัปดาห์ที่ N +d วัน"
   const weekLabel = ga.suppressDayDisplay
-    ? `สัปดาห์ที่ ${ga.displayedWeek}`
+    ? t('home.weekDisplay', { n: ga.displayedWeek })
     : ga.gestationalDay > 0
-      ? `สัปดาห์ที่ ${ga.displayedWeek} +${ga.gestationalDay} วัน`
-      : `สัปดาห์ที่ ${ga.displayedWeek}`;
+      ? t('home.weekDisplayDays', { n: ga.displayedWeek, d: ga.gestationalDay })
+      : t('home.weekDisplay', { n: ga.displayedWeek });
 
   const isOverdue = ga.daysRemaining < 0;
   const isT3 = stage === 'T3';
 
-  const bannerA11yLabel = `${stageName} ${weekLabel}${ga.deliveryWindowActive ? ' เตรียมคลอด' : ''}${isOverdue ? ' ถึงกำหนดแล้ว' : ''}`;
+  const deliveryWindowText = t('home.deliveryWindow');
+  const overdueSublineText = t('home.overdueSubline');
+  const bannerA11yLabel = `${stageName} ${weekLabel}${ga.deliveryWindowActive ? ` ${deliveryWindowText}` : ''}${isOverdue ? ` ${t('home.overdueSubline')}` : ''}`;
+
+  const eddLineText = t('home.eddLine', {
+    date: formatCivilDate(profile.edd, locale),
+    days: ga.daysRemaining,
+  });
 
   return (
     <View
@@ -194,55 +228,48 @@ function StageBanner({
       accessibilityRole="text"
       accessibilityLabel={bannerA11yLabel}
     >
-      {/* Stage glyph in tint disc */}
       <View style={bannerStyles.glyphDisc} accessibilityElementsHidden={true}>
         <Text style={bannerStyles.glyph}>{stageGlyph}</Text>
       </View>
 
       <View style={bannerStyles.textCol}>
-        {/* Stage + week (headline) */}
         <View style={bannerStyles.stageLine} accessibilityElementsHidden={true}>
           <Text style={bannerStyles.stageLabel}>{stageName}</Text>
           <Text style={bannerStyles.dot}>{' · '}</Text>
           <Text style={bannerStyles.weekLabel}>{weekLabel}</Text>
 
-          {/* Delivery-window chip — non-interactive, overlay only (§6.1 / AC-27/28) */}
           {ga.deliveryWindowActive && (
             <View
               style={bannerStyles.deliveryChip}
               accessibilityRole="text"
-              accessibilityLabel="เตรียมคลอด"
+              accessibilityLabel={deliveryWindowText}
             >
-              <Text style={bannerStyles.deliveryChipText}>{'เตรียมคลอด'}</Text>
+              <Text style={bannerStyles.deliveryChipText}>{deliveryWindowText}</Text>
             </View>
           )}
         </View>
 
-        {/* Overdue sub-line (daysRemaining < 0, no birth event) */}
         {isOverdue && (
           <Text style={bannerStyles.overdueLine} accessibilityElementsHidden={true}>
-            {'ถึงกำหนดแล้ว · บันทึกการคลอดเมื่อพร้อม'}
+            {overdueSublineText}
           </Text>
         )}
 
-        {/* Days remaining / EDD (when not overdue) */}
         {!isOverdue && (
           <Text style={bannerStyles.eddLine} accessibilityElementsHidden={true}>
-            {`กำหนดคลอด ${formatThaiDate(profile.edd)} (อีก ${ga.daysRemaining} วัน)`}
+            {eddLineText}
           </Text>
         )}
 
-        {/* T3 birth CTA — quiet, small, inside banner (§4.1 / calendar-home-ui §6.1)
-         *  Only shown in T3; never a prominent card outside the banner. */}
         {isT3 && (
           <TouchableOpacity
             style={bannerStyles.birthCta}
             onPress={onBirthEvent}
             accessibilityRole="button"
-            accessibilityLabel="ลูกคลอดแล้ว — บันทึกการคลอด"
+            accessibilityLabel={t('home.birthCtaA11y')}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Text style={bannerStyles.birthCtaText}>{'ลูกคลอดแล้ว ›'}</Text>
+            <Text style={bannerStyles.birthCtaText}>{t('home.birthCta')}</Text>
           </TouchableOpacity>
         )}
       </View>
@@ -325,7 +352,6 @@ const bannerStyles = StyleSheet.create({
     lineHeight: 18,
     color: '#94818A',
   },
-  // T3 birth CTA — quiet, small (§4.1 / calendar-home-ui §6.1)
   birthCta: {
     alignSelf: 'flex-start',
     marginTop: 4,
@@ -349,21 +375,21 @@ function PostpartumBanner({
   profile: PregnancyProfile;
   pp: PostpartumAge;
 }): React.JSX.Element {
-  // Baby age label (design spec §6.1 / task requirements):
-  //   week 0 (days 0-6): "ลูกน้อยอายุ X วัน"
-  //   week 1+, day 0:    "ลูกน้อยอายุ X สัปดาห์"
-  //   week 1+, day >0:   "ลูกน้อยอายุ X สัปดาห์ Y วัน"
+  const { t, locale } = useT();
+
   let ageLabel: string;
   if (pp.postpartumWeek < 1) {
-    ageLabel = `ลูกน้อยอายุ ${pp.postpartumDays} วัน`;
+    ageLabel = t('home.babyAgeDays', { n: pp.postpartumDays });
   } else if (pp.postpartumDay === 0) {
-    ageLabel = `ลูกน้อยอายุ ${pp.postpartumWeek} สัปดาห์`;
+    ageLabel = t('home.babyAgeWeeks', { n: pp.postpartumWeek });
   } else {
-    ageLabel = `ลูกน้อยอายุ ${pp.postpartumWeek} สัปดาห์ ${pp.postpartumDay} วัน`;
+    ageLabel = t('home.babyAgeWeeksAndDays', { n: pp.postpartumWeek, d: pp.postpartumDay });
   }
 
-  const stageLabel = `หลังคลอด · สัปดาห์ที่ ${pp.postpartumWeek}`;
-  const birthDateFormatted = profile.birthDate ? formatThaiDate(profile.birthDate) : '';
+  const stageLabel = t('home.postpartumStage', { n: pp.postpartumWeek });
+  const birthDateFormatted = profile.birthDate
+    ? formatCivilDate(profile.birthDate, locale)
+    : '';
 
   return (
     <View
@@ -371,24 +397,18 @@ function PostpartumBanner({
       accessibilityRole="text"
       accessibilityLabel={`${stageLabel} — ${ageLabel}`}
     >
-      {/* Postpartum glyph in sage tint disc */}
       <View style={ppBannerStyles.glyphDisc} accessibilityElementsHidden={true}>
         <Text style={ppBannerStyles.glyph}>{'🍃'}</Text>
       </View>
 
       <View style={ppBannerStyles.textCol}>
-        {/* หลังคลอด · สัปดาห์ที่ N */}
         <Text style={ppBannerStyles.stageLabel} accessibilityElementsHidden={true}>
           {stageLabel}
         </Text>
-        {/* ลูกน้อยอายุ X วัน (or สัปดาห์) */}
-        <Text style={ppBannerStyles.ageLabel}>
-          {ageLabel}
-        </Text>
-        {/* Birth date sub-line */}
+        <Text style={ppBannerStyles.ageLabel}>{ageLabel}</Text>
         {birthDateFormatted ? (
           <Text style={ppBannerStyles.birthdateLine} accessibilityElementsHidden={true}>
-            {`คลอดวันที่ ${birthDateFormatted}`}
+            {t('home.birthDateLine', { date: birthDateFormatted })}
           </Text>
         ) : null}
       </View>
@@ -400,7 +420,7 @@ const ppBannerStyles = StyleSheet.create({
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#EBF2EC',  // sage/50
+    backgroundColor: '#EBF2EC',
     borderRadius: 20,
     borderWidth: 1,
     borderColor: '#C3D9C6',
@@ -428,7 +448,7 @@ const ppBannerStyles = StyleSheet.create({
     fontFamily: 'IBMPlexSans-SemiBold',
     fontSize: 14,
     lineHeight: 20,
-    color: '#3D6647',  // sage/700
+    color: '#3D6647',
   },
   ageLabel: {
     fontFamily: 'IBMPlexSans-SemiBold',
@@ -440,21 +460,22 @@ const ppBannerStyles = StyleSheet.create({
     fontFamily: 'IBMPlexMono-Medium',
     fontSize: 13,
     lineHeight: 18,
-    color: '#4A7A56',  // sage/600
+    color: '#4A7A56',
   },
 });
 
 // ─── Postpartum day-count card ────────────────────────────────────────────────
 
 function PostpartumDayCard({ pp }: { pp: PostpartumAge }): React.JSX.Element {
+  const { t } = useT();
   return (
     <View
       style={ppCardStyles.card}
       accessibilityRole="text"
-      accessibilityLabel={`${pp.postpartumDays} วันนับตั้งแต่คลอด`}
+      accessibilityLabel={`${pp.postpartumDays} ${t('home.daysSinceBirth')}`}
     >
       <Text style={ppCardStyles.number}>{pp.postpartumDays}</Text>
-      <Text style={ppCardStyles.label}>{'วันนับตั้งแต่คลอด'}</Text>
+      <Text style={ppCardStyles.label}>{t('home.daysSinceBirth')}</Text>
     </View>
   );
 }
@@ -472,13 +493,13 @@ const ppCardStyles = StyleSheet.create({
     fontFamily: 'IBMPlexMono-Medium',
     fontSize: 56,
     lineHeight: 68,
-    color: '#3D6647',  // sage/700
+    color: '#3D6647',
   },
   label: {
     fontFamily: 'IBMPlexSans-Regular',
     fontSize: 16,
     lineHeight: 25,
-    color: '#4A7A56',  // sage/600
+    color: '#4A7A56',
     textAlign: 'center',
   },
 });
@@ -486,8 +507,9 @@ const ppCardStyles = StyleSheet.create({
 // ─── Skeleton (loading) ────────────────────────────────────────────────────────
 
 function Skeleton(): React.JSX.Element {
+  const { t } = useT();
   return (
-    <View style={skelStyles.container} accessibilityLabel="กำลังโหลด">
+    <View style={skelStyles.container} accessibilityLabel={t('home.loading')}>
       <View style={skelStyles.bone} />
       <View style={[skelStyles.bone, { width: '60%' }]} />
       <View style={[skelStyles.bone, { height: 80, borderRadius: 20 }]} />
@@ -515,23 +537,20 @@ export function HomeScreen({
   onNeedsProfile,
   onBirthEvent,
 }: HomeScreenProps): React.JSX.Element {
+  const { t } = useT();
   const [state, setState] = useState<ScreenState>({ kind: 'loading' });
 
-  // Cached anchors for foreground recompute (no network needed after first pull)
   const loadedEdd = useRef<string | null>(null);
   const loadedBirthDate = useRef<string | null>(null);
 
-  // ── Recompute gestational age from cached edd (pure civil-date, no network) ─
   const recomputeFromEdd = useCallback((edd: string): GestationalAge => {
     return computeGestationalAge(edd, localCivilToday());
   }, []);
 
-  // ── Recompute postpartum age from cached birthDate (pure civil-date) ─────────
   const recomputeFromBirthDate = useCallback((birthDate: string): PostpartumAge => {
     return computePostpartumAge(birthDate, localCivilToday());
   }, []);
 
-  // ── Load profile from server ───────────────────────────────────────────────
   const loadProfile = useCallback(async () => {
     const tokens = await tokenStorage.load();
     const accessToken = tokens?.accessToken;
@@ -547,13 +566,11 @@ export function HomeScreen({
       const { profile } = result;
 
       if (profile.lifecycle === 'postpartum' && profile.birthDate) {
-        // Postpartum mode: compute from birthDate (client is authoritative — OQ-2)
         loadedBirthDate.current = profile.birthDate;
         loadedEdd.current = null;
         const pp = recomputeFromBirthDate(profile.birthDate);
         setState({ kind: 'postpartum', profile, pp });
       } else {
-        // Pregnant mode: compute from edd (client is authoritative — OQ-2)
         loadedEdd.current = profile.edd;
         loadedBirthDate.current = null;
         const ga = recomputeFromEdd(profile.edd);
@@ -566,31 +583,26 @@ export function HomeScreen({
     }
   }, [tokenStorage, apiBaseUrl, onLogout, recomputeFromEdd, recomputeFromBirthDate]);
 
-  // ── Initial load ───────────────────────────────────────────────────────────
   useEffect(() => {
     void loadProfile();
   }, [loadProfile]);
 
-  // ── Navigate to ProfileSetup when no profile found ─────────────────────────
   useEffect(() => {
     if (state.kind === 'needs-onboarding') {
       onNeedsProfile();
     }
   }, [state.kind, onNeedsProfile]);
 
-  // ── Recompute on foreground / midnight (civil-date rollover) ─────────────────
   useEffect(() => {
     function handleAppState(next: AppStateStatus): void {
       if (next !== 'active') return;
 
       if (loadedEdd.current) {
-        // Pregnant foreground recompute
         const ga = recomputeFromEdd(loadedEdd.current);
         setState((prev) =>
           prev.kind === 'pregnant' ? { ...prev, ga } : prev,
         );
       } else if (loadedBirthDate.current) {
-        // Postpartum foreground recompute (day counter increments at midnight)
         const pp = recomputeFromBirthDate(loadedBirthDate.current);
         setState((prev) =>
           prev.kind === 'postpartum' ? { ...prev, pp } : prev,
@@ -601,7 +613,6 @@ export function HomeScreen({
     return () => sub.remove();
   }, [recomputeFromEdd, recomputeFromBirthDate]);
 
-  // ── Logout ─────────────────────────────────────────────────────────────────
   async function handleLogout(): Promise<void> {
     try {
       await tokenStorage.clear();
@@ -613,16 +624,20 @@ export function HomeScreen({
 
   function confirmLogout(): void {
     Alert.alert(
-      'ออกจากระบบ',
-      'คุณต้องการออกจากระบบใช่ไหม?',
+      t('home.logoutTitle'),
+      t('home.logoutMessage'),
       [
-        { text: 'ยกเลิก', style: 'cancel' },
-        { text: 'ออกจากระบบ', style: 'destructive', onPress: () => void handleLogout() },
+        { text: t('home.logoutCancel'), style: 'cancel' },
+        {
+          text: t('home.logoutConfirm'),
+          style: 'destructive',
+          onPress: () => void handleLogout(),
+        },
       ],
     );
   }
 
-  // ─── Render ───────────────────────────────────────────────────────────────
+  // ─── Loading ─────────────────────────────────────────────────────────────
 
   if (state.kind === 'loading') {
     return (
@@ -634,26 +649,27 @@ export function HomeScreen({
     );
   }
 
+  // ─── Error ───────────────────────────────────────────────────────────────
+
   if (state.kind === 'error') {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.errorContainer}>
-          <Text style={styles.errorHeadline}>{'เปิดข้อมูลในเครื่องไม่สำเร็จ'}</Text>
-          <Text style={styles.errorSubline}>{'ข้อมูลของคุณยังอยู่ในเครื่อง'}</Text>
+          <Text style={styles.errorHeadline}>{t('home.errorHeadline')}</Text>
+          <Text style={styles.errorSubline}>{t('home.errorSubline')}</Text>
           <TouchableOpacity
             style={styles.retryBtn}
             onPress={() => void loadProfile()}
             accessibilityRole="button"
-            accessibilityLabel="ลองอีกครั้ง"
+            accessibilityLabel={t('general.retry')}
           >
-            <Text style={styles.retryBtnText}>{'ลองอีกครั้ง'}</Text>
+            <Text style={styles.retryBtnText}>{t('general.retry')}</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
     );
   }
 
-  // needs-onboarding handled via useEffect above (navigate immediately)
   if (state.kind === 'needs-onboarding') {
     return (
       <SafeAreaView style={styles.container}>
@@ -664,25 +680,25 @@ export function HomeScreen({
     );
   }
 
-  // ── Postpartum mode (lifecycle === 'postpartum') ──────────────────────────
+  // ─── Postpartum mode ──────────────────────────────────────────────────────
+
   if (state.kind === 'postpartum') {
     const { profile, pp } = state;
     return (
       <SafeAreaView style={styles.container}>
+        <View style={styles.headerRow}>
+          <View style={styles.headerSpacer} />
+          <LangToggle />
+        </View>
         <ScrollView
           style={styles.scroll}
           contentContainerStyle={styles.scrollContent}
         >
-          {/* Postpartum stage banner (sage green tones) */}
           <PostpartumBanner profile={profile} pp={pp} />
-
-          {/* Day-count card */}
           <PostpartumDayCard pp={pp} />
-
-          {/* Placeholder for postpartum calendar grid (next slices) */}
           <View style={styles.placeholderCard}>
             <Text style={styles.placeholderText}>
-              {'ปฏิทินหลังคลอดและบันทึกรายวัน — Slice ถัดไป'}
+              {t('home.postpartumPlaceholder')}
             </Text>
           </View>
         </ScrollView>
@@ -691,57 +707,52 @@ export function HomeScreen({
           style={styles.logoutBtn}
           onPress={confirmLogout}
           accessibilityRole="button"
-          accessibilityLabel="ออกจากระบบ"
+          accessibilityLabel={t('home.logout')}
         >
-          <Text style={styles.logoutBtnText}>{'ออกจากระบบ'}</Text>
+          <Text style={styles.logoutBtnText}>{t('home.logout')}</Text>
         </TouchableOpacity>
       </SafeAreaView>
     );
   }
 
-  // ── Pregnant mode (lifecycle === 'pregnant') ──────────────────────────────
+  // ─── Pregnant mode ────────────────────────────────────────────────────────
+
   const { profile, ga } = state;
 
   return (
     <SafeAreaView style={styles.container}>
+      <View style={styles.headerRow}>
+        <View style={styles.headerSpacer} />
+        <LangToggle />
+      </View>
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* Stage banner with T3 birth CTA (§6.1 / §4.1) */}
         <StageBanner
           profile={profile}
           ga={ga}
           onBirthEvent={() => onBirthEvent(profile.version)}
         />
 
-        {/* Pregnancy progress bar */}
         <View style={styles.section}>
-          <Text style={styles.sectionLabel}>{'ความคืบหน้าการตั้งครรภ์'}</Text>
+          <Text style={styles.sectionLabel}>{t('home.pregnancyProgress')}</Text>
           <ProgressBar progress={ga.progress} />
         </View>
 
-        {/* Days remaining / overdue
-         *  ga.daysRemaining is number (GestationalAge — never null); no null check needed.
-         *  Negative when past EDD (overdue state). */}
         <View style={styles.daysCard}>
           {ga.daysRemaining >= 0 ? (
             <>
               <Text style={styles.daysNumber}>{ga.daysRemaining}</Text>
-              <Text style={styles.daysLabel}>{'วันก่อนถึงกำหนดคลอด'}</Text>
+              <Text style={styles.daysLabel}>{t('home.daysBeforeDue')}</Text>
             </>
           ) : (
-            <Text style={styles.overdueLabel}>
-              {'ถึงกำหนดแล้ว · บันทึกการคลอดเมื่อพร้อม'}
-            </Text>
+            <Text style={styles.overdueLabel}>{t('home.overdueCard')}</Text>
           )}
         </View>
 
-        {/* Placeholder for calendar grid + suggestions (next slices) */}
         <View style={styles.placeholderCard}>
-          <Text style={styles.placeholderText}>
-            {'ปฏิทินและบันทึกรายวัน — Slice ถัดไป'}
-          </Text>
+          <Text style={styles.placeholderText}>{t('home.pregnancyPlaceholder')}</Text>
         </View>
       </ScrollView>
 
@@ -749,9 +760,9 @@ export function HomeScreen({
         style={styles.logoutBtn}
         onPress={confirmLogout}
         accessibilityRole="button"
-        accessibilityLabel="ออกจากระบบ"
+        accessibilityLabel={t('home.logout')}
       >
-        <Text style={styles.logoutBtnText}>{'ออกจากระบบ'}</Text>
+        <Text style={styles.logoutBtnText}>{t('home.logout')}</Text>
       </TouchableOpacity>
     </SafeAreaView>
   );
@@ -763,6 +774,18 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FBF6F1',
+  },
+  // Header row with language toggle
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 24,
+    paddingTop: 12,
+    paddingBottom: 4,
+  },
+  headerSpacer: {
+    flex: 1,
   },
   scroll: {
     flex: 1,
@@ -776,7 +799,6 @@ const styles = StyleSheet.create({
     padding: 24,
   },
 
-  // Section
   section: {
     gap: 8,
   },
@@ -787,7 +809,6 @@ const styles = StyleSheet.create({
     color: '#5F4A52',
   },
 
-  // Days card
   daysCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
@@ -817,7 +838,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
-  // Placeholder
   placeholderCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
@@ -832,7 +852,6 @@ const styles = StyleSheet.create({
     color: '#94818A',
   },
 
-  // Error
   errorContainer: {
     flex: 1,
     alignItems: 'center',
@@ -868,7 +887,6 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
 
-  // Logout
   logoutBtn: {
     height: 52,
     marginHorizontal: 24,

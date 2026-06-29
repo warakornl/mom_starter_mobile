@@ -38,6 +38,13 @@ import type {
   ResendVerificationRequest,
   ResendVerificationResult,
   AuthApiError,
+  GoogleSignInRequest,
+  GoogleResult,
+  LogoutRequest,
+  LogoutResult,
+  SessionsPage,
+  ListSessionsResult,
+  RevokeSessionResult,
 } from './types';
 
 /**
@@ -74,6 +81,64 @@ function jsonPost(baseUrl: string, fetchFn: FetchFn, path: string, body: unknown
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
+  });
+}
+
+/**
+ * Authenticated POST — includes `Authorization: Bearer <accessToken>`.
+ * Used for endpoints that require Bearer (§C/Conventions).
+ * NEVER logs the accessToken.
+ */
+function jsonPostAuth(
+  baseUrl: string,
+  fetchFn: FetchFn,
+  path: string,
+  body: unknown,
+  accessToken: string,
+): Promise<Response> {
+  return fetchFn(`${baseUrl}${path}`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${accessToken}`,
+    },
+    body: JSON.stringify(body),
+  });
+}
+
+/**
+ * Authenticated GET — includes `Authorization: Bearer <accessToken>`.
+ * NEVER logs the accessToken.
+ */
+function jsonGetAuth(
+  baseUrl: string,
+  fetchFn: FetchFn,
+  path: string,
+  accessToken: string,
+): Promise<Response> {
+  return fetchFn(`${baseUrl}${path}`, {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+    },
+  });
+}
+
+/**
+ * Authenticated DELETE — includes `Authorization: Bearer <accessToken>`.
+ * NEVER logs the accessToken.
+ */
+function jsonDeleteAuth(
+  baseUrl: string,
+  fetchFn: FetchFn,
+  path: string,
+  accessToken: string,
+): Promise<Response> {
+  return fetchFn(`${baseUrl}${path}`, {
+    method: 'DELETE',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+    },
   });
 }
 
@@ -212,6 +277,102 @@ export function createAuthClient(baseUrl: string, fetchFn: FetchFn = fetch) {
     async resendVerification(req: ResendVerificationRequest): Promise<ResendVerificationResult> {
       const res = await jsonPost(baseUrl, fetchFn, '/v1/auth/resend-verification', req);
       if (res.status === 202) {
+        return { ok: true };
+      }
+      return makeError(res.status, await parseError(res));
+    },
+
+    /**
+     * POST /auth/google → 200 AuthTokens
+     *
+     * The device obtains a Google ID token via the native SDK, then POSTs it here.
+     * The server fully verifies the token (G2: signature, iss, aud, exp, nonce,
+     * email_verified) and mints the app's own opaque-rotating-refresh session (§J).
+     *
+     * Endpoint is on the UNAUTHENTICATED list (§J/Conventions) — no Bearer header.
+     *
+     * 401 `google_token_invalid` — any G2 check failure (single generic code,
+     *   never reveals which specific check failed — avoids oracle, §E/C7).
+     * 409 `link_required` — Google email collides with an existing email/password
+     *   account; NO session minted, NO auto-merge; link only after proof (G4).
+     * 429 `rate_limited` — per-IP + per-Google-sub ceiling (§H).
+     *
+     * Security: `req.nonce` is required for G3 replay protection; NEVER log `idToken`.
+     */
+    async google(req: GoogleSignInRequest): Promise<GoogleResult> {
+      const res = await jsonPost(baseUrl, fetchFn, '/v1/auth/google', req);
+      if (res.ok) {
+        const tokens = (await res.json()) as AuthTokens;
+        return { ok: true, tokens };
+      }
+      return makeError(res.status, await parseError(res));
+    },
+
+    /**
+     * POST /auth/logout → 204 (server-side revocation, §C)
+     *
+     * Revokes the presented refresh-token family on the server — not merely
+     * a client-side token clear. The access token is required as Bearer to
+     * authenticate the request (§C/Conventions); logout is not unauthenticated.
+     *
+     * - `req.refreshToken` — revokes that one device's family.
+     * - `req.allDevices: true` — revokes EVERY family for the subject
+     *   ("sign out everywhere", lost-phone / post-compromise flow, §C).
+     *
+     * Access tokens are stateless and live out their ≤15-min window after revocation;
+     * for especially sensitive actions the server additionally checks the family.
+     *
+     * NEVER log `accessToken` or `req.refreshToken`.
+     */
+    async logout(req: LogoutRequest, accessToken: string): Promise<LogoutResult> {
+      const res = await jsonPostAuth(baseUrl, fetchFn, '/v1/auth/logout', req, accessToken);
+      if (res.status === 204) {
+        return { ok: true };
+      }
+      return makeError(res.status, await parseError(res));
+    },
+
+    /**
+     * GET /auth/sessions → 200 SessionsPage (§D/C5)
+     *
+     * Returns the authenticated user's "devices signed in" list — the active leaf
+     * of each refresh-token family. Response is `Page<DeviceSession>` per contract
+     * N5: `{ items[], nextCursor? }` — NOT a bare array.
+     *
+     * Requires `Authorization: Bearer <accessToken>` (scoped to `sub`).
+     * 401 — access token invalid or expired.
+     *
+     * NEVER log `accessToken`.
+     */
+    async listSessions(accessToken: string): Promise<ListSessionsResult> {
+      const res = await jsonGetAuth(baseUrl, fetchFn, '/v1/auth/sessions', accessToken);
+      if (res.ok) {
+        const page = (await res.json()) as SessionsPage;
+        return { ok: true, page };
+      }
+      return makeError(res.status, await parseError(res));
+    },
+
+    /**
+     * DELETE /auth/sessions/{deviceId} → 204 (§D/C5)
+     *
+     * Revokes the named device's refresh-token family ("sign out that tablet",
+     * S7/S8 device management). Equivalent to a targeted logout for a chosen device.
+     *
+     * Requires `Authorization: Bearer <accessToken>` (scoped to `sub`).
+     * 401 — access token invalid or expired.
+     * 404 — device not found or already removed.
+     *
+     * NEVER log `accessToken`.
+     */
+    async revokeSession(deviceId: string, accessToken: string): Promise<RevokeSessionResult> {
+      const res = await jsonDeleteAuth(
+        baseUrl,
+        fetchFn,
+        `/v1/auth/sessions/${deviceId}`,
+        accessToken,
+      );
+      if (res.status === 204) {
         return { ok: true };
       }
       return makeError(res.status, await parseError(res));

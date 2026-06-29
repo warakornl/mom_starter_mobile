@@ -5,7 +5,7 @@
  * no network, no server, no global-fetch monkey-patch.
  */
 import { createAuthClient, FetchFn } from './authApiClient';
-import type { AuthTokens } from './types';
+import type { AuthTokens, DeviceSession } from './types';
 
 // ─── Test helpers ─────────────────────────────────────────────────────────────
 
@@ -412,6 +412,228 @@ describe('authClient.resendVerification', () => {
     if (!r.ok) {
       expect(r.status).toBe(429);
       expect(r.code).toBe('rate_limited');
+    }
+  });
+});
+
+// ─── google ───────────────────────────────────────────────────────────────────
+
+describe('authClient.google', () => {
+  it('returns ok:true + tokens on 200 (successful Google sign-in, returning or brand-new user — §J G4)', async () => {
+    const client = createAuthClient(BASE, makeResponse(200, TOKENS));
+    const r = await client.google({ idToken: 'google.id.tok', nonce: 'nonce-rand-abc' });
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.tokens).toEqual(TOKENS);
+  });
+
+  it('POSTs to /v1/auth/google with correct body and NO Authorization header (unauthenticated endpoint, §J/Conventions)', async () => {
+    const { fn, calls } = spyFetch(200, TOKENS);
+    await createAuthClient(BASE, fn).google({
+      idToken: 'google.id.tok',
+      nonce: 'nonce-rand-abc',
+      deviceId: 'dev-001',
+    });
+    expect(calls).toHaveLength(1);
+    expect(calls[0].url).toBe('http://localhost:8080/v1/auth/google');
+    expect(calls[0].init).toMatchObject({
+      method: 'POST',
+      body: JSON.stringify({ idToken: 'google.id.tok', nonce: 'nonce-rand-abc', deviceId: 'dev-001' }),
+    });
+    // /auth/google is on the unauthenticated list — must NOT send Authorization header
+    const headers = (calls[0].init?.headers ?? {}) as Record<string, string>;
+    expect(headers['Authorization']).toBeUndefined();
+  });
+
+  it('returns ok:false + code "google_token_invalid" on 401 (any G2 check failure — single generic code, avoids oracle)', async () => {
+    const client = createAuthClient(
+      BASE,
+      makeResponse(401, { code: 'google_token_invalid', message: 'ID token verification failed.' }),
+    );
+    const r = await client.google({ idToken: 'forged.tok', nonce: 'nonce-rand-abc' });
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.status).toBe(401);
+      expect(r.code).toBe('google_token_invalid');
+    }
+  });
+
+  it('returns ok:false + code "link_required" on 409 (Google email collides with existing local account — G4, no auto-merge or silent takeover)', async () => {
+    const client = createAuthClient(
+      BASE,
+      makeResponse(409, { code: 'link_required', message: 'An account with this email already exists.' }),
+    );
+    const r = await client.google({ idToken: 'google.id.tok', nonce: 'nonce-rand-abc' });
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.status).toBe(409);
+      expect(r.code).toBe('link_required');
+    }
+  });
+
+  it('returns ok:false + code "rate_limited" on 429 (§H per-IP + per-Google-sub ceiling)', async () => {
+    const client = createAuthClient(
+      BASE,
+      makeResponse(429, { code: 'rate_limited', message: 'Too many requests.' }),
+    );
+    const r = await client.google({ idToken: 'google.id.tok', nonce: 'nonce-rand-abc' });
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.status).toBe(429);
+      expect(r.code).toBe('rate_limited');
+    }
+  });
+});
+
+// ─── logout ───────────────────────────────────────────────────────────────────
+
+describe('authClient.logout', () => {
+  it('returns ok:true on 204 (server-side revocation successful)', async () => {
+    const client = createAuthClient(BASE, makeResponse(204));
+    const r = await client.logout({ refreshToken: 'rt.opaque' }, 'at.eyJ');
+    expect(r.ok).toBe(true);
+  });
+
+  it('POSTs to /v1/auth/logout with Authorization: Bearer header (Bearer required — §C/Conventions)', async () => {
+    const { fn, calls } = spyFetch(204);
+    await createAuthClient(BASE, fn).logout({ refreshToken: 'rt.opaque' }, 'at.eyJ');
+    expect(calls).toHaveLength(1);
+    expect(calls[0].url).toBe('http://localhost:8080/v1/auth/logout');
+    expect(calls[0].init?.method).toBe('POST');
+    const headers = (calls[0].init?.headers ?? {}) as Record<string, string>;
+    expect(headers['Authorization']).toBe('Bearer at.eyJ');
+  });
+
+  it('sends refreshToken in the request body (revokes that one device family)', async () => {
+    const { fn, calls } = spyFetch(204);
+    await createAuthClient(BASE, fn).logout({ refreshToken: 'rt.opaque' }, 'at.eyJ');
+    expect(calls[0].init).toMatchObject({
+      body: JSON.stringify({ refreshToken: 'rt.opaque' }),
+    });
+  });
+
+  it('supports allDevices:true to revoke every family ("sign out everywhere" / lost-phone, §C)', async () => {
+    const { fn, calls } = spyFetch(204);
+    const r = await createAuthClient(BASE, fn).logout({ allDevices: true }, 'at.eyJ');
+    expect(r.ok).toBe(true);
+    expect(calls[0].init).toMatchObject({
+      body: JSON.stringify({ allDevices: true }),
+    });
+  });
+
+  it('returns ok:false on 401 (access token invalid or session already revoked)', async () => {
+    const client = createAuthClient(
+      BASE,
+      makeResponse(401, { code: 'invalid_token', message: 'Unauthorized.' }),
+    );
+    const r = await client.logout({ refreshToken: 'rt.opaque' }, 'at.expired');
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.status).toBe(401);
+  });
+});
+
+// ─── listSessions ─────────────────────────────────────────────────────────────
+
+describe('authClient.listSessions', () => {
+  const SESSION: DeviceSession = {
+    deviceId: 'dev-001',
+    deviceName: 'iPhone 15',
+    createdAt: '2026-06-01T10:00:00Z',
+    lastSeenAt: '2026-06-29T08:00:00Z',
+    current: true,
+  };
+
+  it('returns ok:true + page with items array on 200 (contract shape: Page<DeviceSession>)', async () => {
+    const client = createAuthClient(BASE, makeResponse(200, { items: [SESSION] }));
+    const r = await client.listSessions('at.eyJ');
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.page.items).toHaveLength(1);
+      expect(r.page.items[0]).toEqual(SESSION);
+    }
+  });
+
+  it('GETs /v1/auth/sessions with Authorization: Bearer header (Bearer required — §D/C5/Conventions)', async () => {
+    const { fn, calls } = spyFetch(200, { items: [SESSION] });
+    await createAuthClient(BASE, fn).listSessions('at.eyJ');
+    expect(calls).toHaveLength(1);
+    expect(calls[0].url).toBe('http://localhost:8080/v1/auth/sessions');
+    expect(calls[0].init?.method).toBe('GET');
+    const headers = (calls[0].init?.headers ?? {}) as Record<string, string>;
+    expect(headers['Authorization']).toBe('Bearer at.eyJ');
+  });
+
+  it('reads response as SessionsPage {items, nextCursor?} — NOT a bare array (contract N5: Page<DeviceSession>)', async () => {
+    // Contract says GET /auth/sessions → Page<DeviceSession> = { items[], nextCursor? }
+    // Client MUST read .items, not treat the response body as a bare array.
+    // (Backend will be updated to return this Page shape separately.)
+    const client = createAuthClient(
+      BASE,
+      makeResponse(200, { items: [SESSION], nextCursor: 'cursor-xyz' }),
+    );
+    const r = await client.listSessions('at.eyJ');
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(Array.isArray(r.page.items)).toBe(true);
+      expect(r.page.nextCursor).toBe('cursor-xyz');
+    }
+  });
+
+  it('returns ok:false on 401 (access token invalid or expired)', async () => {
+    const client = createAuthClient(
+      BASE,
+      makeResponse(401, { code: 'invalid_token', message: 'Unauthorized.' }),
+    );
+    const r = await client.listSessions('at.expired');
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.status).toBe(401);
+  });
+});
+
+// ─── revokeSession ────────────────────────────────────────────────────────────
+
+describe('authClient.revokeSession', () => {
+  it('returns ok:true on 204 (device family revoked)', async () => {
+    const client = createAuthClient(BASE, makeResponse(204));
+    const r = await client.revokeSession('dev-002', 'at.eyJ');
+    expect(r.ok).toBe(true);
+  });
+
+  it('DELETEs /v1/auth/sessions/{deviceId} with Authorization: Bearer header (§D/C5)', async () => {
+    const { fn, calls } = spyFetch(204);
+    await createAuthClient(BASE, fn).revokeSession('dev-002', 'at.eyJ');
+    expect(calls).toHaveLength(1);
+    expect(calls[0].url).toBe('http://localhost:8080/v1/auth/sessions/dev-002');
+    expect(calls[0].init?.method).toBe('DELETE');
+    const headers = (calls[0].init?.headers ?? {}) as Record<string, string>;
+    expect(headers['Authorization']).toBe('Bearer at.eyJ');
+  });
+
+  it('interpolates deviceId into the URL path correctly', async () => {
+    const { fn, calls } = spyFetch(204);
+    await createAuthClient(BASE, fn).revokeSession('my-tablet-id-123', 'at.eyJ');
+    expect(calls[0].url).toBe('http://localhost:8080/v1/auth/sessions/my-tablet-id-123');
+  });
+
+  it('returns ok:false on 401 (access token invalid or session already revoked)', async () => {
+    const client = createAuthClient(
+      BASE,
+      makeResponse(401, { code: 'invalid_token', message: 'Unauthorized.' }),
+    );
+    const r = await client.revokeSession('dev-002', 'at.expired');
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.status).toBe(401);
+  });
+
+  it('returns ok:false on 404 (device not found or already removed)', async () => {
+    const client = createAuthClient(
+      BASE,
+      makeResponse(404, { code: 'not_found', message: 'Device session not found.' }),
+    );
+    const r = await client.revokeSession('dev-nonexistent', 'at.eyJ');
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.status).toBe(404);
+      expect(r.code).toBe('not_found');
     }
   });
 });

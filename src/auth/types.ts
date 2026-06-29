@@ -113,3 +113,88 @@ export type VerifyEmailResult = { ok: true; tokens: AuthTokens } | AuthApiError;
  * 429 `rate_limited` — rate-limited per account to prevent email flooding (§H).
  */
 export type ResendVerificationResult = { ok: true } | AuthApiError;
+
+// ─── Google Sign-In (§J) ──────────────────────────────────────────────────────
+
+/**
+ * POST /auth/google request body.
+ * `nonce` is REQUIRED for G3 replay protection — the client generates a fresh
+ * cryptographically-random nonce per attempt, passes it to the Google Sign-In SDK
+ * (which embeds it into the ID token's `nonce` claim), then sends the same value
+ * here so the server can verify G2.5 and mark the nonce consumed (single-use).
+ */
+export interface GoogleSignInRequest {
+  idToken: string;
+  nonce: string;
+  deviceId?: string;
+}
+
+// ─── Logout (§C) ─────────────────────────────────────────────────────────────
+
+/**
+ * POST /auth/logout request body.
+ * Providing `refreshToken` revokes that device's refresh-token family.
+ * `allDevices: true` revokes every family for the authenticated subject
+ * ("sign out everywhere" / lost-phone flow).
+ * Endpoint requires `Authorization: Bearer <accessToken>` (§C/Conventions).
+ */
+export interface LogoutRequest {
+  refreshToken?: string;
+  allDevices?: boolean;
+}
+
+// ─── Sessions (§D/C5) ────────────────────────────────────────────────────────
+
+/**
+ * One "device signed in" row returned by GET /auth/sessions.
+ * Never carries token material (§D/C5).
+ */
+export interface DeviceSession {
+  deviceId: string;
+  deviceName?: string;
+  /** UTC instant as ISO-8601 string (Java Instant → JSON string). */
+  createdAt: string;
+  lastSeenAt?: string;
+  /** True if this session is the calling device's current active session. */
+  current: boolean;
+}
+
+/**
+ * Contract pagination wrapper for GET /auth/sessions.
+ * Contract N5: Page<DeviceSession> = `{ items[], nextCursor? }` — NOT a bare array.
+ * NOTE: the backend currently returns List<DeviceSession>; it will be updated
+ * to return this Page shape separately. The client reads `.items` per contract.
+ */
+export interface SessionsPage {
+  items: DeviceSession[];
+  nextCursor?: string;
+}
+
+// ─── New result types (discriminated unions) ──────────────────────────────────
+
+/**
+ * POST /auth/google → 200 AuthTokens on success.
+ * 401 `google_token_invalid` — any failed G2 check (single generic code, never reveals which).
+ * 409 `link_required` — Google email collides with existing local account (G4, no auto-merge).
+ * 429 `rate_limited` (§H).
+ */
+export type GoogleResult = { ok: true; tokens: AuthTokens } | AuthApiError;
+
+/**
+ * POST /auth/logout → 204 on success.
+ * Requires `Authorization: Bearer <accessToken>` (§C).
+ */
+export type LogoutResult = { ok: true } | AuthApiError;
+
+/**
+ * GET /auth/sessions → 200 SessionsPage on success.
+ * Requires `Authorization: Bearer <accessToken>` (§D/C5).
+ * 401 when the access token is invalid or expired.
+ */
+export type ListSessionsResult = { ok: true; page: SessionsPage } | AuthApiError;
+
+/**
+ * DELETE /auth/sessions/{deviceId} → 204 on success.
+ * Requires `Authorization: Bearer <accessToken>` (§D/C5).
+ */
+export type RevokeSessionResult = { ok: true } | AuthApiError;

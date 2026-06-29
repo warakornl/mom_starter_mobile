@@ -16,6 +16,9 @@
  *   ProfileSetup complete → Home (via onSetupComplete callback + navigation.reset)
  *   Home T3 banner "ลูกคลอดแล้ว" → BirthEvent (via onBirthEvent(version))
  *   BirthEvent success → Home (via onBirthRecorded + navigation.reset)
+ *   Home calendar button → Calendar
+ *   Calendar → AppointmentForm (new: no params; edit: itemId)
+ *   Calendar → ReminderForm   (new: no params; edit: reminderId)
  *
  * Deep-link carry-forward:
  *   VerifyEmail will also receive `pendingToken?: string` once Expo Linking
@@ -35,4 +38,19 @@ export type RootStackParamList = {
    * Entry: shortcut button on HomeScreen.
    */
   Supplies: undefined;
+  /**
+   * Calendar screen — month/agenda combining appointments + reminder occurrences.
+   * Entry: "ดูทั้งหมด" / calendar button on HomeScreen.
+   */
+  Calendar: undefined;
+  /**
+   * AppointmentForm — add/edit a ChecklistItem with category=appointment.
+   * itemId present → edit mode; absent → create mode.
+   */
+  AppointmentForm: { itemId?: string; defaultCategory?: string };
+  /**
+   * ReminderForm — add/edit a Reminder with recurrenceRule (FLAG-4 grammar).
+   * reminderId present → edit mode; absent → create mode.
+   */
+  ReminderForm: { reminderId?: string };
 };

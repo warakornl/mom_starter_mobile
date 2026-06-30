@@ -14,18 +14,23 @@
 
 // Mock expo-secure-store (native module)
 const secureStoreData: Record<string, string> = {};
+const mockSetItemAsync = jest.fn((key: string, value: string) => {
+  secureStoreData[key] = value;
+  return Promise.resolve();
+});
+const mockGetItemAsync = jest.fn((key: string) => {
+  return Promise.resolve(secureStoreData[key] ?? null);
+});
+const mockDeleteItemAsync = jest.fn((key: string) => {
+  delete secureStoreData[key];
+  return Promise.resolve();
+});
+
 jest.mock('expo-secure-store', () => ({
-  setItemAsync: jest.fn((key: string, value: string) => {
-    secureStoreData[key] = value;
-    return Promise.resolve();
-  }),
-  getItemAsync: jest.fn((key: string) => {
-    return Promise.resolve(secureStoreData[key] ?? null);
-  }),
-  deleteItemAsync: jest.fn((key: string) => {
-    delete secureStoreData[key];
-    return Promise.resolve();
-  }),
+  WHEN_UNLOCKED_THIS_DEVICE_ONLY: 'WHEN_UNLOCKED_THIS_DEVICE_ONLY',
+  setItemAsync: mockSetItemAsync,
+  getItemAsync: mockGetItemAsync,
+  deleteItemAsync: mockDeleteItemAsync,
 }));
 
 import { saveDraft, loadDraft, clearDraft } from './kickCountDraftStore';
@@ -48,6 +53,9 @@ describe('kickCountDraftStore (K-8 encrypted store)', () => {
   beforeEach(() => {
     // Clear all data between tests
     Object.keys(secureStoreData).forEach((k) => delete secureStoreData[k]);
+    mockSetItemAsync.mockClear();
+    mockGetItemAsync.mockClear();
+    mockDeleteItemAsync.mockClear();
   });
 
   it('saveDraft() stores draft via expo-secure-store', async () => {
@@ -96,5 +104,34 @@ describe('kickCountDraftStore (K-8 encrypted store)', () => {
     await saveDraft(draft);
     const loaded = await loadDraft();
     expect(loaded!.note).toBe('ลูกดิ้นแรงหลังอาหารเช้า');
+  });
+
+  // ── appsec-1.2: WHEN_UNLOCKED_THIS_DEVICE_ONLY (iCloud backup leak prevention) ──
+
+  it('saveDraft() passes keychainAccessible=WHEN_UNLOCKED_THIS_DEVICE_ONLY (appsec-1.2)', async () => {
+    await saveDraft(makeDraft());
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const callArgs = mockSetItemAsync.mock.calls[0] as any[];
+    expect(callArgs[2]).toMatchObject({
+      keychainAccessible: 'WHEN_UNLOCKED_THIS_DEVICE_ONLY',
+    });
+  });
+
+  it('loadDraft() passes keychainAccessible=WHEN_UNLOCKED_THIS_DEVICE_ONLY (appsec-1.2)', async () => {
+    await loadDraft();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const callArgs = mockGetItemAsync.mock.calls[0] as any[];
+    expect(callArgs[1]).toMatchObject({
+      keychainAccessible: 'WHEN_UNLOCKED_THIS_DEVICE_ONLY',
+    });
+  });
+
+  it('clearDraft() passes keychainAccessible=WHEN_UNLOCKED_THIS_DEVICE_ONLY (appsec-1.2)', async () => {
+    await clearDraft();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const callArgs = mockDeleteItemAsync.mock.calls[0] as any[];
+    expect(callArgs[1]).toMatchObject({
+      keychainAccessible: 'WHEN_UNLOCKED_THIS_DEVICE_ONLY',
+    });
   });
 });

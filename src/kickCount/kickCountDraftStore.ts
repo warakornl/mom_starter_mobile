@@ -43,6 +43,16 @@ import type { KickCountDraft } from './kickCountTypes';
  */
 const DRAFT_KEY = 'kick_count_draft';
 
+/**
+ * appsec-1.2: Always store with WHEN_UNLOCKED_THIS_DEVICE_ONLY.
+ * - iOS Keychain: prevents iCloud backup of health data.
+ * - Android: EncryptedSharedPreferences uses this flag for similar isolation.
+ * This matches secureTokenStorage.ts and the JSDoc requirement.
+ */
+const KEYCHAIN_OPTIONS: SecureStore.SecureStoreOptions = {
+  keychainAccessible: SecureStore.WHEN_UNLOCKED_THIS_DEVICE_ONLY,
+};
+
 // ─── Public API ───────────────────────────────────────────────────────────────
 
 /**
@@ -58,7 +68,7 @@ const DRAFT_KEY = 'kick_count_draft';
  */
 export async function saveDraft(draft: KickCountDraft): Promise<void> {
   const serialized = JSON.stringify(draft);
-  await SecureStore.setItemAsync(DRAFT_KEY, serialized);
+  await SecureStore.setItemAsync(DRAFT_KEY, serialized, KEYCHAIN_OPTIONS);
 }
 
 /**
@@ -71,7 +81,7 @@ export async function saveDraft(draft: KickCountDraft): Promise<void> {
  *   Caller MUST handle this and display SC-K0 store-error state.
  */
 export async function loadDraft(): Promise<KickCountDraft | null> {
-  const raw = await SecureStore.getItemAsync(DRAFT_KEY);
+  const raw = await SecureStore.getItemAsync(DRAFT_KEY, KEYCHAIN_OPTIONS);
   if (raw === null || raw === undefined) return null;
   try {
     const parsed = JSON.parse(raw) as KickCountDraft;
@@ -96,5 +106,5 @@ export async function loadDraft(): Promise<KickCountDraft | null> {
  * @throws If the delete fails. Caller SHOULD retry on next app open.
  */
 export async function clearDraft(): Promise<void> {
-  await SecureStore.deleteItemAsync(DRAFT_KEY);
+  await SecureStore.deleteItemAsync(DRAFT_KEY, KEYCHAIN_OPTIONS);
 }

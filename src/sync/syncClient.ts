@@ -46,6 +46,7 @@
 import type { FetchFn } from '../auth/authApiClient';
 import type { SyncStore } from './syncStore';
 import type { CalendarSyncStore } from './calendarSyncStore';
+import type { KickCountSyncStore } from '../kickCount/kickCountSyncStore';
 import type {
   SyncChangeSet,
   SyncPushResponse,
@@ -57,6 +58,7 @@ import type {
   ReminderRecord,
   ReminderOccurrenceRecord,
   ChecklistItemRecord,
+  KickCountSessionRecord,
 } from './syncTypes';
 
 // ─── Collection adapter interface ─────────────────────────────────────────────
@@ -285,6 +287,7 @@ function createSyncClientWithAdapters(
         applyPullChanges('reminders', page.changes?.reminders, adapterMap);
         applyPullChanges('reminderOccurrences', page.changes?.reminderOccurrences, adapterMap);
         applyPullChanges('checklistItems', page.changes?.checklistItems, adapterMap);
+        applyPullChanges('kickCountSessions', page.changes?.kickCountSessions, adapterMap);
 
         const isLastPage = !page.nextCursor;
 
@@ -388,6 +391,46 @@ export function createCalendarSyncClient(
         upsertRecord: (record) =>
           store.upsertChecklistItem(record as ChecklistItemRecord),
         tombstoneRecord: (id) => store.tombstoneChecklistItem(id),
+      },
+    ],
+  ]);
+  return createSyncClientWithAdapters(baseUrl, adapterMap, store, fetchFn);
+}
+
+/**
+ * Creates a sync client bound to a KickCountSyncStore.
+ * Handles collection: kickCountSessions (immutable event union, create-only push).
+ *
+ * Terminal-status guard is enforced BOTH here (via KickCountSyncStore.drainQueue()
+ * which filters to completed only) and server-side (non_terminal_status rejection).
+ *
+ * Use this in kick-count screens (KickCountHomeScreen, KickCountHistoryScreen)
+ * for push of completed sessions and pull of the sessions collection.
+ *
+ * MOTHER-health: gated by cloud_storage (whole batch) + general_health (per-collection).
+ * Note encryption (K-7): currently plaintext — TODO appsec-engineer to provide
+ * AES-GCM encryption helper before production egress.
+ *
+ * @param baseUrl  API base URL (no trailing slash)
+ * @param store    KickCountSyncStore singleton
+ * @param fetchFn  Defaults to global `fetch`; inject a mock in tests
+ */
+export function createKickCountSyncClient(
+  baseUrl: string,
+  store: KickCountSyncStore,
+  fetchFn: FetchFn = fetch,
+) {
+  const adapterMap = new Map<string, SyncCollectionAdapter>([
+    [
+      'kickCountSessions',
+      {
+        stampApplied: (id, version, updatedAt) =>
+          store.stampApplied(id, version, updatedAt),
+        adoptServerRecord: (record) =>
+          store.adoptServerRecord(record as KickCountSessionRecord),
+        upsertRecord: (record) =>
+          store.upsertSession(record as KickCountSessionRecord),
+        tombstoneRecord: (id) => store.tombstoneSession(id),
       },
     ],
   ]);

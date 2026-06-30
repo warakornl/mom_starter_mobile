@@ -13,6 +13,9 @@
  *                         are push-accepted; gated cloud_storage+general_health)
  *   - checklistItems     (appointment + tasks; mutable LWW;
  *                         gated cloud_storage + general_health)
+ *   - kickCountSessions  (immutable event union; only status=completed push-accepted;
+ *                         terminal-status guard client+server; gated cloud_storage
+ *                         + general_health; note encrypted as note_cipher)
  *
  * Key contract rules encoded here:
  *   - push: three-bucket changes (created/updated/deleted)
@@ -229,13 +232,63 @@ export interface ChecklistItemRecord {
   deletedAt?: string | null;
 }
 
+// ─── KickCountSession (api-contract.md §"Kick count — session lifecycle") ─────
+
+/**
+ * KickCountSessionRecord — the wire/storage type for a finalized session.
+ *
+ * Immutable event union (D3): each session has a distinct UUIDv4 client-gen id.
+ * Re-pushing the same id is a server no-op (version not bumped, immutable log).
+ * Only status='completed' is push-accepted (terminal-status guard D2).
+ *
+ * FLAG-1 / D10: startedAt / endedAt are floating-civil "YYYY-MM-DDTHH:mm".
+ * D4 / DRIFT-1: durationSeconds + gestationalWeekAtStart stored verbatim.
+ *
+ * K-7: note is stored server-side as encrypted note_cipher bytea.
+ *   The wire push must transmit an encrypted value; this type represents the
+ *   LOCAL plaintext view for display. For push, the client encrypts the note.
+ *   (Encryption helper is a carry-forward — flagged for appsec-engineer.)
+ *
+ * MOTHER-health: gated by cloud_storage + general_health.
+ */
+export interface KickCountSessionRecord {
+  /** UUIDv4 client-generated (canonical lowercase 8-4-4-4-12). */
+  id: string;
+  /** Floating-civil session start — "YYYY-MM-DDTHH:mm" (FLAG-1). Bucket key. */
+  startedAt: string;
+  /** Floating-civil session end — "YYYY-MM-DDTHH:mm" (FLAG-1). Required on completed. */
+  endedAt?: string | null;
+  /** Accumulated tap count int ≥ 0. count=0 completed is valid (B1). */
+  movementCount: number;
+  /** Locked to 10 in MVP (D5). Server rejects ≠ 10 with target_count_locked. */
+  targetCount: 10;
+  /** Only 'completed' is push-accepted — client terminal-status guard (D2). */
+  status: 'completed';
+  /** Duration in seconds — client monotonic delta (B.3); server stores verbatim (D4). */
+  durationSeconds?: number | null;
+  /** Gestational week at session start — client-derived (B.3); server stores verbatim (D4). */
+  gestationalWeekAtStart?: number | null;
+  /**
+   * Optional plaintext note (local view).
+   * WIRE PUSH: must be encrypted before transmission (K-7 — TODO appsec-engineer).
+   */
+  note?: string | null;
+  // ── <sync> block ─────────────────────────────────────────────────────────
+  /** Create sentinel = 0; server assigns ≥ 1. */
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt?: string | null;
+}
+
 // ─── Union of all sync records (for ConflictRecord.serverRecord) ──────────────
 
 export type SyncRecord =
   | SupplyItemRecord
   | ReminderRecord
   | ReminderOccurrenceRecord
-  | ChecklistItemRecord;
+  | ChecklistItemRecord
+  | KickCountSessionRecord;
 
 // ─── Push request ─────────────────────────────────────────────────────────────
 
@@ -267,6 +320,21 @@ export interface SyncChangeSet {
   checklistItems?: {
     created: ChecklistItemRecord[];
     updated: ChecklistItemRecord[];
+    deleted: string[];
+  };
+  /**
+   * kickCountSessions — immutable event union (D2/D3).
+   * Only status='completed' is push-accepted.
+   * in_progress/cancelled MUST NEVER appear here (client terminal-status guard).
+   * Server rejects non-terminal status with validation_error(non_terminal_status).
+   * updated[] is always empty for this collection (create-only union).
+   */
+  kickCountSessions?: {
+    /** Only completed rows — terminal guard enforced by kickCountSyncStore.drainQueue(). */
+    created: KickCountSessionRecord[];
+    /** Always empty for kickCountSessions (immutable event — no updates). */
+    updated: KickCountSessionRecord[];
+    /** Bare uuids for tombstone-wins (soft delete). */
     deleted: string[];
   };
 }
@@ -328,6 +396,13 @@ export interface SyncPullPage {
     checklistItems?: {
       created: ChecklistItemRecord[];
       updated: ChecklistItemRecord[];
+      deleted: string[];
+    };
+    /** kickCountSessions pull: live rows in updated[], tombstones in deleted[]. */
+    kickCountSessions?: {
+      /** OQ-SYNC-17: server always sends live rows here (not created[]). */
+      created: KickCountSessionRecord[];
+      updated: KickCountSessionRecord[];
       deleted: string[];
     };
   };

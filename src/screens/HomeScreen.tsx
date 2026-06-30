@@ -58,6 +58,9 @@ import {
 } from 'react-native';
 import type { TokenStorage } from '../auth/tokenStorage';
 import { supplySyncStore } from '../sync/supplySyncStore';
+import { kickCountSyncStore } from '../kickCount/kickCountSyncStore';
+import { calendarSyncStore } from '../sync/calendarSyncStore';
+import { clearDraft } from '../kickCount/kickCountDraftStore';
 import { createPregnancyClient } from '../pregnancy/pregnancyApiClient';
 import {
   computeGestationalAge,
@@ -635,9 +638,22 @@ export function HomeScreen({
     } catch {
       // Storage clear failure is non-fatal
     }
-    // PDPA data-isolation: clear in-memory supply items so user A's data
+    // PDPA data-isolation (1.1 appsec): clear EVERY health store so user A's data
     // cannot be seen by user B who logs in during the same JS session.
+
+    // Supply items (non-health, cloud_storage only — still isolate for session safety)
     supplySyncStore.reset();
+
+    // Kick-count draft — K-8 encrypted health data; best-effort (never fatal)
+    await clearDraft().catch(() => {});
+
+    // Kick-count sessions — MOTHER-health, general_health gate
+    // (Comment in kickCountSyncStore.ts documents "call reset() on logout")
+    kickCountSyncStore.reset();
+
+    // Calendar appointments / reminders — MOTHER-health, general_health gate
+    calendarSyncStore.reset();
+
     onLogout();
   }
 

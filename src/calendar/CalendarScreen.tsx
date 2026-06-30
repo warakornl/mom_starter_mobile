@@ -331,14 +331,15 @@ export function CalendarScreen({
     if (!result.ok) {
       // 403 consent_required → health consent not granted; app works offline
       setSyncError(t('calendar.syncError'));
-    } else {
-      // Reconcile OS notifications with the updated store state.
-      // Fire-and-forget — never blocks the UI, errors are swallowed.
-      void reconcileNotifications(
-        calendarSyncStore.getActiveReminders(),
-        calendarSyncStore.getActiveChecklistItems(),
-      ).catch(() => { /* no-op: notification scheduling is best-effort */ });
     }
+    // Reconcile OS notifications with local store state — runs unconditionally.
+    // Offline / 403 consent_required: store already contains the correct view
+    // of reminders+appointments; cap must be enforced regardless of network.
+    // Fire-and-forget — never blocks the UI, errors are swallowed.
+    void reconcileNotifications(
+      calendarSyncStore.getActiveReminders(),
+      calendarSyncStore.getActiveChecklistItems(),
+    ).catch(() => { /* no-op: notification scheduling is best-effort */ });
   }, [tokenStorage, refreshFromStore, t]);
 
   // ── Sync push ──────────────────────────────────────────────────────────────

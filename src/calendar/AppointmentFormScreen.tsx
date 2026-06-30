@@ -43,7 +43,7 @@ import type { TokenStorage } from '../auth/tokenStorage';
 import type { ChecklistItemRecord, ChecklistItemCategory } from '../sync/syncTypes';
 import { localCivilToday } from '../pregnancy/gestationalAge';
 import {
-  scheduleAppointmentNotification,
+  reconcileNotifications,
   cancelNotificationsForAppointment,
 } from '../notifications/notificationService';
 
@@ -206,9 +206,11 @@ export function AppointmentFormScreen({
         updatedAt: now,
       };
       calendarSyncStore.enqueueUpdateChecklistItem(updated);
-      // Cancel stale notification then re-schedule at the updated time.
-      void cancelNotificationsForAppointment(updated.id).then(() =>
-        scheduleAppointmentNotification(updated),
+      // Reconcile from the local store — cancel-stale + schedule-missing in one
+      // pass, capped by allocateGlobalBudget. No sync pull needed (offline-safe).
+      void reconcileNotifications(
+        calendarSyncStore.getActiveReminders(),
+        calendarSyncStore.getActiveChecklistItems(),
       ).catch(() => { /* no-op: notification scheduling is best-effort */ });
     } else {
       const created: ChecklistItemRecord = {
@@ -224,8 +226,12 @@ export function AppointmentFormScreen({
         updatedAt: now,
       };
       calendarSyncStore.enqueueCreateChecklistItem(created);
-      // Schedule appointment notification (30 min lead-time; skips if past).
-      void scheduleAppointmentNotification(created).catch(() => { /* no-op */ });
+      // Reconcile from the local store — enforces global 64-slot budget
+      // without any sync pull (network-independent, works offline/403).
+      void reconcileNotifications(
+        calendarSyncStore.getActiveReminders(),
+        calendarSyncStore.getActiveChecklistItems(),
+      ).catch(() => { /* no-op */ });
     }
 
     // Navigate back first, then push (fire-and-forget — no await to not block UI)

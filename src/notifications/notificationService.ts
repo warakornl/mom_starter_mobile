@@ -66,6 +66,20 @@ export const APPOINTMENT_LEAD_MS = 30 * 60 * 1000;
  */
 export const HEALTH_CHANNEL_ID = 'mom-starter-health';
 
+/**
+ * iOS hard limit: 64 pending notifications per app.
+ * The total of scheduled reminder occurrences + appointment notifications
+ * MUST NOT exceed this value — iOS silently drops notifications beyond slot 64.
+ */
+export const GLOBAL_NOTIFICATION_CAP = 64;
+
+/**
+ * Number of slots reserved for appointment notifications before the remainder
+ * is distributed across reminder occurrences.  Appointments have fixed scheduled
+ * times so they always take scheduling priority over repeating reminders.
+ */
+export const APPOINTMENT_HEADROOM = 8;
+
 // ─── Helpers (exported for testing) ─────────────────────────────────────────
 
 /**
@@ -104,6 +118,82 @@ function addDaysCivil(isoDate: string, n: number): string {
 async function hasGrantedPermission(): Promise<boolean> {
   const { status } = await Notifications.getPermissionsAsync();
   return status === 'granted';
+}
+
+// ─── Internal slot types ─────────────────────────────────────────────────────
+
+/** Candidate scheduling slot for a single reminder occurrence. */
+type ReminderSlot = { reminder: ReminderRecord; civil: string; date: Date; occId: string };
+
+/** Candidate scheduling slot for a single appointment notification. */
+type ApptSlot = { item: ChecklistItemRecord; fireDate: Date };
+
+// ─── Global budget allocation (🔴-1) ─────────────────────────────────────────
+
+/**
+ * Allocate notification slots within the global iOS 64-slot budget.
+ *
+ * Priority order:
+ *   1. Appointments (soonest-first, up to APPOINTMENT_HEADROOM slots).
+ *   2. Reminder fairness pass: each active reminder is guaranteed its
+ *      earliest upcoming slot (prevents any one reminder monopolising budget).
+ *   3. Remaining budget filled chronologically from all remaining candidates.
+ *
+ * This is the enforcement point for the global cap — called by reconcileNotifications
+ * before building the expected ID set.
+ *
+ * @param reminderSlots  All candidate reminder slots (may exceed budget).
+ * @param apptSlots      All candidate appointment slots.
+ * @param cap            Total slot cap (default GLOBAL_NOTIFICATION_CAP = 64).
+ */
+function allocateGlobalBudget(
+  reminderSlots: ReminderSlot[],
+  apptSlots: ApptSlot[],
+  cap: number = GLOBAL_NOTIFICATION_CAP,
+): { selectedReminders: ReminderSlot[]; selectedAppts: ApptSlot[] } {
+  // ── Step 1: Appointments take priority (chronological, capped at headroom) ─
+  const sortedAppts = [...apptSlots].sort((a, b) => a.fireDate.getTime() - b.fireDate.getTime());
+  const apptCap = Math.min(APPOINTMENT_HEADROOM, cap);
+  const selectedAppts = sortedAppts.slice(0, apptCap);
+
+  // ── Step 2: Reminder budget = remainder after appointments ────────────────
+  const reminderBudget = cap - selectedAppts.length;
+  if (reminderBudget <= 0 || reminderSlots.length === 0) {
+    return { selectedReminders: [], selectedAppts };
+  }
+
+  // ── Step 3: Fairness pass — 1 earliest slot guaranteed per reminder ───────
+  //
+  // Group slots by reminder.id, sort each group by date, take the earliest.
+  // This prevents a single high-frequency reminder from consuming all slots
+  // and starving less-frequent reminders.
+  const groupedByReminder = new Map<string, ReminderSlot[]>();
+  for (const slot of reminderSlots) {
+    const group = groupedByReminder.get(slot.reminder.id) ?? [];
+    group.push(slot);
+    groupedByReminder.set(slot.reminder.id, group);
+  }
+  for (const group of groupedByReminder.values()) {
+    group.sort((a, b) => a.date.getTime() - b.date.getTime());
+  }
+
+  const guaranteed: ReminderSlot[] = [];
+  const guaranteedOccIds = new Set<string>();
+  for (const group of groupedByReminder.values()) {
+    if (guaranteed.length >= reminderBudget) break;
+    const earliest = group[0];
+    guaranteed.push(earliest);
+    guaranteedOccIds.add(earliest.occId);
+  }
+
+  // ── Step 4: Fill remaining budget chronologically ─────────────────────────
+  const remainingBudget = reminderBudget - guaranteed.length;
+  const extraCandidates = reminderSlots
+    .filter((s) => !guaranteedOccIds.has(s.occId))
+    .sort((a, b) => a.date.getTime() - b.date.getTime());
+  const extra = extraCandidates.slice(0, remainingBudget);
+
+  return { selectedReminders: [...guaranteed, ...extra], selectedAppts };
 }
 
 // ─── Android notification channel (SD-11) ────────────────────────────────────
@@ -330,11 +420,10 @@ export async function cancelNotificationsForAppointment(itemId: string): Promise
  * newly added reminders, updated appointment times, etc.
  *
  * Algorithm:
- *   1. Build expectedIds = set of identifiers that SHOULD be scheduled
- *      (ROLLING_WINDOW future occurrences for each active reminder +
- *       upcoming appointment fire-dates).
- *   2. Fetch currently scheduled notifications from the OS.
- *   3. Cancel any scheduled notification whose identifier is not in expectedIds.
+ *   1. Build candidate sets (ROLLING_WINDOW per reminder, future appointments).
+ *   2. Apply global budget via allocateGlobalBudget (🔴-1) — caps total at
+ *      GLOBAL_NOTIFICATION_CAP with fairness across reminders.
+ *   3. Cancel any scheduled notification whose identifier is not in expected set.
  *   4. Schedule any expected identifier that is not yet in the OS scheduler.
  *
  * Idempotent — safe to call multiple times with the same inputs.
@@ -355,15 +444,10 @@ export async function reconcileNotifications(
   const today = localDateStr(nowDate);
   const windowEnd = addDaysCivil(today, ROLLING_WINDOW * 2);
 
-  // ── Build expected set and schedule plan ─────────────────────────────────
+  // ── Build candidate slots ─────────────────────────────────────────────────
 
-  const expectedIds = new Set<string>();
-
-  type ReminderSlot = { reminder: ReminderRecord; civil: string; date: Date };
-  type ApptSlot = { item: ChecklistItemRecord; fireDate: Date };
-
-  const reminderSlots: ReminderSlot[] = [];
-  const apptSlots: ApptSlot[] = [];
+  const allReminderSlots: ReminderSlot[] = [];
+  const allApptSlots: ApptSlot[] = [];
 
   for (const reminder of activeReminders) {
     if (!reminder.active) continue;
@@ -379,8 +463,7 @@ export async function reconcileNotifications(
 
     for (const { civil, date } of future) {
       const occId = computeOccurrenceId(reminder.id, civil);
-      expectedIds.add(occId);
-      reminderSlots.push({ reminder, civil, date });
+      allReminderSlots.push({ reminder, civil, date, occId });
     }
   }
 
@@ -388,17 +471,27 @@ export async function reconcileNotifications(
     if (!appt.scheduledAt || appt.done) continue;
     const fireDate = new Date(civilToLocalDate(appt.scheduledAt).getTime() - APPOINTMENT_LEAD_MS);
     if (fireDate.getTime() > nowDate.getTime()) {
-      expectedIds.add(appt.id);
-      apptSlots.push({ item: appt, fireDate });
+      allApptSlots.push({ item: appt, fireDate });
     }
   }
+
+  // ── Apply global budget (🔴-1) — cap + fairness ───────────────────────────
+  const { selectedReminders, selectedAppts } = allocateGlobalBudget(
+    allReminderSlots,
+    allApptSlots,
+  );
+
+  // Build expected identifier set from BUDGETED slots only
+  const expectedIds = new Set<string>();
+  for (const slot of selectedReminders) expectedIds.add(slot.occId);
+  for (const slot of selectedAppts) expectedIds.add(slot.item.id);
 
   // ── Fetch current OS state ────────────────────────────────────────────────
 
   const scheduled = await Notifications.getAllScheduledNotificationsAsync();
   const scheduledIds = new Set(scheduled.map((n) => n.identifier));
 
-  // ── Cancel stale ──────────────────────────────────────────────────────────
+  // ── Cancel stale (not in expected set) ───────────────────────────────────
 
   await Promise.all(
     scheduled
@@ -409,13 +502,9 @@ export async function reconcileNotifications(
   // ── Schedule missing reminder occurrences ─────────────────────────────────
 
   await Promise.all(
-    reminderSlots
-      .filter(({ reminder, civil }) => {
-        const occId = computeOccurrenceId(reminder.id, civil);
-        return !scheduledIds.has(occId);
-      })
-      .map(async ({ reminder, civil, date }) => {
-        const occId = computeOccurrenceId(reminder.id, civil);
+    selectedReminders
+      .filter(({ occId }) => !scheduledIds.has(occId))
+      .map(async ({ reminder, civil, date, occId }) => {
         // SD-11: opt-in model — generic title unless user explicitly enabled details
         const title = reminder.showDetailsOnLockScreen ? reminder.displayTitle : 'แจ้งเตือน';
         await Notifications.scheduleNotificationAsync({
@@ -438,7 +527,7 @@ export async function reconcileNotifications(
   // ── Schedule missing appointment notifications ─────────────────────────────
 
   await Promise.all(
-    apptSlots
+    selectedAppts
       .filter(({ item }) => !scheduledIds.has(item.id))
       .map(async ({ item, fireDate }) => {
         await Notifications.scheduleNotificationAsync({

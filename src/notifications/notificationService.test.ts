@@ -28,6 +28,7 @@ import {
   ROLLING_WINDOW,
   APPOINTMENT_LEAD_MS,
   HEALTH_CHANNEL_ID,
+  GLOBAL_NOTIFICATION_CAP,
 } from './notificationService';
 import { computeOccurrenceId } from '../occurrence/occurrenceId';
 import type { ReminderRecord, ChecklistItemRecord } from '../sync/syncTypes';
@@ -535,7 +536,72 @@ describe('reconcileNotifications', () => {
   });
 });
 
-// ─── 9. setupAndroidNotificationChannel (SD-11) ───────────────────────────────
+// ─── 9. Global notification budget (iOS 64-slot cap) — 🔴-1 ─────────────────
+
+describe('global notification budget (iOS 64-slot cap)', () => {
+  const now = new Date(2026, 5, 30, 7, 0, 0); // June 30 07:00
+
+  it('6 active reminders: reconcile schedules ≤ GLOBAL_NOTIFICATION_CAP total', async () => {
+    const reminders = Array.from({ length: 6 }, (_, i) =>
+      makeReminder({
+        id: `rem-cap-${i}`,
+        recurrenceRule: { freq: 'daily', timesOfDay: ['08:00'] },
+        startAt: '2026-06-30T08:00',
+      }),
+    );
+    await reconcileNotifications(reminders, [], now);
+    expect(mockScheduled.size).toBeLessThanOrEqual(GLOBAL_NOTIFICATION_CAP);
+  });
+
+  it('every active reminder gets at least 1 scheduled notification (fairness guarantee)', async () => {
+    const reminders = Array.from({ length: 6 }, (_, i) =>
+      makeReminder({
+        id: `rem-fair-${i}`,
+        recurrenceRule: { freq: 'daily', timesOfDay: ['08:00'] },
+        startAt: '2026-06-30T08:00',
+      }),
+    );
+    await reconcileNotifications(reminders, [], now);
+    for (const reminder of reminders) {
+      const count = Array.from(mockScheduled.values()).filter(
+        (n) => (n.content as { data: Record<string, unknown> }).data?.['reminderId'] === reminder.id,
+      ).length;
+      expect(count).toBeGreaterThanOrEqual(1);
+    }
+  });
+
+  it('single high-frequency reminder does not starve other reminders (no slot monopoly)', async () => {
+    // 1 reminder firing 8×/day + 5 sparse reminders → 6 reminders total
+    const busyReminder = makeReminder({
+      id: 'busy-rem',
+      recurrenceRule: {
+        freq: 'daily',
+        timesOfDay: ['06:00', '08:00', '10:00', '12:00', '14:00', '16:00', '18:00', '20:00'],
+      },
+      startAt: '2026-06-30T06:00',
+    });
+    const others = Array.from({ length: 5 }, (_, i) =>
+      makeReminder({
+        id: `sparse-rem-${i}`,
+        recurrenceRule: { freq: 'daily', timesOfDay: ['09:00'] },
+        startAt: '2026-06-30T09:00',
+      }),
+    );
+    await reconcileNotifications([busyReminder, ...others], [], now);
+
+    // Every sparse reminder must have ≥1 slot despite the busy reminder wanting many
+    for (const other of others) {
+      const count = Array.from(mockScheduled.values()).filter(
+        (n) => (n.content as { data: Record<string, unknown> }).data?.['reminderId'] === other.id,
+      ).length;
+      expect(count).toBeGreaterThanOrEqual(1);
+    }
+    // Total must stay within iOS hard limit
+    expect(mockScheduled.size).toBeLessThanOrEqual(GLOBAL_NOTIFICATION_CAP);
+  });
+});
+
+// ─── 10. setupAndroidNotificationChannel (SD-11) ──────────────────────────────
 
 describe('setupAndroidNotificationChannel', () => {
   const Notif = require('expo-notifications');

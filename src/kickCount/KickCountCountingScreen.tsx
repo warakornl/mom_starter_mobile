@@ -42,6 +42,7 @@ import type { RootStackParamList } from '../navigation/types';
 import { useT } from '../i18n/LanguageContext';
 import { interpolate } from '../i18n/messages';
 import { saveDraft, loadDraft, clearDraft } from './kickCountDraftStore';
+import { createSerialSaveQueue } from './serialSaveQueue';
 import {
   tap,
   undo,
@@ -126,6 +127,11 @@ export function KickCountCountingScreen({
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const sessionStartMsRef = useRef<number>(0);
+
+  // Y-5: single serial queue — all saveDraft() calls go through this to prevent
+  // concurrent keychain writes from resolving out-of-order and overwriting a
+  // newer count with an older one.
+  const enqueueWrite = useRef(createSerialSaveQueue()).current;
 
   // ── Init (load or create draft) ──────────────────────────────────────────────
   useEffect(() => {
@@ -226,15 +232,16 @@ export function KickCountCountingScreen({
   const handleTap = useCallback(async () => {
     if (!draft) return;
     const updated = tap(draft);
-    setDraft(updated);
+    setDraft(updated); // immediate UI update — count increments without waiting for persist
+    // Y-5: route through the serial queue so concurrent taps cannot interleave writes.
+    // Y-3: phase transition is inside try/catch so stale `phase` closure is never read.
     try {
-      await saveDraft(updated);
+      await enqueueWrite(() => saveDraft(updated));
+      setPhase('counting'); // success: explicitly set counting (not a stale-closure read)
     } catch {
-      setPhase('save-error');
+      setPhase('save-error'); // failure: show error only in catch
     }
-    if (phase === 'save-error') setPhase('save-error'); // keep error visible
-    else setPhase('counting');
-  }, [draft, phase]);
+  }, [draft, enqueueWrite]);
 
   // ── Undo (−1, floor 0) ────────────────────────────────────────────────────────
 
@@ -242,12 +249,14 @@ export function KickCountCountingScreen({
     if (!draft || draft.movementCount === 0) return; // disabled at 0
     const updated = undo(draft);
     setDraft(updated);
+    // Y-5: serialize undo writes through the same queue as tap writes.
     try {
-      await saveDraft(updated);
+      await enqueueWrite(() => saveDraft(updated));
+      setPhase('counting');
     } catch {
       setPhase('save-error');
     }
-  }, [draft]);
+  }, [draft, enqueueWrite]);
 
   // ── Finalize ──────────────────────────────────────────────────────────────────
 

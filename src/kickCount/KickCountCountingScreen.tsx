@@ -72,6 +72,17 @@ interface KickCountCountingScreenProps {
    * Use performance.now() in production for DST safety (B.3).
    */
   getMonotonicMs?: () => number;
+  /**
+   * Y-6 / appsec-1.3: consent defense-in-depth.
+   * The primary gate is in KickCountHomeScreen (B.2/K-8). This is a secondary
+   * assertion — if the user somehow reaches this screen without consent granted
+   * (e.g. deep link, race condition), the screen must NOT create/persist a draft.
+   * Default true only when no navigator prop is provided (backwards-compat).
+   *
+   * IMPORTANT: do not default to true in production routing — always pass from
+   * the navigator (which reads the consent store).
+   */
+  generalHealthConsented?: boolean;
 }
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'KickCountCounting'>;
@@ -114,6 +125,7 @@ export function KickCountCountingScreen({
   todayCivil,
   getCivilNow = getCivilNowDefault,
   getMonotonicMs = () => Date.now(),
+  generalHealthConsented = true, // see prop comment — always pass from navigator
 }: KickCountCountingScreenProps) {
   const { t } = useT();
   const navigation = useNavigation<Nav>();
@@ -137,6 +149,16 @@ export function KickCountCountingScreen({
   useEffect(() => {
     let cancelled = false;
     async function init() {
+      // Y-6 / appsec-1.3: consent defense-in-depth.
+      // Primary gate is in KickCountHomeScreen (B.2/K-8). This guard catches
+      // any race condition or deep-link bypass — no draft must be created or
+      // persisted without generalHealthConsented=true (PDPA health data).
+      if (!generalHealthConsented) {
+        if (!cancelled) {
+          navigation.navigate('KickCountHome');
+        }
+        return;
+      }
       try {
         const existing = await loadDraft();
         if (cancelled) return;

@@ -413,27 +413,25 @@ export async function cancelNotificationsForAppointment(itemId: string): Promise
 // ─── Reconcile after sync pull ────────────────────────────────────────────────
 
 /**
- * Reconcile scheduled OS notifications against the current store state.
+ * Module-level serialization queue for reconcileNotifications (🟡-2).
  *
- * Call after calendarSyncStore is updated from a sync pull to keep the OS
- * scheduler in sync with server data.  Handles tombstoned reminders,
- * newly added reminders, updated appointment times, etc.
+ * Concurrent saves and reconcile calls can race:
+ *   1. reconcile starts, fetches OS state (no reminder A in scheduler yet)
+ *   2. save reminder A fires scheduleReminderNotifications (adds A to OS)
+ *   3. reconcile finishes cancel-stale pass → cancels A (it wasn't expected
+ *      because it wasn't in the OS state snapshot taken in step 1)
  *
- * Algorithm:
- *   1. Build candidate sets (ROLLING_WINDOW per reminder, future appointments).
- *   2. Apply global budget via allocateGlobalBudget (🔴-1) — caps total at
- *      GLOBAL_NOTIFICATION_CAP with fairness across reminders.
- *   3. Cancel any scheduled notification whose identifier is not in expected set.
- *   4. Schedule any expected identifier that is not yet in the OS scheduler.
- *
- * Idempotent — safe to call multiple times with the same inputs.
- * No-ops if permission is not granted.
- *
- * @param activeReminders    calendarSyncStore.getActiveReminders() (non-tombstoned)
- * @param activeAppointments calendarSyncStore.getActiveChecklistItems() (all, filtered here)
- * @param now                Optional override for "now" (used in tests)
+ * Serialising via a promise queue ensures only one reconcile runs at a time.
+ * Errors are absorbed on the shared tail (_reconcileQueue) so the queue does
+ * not deadlock; the calling promise (thisCall) still propagates the error to
+ * its caller so callers can handle failures.
  */
-export async function reconcileNotifications(
+let _reconcileQueue: Promise<void> = Promise.resolve();
+
+/**
+ * Internal reconcile implementation — do not call directly; use reconcileNotifications.
+ */
+async function _doReconcile(
   activeReminders: ReminderRecord[],
   activeAppointments: ChecklistItemRecord[],
   now?: Date,
@@ -546,4 +544,36 @@ export async function reconcileNotifications(
         });
       }),
   );
+}
+
+/**
+ * Reconcile scheduled OS notifications against the current store state.
+ *
+ * Public entry point — serialises execution via _reconcileQueue (🟡-2) to
+ * prevent concurrent reconcile+save races where cancel-stale could wipe a
+ * notification just added by a parallel save operation.
+ *
+ * See _doReconcile for the full algorithm.
+ *
+ * Idempotent — safe to call multiple times with the same inputs.
+ * Serialised — concurrent calls are queued; each call awaits the previous one.
+ * No-ops if permission is not granted.
+ *
+ * @param activeReminders    calendarSyncStore.getActiveReminders() (non-tombstoned)
+ * @param activeAppointments calendarSyncStore.getActiveChecklistItems() (all, filtered here)
+ * @param now                Optional override for "now" (used in tests)
+ */
+export function reconcileNotifications(
+  activeReminders: ReminderRecord[],
+  activeAppointments: ChecklistItemRecord[],
+  now?: Date,
+): Promise<void> {
+  // 🟡-2: serialise concurrent calls via a promise queue
+  const thisCall = _reconcileQueue.then(() =>
+    _doReconcile(activeReminders, activeAppointments, now),
+  );
+  // Absorb errors on the shared tail so later callers are not blocked by
+  // a previous failure; thisCall still propagates the error to THIS caller.
+  _reconcileQueue = thisCall.catch(() => {});
+  return thisCall;
 }

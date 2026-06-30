@@ -534,6 +534,20 @@ describe('reconcileNotifications', () => {
     }
     expect(mockScheduled.size).toBeGreaterThan(0);
   });
+
+  // 🟡-2: Serialization — concurrent reconcile calls must not interleave
+  it('concurrent reconcile calls both complete without error (🟡-2 mutex)', async () => {
+    const reminder = makeReminder({ id: 'serial-rem' });
+    const results = await Promise.all([
+      reconcileNotifications([reminder], [], now),
+      reconcileNotifications([reminder], [], now),
+    ]);
+    expect(results).toHaveLength(2);
+    const count = Array.from(mockScheduled.values()).filter(
+      (n) => (n.content as { data: Record<string, unknown> }).data?.['reminderId'] === 'serial-rem',
+    ).length;
+    expect(count).toBeGreaterThan(0);
+  });
 });
 
 // ─── 9. Global notification budget (iOS 64-slot cap) — 🔴-1 ─────────────────

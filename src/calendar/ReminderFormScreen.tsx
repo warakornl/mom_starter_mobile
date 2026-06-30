@@ -12,16 +12,17 @@
  *
  * Write path (B1): mutations via calendarSyncStore → drainQueue() → sync/push.
  *
- * Notification wiring:
+ * Notification wiring (🔴-1 fix: all save paths go through reconcile):
  *   - On first save: requestNotificationPermission() (prompts user once)
- *   - Create: scheduleReminderNotifications(created) after enqueueCreateReminder
- *   - Update: cancelNotificationsForReminder then scheduleReminderNotifications
- *   - Delete: cancelNotificationsForReminder(id)
+ *   - Create/Update: enqueue to store → reconcileNotifications(store.getActive*)
+ *     Reconcile enforces the global 64-slot iOS budget unconditionally —
+ *     no sync pull or consent required (network-independent cap).
+ *   - Delete: cancelNotificationsForReminder(id) — cancel-only, no budget risk.
  *   All notification calls are fire-and-forget (no await on save path).
  *
  * TODO carry-forward:
  *   - sourceRefType/sourceRefId for linking to ChecklistItem/SupplyItem
- *   - hideOnLockScreen toggle (SD-11)
+ *   - showDetailsOnLockScreen toggle (SD-11 opt-in; form always uses generic title for now)
  *
  * Security: displayTitle is NOT encrypted (ruling 3 / SD-11).
  *   Do NOT log displayTitle or any reminder field.
@@ -49,7 +50,7 @@ import type { ReminderRecord, ReminderType, RecurrenceRuleWire } from '../sync/s
 import type { MessageKey } from '../i18n/messages';
 import {
   requestNotificationPermission,
-  scheduleReminderNotifications,
+  reconcileNotifications,
   cancelNotificationsForReminder,
 } from '../notifications/notificationService';
 
@@ -267,10 +268,12 @@ export function ReminderFormScreen({
         updatedAt: now,
       };
       calendarSyncStore.enqueueUpdateReminder(updated);
-      // Cancel stale occurrence notifications then re-schedule with new rule.
-      // Fire-and-forget — errors are swallowed to not block the UI.
-      void cancelNotificationsForReminder(updated.id).then(() =>
-        scheduleReminderNotifications(updated),
+      // Reconcile from the local store — cancel-stale + schedule-missing in one
+      // pass, capped by allocateGlobalBudget. No sync pull needed (offline-safe).
+      // The reconcile queue serialises concurrent save+reconcile calls (🟡-2).
+      void reconcileNotifications(
+        calendarSyncStore.getActiveReminders(),
+        calendarSyncStore.getActiveChecklistItems(),
       ).catch(() => { /* no-op: notification scheduling is best-effort */ });
     } else {
       const created: ReminderRecord = {
@@ -286,9 +289,13 @@ export function ReminderFormScreen({
       };
       calendarSyncStore.enqueueCreateReminder(created);
       // Request permission on first save (prompts user once; graceful if denied).
-      // Then schedule future occurrences. Fire-and-forget.
+      // Then reconcile from the local store — enforces global 64-slot budget
+      // without any sync pull (network-independent, works offline/403).
       void requestNotificationPermission().then(() =>
-        scheduleReminderNotifications(created),
+        reconcileNotifications(
+          calendarSyncStore.getActiveReminders(),
+          calendarSyncStore.getActiveChecklistItems(),
+        ),
       ).catch(() => { /* no-op */ });
     }
 

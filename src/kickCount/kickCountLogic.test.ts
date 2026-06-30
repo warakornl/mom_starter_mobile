@@ -27,6 +27,7 @@ import {
   getProgressDisplay,
   getSessionRenderData,
 } from './kickCountLogic';
+import { computeGestationalAge, civilDaysBetween, parseCivilDateMs } from '../pregnancy/gestationalAge';
 import type { KickCountDraft } from './kickCountTypes';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -307,6 +308,40 @@ describe('getProgressDisplay() — K-5b no-valence', () => {
     const result = getProgressDisplay(0, 10);
     expect(result.count).toBe(0);
     expect(result.targetCount).toBe(10);
+  });
+});
+
+// ─── Y-4: algo parity — kickCountLogic vs gestationalAge (DRIFT-1) ───────────
+
+describe('Y-4: computeGestationalWeekAtStart parity with computeGestationalAge (DRIFT-1)', () => {
+  // Both functions MUST give the same gestationalWeek for any (edd, today) pair.
+  // kickCountLogic must import civilDaysBetween/parseCivilDateMs from gestationalAge.ts
+  // (not copy-paste them) to prevent algorithm drift (D4/DRIFT-1).
+
+  const parityVectors = [
+    { today: '2026-06-30', edd: '2026-10-08' },
+    { today: '2026-08-14', edd: '2026-10-08' }, // wk 32
+    { today: '2026-01-01', edd: '2026-10-08' }, // wk 0
+    { today: '2025-12-31', edd: '2026-10-08' }, // negative
+  ];
+
+  for (const { today, edd } of parityVectors) {
+    it(`today=${today}, edd=${edd}: computeGestationalWeekAtStart matches computeGestationalAge`, () => {
+      const fromLogic = computeGestationalWeekAtStart(edd, today);
+      const fromGestAge = computeGestationalAge(edd, today).gestationalWeek;
+      expect(fromLogic).toBe(fromGestAge);
+    });
+  }
+
+  it('parseCivilDateMs is exported from gestationalAge.ts (Y-4 import check)', () => {
+    // If this import fails, it means parseCivilDateMs is not exported
+    expect(typeof parseCivilDateMs).toBe('function');
+    expect(parseCivilDateMs('2026-06-30')).toBe(Date.UTC(2026, 5, 30));
+  });
+
+  it('civilDaysBetween is exported from gestationalAge.ts (Y-4 import check)', () => {
+    expect(typeof civilDaysBetween).toBe('function');
+    expect(civilDaysBetween('2026-06-30', '2026-07-07')).toBe(7);
   });
 });
 

@@ -28,29 +28,16 @@
 
 import type { KickCountDraft, KickCountSessionRecord } from './kickCountTypes';
 import type { Lifecycle } from '../pregnancy/types';
+// Y-4: import shared helpers instead of local copy (prevents DRIFT-1 algorithm drift).
+// parseCivilDateMs and civilDaysBetween are the canonical implementations;
+// importing them ensures kickCountLogic never drifts from gestationalAge.ts.
+import { civilDaysBetween, parseCivilDateMs } from '../pregnancy/gestationalAge';
 
-// ─── Re-export Lifecycle for convenience (avoids callers importing both) ──────
+// ─── Re-export for callers that need both Lifecycle and the civil helpers ──────
 
 export type { Lifecycle };
-
-// ─── Gestational week computation (golden-vector — must match gestationalAge.ts) ──
-
-/**
- * Parse a YYYY-MM-DD civil date to UTC-midnight milliseconds.
- * Using Date.UTC avoids local-timezone DST offsets (same as gestationalAge.ts).
- */
-function parseCivilDateMs(dateStr: string): number {
-  const [y, m, d] = dateStr.split('-').map(Number);
-  return Date.UTC(y, m - 1, d);
-}
-
-/**
- * civilDaysBetween(a, b) = b − a in whole calendar days (zoneless civil).
- */
-function civilDaysBetween(a: string, b: string): number {
-  const MS_PER_DAY = 86_400_000;
-  return Math.round((parseCivilDateMs(b) - parseCivilDateMs(a)) / MS_PER_DAY);
-}
+// Re-export so callers can import from a single kick-count entry point if needed.
+export { civilDaysBetween, parseCivilDateMs };
 
 /**
  * Derive the gestational week at session start from the stored EDD and a

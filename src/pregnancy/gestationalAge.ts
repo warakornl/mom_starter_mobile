@@ -66,8 +66,10 @@ export interface GestationalAge {
  * Parse a YYYY-MM-DD civil-date string to UTC midnight milliseconds.
  * Using Date.UTC avoids local-timezone DST offsets that could shift the
  * civil date by one day.
+ *
+ * Exported so kickCountLogic.ts can import it (Y-4: remove algo duplicate).
  */
-function parseCivilDateMs(dateStr: string): number {
+export function parseCivilDateMs(dateStr: string): number {
   const [y, m, d] = dateStr.split('-').map(Number);
   return Date.UTC(y, m - 1, d);
 }

@@ -42,6 +42,10 @@ import { executePush } from '../sync/pushOrchestrator';
 import type { TokenStorage } from '../auth/tokenStorage';
 import type { ChecklistItemRecord, ChecklistItemCategory } from '../sync/syncTypes';
 import { localCivilToday } from '../pregnancy/gestationalAge';
+import {
+  scheduleAppointmentNotification,
+  cancelNotificationsForAppointment,
+} from '../notifications/notificationService';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -202,6 +206,10 @@ export function AppointmentFormScreen({
         updatedAt: now,
       };
       calendarSyncStore.enqueueUpdateChecklistItem(updated);
+      // Cancel stale notification then re-schedule at the updated time.
+      void cancelNotificationsForAppointment(updated.id).then(() =>
+        scheduleAppointmentNotification(updated),
+      ).catch(() => { /* no-op: notification scheduling is best-effort */ });
     } else {
       const created: ChecklistItemRecord = {
         id: uuidv4(),
@@ -216,6 +224,8 @@ export function AppointmentFormScreen({
         updatedAt: now,
       };
       calendarSyncStore.enqueueCreateChecklistItem(created);
+      // Schedule appointment notification (30 min lead-time; skips if past).
+      void scheduleAppointmentNotification(created).catch(() => { /* no-op */ });
     }
 
     // Navigate back first, then push (fire-and-forget — no await to not block UI)
@@ -236,6 +246,8 @@ export function AppointmentFormScreen({
           style: 'destructive',
           onPress: () => {
             calendarSyncStore.enqueueDeleteChecklistItem(existingItem.id);
+            // Cancel pending notification for this appointment.
+            void cancelNotificationsForAppointment(existingItem.id).catch(() => { /* no-op */ });
             onSave?.();
             triggerPush();
           },

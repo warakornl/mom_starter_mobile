@@ -110,6 +110,19 @@ export interface ReminderRecord {
   type: ReminderType;
   /** Non-sensitive in-app title (NOT used as lock-screen payload). */
   displayTitle: string;
+  /**
+   * SD-11 privacy opt-in: when true the user has explicitly chosen to see
+   * displayTitle on the lock screen.  DEFAULT is false/absent = generic title —
+   * health data is NEVER shown on lock screen by default (secure-by-default).
+   *
+   * Replaces the old hideOnLockScreen field with inverted, opt-in semantics.
+   */
+  showDetailsOnLockScreen?: boolean;
+  /**
+   * @deprecated Use showDetailsOnLockScreen instead.
+   * Kept for backward-compat with data already on the server.
+   * The service layer ignores this field — showDetailsOnLockScreen governs.
+   */
   hideOnLockScreen?: boolean;
   sourceRefType?: ReminderSourceRefType;
   sourceRefId?: string;

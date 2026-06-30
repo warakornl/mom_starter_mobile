@@ -242,7 +242,8 @@ export async function scheduleAppointmentNotification(
 export async function cancelNotificationsForReminder(reminderId: string): Promise<void> {
   const all = await Notifications.getAllScheduledNotificationsAsync();
   const toCancel = all.filter(
-    (n) => n.content.data['reminderId'] === reminderId,
+    // 🟡-3: optional chaining — external notifications may have null/absent data
+    (n) => n.content.data?.['reminderId'] === reminderId,
   );
   await Promise.all(
     toCancel.map((n) => Notifications.cancelScheduledNotificationAsync(n.identifier)),

@@ -349,6 +349,18 @@ describe('cancelNotificationsForReminder', () => {
     await cancelNotificationsForReminder('nonexistent');
     expect(Notifications.cancelScheduledNotificationAsync).not.toHaveBeenCalled();
   });
+
+  // 🟡-3: defensive — external notifications may have null/missing data
+  it('does not throw when a scheduled notification has null data (external notification)', async () => {
+    mockScheduled.set('ext-notif', {
+      identifier: 'ext-notif',
+      content: { data: null },
+      trigger: {},
+    });
+    await expect(cancelNotificationsForReminder('rem-1')).resolves.toBeUndefined();
+    // External notification is NOT cancelled (reminderId mismatch / null data)
+    expect(mockScheduled.has('ext-notif')).toBe(true);
+  });
 });
 
 // ─── 6. cancelNotificationForOccurrence ──────────────────────────────────────

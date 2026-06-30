@@ -413,6 +413,95 @@ const th = {
   'birth.delivery.cesarean': 'ผ่าคลอด',
   'birth.delivery.other': 'อื่น ๆ',
   'birth.delivery.prefer_not': 'ไม่ระบุ',
+
+  // ── Kick Count (นับลูกดิ้น) ───────────────────────────────────────────────────
+  // K-5b: render count=3 and count=10 identically (only the number differs).
+  // K-5d: safety strip MUST use generic text — no number "10", no time window.
+  // INV-K2: no verdict/valence strings (no "เก่งมาก!", no "ครบแล้ว!").
+  // SR labels (§5.2): "นับได้ N ครั้ง" — ห้ามใช้ "เป้าหมาย"/"goal"/"target"
+  'kick.navTitle': 'นับลูกดิ้น',
+  'kick.historyNavTitle': 'ประวัตินับลูกดิ้น',
+  'kick.detailNavTitle': 'รายละเอียด',
+  /** template: {n} = gestational week number */
+  'kick.weekLabel': 'สัปดาห์ที่ {n}',
+  'kick.startBtn': 'เริ่มนับ',
+  'kick.viewHistory': 'ดูประวัติทั้งหมด',
+  /** K-5d generic — no "10" or time window */
+  'kick.safetyStrip': 'ถ้ารู้สึกว่าลูกดิ้นน้อยลงหรือต่างจากปกติของคุณ ให้ติดต่อแพทย์ หรือไปโรงพยาบาล',
+  'kick.safetySource': 'ที่มา: กรมอนามัย',
+  'kick.disclaimer': 'บันทึกส่วนตัว ไม่ใช่การประเมินทางการแพทย์',
+  // SC-K1 counting
+  'kick.timeElapsed': 'เวลาที่ใช้',
+  'kick.tapLabel': 'แตะเมื่อรู้สึกดิ้น',
+  'kick.tapSublabel': 'กดทุกครั้งที่รู้สึกลูกดิ้น',
+  'kick.undoBtn': '−1  แก้การนับล่าสุด',
+  'kick.endSessionBtn': 'จบเซสชัน',
+  'kick.cancelBtn': 'ยกเลิก',
+  /** K-5b: SR label — "นับได้ N ครั้ง" no "/10" no "goal" */
+  /** template: {n} = current count */
+  'kick.progressA11y': 'นับได้ {n} ครั้ง',
+  /** template: {n} = current count */
+  'kick.tapA11y': 'แตะเมื่อรู้สึกดิ้น ตอนนี้นับได้ {n} ครั้งแล้ว',
+  'kick.endSessionA11y': 'จบเซสชัน บันทึกการนับครั้งนี้',
+  'kick.cancelA11y': 'ยกเลิก ทิ้งการนับครั้งนี้',
+  'kick.undoA11y': 'แก้การนับล่าสุด ลบ 1 ครั้ง',
+  /** template: {time} = elapsed time string, {n} = count */
+  'kick.timerA11y': 'เวลาที่ใช้ {time}',
+  // Leave guard (SC-K1-LG)
+  'kick.leaveGuardTitle': 'หยุดนับและออกจากหน้านี้ไหม?',
+  /** template: {n} = count, {time} = elapsed display */
+  'kick.leaveGuardBody': 'คุณนับได้ {n} ครั้ง ใช้เวลา {time}',
+  'kick.leaveGuardSave': 'จบเซสชันและบันทึก',
+  'kick.leaveGuardContinue': 'นับต่อ',
+  'kick.leaveGuardDiscard': 'ยกเลิกและทิ้งข้อมูล',
+  // Save error
+  'kick.saveError': 'บันทึกไม่สำเร็จ · ลองใหม่',
+  // SC-K2 draft resume
+  'kick.draftSheetTitle': 'มีการนับที่ค้างอยู่',
+  /** template: {date} = formatted start date, {time} = HH:MM */
+  'kick.draftStartedAt': 'เริ่มเมื่อ {date} {time}',
+  /** template: {n} = count, {min} = minutes */
+  'kick.draftSummary': 'นับได้ {n} ครั้ง · ใช้เวลาไปแล้ว {min} นาที',
+  'kick.draftResume': 'นับต่อจากที่ค้างไว้',
+  'kick.draftFinalize': 'จบเซสชันและบันทึก',
+  'kick.draftDiscard': 'ยกเลิกและทิ้งข้อมูลนี้',
+  // SC-K3 summary (K-5b: "7 ครั้ง" not "7/10", no verdict copy)
+  'kick.summaryTitle': 'บันทึกแล้ว',
+  'kick.summaryHeadline': 'นับลูกดิ้น',
+  'kick.summaryCountLabel': 'นับได้',
+  'kick.summaryDurationLabel': 'เวลาที่ใช้',
+  /** template: {n} = count — no verdict copy, no "เก่งมาก!" */
+  'kick.summaryCount': '{n} ครั้ง',
+  /** template: {min} = minutes */
+  'kick.summaryDuration': '{min} นาที',
+  'kick.summaryViewHistory': 'ดูในปฏิทิน',
+  'kick.summaryDone': 'เสร็จ',
+  // SC-K4 history
+  'kick.historyEmpty': 'ยังไม่มีบันทึกการนับ',
+  'kick.historyEmptyBody': 'กดปุ่ม "เริ่มนับ" ด้านล่างเพื่อเริ่มบันทึก',
+  /** template: {n} = count, {min} = minutes, {wk} = gest week */
+  'kick.historyRowA11y': '{time} นับได้ {n} ครั้ง ใช้เวลา {min} นาที สัปดาห์ที่ {wk} กดเพื่อดูรายละเอียด',
+  /** K-5c: all rows must show identical tokens, only numbers differ */
+  /** template: {n} = count */
+  'kick.rowCount': '{n} ครั้ง',
+  /** template: {min} = minutes */
+  'kick.rowDuration': '{min} นาที',
+  // Offline pill
+  'kick.offlinePill': 'ออฟไลน์ · บันทึกไว้ในเครื่องแล้ว',
+  // Consent gate
+  'kick.consentGateCaption': 'ต้องให้ความยินยอมก่อนเริ่มบันทึก',
+  // Store error
+  'kick.storeError': 'เปิดข้อมูลในเครื่องไม่สำเร็จ',
+  // SC-K6b postpartum read-only
+  'kick.postpartumBanner': 'บันทึกระหว่างตั้งครรภ์ · ดูได้แบบอ่านอย่างเดียว',
+  // SC-K5 detail
+  'kick.detailCountLabel': 'นับได้',
+  'kick.detailDurationLabel': 'เวลาที่ใช้',
+  'kick.detailWeekLabel': 'อายุครรภ์',
+  'kick.detailNoteLabel': 'บันทึกของฉัน',
+  'kick.detailExportPdf': 'ส่งออกเป็น PDF หมอ',
+  /** template: {n} = week */
+  'kick.detailWeekValue': 'สัปดาห์ {n}',
 };
 
 // ─── English catalog (must match th shape exactly) ────────────────────────────
@@ -747,6 +836,67 @@ const en: MsgShape = {
   'birth.delivery.cesarean': 'Cesarean',
   'birth.delivery.other': 'Other',
   'birth.delivery.prefer_not': 'Prefer not to say',
+
+  // ── Kick Count ────────────────────────────────────────────────────────────────
+  // K-5b: render count=3 and count=10 identically — only the number differs.
+  // K-5d: safety strip MUST use generic text — no number "10", no time window.
+  // SR labels: "N movements recorded" — no "goal"/"target" wording.
+  'kick.navTitle': 'Kick Count',
+  'kick.historyNavTitle': 'Kick Count History',
+  'kick.detailNavTitle': 'Session Detail',
+  'kick.weekLabel': 'Week {n}',
+  'kick.startBtn': 'Start Counting',
+  'kick.viewHistory': 'View all history',
+  'kick.safetyStrip': "If you feel your baby's movements have decreased or changed from what is normal for you, contact your doctor or go to the hospital.",
+  'kick.safetySource': 'Source: Dept. of Health',
+  'kick.disclaimer': 'A personal record, not a medical assessment.',
+  'kick.timeElapsed': 'Time elapsed',
+  'kick.tapLabel': 'Tap when you feel a movement',
+  'kick.tapSublabel': 'Tap every time you feel baby move',
+  'kick.undoBtn': '−1  Undo last count',
+  'kick.endSessionBtn': 'End Session',
+  'kick.cancelBtn': 'Cancel',
+  'kick.progressA11y': '{n} movements recorded',
+  'kick.tapA11y': 'Tap when you feel a movement. {n} movements recorded so far.',
+  'kick.endSessionA11y': 'End session, save this count',
+  'kick.cancelA11y': 'Cancel, discard this count',
+  'kick.undoA11y': 'Undo last count, subtract 1',
+  'kick.timerA11y': 'Time elapsed: {time}',
+  'kick.leaveGuardTitle': 'Stop counting and leave?',
+  'kick.leaveGuardBody': 'You counted {n} movements in {time}.',
+  'kick.leaveGuardSave': 'End session and save',
+  'kick.leaveGuardContinue': 'Keep counting',
+  'kick.leaveGuardDiscard': 'Cancel and discard',
+  'kick.saveError': 'Could not save · Try again',
+  'kick.draftSheetTitle': 'Session in progress',
+  'kick.draftStartedAt': 'Started {date} at {time}',
+  'kick.draftSummary': '{n} movements · {min} minutes elapsed',
+  'kick.draftResume': 'Resume counting',
+  'kick.draftFinalize': 'End session and save',
+  'kick.draftDiscard': 'Cancel and discard this session',
+  'kick.summaryTitle': 'Saved',
+  'kick.summaryHeadline': 'Kick Count',
+  'kick.summaryCountLabel': 'Movements',
+  'kick.summaryDurationLabel': 'Time',
+  'kick.summaryCount': '{n} movements',
+  'kick.summaryDuration': '{min} min',
+  'kick.summaryViewHistory': 'View in calendar',
+  'kick.summaryDone': 'Done',
+  'kick.historyEmpty': 'No sessions recorded yet',
+  'kick.historyEmptyBody': 'Tap "Start Counting" below to begin.',
+  'kick.historyRowA11y': '{time}, {n} movements, {min} minutes, week {wk}, tap for details',
+  'kick.rowCount': '{n} movements',
+  'kick.rowDuration': '{min} min',
+  'kick.offlinePill': 'Offline · Saved locally',
+  'kick.consentGateCaption': 'Consent required before recording',
+  'kick.storeError': 'Could not read local data',
+  'kick.postpartumBanner': 'Recorded during pregnancy · Read-only',
+  'kick.detailCountLabel': 'Movements',
+  'kick.detailDurationLabel': 'Time',
+  'kick.detailWeekLabel': 'Gestational age',
+  'kick.detailNoteLabel': 'My notes',
+  'kick.detailExportPdf': 'Export to doctor PDF',
+  'kick.detailWeekValue': 'Week {n}',
 };
 
 // ─── Exports ──────────────────────────────────────────────────────────────────

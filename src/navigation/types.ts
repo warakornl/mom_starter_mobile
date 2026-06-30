@@ -53,4 +53,31 @@ export type RootStackParamList = {
    * reminderId present → edit mode; absent → create mode.
    */
   ReminderForm: { reminderId?: string };
+
+  // ── Kick Count ──────────────────────────────────────────────────────────────
+  /**
+   * KickCountHome — SC-K0: module entry (wk≥32+pregnant only).
+   * Week gate and consent gate enforced inside the screen.
+   */
+  KickCountHome: undefined;
+  /**
+   * KickCountCounting — SC-K1: the active counting screen.
+   * Only navigated-to after consent gate passes and draft is created.
+   */
+  KickCountCounting: undefined;
+  /**
+   * KickCountSummary — SC-K3: post-finalize session summary.
+   * sessionId identifies the just-completed local row.
+   */
+  KickCountSummary: { sessionId: string };
+  /**
+   * KickCountHistory — SC-K4: history list of completed sessions.
+   * Accessible from SC-K0 and SC-K3; read-only for postpartum.
+   */
+  KickCountHistory: undefined;
+  /**
+   * KickCountDetail — SC-K5: read-only session detail.
+   * sessionId = id of the local completed KickCountSessionRecord.
+   */
+  KickCountDetail: { sessionId: string };
 };

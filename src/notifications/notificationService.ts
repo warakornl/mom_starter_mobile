@@ -46,10 +46,9 @@ import type { ReminderRecord, ChecklistItemRecord } from '../sync/syncTypes';
 // ─── Constants ────────────────────────────────────────────────────────────────
 
 /**
- * Maximum number of future occurrences to schedule per reminder.
- * iOS hard limit: 64 pending notifications per app.
- * With up to ~4 active reminders: 4 × 15 = 60 reminder slots + ~4 appointment slots = 64.
- * Tune down if the app grows to more concurrent reminders.
+ * Maximum number of future occurrences to schedule per reminder (per-reminder
+ * upper bound).  A global GLOBAL_NOTIFICATION_CAP further caps the total
+ * across all reminders + appointments (see reconcileNotifications).
  */
 export const ROLLING_WINDOW = 15;
 
@@ -58,6 +57,14 @@ export const ROLLING_WINDOW = 15;
  * Default: 30 minutes.
  */
 export const APPOINTMENT_LEAD_MS = 30 * 60 * 1000;
+
+/**
+ * Android notification channel ID for all health reminders and appointments.
+ * Must match the channel created by setupAndroidNotificationChannel().
+ * SD-11: channel is configured with VISIBILITY_PRIVATE so Android hides content
+ * on the lock screen at the platform level.
+ */
+export const HEALTH_CHANNEL_ID = 'mom-starter-health';
 
 // ─── Helpers (exported for testing) ─────────────────────────────────────────
 
@@ -99,6 +106,32 @@ async function hasGrantedPermission(): Promise<boolean> {
   return status === 'granted';
 }
 
+// ─── Android notification channel (SD-11) ────────────────────────────────────
+
+/**
+ * Create (or update) the Android notification channel for health reminders
+ * and appointments.
+ *
+ * MUST be called once at app startup (App.tsx useEffect) before any
+ * notifications are scheduled.  Safe to call multiple times — expo-notifications
+ * is idempotent on channel creation (updates configuration if channel exists).
+ *
+ * SD-11: lockscreenVisibility = PRIVATE so Android hides notification content
+ * on the lock screen at the channel level (complements the generic-title
+ * approach used in notification content).
+ *
+ * No-op on iOS (setNotificationChannelAsync is Android-only; expo-notifications
+ * stubs it as a no-op on other platforms).
+ */
+export async function setupAndroidNotificationChannel(): Promise<void> {
+  await Notifications.setNotificationChannelAsync(HEALTH_CHANNEL_ID, {
+    name: 'แจ้งเตือนสุขภาพ',
+    importance: Notifications.AndroidImportance.HIGH,
+    lockscreenVisibility: Notifications.AndroidNotificationVisibility.PRIVATE,
+    sound: 'default',
+  });
+}
+
 // ─── Permission ───────────────────────────────────────────────────────────────
 
 /**
@@ -130,8 +163,10 @@ export async function requestNotificationPermission(): Promise<PermissionStatus>
  *   4. Schedule each via expo-notifications using occurrenceId as identifier
  *      (idempotent: Expo replaces an existing slot with the same identifier).
  *
- * When hideOnLockScreen=true: notification title is the generic 'แจ้งเตือน'
- * rather than displayTitle (lock-screen privacy — SD-11).
+ * SD-11 privacy: title is generic ('แจ้งเตือน') by default.
+ * Only when reminder.showDetailsOnLockScreen === true is displayTitle used.
+ * This is OPT-IN, not opt-out — health data never appears on the lock screen
+ * unless the user explicitly enables it.
  *
  * No-ops if permission is not granted.
  *
@@ -159,10 +194,12 @@ export async function scheduleReminderNotifications(
     .filter(({ date }) => date.getTime() > nowDate.getTime())
     .slice(0, ROLLING_WINDOW);
 
+  // SD-11: opt-in model — generic title unless user explicitly enabled details
+  const title = reminder.showDetailsOnLockScreen ? reminder.displayTitle : 'แจ้งเตือน';
+
   await Promise.all(
     future.map(async ({ civil, date }) => {
       const occId = computeOccurrenceId(reminder.id, civil);
-      const title = reminder.hideOnLockScreen ? 'แจ้งเตือน' : reminder.displayTitle;
 
       await Notifications.scheduleNotificationAsync({
         identifier: occId,
@@ -176,7 +213,7 @@ export async function scheduleReminderNotifications(
             scheduledLocalTime: civil,
           },
         },
-        trigger: { date },
+        trigger: { date, channelId: HEALTH_CHANNEL_ID },
       });
     }),
   );
@@ -190,6 +227,11 @@ export async function scheduleReminderNotifications(
  * Fires APPOINTMENT_LEAD_MS (30 min by default) before scheduledAt.
  * Uses item.id as the notification identifier → idempotent re-schedule
  * on update (Expo replaces the existing slot).
+ *
+ * SD-11 privacy: title is ALWAYS the generic 'นัดหมาย' — clinic name,
+ * doctor name, and appointment details are NEVER shown on the lock screen.
+ * There is no per-appointment opt-in; PDPA ruling 3 treats appointment titles
+ * as sensitive health data that must not be disclosed on the lock screen.
  *
  * Skips silently when:
  *   - scheduledAt is absent (undated tasks)
@@ -214,7 +256,8 @@ export async function scheduleAppointmentNotification(
   await Notifications.scheduleNotificationAsync({
     identifier: item.id,
     content: {
-      title: item.title,
+      // SD-11: generic title — appointment details must not appear on lock screen
+      title: 'นัดหมาย',
       body: item.scheduledAt.slice(11, 16), // "HH:mm"
       data: {
         type: 'appointment',
@@ -222,7 +265,7 @@ export async function scheduleAppointmentNotification(
         scheduledAt: item.scheduledAt,
       },
     },
-    trigger: { date: fireDate },
+    trigger: { date: fireDate, channelId: HEALTH_CHANNEL_ID },
   });
 }
 
@@ -373,7 +416,8 @@ export async function reconcileNotifications(
       })
       .map(async ({ reminder, civil, date }) => {
         const occId = computeOccurrenceId(reminder.id, civil);
-        const title = reminder.hideOnLockScreen ? 'แจ้งเตือน' : reminder.displayTitle;
+        // SD-11: opt-in model — generic title unless user explicitly enabled details
+        const title = reminder.showDetailsOnLockScreen ? reminder.displayTitle : 'แจ้งเตือน';
         await Notifications.scheduleNotificationAsync({
           identifier: occId,
           content: {
@@ -386,7 +430,7 @@ export async function reconcileNotifications(
               scheduledLocalTime: civil,
             },
           },
-          trigger: { date },
+          trigger: { date, channelId: HEALTH_CHANNEL_ID },
         });
       }),
   );
@@ -400,7 +444,8 @@ export async function reconcileNotifications(
         await Notifications.scheduleNotificationAsync({
           identifier: item.id,
           content: {
-            title: item.title,
+            // SD-11: generic title — appointment details never on lock screen
+            title: 'นัดหมาย',
             body: item.scheduledAt!.slice(11, 16),
             data: {
               type: 'appointment',
@@ -408,7 +453,7 @@ export async function reconcileNotifications(
               scheduledAt: item.scheduledAt,
             },
           },
-          trigger: { date: fireDate },
+          trigger: { date: fireDate, channelId: HEALTH_CHANNEL_ID },
         });
       }),
   );

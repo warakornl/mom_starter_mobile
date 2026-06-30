@@ -24,8 +24,10 @@ import {
   cancelNotificationForOccurrence,
   cancelNotificationsForAppointment,
   reconcileNotifications,
+  setupAndroidNotificationChannel,
   ROLLING_WINDOW,
   APPOINTMENT_LEAD_MS,
+  HEALTH_CHANNEL_ID,
 } from './notificationService';
 import { computeOccurrenceId } from '../occurrence/occurrenceId';
 import type { ReminderRecord, ChecklistItemRecord } from '../sync/syncTypes';
@@ -42,7 +44,11 @@ jest.mock('expo-notifications', () => ({
   cancelScheduledNotificationAsync: jest.fn(),
   getAllScheduledNotificationsAsync: jest.fn(),
   setNotificationHandler: jest.fn(),
+  setNotificationChannelAsync: jest.fn(),
   addNotificationResponseReceivedListener: jest.fn(() => ({ remove: jest.fn() })),
+  // Enum values needed for SD-11 channel setup
+  AndroidNotificationVisibility: { UNKNOWN: 0, PUBLIC: 1, PRIVATE: 2, SECRET: 3 },
+  AndroidImportance: { UNKNOWN: 0, UNSPECIFIED: 1, NONE: 2, MIN: 3, LOW: 4, DEFAULT: 5, HIGH: 6, MAX: 7 },
 }));
 
 // Lazy import the mock after jest.mock() hoisting
@@ -220,12 +226,32 @@ describe('scheduleReminderNotifications', () => {
     expect(Notifications.scheduleNotificationAsync).not.toHaveBeenCalled();
   });
 
-  it('uses generic title when hideOnLockScreen is true', async () => {
+  it('uses generic title when hideOnLockScreen is true (legacy field, still safe)', async () => {
+    // hideOnLockScreen: true → showDetailsOnLockScreen absent → generic title (same safe result)
     const reminder = makeReminder({ hideOnLockScreen: true });
     await scheduleReminderNotifications(reminder, now);
     const calls = Notifications.scheduleNotificationAsync.mock.calls as Array<[{ identifier: string; content: { title: string }; trigger: unknown }]>;
     for (const [req] of calls) {
       expect(req.content.title).toBe('แจ้งเตือน');
+    }
+  });
+
+  // 🔴-2: SD-11 — generic title is the SECURE DEFAULT (opt-in to show detail)
+  it('uses generic title by default when showDetailsOnLockScreen is absent (secure default, SD-11)', async () => {
+    const reminder = makeReminder(); // no showDetailsOnLockScreen → default safe
+    await scheduleReminderNotifications(reminder, now);
+    const calls = Notifications.scheduleNotificationAsync.mock.calls as Array<[{ content: { title: string } }]>;
+    for (const [req] of calls) {
+      expect(req.content.title).toBe('แจ้งเตือน');
+    }
+  });
+
+  it('uses displayTitle when showDetailsOnLockScreen is true (explicit privacy opt-in)', async () => {
+    const reminder = makeReminder({ showDetailsOnLockScreen: true });
+    await scheduleReminderNotifications(reminder, now);
+    const calls = Notifications.scheduleNotificationAsync.mock.calls as Array<[{ content: { title: string } }]>;
+    for (const [req] of calls) {
+      expect(req.content.title).toBe('Take vitamin');
     }
   });
 
@@ -313,6 +339,15 @@ describe('scheduleAppointmentNotification', () => {
     const [req] = Notifications.scheduleNotificationAsync.mock.calls[0] as [{ content: { data: Record<string, unknown> } }];
     expect(req.content.data.type).toBe('appointment');
     expect(req.content.data.itemId).toBe('appt-data-test');
+  });
+
+  // 🔴-2: SD-11 — appointment must never expose clinic/doctor name on lock screen
+  it('uses generic title "นัดหมาย" for appointment notification — not item.title (SD-11)', async () => {
+    const appt = makeAppointment({ title: 'Check-up at clinic ABC', scheduledAt: '2026-07-10T10:00' });
+    await scheduleAppointmentNotification(appt, now);
+    const [req] = Notifications.scheduleNotificationAsync.mock.calls[0] as [{ content: { title: string } }];
+    expect(req.content.title).toBe('นัดหมาย');
+    expect(req.content.title).not.toBe(appt.title);
   });
 });
 
@@ -476,5 +511,48 @@ describe('reconcileNotifications', () => {
       (n) => (n.content as { data: Record<string, unknown> }).data.reminderId === 'active-rem',
     ).length;
     expect(activeCounts).toBeGreaterThan(0);
+  });
+
+  // 🔴-2: SD-11 — appointment must use generic title in reconcile too
+  it('uses generic title "นัดหมาย" for appointment in reconcile (SD-11)', async () => {
+    const appt = makeAppointment({ title: 'Sensitive clinic name', scheduledAt: '2026-07-10T10:00' });
+    await reconcileNotifications([], [appt], now);
+    const apptNotif = mockScheduled.get(appt.id);
+    expect(apptNotif).toBeDefined();
+    expect((apptNotif!.content as { title: string }).title).toBe('นัดหมาย');
+  });
+
+  // 🔴-2: SD-11 — reminder in reconcile uses generic title by default
+  it('uses generic title by default for reminders in reconcile (SD-11 secure default)', async () => {
+    const reminder = makeReminder({ id: 'privacy-rem' });
+    await reconcileNotifications([reminder], [], now);
+    for (const [, n] of mockScheduled) {
+      if ((n.content as { data: Record<string, unknown> }).data?.['reminderId'] === 'privacy-rem') {
+        expect((n.content as { title: string }).title).toBe('แจ้งเตือน');
+      }
+    }
+    expect(mockScheduled.size).toBeGreaterThan(0);
+  });
+});
+
+// ─── 9. setupAndroidNotificationChannel (SD-11) ───────────────────────────────
+
+describe('setupAndroidNotificationChannel', () => {
+  const Notif = require('expo-notifications');
+
+  it('calls setNotificationChannelAsync with the health channel ID', async () => {
+    await setupAndroidNotificationChannel();
+    expect(Notif.setNotificationChannelAsync).toHaveBeenCalledWith(
+      HEALTH_CHANNEL_ID,
+      expect.anything(),
+    );
+  });
+
+  it('sets lockscreenVisibility to PRIVATE (SD-11, Android)', async () => {
+    await setupAndroidNotificationChannel();
+    const [, channelConfig] = Notif.setNotificationChannelAsync.mock.calls[0] as [string, Record<string, unknown>];
+    expect(channelConfig['lockscreenVisibility']).toBe(
+      Notif.AndroidNotificationVisibility.PRIVATE,
+    );
   });
 });

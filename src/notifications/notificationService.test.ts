@@ -615,6 +615,98 @@ describe('global notification budget (iOS 64-slot cap)', () => {
   });
 });
 
+// ─── 11. Offline save-path cap enforcement (🔴-1) ────────────────────────────
+//
+// Reviewer finding: the direct-schedule path (scheduleReminderNotifications /
+// scheduleAppointmentNotification called from form screens) bypasses the global
+// budget.  6 reminders × 15 slots = 90 > iOS hard limit of 64.
+//
+// Fix: form screens must call reconcileNotifications from the local store after
+// each save instead of scheduling directly.  reconcileNotifications enforces
+// allocateGlobalBudget regardless of network / consent state.
+//
+// Test A — RED (documents the bug, assertion passes because bug exists):
+//   6 direct scheduleReminderNotifications calls → > 64 slots.
+// Test B — GREEN (verifies fix and serves as regression guard):
+//   reconcileNotifications with 6 reminders → ≤ 64 slots + per-reminder fairness.
+//   This must pass after form screens are switched to the reconcile path.
+// ─────────────────────────────────────────────────────────────────────────────
+
+describe('offline save-path cap enforcement (🔴-1)', () => {
+  const now = new Date(2026, 5, 30, 7, 0, 0); // June 30 07:00
+
+  it('direct scheduleReminderNotifications × 6 (offline, no reconcile) exceeds iOS 64-slot cap — documents uncapped bug path', async () => {
+    // Demonstrates the bug: the old form-screen path calls scheduleReminderNotifications
+    // per reminder, ignoring the global budget.
+    // 6 reminders × ROLLING_WINDOW(15) = 90 slots > GLOBAL_NOTIFICATION_CAP(64).
+    // After the fix, form screens call reconcileNotifications instead of this function.
+    const reminders = Array.from({ length: 6 }, (_, i) =>
+      makeReminder({
+        id: `rem-direct-${i}`,
+        recurrenceRule: { freq: 'daily', timesOfDay: ['08:00'] },
+        startAt: '2026-06-30T08:00',
+        active: true,
+      }),
+    );
+    for (const r of reminders) {
+      await scheduleReminderNotifications(r, now);
+    }
+    // BUG: uncapped path produces 6 × 15 = 90 slots, exceeding the iOS hard limit.
+    // This assertion documents the vulnerability (passes = bug is reproducible).
+    expect(mockScheduled.size).toBeGreaterThan(GLOBAL_NOTIFICATION_CAP);
+  });
+
+  it('5 reminders saved offline via reconcile path (no sync pull) stay ≤ 64 slots with per-reminder fairness (🔴-1 fix)', async () => {
+    // Verifies the fix: form screens call reconcileNotifications after enqueue,
+    // reading from the local store.  No network / sync pull required.
+    // Works fully offline and when consent is denied (403 consent_required).
+    const reminders = Array.from({ length: 5 }, (_, i) =>
+      makeReminder({
+        id: `rem-offline-fix-${i}`,
+        recurrenceRule: { freq: 'daily', timesOfDay: ['08:00'] },
+        startAt: '2026-06-30T08:00',
+        active: true,
+      }),
+    );
+
+    // Simulate the fixed form-save path: reconcile from store state (no pull involved).
+    // In production each form save does: enqueue → reconcile(store.getActive*).
+    await reconcileNotifications(reminders, [], now);
+
+    // Cap enforced — must not exceed iOS hard limit
+    expect(mockScheduled.size).toBeLessThanOrEqual(GLOBAL_NOTIFICATION_CAP);
+
+    // Fairness — every saved reminder gets at least 1 notification slot
+    for (const r of reminders) {
+      const count = Array.from(mockScheduled.values()).filter(
+        (n) => (n.content as { data: Record<string, unknown> }).data?.['reminderId'] === r.id,
+      ).length;
+      expect(count).toBeGreaterThanOrEqual(1);
+    }
+  });
+
+  it('6 reminders saved offline via reconcile path stay ≤ 64 slots with per-reminder fairness (🔴-1 fix, full-cap scenario)', async () => {
+    // Same as above but with 6 reminders — 6 × 15 = 90 candidate slots, cap must trim to 64.
+    const reminders = Array.from({ length: 6 }, (_, i) =>
+      makeReminder({
+        id: `rem-six-fix-${i}`,
+        recurrenceRule: { freq: 'daily', timesOfDay: ['08:00'] },
+        startAt: '2026-06-30T08:00',
+        active: true,
+      }),
+    );
+    await reconcileNotifications(reminders, [], now);
+
+    expect(mockScheduled.size).toBeLessThanOrEqual(GLOBAL_NOTIFICATION_CAP);
+    for (const r of reminders) {
+      const count = Array.from(mockScheduled.values()).filter(
+        (n) => (n.content as { data: Record<string, unknown> }).data?.['reminderId'] === r.id,
+      ).length;
+      expect(count).toBeGreaterThanOrEqual(1);
+    }
+  });
+});
+
 // ─── 10. setupAndroidNotificationChannel (SD-11) ──────────────────────────────
 
 describe('setupAndroidNotificationChannel', () => {

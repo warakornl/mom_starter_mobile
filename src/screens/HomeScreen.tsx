@@ -70,8 +70,10 @@ import { computePostpartumAge } from '../pregnancy/postpartumAge';
 import type { GestationalAge, Stage } from '../pregnancy/gestationalAge';
 import type { PostpartumAge } from '../pregnancy/postpartumAge';
 import type { PregnancyProfile } from '../pregnancy/types';
+import type { ProfileSnapshot } from '../pregnancy/PregnancyProfileContext';
 import { useT } from '../i18n/LanguageContext';
 import { formatCivilDate } from '../i18n/messages';
+import { shouldShowModule } from '../kickCount/kickCountLogic';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -100,6 +102,17 @@ export interface HomeScreenProps {
    * Optional — no-op if not provided (keeps existing snapshots/tests working).
    */
   onCalendar?: () => void;
+  /**
+   * Navigate to KickCountHomeScreen (wk≥32 + pregnant gate applied here).
+   * Optional — no-op if not provided.
+   */
+  onKickCount?: () => void;
+  /**
+   * B-1: Called after the pregnancy profile loads so the navigator can
+   * derive gestationalWeek/edd/lifecycle for KickCount screens.
+   * Optional — no-op if not provided.
+   */
+  onProfileLoaded?: (snapshot: ProfileSnapshot) => void;
 }
 
 // ─── Screen state ─────────────────────────────────────────────────────────────
@@ -555,6 +568,8 @@ export function HomeScreen({
   onBirthEvent,
   onSupplies,
   onCalendar,
+  onKickCount,
+  onProfileLoaded,
 }: HomeScreenProps): React.JSX.Element {
   const { t } = useT();
   const [state, setState] = useState<ScreenState>({ kind: 'loading' });
@@ -589,11 +604,27 @@ export function HomeScreen({
         loadedEdd.current = null;
         const pp = recomputeFromBirthDate(profile.birthDate);
         setState({ kind: 'postpartum', profile, pp });
+        // B-1: notify navigator of postpartum profile for KickCount screens
+        onProfileLoaded?.({
+          gestationalWeek: 0,
+          edd: profile.edd,
+          todayCivil: localCivilToday(),
+          lifecycle: 'postpartum',
+          generalHealthConsented: true, // TODO: wire consent store (carry-forward)
+        });
       } else {
         loadedEdd.current = profile.edd;
         loadedBirthDate.current = null;
         const ga = recomputeFromEdd(profile.edd);
         setState({ kind: 'pregnant', profile, ga });
+        // B-1: notify navigator of pregnant profile for KickCount screens
+        onProfileLoaded?.({
+          gestationalWeek: ga.gestationalWeek,
+          edd: profile.edd,
+          todayCivil: localCivilToday(),
+          lifecycle: 'pregnant',
+          generalHealthConsented: true, // TODO: wire consent store (carry-forward)
+        });
       }
     } else if (result.status === 404) {
       setState({ kind: 'needs-onboarding' });
@@ -758,6 +789,18 @@ export function HomeScreen({
               <Text style={styles.calendarBtnText}>{t('calendar.viewAll')}</Text>
             </TouchableOpacity>
           )}
+          {/* B-1: KickCount entry — postpartum always visible (no week gate) */}
+          {onKickCount && (
+            <TouchableOpacity
+              testID="home-kick-count-shortcut"
+              style={styles.kickCountBtn}
+              onPress={onKickCount}
+              accessibilityRole="button"
+              accessibilityLabel={t('kick.navTitle')}
+            >
+              <Text style={styles.kickCountBtnText}>{t('kick.navTitle')}</Text>
+            </TouchableOpacity>
+          )}
         </ScrollView>
 
         <TouchableOpacity
@@ -831,6 +874,18 @@ export function HomeScreen({
             accessibilityLabel={t('calendar.navTitle')}
           >
             <Text style={styles.calendarBtnText}>{t('calendar.viewAll')}</Text>
+          </TouchableOpacity>
+        )}
+        {/* B-1: KickCount entry — wk≥32 gate via shouldShowModule */}
+        {onKickCount && shouldShowModule(ga.gestationalWeek, 'pregnant') && (
+          <TouchableOpacity
+            testID="home-kick-count-shortcut"
+            style={styles.kickCountBtn}
+            onPress={onKickCount}
+            accessibilityRole="button"
+            accessibilityLabel={t('kick.navTitle')}
+          >
+            <Text style={styles.kickCountBtnText}>{t('kick.navTitle')}</Text>
           </TouchableOpacity>
         )}
       </ScrollView>
@@ -954,6 +1009,19 @@ const styles = StyleSheet.create({
     fontFamily: 'IBMPlexSans-SemiBold',
     fontSize: 14,
     color: '#3B8C8C',
+    textDecorationLine: 'underline',
+  },
+
+  // B-1: KickCount shortcut link (wk≥32 pregnant gate; always visible postpartum)
+  kickCountBtn: {
+    alignSelf: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+  },
+  kickCountBtnText: {
+    fontFamily: 'IBMPlexSans-SemiBold',
+    fontSize: 14,
+    color: '#A8505A',
     textDecorationLine: 'underline',
   },
 

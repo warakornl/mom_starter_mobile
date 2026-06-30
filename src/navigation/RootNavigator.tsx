@@ -39,11 +39,13 @@
  * - Consent screen between VerifyEmail and ProfileSetup
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import type { RootStackParamList } from './types';
 import type { TokenStorage } from '../auth/tokenStorage';
+import type { ProfileSnapshot } from '../pregnancy/PregnancyProfileContext';
+import { localCivilToday } from '../pregnancy/gestationalAge';
 
 import { WelcomeScreen } from '../screens/WelcomeScreen';
 import { HomeScreen } from '../screens/HomeScreen';
@@ -56,6 +58,11 @@ import { SuppliesScreen } from '../supplies/SuppliesScreen';
 import { CalendarScreen } from '../calendar/CalendarScreen';
 import { AppointmentFormScreen } from '../calendar/AppointmentFormScreen';
 import { ReminderFormScreen } from '../calendar/ReminderFormScreen';
+import { KickCountHomeScreen } from '../kickCount/KickCountHomeScreen';
+import { KickCountCountingScreen } from '../kickCount/KickCountCountingScreen';
+import { KickCountSummaryScreen } from '../kickCount/KickCountSummaryScreen';
+import { KickCountHistoryScreen } from '../kickCount/KickCountHistoryScreen';
+import { KickCountDetailScreen } from '../kickCount/KickCountDetailScreen';
 import { calendarSyncStore } from '../sync/calendarSyncStore';
 import { useT } from '../i18n/LanguageContext';
 
@@ -70,6 +77,20 @@ interface RootNavigatorProps {
 
 export function RootNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps): React.JSX.Element {
   const { t } = useT();
+
+  // B-1: Profile snapshot — populated by HomeScreen via onProfileLoaded.
+  // Used to pass gestationalWeek/edd/lifecycle/consent to KickCount screens
+  // without serializing health data through route params.
+  const [profileSnapshot, setProfileSnapshot] = useState<ProfileSnapshot | null>(null);
+
+  // Derived props for KickCount screens (safe defaults before profile loads).
+  const kickProps: ProfileSnapshot = profileSnapshot ?? {
+    gestationalWeek: 0,
+    edd: '',
+    todayCivil: localCivilToday(),
+    lifecycle: 'pregnant',
+    generalHealthConsented: false,
+  };
 
   return (
     <Stack.Navigator
@@ -151,6 +172,10 @@ export function RootNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps):
        *   GET 404 → calls onNeedsProfile → navigate to ProfileSetup
        *   GET 200, lifecycle=pregnant   → gestational-age dashboard + T3 birth CTA
        *   GET 200, lifecycle=postpartum → baby-age dashboard (sage/green, postpartum)
+       *
+       * B-1: onProfileLoaded updates profileSnapshot state so KickCount screens
+       *   receive the correct gestationalWeek/edd/lifecycle/consent props.
+       * B-1: onKickCount navigates to KickCountHome (wk32 gate enforced in HomeScreen).
        */}
       <Stack.Screen
         name="Home"
@@ -171,6 +196,8 @@ export function RootNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps):
             }
             onSupplies={() => navigation.navigate('Supplies')}
             onCalendar={() => navigation.navigate('Calendar')}
+            onKickCount={() => navigation.navigate('KickCountHome')}
+            onProfileLoaded={(snapshot) => setProfileSnapshot(snapshot)}
           />
         )}
       </Stack.Screen>
@@ -329,6 +356,83 @@ export function RootNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps):
           );
         }}
       </Stack.Screen>
+
+      {/* ── Kick Count ─────────────────────────────────────────────────────────
+       *
+       * B-1: All 5 KickCount screens registered.
+       * Props derived from profileSnapshot (set by HomeScreen.onProfileLoaded).
+       * kickProps uses safe defaults (gestationalWeek=0, consent=false) until
+       * the profile loads — this prevents accessing the feature before auth.
+       *
+       * Security: no health data in route params (K-8 PDPA). Profile data
+       * flows from HomeScreen → RootNavigator state → screen props only.
+       */}
+
+      {/* SC-K0: KickCount entry / module home */}
+      <Stack.Screen
+        name="KickCountHome"
+        options={{ title: t('kick.navTitle'), headerBackTitle: t('general.back') }}
+      >
+        {() => (
+          <KickCountHomeScreen
+            gestationalWeek={kickProps.gestationalWeek}
+            lifecycle={kickProps.lifecycle}
+            generalHealthConsented={kickProps.generalHealthConsented}
+            onRequestConsent={() => {
+              // TODO: navigate to ConsentScreen once built (carry-forward)
+            }}
+            tokenStorage={tokenStorage}
+            apiBaseUrl={apiBaseUrl}
+          />
+        )}
+      </Stack.Screen>
+
+      {/* SC-K1: Active counting screen */}
+      <Stack.Screen
+        name="KickCountCounting"
+        options={{ headerShown: false }}
+      >
+        {() => (
+          <KickCountCountingScreen
+            edd={kickProps.edd}
+            todayCivil={kickProps.todayCivil}
+            generalHealthConsented={kickProps.generalHealthConsented}
+            tokenStorage={tokenStorage}
+            apiBaseUrl={apiBaseUrl}
+          />
+        )}
+      </Stack.Screen>
+
+      {/* SC-K3: Post-finalize summary — reads sessionId from route.params */}
+      <Stack.Screen
+        name="KickCountSummary"
+        component={KickCountSummaryScreen}
+        options={{ title: t('kick.summaryHeadline'), headerBackTitle: t('general.back') }}
+      />
+
+      {/* SC-K4: History list */}
+      <Stack.Screen
+        name="KickCountHistory"
+        options={{ title: t('kick.historyNavTitle'), headerBackTitle: t('general.back') }}
+      >
+        {() => (
+          <KickCountHistoryScreen
+            gestationalWeek={kickProps.gestationalWeek}
+            lifecycle={kickProps.lifecycle}
+            generalHealthConsented={kickProps.generalHealthConsented}
+            onRequestConsent={() => {
+              // TODO: navigate to ConsentScreen once built (carry-forward)
+            }}
+          />
+        )}
+      </Stack.Screen>
+
+      {/* SC-K5: Session detail — reads sessionId from route.params */}
+      <Stack.Screen
+        name="KickCountDetail"
+        component={KickCountDetailScreen}
+        options={{ title: t('kick.detailNavTitle'), headerBackTitle: t('general.back') }}
+      />
     </Stack.Navigator>
   );
 }

@@ -12,9 +12,14 @@
  *
  * Write path (B1): mutations via calendarSyncStore → drainQueue() → sync/push.
  *
+ * Notification wiring:
+ *   - On first save: requestNotificationPermission() (prompts user once)
+ *   - Create: scheduleReminderNotifications(created) after enqueueCreateReminder
+ *   - Update: cancelNotificationsForReminder then scheduleReminderNotifications
+ *   - Delete: cancelNotificationsForReminder(id)
+ *   All notification calls are fire-and-forget (no await on save path).
+ *
  * TODO carry-forward:
- *   - OS notification firing (expo-notifications not added; store local alarms
- *     after save using Expo.Notifications.scheduleNotificationAsync)
  *   - sourceRefType/sourceRefId for linking to ChecklistItem/SupplyItem
  *   - hideOnLockScreen toggle (SD-11)
  *
@@ -42,6 +47,11 @@ import { localCivilToday } from '../pregnancy/gestationalAge';
 import type { TokenStorage } from '../auth/tokenStorage';
 import type { ReminderRecord, ReminderType, RecurrenceRuleWire } from '../sync/syncTypes';
 import type { MessageKey } from '../i18n/messages';
+import {
+  requestNotificationPermission,
+  scheduleReminderNotifications,
+  cancelNotificationsForReminder,
+} from '../notifications/notificationService';
 
 // ─── FLAG-4 grammar validation (client mirror of server 422) ─────────────────
 
@@ -257,6 +267,11 @@ export function ReminderFormScreen({
         updatedAt: now,
       };
       calendarSyncStore.enqueueUpdateReminder(updated);
+      // Cancel stale occurrence notifications then re-schedule with new rule.
+      // Fire-and-forget — errors are swallowed to not block the UI.
+      void cancelNotificationsForReminder(updated.id).then(() =>
+        scheduleReminderNotifications(updated),
+      ).catch(() => { /* no-op: notification scheduling is best-effort */ });
     } else {
       const created: ReminderRecord = {
         id: uuidv4(),
@@ -270,9 +285,12 @@ export function ReminderFormScreen({
         updatedAt: now,
       };
       calendarSyncStore.enqueueCreateReminder(created);
+      // Request permission on first save (prompts user once; graceful if denied).
+      // Then schedule future occurrences. Fire-and-forget.
+      void requestNotificationPermission().then(() =>
+        scheduleReminderNotifications(created),
+      ).catch(() => { /* no-op */ });
     }
-
-    // TODO carry-forward: schedule OS local notification (expo-notifications)
 
     // Navigate back first, then push (fire-and-forget — no await to not block UI)
     onSave?.();
@@ -292,7 +310,8 @@ export function ReminderFormScreen({
           style: 'destructive',
           onPress: () => {
             calendarSyncStore.enqueueDeleteReminder(existingReminder.id);
-            // TODO carry-forward: cancel OS alarms for this reminder
+            // Cancel all pending OS notifications for this reminder.
+            void cancelNotificationsForReminder(existingReminder.id).catch(() => { /* no-op */ });
             onSave?.();
             triggerPush();
           },
@@ -469,11 +488,6 @@ export function ReminderFormScreen({
           thumbColor="#FFFFFF"
         />
       </View>
-
-      {/* Notification carry-forward note */}
-      <Text style={styles.carryForwardNote}>
-        {t('reminder.notificationCarryForward')}
-      </Text>
 
       {/* Save */}
       <TouchableOpacity style={styles.saveBtn} onPress={handleSave}>

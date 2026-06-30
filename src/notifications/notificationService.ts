@@ -32,8 +32,8 @@
  *   App.tsx reads this in addNotificationResponseReceivedListener → navigate('Calendar').
  *
  * Security:
- *   When hideOnLockScreen=true, notification title is replaced with 'แจ้งเตือน' (generic).
- *   displayTitle is used only when hideOnLockScreen is false/absent.
+ *   Notification title defaults to 'แจ้งเตือน' (generic) — opt-in privacy model (SD-11).
+ *   displayTitle is shown ONLY when showDetailsOnLockScreen === true (user explicitly opts in).
  *   Do NOT log reminder content, appointment notes, or any health data here.
  */
 

@@ -389,6 +389,11 @@ export function KickCountCountingScreen({
           K-5b invariant: count=3 and count=10 produce identical view hierarchy
           and styling — only the text value of the count number differs.
           No ring, no dots, no bar, no status color.
+
+          Y-1 / K-5b SR fix: the countNumber already carries the full SR label
+          "นับได้ N ครั้ง" via progressA11y. The divider+targetNumber+countUnit
+          are hidden from screen readers so SR hears ONLY "นับได้ N ครั้ง" and
+          never the bare "/10 ครั้ง" fraction.
         */}
         <Text
           style={styles.countNumber}
@@ -398,9 +403,28 @@ export function KickCountCountingScreen({
         >
           {count}
         </Text>
-        <View style={styles.divider} />
-        <Text style={styles.targetNumber}>{progressData.targetCount}</Text>
-        <Text style={styles.countUnit}>ครั้ง</Text>
+        {/* Y-1: hidden from SR — divider is purely visual */}
+        <View
+          style={styles.divider}
+          accessibilityElementsHidden={true}
+          importantForAccessibility="no-hide-descendants"
+        />
+        {/* Y-1: hidden from SR — "/10" is visual context, not an SR announcement */}
+        <Text
+          style={styles.targetNumber}
+          accessibilityElementsHidden={true}
+          importantForAccessibility="no-hide-descendants"
+        >
+          {progressData.targetCount}
+        </Text>
+        {/* Y-1: hidden from SR — "ครั้ง" after targetNumber would be confusing duplicate */}
+        <Text
+          style={styles.countUnit}
+          accessibilityElementsHidden={true}
+          importantForAccessibility="no-hide-descendants"
+        >
+          ครั้ง
+        </Text>
       </View>
 
       {/* ── Tap button ─────────────────────────────────────────────────────────── */}

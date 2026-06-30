@@ -88,6 +88,16 @@ function filterChangeSetByIds(
     };
   }
 
+  // Y-2: kickCountSessions — immutable event union, per-record rejected re-enqueue
+  if (changes.kickCountSessions) {
+    const k = changes.kickCountSessions;
+    result.kickCountSessions = {
+      created: k.created.filter((rec) => rejectedIds.has(rec.id)),
+      updated: k.updated.filter((rec) => rejectedIds.has(rec.id)),
+      deleted: k.deleted.filter((id) => rejectedIds.has(id)),
+    };
+  }
+
   return result;
 }
 

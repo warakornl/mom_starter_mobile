@@ -21,7 +21,7 @@
  * Security: never log draft content or session data (K-8 MOTHER-health).
  */
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -29,6 +29,8 @@ import {
   StyleSheet,
   ActivityIndicator,
   AccessibilityInfo,
+  AppState,
+  type AppStateStatus,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -37,7 +39,10 @@ import { useT } from '../i18n/LanguageContext';
 import { interpolate, type MessageKey } from '../i18n/messages';
 import { loadDraft } from './kickCountDraftStore';
 import { shouldShowModule, isStartAllowedByWeek } from './kickCountLogic';
+import { kickCountSyncStore } from './kickCountSyncStore';
+import { createKickCountSyncClient } from '../sync/syncClient';
 import type { Lifecycle } from '../pregnancy/types';
+import type { TokenStorage } from '../auth/tokenStorage';
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'KickCountHome'>;
 
@@ -56,6 +61,16 @@ interface KickCountHomeScreenProps {
   isOffline?: boolean;
   /** Called when the user needs to grant general_health consent. */
   onRequestConsent: () => void;
+  /**
+   * Y-2: Shared secure token storage — used for sync pull on mount/foreground.
+   * Optional: if not provided, pull is skipped (data stays local-only).
+   */
+  tokenStorage?: TokenStorage;
+  /**
+   * Y-2: API base URL for sync pull endpoint.
+   * Optional: if not provided, pull is skipped.
+   */
+  apiBaseUrl?: string;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -66,6 +81,8 @@ export function KickCountHomeScreen({
   generalHealthConsented,
   isOffline = false,
   onRequestConsent,
+  tokenStorage,
+  apiBaseUrl,
 }: KickCountHomeScreenProps) {
   const { t } = useT();
   const navigation = useNavigation<Nav>();
@@ -78,10 +95,29 @@ export function KickCountHomeScreen({
   const moduleVisible = shouldShowModule(gestationalWeek, lifecycle);
   const canStart = isStartAllowedByWeek(gestationalWeek, lifecycle);
 
+  // Y-2: sync client ref (bound once per mount)
+  const clientRef = useRef(
+    tokenStorage && apiBaseUrl
+      ? createKickCountSyncClient(apiBaseUrl, kickCountSyncStore)
+      : null,
+  );
+
+  // Y-2: pull from server to hydrate history (mirror calendar pattern)
+  const syncPull = useCallback(async () => {
+    const client = clientRef.current;
+    if (!client || !tokenStorage) return;
+    const tokens = await tokenStorage.load().catch(() => null);
+    if (!tokens?.accessToken) return;
+    // Pull is fire-and-forget — offline/failure is non-fatal; history still shows from local store
+    await client.pull(tokens.accessToken, kickCountSyncStore.getWatermark()).catch(() => {});
+  }, [tokenStorage]);
+
   useEffect(() => {
     let cancelled = false;
     async function init() {
       try {
+        // Y-2: pull on mount to hydrate history store
+        await syncPull();
         const draft = await loadDraft();
         if (cancelled) return;
         setHasDraft(draft !== null);
@@ -92,7 +128,18 @@ export function KickCountHomeScreen({
     }
     init();
     return () => { cancelled = true; };
-  }, [lifecycle]);
+  }, [lifecycle, syncPull]);
+
+  // Y-2: pull on foreground (repopulate history when returning from background)
+  useEffect(() => {
+    function handleAppState(next: AppStateStatus): void {
+      if (next === 'active') {
+        void syncPull();
+      }
+    }
+    const sub = AppState.addEventListener('change', handleAppState);
+    return () => sub.remove();
+  }, [syncPull]);
 
   const handleStartPress = useCallback(() => {
     // B.2 / K-8: consent gate — check general_health before creating draft

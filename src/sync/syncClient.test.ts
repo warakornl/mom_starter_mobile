@@ -659,3 +659,123 @@ describe('syncClient.pull — wire shape', () => {
     expect(calls[0].url).not.toContain('since=');
   });
 });
+
+// ─── Y-2: createKickCountSyncClient ──────────────────────────────────────────
+
+import { createKickCountSyncClient } from './syncClient';
+import { createKickCountSyncStore } from '../kickCount/kickCountSyncStore';
+import type { KickCountSessionRecord } from './syncTypes';
+
+function makeKickSession(overrides: Partial<KickCountSessionRecord> = {}): KickCountSessionRecord {
+  return {
+    id: 'kcuuid-0001-0000-0000-000000000001',
+    startedAt: '2026-06-30T09:15',
+    endedAt: '2026-06-30T09:27',
+    movementCount: 7,
+    targetCount: 10,
+    status: 'completed',
+    durationSeconds: 720,
+    gestationalWeekAtStart: 34,
+    note: null,
+    version: 0,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    deletedAt: null,
+    ...overrides,
+  };
+}
+
+describe('createKickCountSyncClient — Y-2 push/pull', () => {
+  it('push sends enqueued completed session in kickCountSessions.created[]', async () => {
+    const store = createKickCountSyncStore();
+    const session = makeKickSession();
+    store.enqueueCreate(session);
+
+    const captured: RequestInit[] = [];
+    const fn: FetchFn = (_url, init) => {
+      captured.push(init!);
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () =>
+          Promise.resolve({
+            timestamp: WATERMARK,
+            applied: [{ collection: 'kickCountSessions', id: session.id, version: 1, updatedAt: WATERMARK }],
+            conflicts: [],
+            rejected: [],
+          }),
+      } as unknown as Response);
+    };
+
+    const client = createKickCountSyncClient(BASE, store, fn);
+    const result = await client.push(store.drainQueue(), '', TOKEN);
+
+    expect(result.ok).toBe(true);
+    const body = JSON.parse(captured[0].body as string);
+    expect(body.changes.kickCountSessions.created).toHaveLength(1);
+    expect(body.changes.kickCountSessions.created[0].id).toBe(session.id);
+  });
+
+  it('applied[] from push response stamps version on local row', async () => {
+    const store = createKickCountSyncStore();
+    const session = makeKickSession({ version: 0 });
+    store.enqueueCreate(session);
+    const changes = store.drainQueue();
+
+    const fn: FetchFn = () =>
+      Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () =>
+          Promise.resolve({
+            timestamp: WATERMARK,
+            applied: [{ collection: 'kickCountSessions', id: session.id, version: 1, updatedAt: WATERMARK }],
+            conflicts: [],
+            rejected: [],
+          }),
+      } as unknown as Response);
+
+    const client = createKickCountSyncClient(BASE, store, fn);
+    await client.push(changes, '', TOKEN);
+
+    expect(store.getSession(session.id)?.version).toBe(1);
+  });
+
+  it('pull applies kickCountSessions from server to local store', async () => {
+    const store = createKickCountSyncStore();
+    const serverSession = makeKickSession({ version: 1 });
+
+    const fn: FetchFn = () =>
+      Promise.resolve({
+        ok: true,
+        status: 200,
+        json: () =>
+          Promise.resolve({
+            timestamp: WATERMARK,
+            changes: {
+              kickCountSessions: {
+                created: [serverSession],
+                updated: [],
+                deleted: [],
+              },
+            },
+          }),
+      } as unknown as Response);
+
+    const client = createKickCountSyncClient(BASE, store, fn);
+    await client.pull(TOKEN);
+
+    expect(store.getSession(serverSession.id)).toMatchObject({ id: serverSession.id, version: 1 });
+  });
+
+  it('K-7 prod-gate: note is null in all enqueued sessions (no plaintext push of encrypted field)', () => {
+    // K-7: note_cipher encryption is not implemented yet. Until it is, note MUST be null.
+    // This test guards against accidentally pushing plaintext notes before encryption lands.
+    const store = createKickCountSyncStore();
+    store.enqueueCreate(makeKickSession({ note: null }));
+    const changes = store.drainQueue();
+    const sessions = changes.kickCountSessions?.created ?? [];
+    const hasPlaintextNote = sessions.some((s) => s.note != null && s.note.trim().length > 0);
+    expect(hasPlaintextNote).toBe(false); // all notes must be null until K-7 lands
+  });
+});

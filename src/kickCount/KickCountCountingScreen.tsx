@@ -52,7 +52,10 @@ import {
   getProgressDisplay,
 } from './kickCountLogic';
 import { kickCountSyncStore } from './kickCountSyncStore';
+import { createKickCountSyncClient } from '../sync/syncClient';
+import { executePush } from '../sync/pushOrchestrator';
 import type { KickCountDraft } from './kickCountTypes';
+import type { TokenStorage } from '../auth/tokenStorage';
 import { SafetyStrip } from './KickCountHomeScreen';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -83,6 +86,17 @@ interface KickCountCountingScreenProps {
    * the navigator (which reads the consent store).
    */
   generalHealthConsented?: boolean;
+  /**
+   * Y-2: sync push after finalize.
+   * Shared secure token storage — used to get the access token for push.
+   * Optional: if not provided, push is skipped (no-op, data stays local).
+   */
+  tokenStorage?: TokenStorage;
+  /**
+   * Y-2: API base URL for sync push endpoint.
+   * Optional: if not provided, push is skipped.
+   */
+  apiBaseUrl?: string;
 }
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'KickCountCounting'>;
@@ -126,6 +140,8 @@ export function KickCountCountingScreen({
   getCivilNow = getCivilNowDefault,
   getMonotonicMs = () => Date.now(),
   generalHealthConsented = true, // see prop comment — always pass from navigator
+  tokenStorage,
+  apiBaseUrl,
 }: KickCountCountingScreenProps) {
   const { t } = useT();
   const navigation = useNavigation<Nav>();
@@ -290,14 +306,35 @@ export function KickCountCountingScreen({
     const session = finalizeSession(currentDraft, endMs, endedAt);
     try {
       // INSERT immutable completed row in local store
+      // K-7 prod-gate: note is always null in MVP (no note UI).
+      // DO NOT wire note input + push together until note_cipher AES-GCM encryption
+      // is implemented (appsec-engineer, Backlog encryption). Pushing plaintext note
+      // would violate K-7. The guard is also tested in syncClient.test.ts.
       kickCountSyncStore.enqueueCreate(session);
       // Clear draft from encrypted store (crypto-shred)
       await clearDraft();
+      // Y-2: push to server immediately after finalize (fire-and-forget).
+      // History is still visible from local store even if push fails
+      // (kickCountSyncStore re-enqueues on failure — no silent data loss).
+      if (tokenStorage && apiBaseUrl) {
+        const tokens = await tokenStorage.load().catch(() => null);
+        if (tokens?.accessToken) {
+          const client = createKickCountSyncClient(apiBaseUrl, kickCountSyncStore);
+          // executePush drains queue, pushes, re-enqueues on fail (no silent loss)
+          await executePush(
+            kickCountSyncStore,
+            client,
+            tokens.accessToken,
+            // UUID-like idempotency key from session id (stable for retry)
+            session.id,
+          );
+        }
+      }
       navigation.navigate('KickCountSummary', { sessionId: session.id });
     } catch {
       setPhase('save-error');
     }
-  }, [getCivilNow, getMonotonicMs, navigation]);
+  }, [getCivilNow, getMonotonicMs, navigation, tokenStorage, apiBaseUrl]);
 
   const handleEndSessionPress = useCallback(() => {
     if (!draft) return;

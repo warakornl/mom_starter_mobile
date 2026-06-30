@@ -36,7 +36,7 @@
  * Mark done/snoozed (FLAG-7/W-A):
  *   Tapping a due/snoozed occurrence → Alert → mark done / snooze
  *   → calendarSyncStore.enqueueOccurrence() → executePush (fire-and-forget)
- *   TODO carry-forward: OS notification firing (expo-notifications not added)
+ *   Notifications: cancelNotificationForOccurrence on done/snooze; reconcile after pull.
  *
  * Design tokens (design-system.md):
  *   bg/warm-milk  #FBF6F1  surface/page  #FFFFFF  ink  #3A2A30
@@ -70,6 +70,10 @@ import { computeOccurrenceId } from '../occurrence/occurrenceId';
 import { bucketCivilDay } from './civilDayBucketer';
 import type { TokenStorage } from '../auth/tokenStorage';
 import type { ChecklistItemRecord, ReminderOccurrenceRecord, OccurrenceStatus } from '../sync/syncTypes';
+import {
+  cancelNotificationForOccurrence,
+  reconcileNotifications,
+} from '../notifications/notificationService';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -327,6 +331,13 @@ export function CalendarScreen({
     if (!result.ok) {
       // 403 consent_required → health consent not granted; app works offline
       setSyncError(t('calendar.syncError'));
+    } else {
+      // Reconcile OS notifications with the updated store state.
+      // Fire-and-forget — never blocks the UI, errors are swallowed.
+      void reconcileNotifications(
+        calendarSyncStore.getActiveReminders(),
+        calendarSyncStore.getActiveChecklistItems(),
+      ).catch(() => { /* no-op: notification scheduling is best-effort */ });
     }
   }, [tokenStorage, refreshFromStore, t]);
 
@@ -453,7 +464,8 @@ export function CalendarScreen({
               refreshFromStore();
               // Push immediately — fire-and-forget (no await to not block UI)
               void syncPush();
-              // TODO carry-forward: cancel OS notification for this occurrence
+              // Cancel the pending OS notification for this occurrence (safe if already fired).
+              void cancelNotificationForOccurrence(id).catch(() => { /* no-op */ });
             },
           },
           ...(currentStatus !== 'snoozed'
@@ -471,6 +483,8 @@ export function CalendarScreen({
                     );
                     refreshFromStore();
                     void syncPush();
+                    // Cancel the original occurrence notification (it has been snoozed in-app).
+                    void cancelNotificationForOccurrence(id).catch(() => { /* no-op */ });
                   },
                 },
               ]

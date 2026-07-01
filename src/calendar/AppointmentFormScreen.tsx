@@ -313,6 +313,7 @@ export function AppointmentFormScreen({
       {/* Title */}
       <Text style={styles.label}>{t('appointment.fieldTitle')}</Text>
       <TextInput
+        testID="appointment-title"
         style={[styles.input, titleError ? styles.inputError : null]}
         value={title}
         onChangeText={setTitle}
@@ -473,6 +474,7 @@ export function AppointmentFormScreen({
                 </TouchableOpacity>
                 <Text style={styles.pickerTitle}>{t('picker.selectDate')}</Text>
                 <TouchableOpacity
+                  testID="appointment-date-picker-done"
                   style={styles.pickerDoneBtn}
                   onPress={confirmDateIOS}
                   accessibilityRole="button"
@@ -514,6 +516,7 @@ export function AppointmentFormScreen({
                 </TouchableOpacity>
                 <Text style={styles.pickerTitle}>{t('picker.selectTime')}</Text>
                 <TouchableOpacity
+                  testID="appointment-time-picker-done"
                   style={styles.pickerDoneBtn}
                   onPress={confirmTimeIOS}
                   accessibilityRole="button"

@@ -58,6 +58,7 @@ import { SuppliesScreen } from '../supplies/SuppliesScreen';
 import { CalendarScreen } from '../calendar/CalendarScreen';
 import { AppointmentFormScreen } from '../calendar/AppointmentFormScreen';
 import { ReminderFormScreen } from '../calendar/ReminderFormScreen';
+import { SettingsScreen } from '../settings/SettingsScreen';
 import { KickCountHomeScreen } from '../kickCount/KickCountHomeScreen';
 import { KickCountCountingScreen } from '../kickCount/KickCountCountingScreen';
 import { KickCountSummaryScreen } from '../kickCount/KickCountSummaryScreen';
@@ -197,6 +198,7 @@ export function RootNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps):
             onSupplies={() => navigation.navigate('Supplies')}
             onCalendar={() => navigation.navigate('Calendar')}
             onKickCount={() => navigation.navigate('KickCountHome')}
+            onSettings={() => navigation.navigate('Settings')}
             onProfileLoaded={(snapshot) => setProfileSnapshot(snapshot)}
           />
         )}
@@ -355,6 +357,23 @@ export function RootNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps):
             />
           );
         }}
+      </Stack.Screen>
+
+      {/* Settings — account/settings menu; home for logout (two levels deep).
+       * Entry: gear ⚙ in the Home header. Stock header provides the back button.
+       */}
+      <Stack.Screen
+        name="Settings"
+        options={{ title: t('settings.title'), headerBackTitle: t('general.back') }}
+      >
+        {({ navigation }) => (
+          <SettingsScreen
+            tokenStorage={tokenStorage}
+            onLogout={() =>
+              navigation.reset({ index: 0, routes: [{ name: 'Welcome' }] })
+            }
+          />
+        )}
       </Stack.Screen>
 
       {/* ── Kick Count ─────────────────────────────────────────────────────────

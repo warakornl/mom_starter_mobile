@@ -52,15 +52,10 @@ import {
   StyleSheet,
   SafeAreaView,
   ScrollView,
-  Alert,
   AppState,
   type AppStateStatus,
 } from 'react-native';
 import type { TokenStorage } from '../auth/tokenStorage';
-import { supplySyncStore } from '../sync/supplySyncStore';
-import { kickCountSyncStore } from '../kickCount/kickCountSyncStore';
-import { calendarSyncStore } from '../sync/calendarSyncStore';
-import { clearDraft } from '../kickCount/kickCountDraftStore';
 import { createPregnancyClient } from '../pregnancy/pregnancyApiClient';
 import {
   computeGestationalAge,
@@ -102,6 +97,11 @@ export interface HomeScreenProps {
    * Optional — no-op if not provided (keeps existing snapshots/tests working).
    */
   onCalendar?: () => void;
+  /**
+   * Navigate to SettingsScreen (account menu — home for logout).
+   * Optional — no-op if not provided (keeps existing snapshots/tests working).
+   */
+  onSettings?: () => void;
   /**
    * Navigate to KickCountHomeScreen (wk≥32 + pregnant gate applied here).
    * Optional — no-op if not provided.
@@ -569,6 +569,7 @@ export function HomeScreen({
   onSupplies,
   onCalendar,
   onKickCount,
+  onSettings,
   onProfileLoaded,
 }: HomeScreenProps): React.JSX.Element {
   const { t } = useT();
@@ -663,45 +664,8 @@ export function HomeScreen({
     return () => sub.remove();
   }, [recomputeFromEdd, recomputeFromBirthDate]);
 
-  async function handleLogout(): Promise<void> {
-    try {
-      await tokenStorage.clear();
-    } catch {
-      // Storage clear failure is non-fatal
-    }
-    // PDPA data-isolation (1.1 appsec): clear EVERY health store so user A's data
-    // cannot be seen by user B who logs in during the same JS session.
-
-    // Supply items (non-health, cloud_storage only — still isolate for session safety)
-    supplySyncStore.reset();
-
-    // Kick-count draft — K-8 encrypted health data; best-effort (never fatal)
-    await clearDraft().catch(() => {});
-
-    // Kick-count sessions — MOTHER-health, general_health gate
-    // (Comment in kickCountSyncStore.ts documents "call reset() on logout")
-    kickCountSyncStore.reset();
-
-    // Calendar appointments / reminders — MOTHER-health, general_health gate
-    calendarSyncStore.reset();
-
-    onLogout();
-  }
-
-  function confirmLogout(): void {
-    Alert.alert(
-      t('home.logoutTitle'),
-      t('home.logoutMessage'),
-      [
-        { text: t('home.logoutCancel'), style: 'cancel' },
-        {
-          text: t('home.logoutConfirm'),
-          style: 'destructive',
-          onPress: () => void handleLogout(),
-        },
-      ],
-    );
-  }
+  // Logout now lives in SettingsScreen (reached via the ⚙ gear → Settings). The
+  // shared performLogout runner there clears tokens + all health stores (PDPA 1.1).
 
   // ─── Loading ─────────────────────────────────────────────────────────────
 
@@ -755,6 +719,17 @@ export function HomeScreen({
         <View style={styles.headerRow}>
           <View style={styles.headerSpacer} />
           <LangToggle />
+          {onSettings && (
+            <TouchableOpacity
+              style={styles.settingsBtn}
+              onPress={onSettings}
+              accessibilityRole="button"
+              accessibilityLabel={t('home.settingsA11y')}
+              testID="home-settings-btn"
+            >
+              <Text style={styles.settingsIcon}>⚙</Text>
+            </TouchableOpacity>
+          )}
         </View>
         <ScrollView
           style={styles.scroll}
@@ -802,15 +777,6 @@ export function HomeScreen({
             </TouchableOpacity>
           )}
         </ScrollView>
-
-        <TouchableOpacity
-          style={styles.logoutBtn}
-          onPress={confirmLogout}
-          accessibilityRole="button"
-          accessibilityLabel={t('home.logout')}
-        >
-          <Text style={styles.logoutBtnText}>{t('home.logout')}</Text>
-        </TouchableOpacity>
       </SafeAreaView>
     );
   }
@@ -824,6 +790,17 @@ export function HomeScreen({
       <View style={styles.headerRow}>
         <View style={styles.headerSpacer} />
         <LangToggle />
+        {onSettings && (
+          <TouchableOpacity
+            style={styles.settingsBtn}
+            onPress={onSettings}
+            accessibilityRole="button"
+            accessibilityLabel={t('home.settingsA11y')}
+            testID="home-settings-btn"
+          >
+            <Text style={styles.settingsIcon}>⚙</Text>
+          </TouchableOpacity>
+        )}
       </View>
       <ScrollView
         style={styles.scroll}
@@ -889,15 +866,6 @@ export function HomeScreen({
           </TouchableOpacity>
         )}
       </ScrollView>
-
-      <TouchableOpacity
-        style={styles.logoutBtn}
-        onPress={confirmLogout}
-        accessibilityRole="button"
-        accessibilityLabel={t('home.logout')}
-      >
-        <Text style={styles.logoutBtnText}>{t('home.logout')}</Text>
-      </TouchableOpacity>
     </SafeAreaView>
   );
 }
@@ -1060,19 +1028,15 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
 
-  logoutBtn: {
-    height: 52,
-    marginHorizontal: 24,
-    marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#EBE1D9',
-    borderRadius: 12,
+  settingsBtn: {
+    width: 40,
+    height: 40,
     alignItems: 'center',
     justifyContent: 'center',
+    marginLeft: 4,
   },
-  logoutBtnText: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 16,
+  settingsIcon: {
+    fontSize: 22,
     color: '#5F4A52',
   },
 });

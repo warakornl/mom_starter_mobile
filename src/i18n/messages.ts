@@ -204,6 +204,9 @@ const th = {
   'home.logoutMessage': 'คุณต้องการออกจากระบบใช่ไหม?',
   'home.logoutCancel': 'ยกเลิก',
   'home.logoutConfirm': 'ออกจากระบบ',
+  'home.settingsA11y': 'ตั้งค่า',
+  'settings.title': 'ตั้งค่า',
+  'settings.account': 'บัญชีผู้ใช้',
 
   // ── Profile Setup ─────────────────────────────────────────────────────────────
   'profile.navTitle': 'ตั้งกำหนดคลอด',
@@ -627,6 +630,9 @@ const en: MsgShape = {
   'home.logoutMessage': 'Are you sure you want to sign out?',
   'home.logoutCancel': 'Cancel',
   'home.logoutConfirm': 'Sign out',
+  'home.settingsA11y': 'Settings',
+  'settings.title': 'Settings',
+  'settings.account': 'Account',
 
   // ── Profile Setup ─────────────────────────────────────────────────────────────
   'profile.navTitle': 'Set due date',

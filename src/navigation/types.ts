@@ -53,6 +53,11 @@ export type RootStackParamList = {
    * reminderId present → edit mode; absent → create mode.
    */
   ReminderForm: { reminderId?: string };
+  /**
+   * Settings — account/settings menu. Home for logout (kept two levels deep so it
+   * can't be triggered by accident). Entry: gear ⚙ in the Home header.
+   */
+  Settings: undefined;
 
   // ── Kick Count ──────────────────────────────────────────────────────────────
   /**

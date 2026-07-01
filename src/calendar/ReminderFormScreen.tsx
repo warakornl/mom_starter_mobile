@@ -550,6 +550,8 @@ export function ReminderFormScreen({
                 <TouchableOpacity
                   style={styles.todRemoveBtn}
                   onPress={() => removeTimeOfDay(idx)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  accessibilityRole="button"
                 >
                   <Text style={styles.todRemoveText}>✕</Text>
                 </TouchableOpacity>
@@ -593,6 +595,7 @@ export function ReminderFormScreen({
             onPress={() => setUntil('')}
             accessibilityRole="button"
             accessibilityLabel={t('general.clear')}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
             <Text style={styles.untilClearText}>✕</Text>
           </TouchableOpacity>
@@ -762,7 +765,7 @@ const styles = StyleSheet.create({
   todPickerField: { flex: 1 },
   todRemoveBtn: { padding: 10, marginLeft: 8 },
   todRemoveText: { color: '#A8505A', fontSize: 16 },
-  addTimeBtn: { marginTop: 4, marginBottom: 4 },
+  addTimeBtn: { marginTop: 4, marginBottom: 4, paddingVertical: 12, minHeight: 44, justifyContent: 'center' },
   addTimeBtnText: { color: '#3B8C8C', fontSize: 14, fontWeight: '600' },
 
   // Until row (field + clear button)

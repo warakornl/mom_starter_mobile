@@ -33,7 +33,10 @@ import {
   StyleSheet,
   Alert,
   Switch,
+  Modal,
+  Platform,
 } from 'react-native';
+import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { v4 as uuidv4 } from 'uuid';
 import { useT } from '../i18n/LanguageContext';
 import { calendarSyncStore } from '../sync/calendarSyncStore';
@@ -42,6 +45,9 @@ import { executePush } from '../sync/pushOrchestrator';
 import type { TokenStorage } from '../auth/tokenStorage';
 import type { ChecklistItemRecord, ChecklistItemCategory } from '../sync/syncTypes';
 import { localCivilToday } from '../pregnancy/gestationalAge';
+import { toCivilDate, toCivilTime, parseCivilDate, parseCivilTime } from './dateTimePickerFormat';
+import { formatCivilDate } from '../i18n/messages';
+import type { Locale } from '../auth/types';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -119,7 +125,7 @@ export function AppointmentFormScreen({
   onSave,
   onCancel,
 }: AppointmentFormScreenProps): React.JSX.Element {
-  const { t } = useT();
+  const { t, locale } = useT();
   const isEdit = !!existingItem;
 
   // Parse existing scheduledAt
@@ -143,6 +149,16 @@ export function AppointmentFormScreen({
   const [extraNote, setExtraNote] = useState(parsedNote.extra);
   const [titleError, setTitleError] = useState('');
   const [dateError, setDateError] = useState('');
+
+  // ── Picker state ───────────────────────────────────────────────────────────
+  // showDatePicker / showTimePicker: Android renders the picker as a dialog;
+  // iOS renders it inline in a bottom-sheet Modal (see below).
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showTimePicker, setShowTimePicker] = useState(false);
+  // tempPickerDate holds the intermediate Date while the iOS wheel is spinning,
+  // so we only commit to state when the user presses "Done".
+  const [tempPickerDate, setTempPickerDate] = useState<Date>(parseCivilDate(date));
+  const [tempPickerTime, setTempPickerTime] = useState<Date>(parseCivilTime(time));
 
   // Calendar sync client — created once per mount (bound to calendarSyncStore)
   const clientRef = useRef(
@@ -244,6 +260,52 @@ export function AppointmentFormScreen({
     );
   }
 
+  // ── Date picker handlers ───────────────────────────────────────────────────
+
+  function openDatePicker() {
+    setTempPickerDate(parseCivilDate(date));
+    setShowDatePicker(true);
+  }
+
+  function handleDateChangeAndroid(_event: DateTimePickerEvent, selectedDate?: Date) {
+    setShowDatePicker(false);
+    if (selectedDate) {
+      setDate(toCivilDate(selectedDate));
+    }
+  }
+
+  function handleDateChangeIOS(_event: DateTimePickerEvent, selectedDate?: Date) {
+    if (selectedDate) setTempPickerDate(selectedDate);
+  }
+
+  function confirmDateIOS() {
+    setDate(toCivilDate(tempPickerDate));
+    setShowDatePicker(false);
+  }
+
+  // ── Time picker handlers ───────────────────────────────────────────────────
+
+  function openTimePicker() {
+    setTempPickerTime(parseCivilTime(time));
+    setShowTimePicker(true);
+  }
+
+  function handleTimeChangeAndroid(_event: DateTimePickerEvent, selectedDate?: Date) {
+    setShowTimePicker(false);
+    if (selectedDate) {
+      setTime(toCivilTime(selectedDate));
+    }
+  }
+
+  function handleTimeChangeIOS(_event: DateTimePickerEvent, selectedDate?: Date) {
+    if (selectedDate) setTempPickerTime(selectedDate);
+  }
+
+  function confirmTimeIOS() {
+    setTime(toCivilTime(tempPickerTime));
+    setShowTimePicker(false);
+  }
+
   // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
@@ -266,21 +328,26 @@ export function AppointmentFormScreen({
         {t(`appointment.category.${category}` as Parameters<typeof t>[0])}
       </Text>
 
-      {/* Date */}
+      {/* Date — Pressable that opens DateTimePicker */}
       <Text style={styles.label}>{t('appointment.fieldDate')}</Text>
-      <TextInput
-        style={[styles.input, dateError ? styles.inputError : null]}
-        value={date}
-        onChangeText={setDate}
-        placeholder="YYYY-MM-DD"
-        placeholderTextColor="#94818A"
-        keyboardType="numbers-and-punctuation"
-      />
+      <TouchableOpacity
+        testID="appointment-date"
+        style={[styles.pickerField, dateError ? styles.inputError : null]}
+        onPress={openDatePicker}
+        accessibilityRole="button"
+        accessibilityLabel={`${t('appointment.fieldDate')}: ${formatCivilDate(date, locale as Locale)}`}
+      >
+        <Text style={styles.pickerFieldText}>
+          {formatCivilDate(date, locale as Locale)}
+        </Text>
+        <Text style={styles.pickerChevron} accessibilityElementsHidden={true}>›</Text>
+      </TouchableOpacity>
 
       {/* All-day toggle */}
       <View style={styles.row}>
         <Text style={styles.label}>{t('appointment.allDay')}</Text>
         <Switch
+          testID="appointment-allday"
           value={allDay}
           onValueChange={setAllDay}
           trackColor={{ true: '#A8505A', false: '#EBE1D9' }}
@@ -288,18 +355,20 @@ export function AppointmentFormScreen({
         />
       </View>
 
-      {/* Time (hidden when all-day) */}
+      {/* Time — Pressable that opens DateTimePicker (hidden when all-day) */}
       {!allDay && (
         <>
           <Text style={styles.label}>{t('appointment.fieldTime')}</Text>
-          <TextInput
-            style={[styles.input, dateError ? styles.inputError : null]}
-            value={time}
-            onChangeText={setTime}
-            placeholder="HH:mm"
-            placeholderTextColor="#94818A"
-            keyboardType="numbers-and-punctuation"
-          />
+          <TouchableOpacity
+            testID="appointment-time"
+            style={[styles.pickerField, dateError ? styles.inputError : null]}
+            onPress={openTimePicker}
+            accessibilityRole="button"
+            accessibilityLabel={`${t('appointment.fieldTime')}: ${time}`}
+          >
+            <Text style={styles.pickerFieldText}>{time}</Text>
+            <Text style={styles.pickerChevron} accessibilityElementsHidden={true}>›</Text>
+          </TouchableOpacity>
         </>
       )}
       {dateError ? <Text style={styles.errorText}>{dateError}</Text> : null}
@@ -338,7 +407,12 @@ export function AppointmentFormScreen({
       />
 
       {/* Buttons */}
-      <TouchableOpacity style={styles.saveBtn} onPress={handleSave}>
+      <TouchableOpacity
+        testID="appointment-save"
+        style={styles.saveBtn}
+        onPress={handleSave}
+        accessibilityRole="button"
+      >
         <Text style={styles.saveBtnText}>{t('appointment.save')}</Text>
       </TouchableOpacity>
 
@@ -348,9 +422,116 @@ export function AppointmentFormScreen({
         </TouchableOpacity>
       )}
 
-      <TouchableOpacity style={styles.cancelBtn} onPress={onCancel}>
+      <TouchableOpacity
+        testID="appointment-cancel"
+        style={styles.cancelBtn}
+        onPress={onCancel}
+        accessibilityRole="button"
+      >
         <Text style={styles.cancelBtnText}>{t('general.cancel')}</Text>
       </TouchableOpacity>
+
+      {/* ── Date picker — Android: dialog rendered directly; iOS: Modal ── */}
+      {Platform.OS === 'android' && showDatePicker && (
+        <DateTimePicker
+          mode="date"
+          display="default"
+          value={parseCivilDate(date)}
+          onChange={handleDateChangeAndroid}
+        />
+      )}
+
+      {/* ── Time picker — Android ── */}
+      {Platform.OS === 'android' && showTimePicker && (
+        <DateTimePicker
+          mode="time"
+          display="spinner"
+          value={parseCivilTime(time)}
+          onChange={handleTimeChangeAndroid}
+          is24Hour
+        />
+      )}
+
+      {/* ── Date picker — iOS bottom sheet ── */}
+      {Platform.OS === 'ios' && (
+        <Modal
+          visible={showDatePicker}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setShowDatePicker(false)}
+        >
+          <View style={styles.pickerOverlay}>
+            <View style={styles.pickerCard}>
+              <View style={styles.pickerBtnRow}>
+                <TouchableOpacity
+                  style={styles.pickerCancelBtn}
+                  onPress={() => setShowDatePicker(false)}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('general.cancel')}
+                >
+                  <Text style={styles.pickerCancelText}>{t('general.cancel')}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.pickerDoneBtn}
+                  onPress={confirmDateIOS}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('general.done')}
+                >
+                  <Text style={styles.pickerDoneText}>{t('general.done')}</Text>
+                </TouchableOpacity>
+              </View>
+              <DateTimePicker
+                mode="date"
+                display="spinner"
+                value={tempPickerDate}
+                onChange={handleDateChangeIOS}
+                style={styles.iosPicker}
+              />
+            </View>
+          </View>
+        </Modal>
+      )}
+
+      {/* ── Time picker — iOS bottom sheet ── */}
+      {Platform.OS === 'ios' && (
+        <Modal
+          visible={showTimePicker}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setShowTimePicker(false)}
+        >
+          <View style={styles.pickerOverlay}>
+            <View style={styles.pickerCard}>
+              <View style={styles.pickerBtnRow}>
+                <TouchableOpacity
+                  style={styles.pickerCancelBtn}
+                  onPress={() => setShowTimePicker(false)}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('general.cancel')}
+                >
+                  <Text style={styles.pickerCancelText}>{t('general.cancel')}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.pickerDoneBtn}
+                  onPress={confirmTimeIOS}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('general.done')}
+                >
+                  <Text style={styles.pickerDoneText}>{t('general.done')}</Text>
+                </TouchableOpacity>
+              </View>
+              <DateTimePicker
+                mode="time"
+                display="spinner"
+                value={tempPickerTime}
+                onChange={handleTimeChangeIOS}
+                is24Hour
+                style={styles.iosPicker}
+              />
+            </View>
+          </View>
+        </Modal>
+      )}
     </ScrollView>
   );
 }
@@ -381,6 +562,48 @@ const styles = StyleSheet.create({
     marginTop: 16,
     marginBottom: 4,
   },
+
+  // ── Picker field (replaces TextInput for date/time) ──
+  pickerField: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#EBE1D9',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    minHeight: 48,
+  },
+  pickerFieldText: { flex: 1, fontSize: 15, color: '#3A2A30' },
+  pickerChevron: { fontSize: 18, color: '#94818A', marginLeft: 8 },
+
+  // ── Bottom-sheet picker modal (iOS) ──
+  pickerOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(58,42,48,0.4)',
+    justifyContent: 'flex-end',
+  },
+  pickerCard: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingBottom: 32,
+  },
+  pickerBtnRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#EBE1D9',
+  },
+  pickerCancelBtn: { minHeight: 44, justifyContent: 'center' },
+  pickerCancelText: { fontSize: 15, color: '#94818A' },
+  pickerDoneBtn: { minHeight: 44, justifyContent: 'center' },
+  pickerDoneText: { fontSize: 15, color: '#C0485F', fontWeight: '600' },
+  iosPicker: { alignSelf: 'center' },
+
   saveBtn: {
     backgroundColor: '#A8505A',
     borderRadius: 12,

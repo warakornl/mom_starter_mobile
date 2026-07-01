@@ -165,6 +165,12 @@ const th = {
   'general.cancel': 'ยกเลิก',
   'general.retry': 'ลองอีกครั้ง',
   'general.back': 'กลับ',
+  'general.done': 'เสร็จ',
+  'general.clear': 'ล้าง',
+
+  // ── Date/time picker (shared across forms) ────────────────────────────────────
+  'picker.selectDate': 'เลือกวันที่',
+  'picker.selectTime': 'เลือกเวลา',
 
   // ── Home screen (calendar-home) ───────────────────────────────────────────────
   // Template keys use {n}, {d}, {date}, {days}, {pct} placeholders.
@@ -601,6 +607,12 @@ const en: MsgShape = {
   'general.cancel': 'Cancel',
   'general.retry': 'Try again',
   'general.back': 'Back',
+  'general.done': 'Done',
+  'general.clear': 'Clear',
+
+  // ── Date/time picker (shared across forms) ────────────────────────────────────
+  'picker.selectDate': 'Select date',
+  'picker.selectTime': 'Select time',
 
   // ── Home screen ──────────────────────────────────────────────────────────────
   'home.loading': 'Loading',

@@ -25,6 +25,10 @@
  *   (see docs/uat-and-build.md §7).
  */
 
+// MUST be first — polyfills global.crypto.getRandomValues (uuid.v4 throws without
+// it on Hermes, which silently broke every create handler). See src/polyfills/crypto.ts.
+import './src/polyfills/crypto';
+
 import React, { useMemo } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';

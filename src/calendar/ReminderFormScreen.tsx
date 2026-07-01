@@ -32,7 +32,10 @@ import {
   StyleSheet,
   Alert,
   Switch,
+  Modal,
+  Platform,
 } from 'react-native';
+import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { v4 as uuidv4 } from 'uuid';
 import { useT } from '../i18n/LanguageContext';
 import { calendarSyncStore } from '../sync/calendarSyncStore';
@@ -42,6 +45,9 @@ import { localCivilToday } from '../pregnancy/gestationalAge';
 import type { TokenStorage } from '../auth/tokenStorage';
 import type { ReminderRecord, ReminderType, RecurrenceRuleWire } from '../sync/syncTypes';
 import type { MessageKey } from '../i18n/messages';
+import { formatCivilDate } from '../i18n/messages';
+import type { Locale } from '../auth/types';
+import { toCivilDate, toCivilTime, parseCivilDate, parseCivilTime } from './dateTimePickerFormat';
 
 // ─── FLAG-4 grammar validation (client mirror of server 422) ─────────────────
 
@@ -135,6 +141,22 @@ const REMINDER_TYPES: ReminderType[] = [
   'custom', 'medication', 'appointment', 'kick_count', 'feeding', 'supply_restock',
 ];
 
+// ─── Picker kind discriminator ────────────────────────────────────────────────
+
+/**
+ * Which picker is currently open.
+ * 'startDate'  — the reminder start-date picker
+ * 'startTime'  — the reminder start-time picker
+ * 'until'      — the optional repeat-until date picker
+ * 'tod-N'      — time-of-day picker for index N (stringified number suffix)
+ */
+type ActivePicker =
+  | 'startDate'
+  | 'startTime'
+  | 'until'
+  | `tod-${number}`
+  | null;
+
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 export interface ReminderFormScreenProps {
@@ -156,7 +178,7 @@ export function ReminderFormScreen({
   onSave,
   onCancel,
 }: ReminderFormScreenProps): React.JSX.Element {
-  const { t } = useT();
+  const { t, locale } = useT();
   const isEdit = !!existingReminder;
 
   // Parse existing startAt into date + time parts
@@ -183,6 +205,21 @@ export function ReminderFormScreen({
 
   const [errors, setErrors] = useState<RuleValidationError[]>([]);
   const [titleError, setTitleError] = useState('');
+
+  // ── Picker state ───────────────────────────────────────────────────────────
+  // Single "active picker" discriminator keeps state minimal.
+  const [activePicker, setActivePicker] = useState<ActivePicker>(null);
+  // Temp Date for iOS while the wheel is spinning (committed on "Done").
+  const [tempPickerValue, setTempPickerValue] = useState<Date>(new Date());
+
+  // Derive whether a specific picker is visible
+  const showStartDatePicker = activePicker === 'startDate';
+  const showStartTimePicker = activePicker === 'startTime';
+  const showUntilPicker = activePicker === 'until';
+  const activeTodIdx: number | null = (() => {
+    if (!activePicker || !activePicker.startsWith('tod-')) return null;
+    return Number(activePicker.slice(4));
+  })();
 
   // Calendar sync client — created once per mount (bound to calendarSyncStore)
   const clientRef = useRef(
@@ -323,6 +360,76 @@ export function ReminderFormScreen({
     return errors.find((e) => e.field === field)?.message ?? '';
   }
 
+  // ── Picker open helpers ────────────────────────────────────────────────────
+
+  function openStartDatePicker() {
+    setTempPickerValue(parseCivilDate(startDate));
+    setActivePicker('startDate');
+  }
+
+  function openStartTimePicker() {
+    setTempPickerValue(parseCivilTime(startTime));
+    setActivePicker('startTime');
+  }
+
+  function openUntilPicker() {
+    // If until is empty, default to today
+    setTempPickerValue(parseCivilDate(until.trim() || localCivilToday()));
+    setActivePicker('until');
+  }
+
+  function openTodPicker(idx: number) {
+    setTempPickerValue(parseCivilTime(timesOfDay[idx] ?? '08:00'));
+    setActivePicker(`tod-${idx}`);
+  }
+
+  // ── Generic picker change handlers ─────────────────────────────────────────
+
+  /** Android: onChange fires once with the confirmed value; dismiss by setting activePicker=null. */
+  function handlePickerChangeAndroid(_event: DateTimePickerEvent, selectedDate?: Date) {
+    const kind = activePicker;
+    setActivePicker(null);
+    if (!selectedDate) return;
+
+    if (kind === 'startDate') {
+      setStartDate(toCivilDate(selectedDate));
+    } else if (kind === 'startTime') {
+      setStartTime(toCivilTime(selectedDate));
+    } else if (kind === 'until') {
+      setUntil(toCivilDate(selectedDate));
+    } else if (kind !== null && kind.startsWith('tod-')) {
+      const idx = Number(kind.slice(4));
+      updateTimeOfDay(idx, toCivilTime(selectedDate));
+    }
+  }
+
+  /** iOS: onChange fires continuously while spinning; commit on "Done". */
+  function handlePickerChangeIOS(_event: DateTimePickerEvent, selectedDate?: Date) {
+    if (selectedDate) setTempPickerValue(selectedDate);
+  }
+
+  function confirmPickerIOS() {
+    const kind = activePicker;
+    setActivePicker(null);
+
+    if (kind === 'startDate') {
+      setStartDate(toCivilDate(tempPickerValue));
+    } else if (kind === 'startTime') {
+      setStartTime(toCivilTime(tempPickerValue));
+    } else if (kind === 'until') {
+      setUntil(toCivilDate(tempPickerValue));
+    } else if (kind !== null && kind.startsWith('tod-')) {
+      const idx = Number(kind.slice(4));
+      updateTimeOfDay(idx, toCivilTime(tempPickerValue));
+    }
+  }
+
+  // Derive picker mode for the active kind
+  const activePickerMode: 'date' | 'time' = (() => {
+    if (activePicker === 'startDate' || activePicker === 'until') return 'date';
+    return 'time';
+  })();
+
   // ── Render ──────────────────────────────────────────────────────────────────
 
   return (
@@ -355,27 +462,34 @@ export function ReminderFormScreen({
         ))}
       </View>
 
-      {/* Start date */}
+      {/* Start date — Pressable that opens DateTimePicker */}
       <Text style={styles.label}>{t('reminder.fieldStartDate')}</Text>
-      <TextInput
-        style={[styles.input, fieldError('startAt') ? styles.inputError : null]}
-        value={startDate}
-        onChangeText={setStartDate}
-        placeholder="YYYY-MM-DD"
-        placeholderTextColor="#94818A"
-        keyboardType="numbers-and-punctuation"
-      />
+      <TouchableOpacity
+        testID="reminder-startdate"
+        style={[styles.pickerField, fieldError('startAt') ? styles.inputError : null]}
+        onPress={openStartDatePicker}
+        accessibilityRole="button"
+        accessibilityLabel={`${t('reminder.fieldStartDate')}: ${formatCivilDate(startDate, locale as Locale)}`}
+      >
+        <Text style={styles.pickerFieldText}>
+          {formatCivilDate(startDate, locale as Locale)}
+        </Text>
+        <Text style={styles.pickerChevron} accessibilityElementsHidden={true}>›</Text>
+      </TouchableOpacity>
 
-      {/* Start time */}
+      {/* Start time — Pressable that opens DateTimePicker */}
       <Text style={styles.label}>{t('reminder.fieldStartTime')}</Text>
-      <TextInput
-        style={[styles.input, fieldError('startAt') ? styles.inputError : null]}
-        value={startTime}
-        onChangeText={setStartTime}
-        placeholder="HH:mm"
-        placeholderTextColor="#94818A"
-        keyboardType="numbers-and-punctuation"
-      />
+      <TouchableOpacity
+        testID="reminder-starttime"
+        style={[styles.pickerField, fieldError('startAt') ? styles.inputError : null]}
+        onPress={openStartTimePicker}
+        accessibilityRole="button"
+        accessibilityLabel={`${t('reminder.fieldStartTime')}: ${startTime}`}
+      >
+        <Text style={styles.pickerFieldText}>{startTime}</Text>
+        <Text style={styles.pickerChevron} accessibilityElementsHidden={true}>›</Text>
+      </TouchableOpacity>
+
       {fieldError('startAt') ? (
         <Text style={styles.errorText}>{fieldError('startAt')}</Text>
       ) : null}
@@ -418,14 +532,20 @@ export function ReminderFormScreen({
           <Text style={styles.label}>{t('reminder.fieldTimesOfDay')}</Text>
           {timesOfDay.map((tod, idx) => (
             <View key={idx} style={styles.todRow}>
-              <TextInput
-                style={[styles.input, styles.todInput, fieldError('timesOfDay') ? styles.inputError : null]}
-                value={tod}
-                onChangeText={(v) => updateTimeOfDay(idx, v)}
-                placeholder="HH:mm"
-                placeholderTextColor="#94818A"
-                keyboardType="numbers-and-punctuation"
-              />
+              {/* Time-of-day Pressable that opens time picker */}
+              <TouchableOpacity
+                style={[
+                  styles.pickerField,
+                  styles.todPickerField,
+                  fieldError('timesOfDay') ? styles.inputError : null,
+                ]}
+                onPress={() => openTodPicker(idx)}
+                accessibilityRole="button"
+                accessibilityLabel={`${t('reminder.fieldTimesOfDay')} ${idx + 1}: ${tod}`}
+              >
+                <Text style={styles.pickerFieldText}>{tod}</Text>
+                <Text style={styles.pickerChevron} accessibilityElementsHidden={true}>›</Text>
+              </TouchableOpacity>
               {timesOfDay.length > 1 && (
                 <TouchableOpacity
                   style={styles.todRemoveBtn}
@@ -445,16 +565,39 @@ export function ReminderFormScreen({
         </>
       )}
 
-      {/* Until (optional) */}
+      {/* Until (optional) — Pressable + clear button */}
       <Text style={styles.label}>{t('reminder.fieldUntil')}</Text>
-      <TextInput
-        style={[styles.input, fieldError('until') ? styles.inputError : null]}
-        value={until}
-        onChangeText={setUntil}
-        placeholder={t('reminder.untilPlaceholder')}
-        placeholderTextColor="#94818A"
-        keyboardType="numbers-and-punctuation"
-      />
+      <View style={styles.untilRow}>
+        <TouchableOpacity
+          style={[
+            styles.pickerField,
+            styles.untilPickerField,
+            fieldError('until') ? styles.inputError : null,
+          ]}
+          onPress={openUntilPicker}
+          accessibilityRole="button"
+          accessibilityLabel={
+            until.trim()
+              ? `${t('reminder.fieldUntil')}: ${formatCivilDate(until.trim(), locale as Locale)}`
+              : t('reminder.untilPlaceholder')
+          }
+        >
+          <Text style={[styles.pickerFieldText, !until.trim() && styles.pickerFieldPlaceholder]}>
+            {until.trim() ? formatCivilDate(until.trim(), locale as Locale) : t('reminder.untilPlaceholder')}
+          </Text>
+          <Text style={styles.pickerChevron} accessibilityElementsHidden={true}>›</Text>
+        </TouchableOpacity>
+        {until.trim() ? (
+          <TouchableOpacity
+            style={styles.untilClearBtn}
+            onPress={() => setUntil('')}
+            accessibilityRole="button"
+            accessibilityLabel={t('general.clear')}
+          >
+            <Text style={styles.untilClearText}>✕</Text>
+          </TouchableOpacity>
+        ) : null}
+      </View>
       {fieldError('until') ? (
         <Text style={styles.errorText}>{fieldError('until')}</Text>
       ) : null}
@@ -476,7 +619,12 @@ export function ReminderFormScreen({
       </Text>
 
       {/* Save */}
-      <TouchableOpacity style={styles.saveBtn} onPress={handleSave}>
+      <TouchableOpacity
+        testID="reminder-save"
+        style={styles.saveBtn}
+        onPress={handleSave}
+        accessibilityRole="button"
+      >
         <Text style={styles.saveBtnText}>{t('reminder.save')}</Text>
       </TouchableOpacity>
 
@@ -486,9 +634,69 @@ export function ReminderFormScreen({
         </TouchableOpacity>
       )}
 
-      <TouchableOpacity style={styles.cancelBtn} onPress={onCancel}>
+      <TouchableOpacity
+        testID="reminder-cancel"
+        style={styles.cancelBtn}
+        onPress={onCancel}
+        accessibilityRole="button"
+      >
         <Text style={styles.cancelBtnText}>{t('general.cancel')}</Text>
       </TouchableOpacity>
+
+      {/* ── Android pickers — rendered directly as native dialogs ── */}
+      {Platform.OS === 'android' && activePicker !== null && (
+        <DateTimePicker
+          mode={activePickerMode}
+          display={activePickerMode === 'time' ? 'spinner' : 'default'}
+          value={tempPickerValue}
+          onChange={handlePickerChangeAndroid}
+          is24Hour={activePickerMode === 'time'}
+        />
+      )}
+
+      {/* ── iOS bottom-sheet picker Modal ── */}
+      {Platform.OS === 'ios' && (
+        <Modal
+          visible={activePicker !== null}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setActivePicker(null)}
+        >
+          <View style={styles.pickerOverlay}>
+            <View style={styles.pickerCard}>
+              <View style={styles.pickerBtnRow}>
+                <TouchableOpacity
+                  style={styles.pickerCancelBtn}
+                  onPress={() => setActivePicker(null)}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('general.cancel')}
+                >
+                  <Text style={styles.pickerCancelText}>{t('general.cancel')}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.pickerDoneBtn}
+                  onPress={confirmPickerIOS}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('general.done')}
+                >
+                  <Text style={styles.pickerDoneText}>{t('general.done')}</Text>
+                </TouchableOpacity>
+              </View>
+              {/* Re-render picker only when modal is visible (activePicker !== null) */}
+              {activePicker !== null && (
+                <DateTimePicker
+                  mode={activePickerMode}
+                  display="spinner"
+                  value={tempPickerValue}
+                  onChange={handlePickerChangeIOS}
+                  is24Hour={activePickerMode === 'time'}
+                  style={styles.iosPicker}
+                />
+              )}
+            </View>
+          </View>
+        </Modal>
+      )}
     </ScrollView>
   );
 }
@@ -529,12 +737,37 @@ const styles = StyleSheet.create({
   chipSelected: { backgroundColor: '#A8505A', borderColor: '#A8505A' },
   chipText: { fontSize: 13, color: '#5F4A52' },
   chipTextSelected: { color: '#FFFFFF', fontWeight: '600' },
+
+  // ── Picker field (replaces TextInput for date/time) ──
+  pickerField: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#EBE1D9',
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    minHeight: 48,
+  },
+  pickerFieldText: { flex: 1, fontSize: 15, color: '#3A2A30' },
+  pickerFieldPlaceholder: { color: '#94818A' },
+  pickerChevron: { fontSize: 18, color: '#94818A', marginLeft: 8 },
+
+  // Times-of-day row
   todRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
-  todInput: { flex: 1 },
+  todPickerField: { flex: 1 },
   todRemoveBtn: { padding: 10, marginLeft: 8 },
   todRemoveText: { color: '#A8505A', fontSize: 16 },
   addTimeBtn: { marginTop: 4, marginBottom: 4 },
   addTimeBtnText: { color: '#3B8C8C', fontSize: 14, fontWeight: '600' },
+
+  // Until row (field + clear button)
+  untilRow: { flexDirection: 'row', alignItems: 'center' },
+  untilPickerField: { flex: 1 },
+  untilClearBtn: { padding: 10, marginLeft: 8 },
+  untilClearText: { color: '#A8505A', fontSize: 16 },
+
   carryForwardNote: {
     fontSize: 11,
     color: '#94818A',
@@ -542,6 +775,33 @@ const styles = StyleSheet.create({
     marginTop: 16,
     marginBottom: 4,
   },
+
+  // ── Bottom-sheet picker modal (iOS) ──
+  pickerOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(58,42,48,0.4)',
+    justifyContent: 'flex-end',
+  },
+  pickerCard: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingBottom: 32,
+  },
+  pickerBtnRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#EBE1D9',
+  },
+  pickerCancelBtn: { minHeight: 44, justifyContent: 'center' },
+  pickerCancelText: { fontSize: 15, color: '#94818A' },
+  pickerDoneBtn: { minHeight: 44, justifyContent: 'center' },
+  pickerDoneText: { fontSize: 15, color: '#C0485F', fontWeight: '600' },
+  iosPicker: { alignSelf: 'center' },
+
   saveBtn: {
     backgroundColor: '#A8505A',
     borderRadius: 12,

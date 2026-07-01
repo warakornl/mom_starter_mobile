@@ -437,6 +437,7 @@ export function ReminderFormScreen({
       {/* Title */}
       <Text style={styles.label}>{t('reminder.fieldTitle')}</Text>
       <TextInput
+        testID="reminder-title"
         style={[styles.input, titleError ? styles.inputError : null]}
         value={displayTitle}
         onChangeText={setDisplayTitle}
@@ -680,6 +681,7 @@ export function ReminderFormScreen({
                   {activePickerMode === 'date' ? t('picker.selectDate') : t('picker.selectTime')}
                 </Text>
                 <TouchableOpacity
+                  testID="reminder-picker-done"
                   style={styles.pickerDoneBtn}
                   onPress={confirmPickerIOS}
                   accessibilityRole="button"

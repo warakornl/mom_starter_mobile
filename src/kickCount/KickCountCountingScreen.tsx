@@ -26,7 +26,7 @@
  * Security: never log movementCount or any draft field (K-8 MOTHER-health).
  */
 
-import React, { useEffect, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
@@ -44,12 +44,14 @@ import { interpolate } from '../i18n/messages';
 import { saveDraft, loadDraft, clearDraft } from './kickCountDraftStore';
 import { createSerialSaveQueue } from './serialSaveQueue';
 import {
-  tap,
-  undo,
   finalizeSession,
   cancelSession,
   computeGestationalWeekAtStart,
   getProgressDisplay,
+  createTapHandler,
+  createUndoHandler,
+  isConsentGateOpen,
+  newDraftId,
 } from './kickCountLogic';
 import { kickCountSyncStore } from './kickCountSyncStore';
 import { createKickCountSyncClient } from '../sync/syncClient';
@@ -80,12 +82,11 @@ interface KickCountCountingScreenProps {
    * The primary gate is in KickCountHomeScreen (B.2/K-8). This is a secondary
    * assertion — if the user somehow reaches this screen without consent granted
    * (e.g. deep link, race condition), the screen must NOT create/persist a draft.
-   * Default true only when no navigator prop is provided (backwards-compat).
    *
-   * IMPORTANT: do not default to true in production routing — always pass from
-   * the navigator (which reads the consent store).
+   * Required — always pass from the navigator (which reads the consent store).
+   * The gate is fail-safe (isConsentGateOpen): only an explicit `true` opens it.
    */
-  generalHealthConsented?: boolean;
+  generalHealthConsented: boolean;
   /**
    * Y-2: sync push after finalize.
    * Shared secure token storage — used to get the access token for push.
@@ -123,15 +124,6 @@ function formatElapsed(seconds: number): string {
   return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
 }
 
-function generateUUIDv4(): string {
-  // RFC 4122 version 4 UUID (random)
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-    const r = (Math.random() * 16) | 0;
-    const v = c === 'x' ? r : (r & 0x3) | 0x8;
-    return v.toString(16);
-  });
-}
-
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function KickCountCountingScreen({
@@ -139,7 +131,7 @@ export function KickCountCountingScreen({
   todayCivil,
   getCivilNow = getCivilNowDefault,
   getMonotonicMs = () => Date.now(),
-  generalHealthConsented = true, // see prop comment — always pass from navigator
+  generalHealthConsented,
   tokenStorage,
   apiBaseUrl,
 }: KickCountCountingScreenProps) {
@@ -169,7 +161,7 @@ export function KickCountCountingScreen({
       // Primary gate is in KickCountHomeScreen (B.2/K-8). This guard catches
       // any race condition or deep-link bypass — no draft must be created or
       // persisted without generalHealthConsented=true (PDPA health data).
-      if (!generalHealthConsented) {
+      if (!isConsentGateOpen(generalHealthConsented)) {
         if (!cancelled) {
           navigation.navigate('KickCountHome');
         }
@@ -188,7 +180,7 @@ export function KickCountCountingScreen({
         } else {
           // Create new draft
           const newDraft: KickCountDraft = {
-            localDraftId: generateUUIDv4(),
+            localDraftId: newDraftId(),
             startedAt: getCivilNow(),
             movementCount: 0,
             targetCount: 10,
@@ -207,7 +199,7 @@ export function KickCountCountingScreen({
         // loadDraft / saveDraft failed — start in-memory without persistence
         // (the draft is lost on kill, but we still allow counting — SC-K1 save-error)
         const newDraft: KickCountDraft = {
-          localDraftId: generateUUIDv4(),
+          localDraftId: newDraftId(),
           startedAt: getCivilNow(),
           movementCount: 0,
           targetCount: 10,
@@ -267,34 +259,34 @@ export function KickCountCountingScreen({
 
   // ── Tap (+1) ──────────────────────────────────────────────────────────────────
 
-  const handleTap = useCallback(async () => {
-    if (!draft) return;
-    const updated = tap(draft);
-    setDraft(updated); // immediate UI update — count increments without waiting for persist
-    // Y-5: route through the serial queue so concurrent taps cannot interleave writes.
-    // Y-3: phase transition is inside try/catch so stale `phase` closure is never read.
-    try {
-      await enqueueWrite(() => saveDraft(updated));
-      setPhase('counting'); // success: explicitly set counting (not a stale-closure read)
-    } catch {
-      setPhase('save-error'); // failure: show error only in catch
-    }
-  }, [draft, enqueueWrite]);
+  // Y-7 rapid-tap fix: the handler uses the FUNCTIONAL-updater form via
+  // createTapHandler, so taps within one render frame each compose on the LATEST
+  // draft (not a stale closure snapshot that dropped counts). setDraft/setPhase are
+  // stable setters and enqueueWrite is a stable ref → handleTap is stable.
+  const handleTap = useMemo(
+    () => createTapHandler({
+      setDraft,
+      persist: (d) => enqueueWrite(() => saveDraft(d)),
+      onSaved: () => setPhase('counting'),
+      onError: () => setPhase('save-error'),
+    }),
+    [enqueueWrite],
+  );
 
   // ── Undo (−1, floor 0) ────────────────────────────────────────────────────────
 
-  const handleUndo = useCallback(async () => {
-    if (!draft || draft.movementCount === 0) return; // disabled at 0
-    const updated = undo(draft);
-    setDraft(updated);
-    // Y-5: serialize undo writes through the same queue as tap writes.
-    try {
-      await enqueueWrite(() => saveDraft(updated));
-      setPhase('counting');
-    } catch {
-      setPhase('save-error');
-    }
-  }, [draft, enqueueWrite]);
+  // Same functional-updater fix as handleTap: rapid undos — and undos interleaved
+  // with queued taps — compose on the LATEST draft (no stale-closure drop, no
+  // clobber of composed tap counts). Floors at 0 (no-op/no persist at count 0).
+  const handleUndo = useMemo(
+    () => createUndoHandler({
+      setDraft,
+      persist: (d) => enqueueWrite(() => saveDraft(d)),
+      onSaved: () => setPhase('counting'),
+      onError: () => setPhase('save-error'),
+    }),
+    [enqueueWrite],
+  );
 
   // ── Finalize ──────────────────────────────────────────────────────────────────
 

@@ -26,6 +26,10 @@ import {
   isStartAllowedByWeek,
   getProgressDisplay,
   getSessionRenderData,
+  createTapHandler,
+  createUndoHandler,
+  isConsentGateOpen,
+  newDraftId,
 } from './kickCountLogic';
 import { computeGestationalAge, civilDaysBetween, parseCivilDateMs } from '../pregnancy/gestationalAge';
 import type { KickCountDraft } from './kickCountTypes';
@@ -365,5 +369,235 @@ describe('getSessionRenderData() — INV-K2 (no verdict, no status field)', () =
     expect(keys).not.toContain('targetMet');
     expect(keys).not.toContain('highlight');
     expect(keys).not.toContain('isComplete');
+  });
+});
+
+// ─── Y-7: createTapHandler — rapid-tap must not drop counts ──────────────────
+
+/**
+ * Faithful model of React's setState batching: functional updaters are queued
+ * and applied in order on flush(). snapshot() returns the last COMMITTED value
+ * (what a stale closure would capture) — it does NOT reflect queued-but-unflushed
+ * updates. This lets us prove the functional-updater fix survives rapid taps that
+ * fire within a single render frame (before any re-render/flush).
+ */
+class BatchedState {
+  private committed: KickCountDraft | null;
+  private queue: Array<(prev: KickCountDraft | null) => KickCountDraft | null> = [];
+  constructor(initial: KickCountDraft | null) {
+    this.committed = initial;
+  }
+  // React-like setter accepting a functional updater.
+  setDraft = (updater: (prev: KickCountDraft | null) => KickCountDraft | null): void => {
+    this.queue.push(updater);
+  };
+  // Stale snapshot — the value a closure captured between renders.
+  snapshot(): KickCountDraft | null {
+    return this.committed;
+  }
+  // A render: apply every queued updater in order.
+  flush(): void {
+    for (const u of this.queue) this.committed = u(this.committed);
+    this.queue = [];
+  }
+}
+
+const tick = () => new Promise<void>((r) => setTimeout(r, 0));
+
+describe('createTapHandler() — Y-7 rapid-tap (functional updater)', () => {
+  it('10 rapid taps within one frame all count (no stale-closure drop)', () => {
+    const state = new BatchedState(makeDraft({ movementCount: 0 }));
+    const handleTap = createTapHandler({
+      setDraft: state.setDraft,
+      persist: () => Promise.resolve(),
+    });
+    // Fire 10 taps BEFORE any re-render (queue not yet flushed).
+    for (let i = 0; i < 10; i++) handleTap();
+    state.flush();
+    expect(state.snapshot()?.movementCount).toBe(10);
+  });
+
+  it('persists each tap with the composed running count [1,2,3,...]', () => {
+    const persisted: number[] = [];
+    const state = new BatchedState(makeDraft({ movementCount: 0 }));
+    const handleTap = createTapHandler({
+      setDraft: state.setDraft,
+      persist: (d) => {
+        persisted.push(d.movementCount);
+        return Promise.resolve();
+      },
+    });
+    for (let i = 0; i < 3; i++) handleTap();
+    state.flush(); // persist runs inside each updater during flush
+    expect(persisted).toEqual([1, 2, 3]);
+  });
+
+  it('routes a successful persist to onSaved', async () => {
+    const state = new BatchedState(makeDraft({ movementCount: 0 }));
+    const onSaved = jest.fn();
+    const onError = jest.fn();
+    const handleTap = createTapHandler({
+      setDraft: state.setDraft,
+      persist: () => Promise.resolve(),
+      onSaved,
+      onError,
+    });
+    handleTap();
+    state.flush();
+    await tick();
+    expect(onSaved).toHaveBeenCalledTimes(1);
+    expect(onError).not.toHaveBeenCalled();
+  });
+
+  it('routes a failed persist to onError (SC-K1 save-error), count kept', async () => {
+    const state = new BatchedState(makeDraft({ movementCount: 0 }));
+    const onSaved = jest.fn();
+    const onError = jest.fn();
+    const handleTap = createTapHandler({
+      setDraft: state.setDraft,
+      persist: () => Promise.reject(new Error('keychain fail')),
+      onSaved,
+      onError,
+    });
+    handleTap();
+    state.flush();
+    await tick();
+    expect(onError).toHaveBeenCalledTimes(1);
+    expect(onSaved).not.toHaveBeenCalled();
+    // count is NOT lost from in-memory state even though persist failed
+    expect(state.snapshot()?.movementCount).toBe(1);
+  });
+
+  it('REGRESSION MODEL: a stale-closure handler collapses 10 taps → 1', () => {
+    // This models the OLD (buggy) handler: it read a snapshot from the closure
+    // and set an absolute value, so taps firing before a re-render all saw the
+    // same count and overwrote each other. Proves the bug the fix addresses.
+    const state = new BatchedState(makeDraft({ movementCount: 0 }));
+    const staleHandler = () => {
+      const prev = state.snapshot(); // stale — captured between renders
+      const updated = prev ? tap(prev) : prev;
+      state.setDraft(() => updated); // absolute set, ignores latest queued value
+    };
+    for (let i = 0; i < 10; i++) staleHandler();
+    state.flush();
+    expect(state.snapshot()?.movementCount).toBe(1); // dropped 9 taps
+  });
+});
+
+// ─── createUndoHandler — rapid-undo must not drop/clobber (same class as Y-7) ──
+
+describe('createUndoHandler() — rapid-undo (functional updater)', () => {
+  it('10 rapid undos within one frame floor at 0 (no negative, no stale drop)', () => {
+    const state = new BatchedState(makeDraft({ movementCount: 5 }));
+    const handleUndo = createUndoHandler({
+      setDraft: state.setDraft,
+      persist: () => Promise.resolve(),
+    });
+    for (let i = 0; i < 10; i++) handleUndo();
+    state.flush();
+    expect(state.snapshot()?.movementCount).toBe(0);
+  });
+
+  it('does NOT clobber composed tap counts when interleaved with taps', () => {
+    // The exact hazard the reviewer flagged: functional tap-updaters are queued,
+    // then an undo handler runs before flush. A stale-closure undo (absolute set)
+    // would overwrite the composed tap counts. The functional undo must compose.
+    const state = new BatchedState(makeDraft({ movementCount: 0 }));
+    const handleTap = createTapHandler({ setDraft: state.setDraft, persist: () => Promise.resolve() });
+    const handleUndo = createUndoHandler({ setDraft: state.setDraft, persist: () => Promise.resolve() });
+    handleTap(); handleTap(); handleTap(); // queue +1 +1 +1
+    handleUndo();                          // queue -1  (must see composed 3, not stale 0)
+    state.flush();
+    expect(state.snapshot()?.movementCount).toBe(2); // 3 taps - 1 undo
+  });
+
+  it('persists each undo with the composed running count [2,1]', () => {
+    const persisted: number[] = [];
+    const state = new BatchedState(makeDraft({ movementCount: 3 }));
+    const handleUndo = createUndoHandler({
+      setDraft: state.setDraft,
+      persist: (d) => { persisted.push(d.movementCount); return Promise.resolve(); },
+    });
+    handleUndo(); handleUndo();
+    state.flush();
+    expect(persisted).toEqual([2, 1]);
+  });
+
+  it('is a no-op at count 0 — no persist, count stays 0', () => {
+    const persisted: number[] = [];
+    const state = new BatchedState(makeDraft({ movementCount: 0 }));
+    const handleUndo = createUndoHandler({
+      setDraft: state.setDraft,
+      persist: (d) => { persisted.push(d.movementCount); return Promise.resolve(); },
+    });
+    handleUndo();
+    state.flush();
+    expect(state.snapshot()?.movementCount).toBe(0);
+    expect(persisted).toEqual([]); // disabled at 0 → no write
+  });
+
+  it('routes a failed persist to onError (save-error), count kept', async () => {
+    const state = new BatchedState(makeDraft({ movementCount: 2 }));
+    const onSaved = jest.fn();
+    const onError = jest.fn();
+    const handleUndo = createUndoHandler({
+      setDraft: state.setDraft,
+      persist: () => Promise.reject(new Error('keychain fail')),
+      onSaved,
+      onError,
+    });
+    handleUndo();
+    state.flush();
+    await tick();
+    expect(onError).toHaveBeenCalledTimes(1);
+    expect(onSaved).not.toHaveBeenCalled();
+    expect(state.snapshot()?.movementCount).toBe(1); // decremented in-memory, not lost
+  });
+
+  it('REGRESSION MODEL: a stale-closure undo clobbers preceding taps', () => {
+    // Byte-faithful model of the OLD handleUndo: it early-returns at count 0, so
+    // the clobber only manifests when the stale snapshot is > 0. Committed=3, then
+    // 3 taps queue (composed would be 6); the stale undo reads the committed 3,
+    // computes undo(3)=2, and ABSOLUTE-sets it — overwriting the queued taps.
+    const state = new BatchedState(makeDraft({ movementCount: 3 }));
+    const handleTap = createTapHandler({ setDraft: state.setDraft, persist: () => Promise.resolve() });
+    const staleUndo = () => {
+      const prev = state.snapshot();            // stale — committed 3, ignores queued taps
+      if (!prev || prev.movementCount === 0) return; // old guard: no-op at 0
+      const updated = undo(prev);
+      state.setDraft(() => updated);            // absolute set → clobbers the queued taps
+    };
+    handleTap(); handleTap(); handleTap();      // queue → would compose to 6
+    staleUndo();                                // stale sees 3 → sets 2, wiping the 3 taps
+    state.flush();
+    expect(state.snapshot()?.movementCount).toBe(2); // BUG: correct functional value is 5
+  });
+});
+
+// ─── isConsentGateOpen() — consent footgun fix ───────────────────────────────
+
+describe('isConsentGateOpen() — fail-safe consent gate', () => {
+  it('OPEN only when consent is explicitly true', () => {
+    expect(isConsentGateOpen(true)).toBe(true);
+  });
+  it('CLOSED when consent is false', () => {
+    expect(isConsentGateOpen(false)).toBe(false);
+  });
+  it('CLOSED when consent is absent/undefined (no default-open footgun)', () => {
+    expect(isConsentGateOpen(undefined as unknown as boolean)).toBe(false);
+  });
+});
+
+// ─── newDraftId() — CSPRNG UUIDv4 ────────────────────────────────────────────
+
+describe('newDraftId() — canonical UUIDv4', () => {
+  const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+  it('returns a canonical lowercase UUIDv4', () => {
+    expect(newDraftId()).toMatch(UUID_V4);
+  });
+  it('generates unique ids (1000 samples, no collisions)', () => {
+    const ids = new Set<string>();
+    for (let i = 0; i < 1000; i++) ids.add(newDraftId());
+    expect(ids.size).toBe(1000);
   });
 });

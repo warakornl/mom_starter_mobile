@@ -3,6 +3,8 @@
  *
  * All functions are pure (immutable input/output) — no side effects.
  * Side effects (persist draft, insert completed row) are in the caller screens.
+ * EXCEPTION: createTapHandler is a factory that WIRES injected side-effects
+ *   (setDraft/persist) into a functional-updater tap handler — see Y-7 below.
  *
  * Source of truth:
  *   kick-count-functional-spec.md §B (draft lifecycle), §C (screens), §D (INVs)
@@ -26,6 +28,7 @@
  * Security: never log movementCount or any draft/session field (MOTHER-health K-8).
  */
 
+import { v4 as uuidv4 } from 'uuid';
 import type { KickCountDraft, KickCountSessionRecord } from './kickCountTypes';
 import type { Lifecycle } from '../pregnancy/types';
 // Y-4: import shared helpers instead of local copy (prevents DRIFT-1 algorithm drift).
@@ -232,4 +235,94 @@ export interface SessionRenderData {
 
 export function getSessionRenderData(count: number): SessionRenderData {
   return { count };
+}
+
+// ─── newDraftId() — CSPRNG UUIDv4 (was Math.random) ───────────────────────────
+
+/**
+ * Canonical lowercase UUIDv4 for local draft/session ids, via the app-wide
+ * `uuid` v4 (CSPRNG-backed). Replaces the previous Math.random() generator.
+ * Matches the pattern already used by Calendar/Supplies screens.
+ */
+export function newDraftId(): string {
+  return uuidv4();
+}
+
+// ─── isConsentGateOpen() — consent footgun fix (Y-6 / appsec-1.3) ─────────────
+
+/**
+ * The general-health consent gate is OPEN only when consent is explicitly true.
+ * Absent/false → CLOSED (fail-safe). Never defaults open — this replaces the
+ * `generalHealthConsented = true` default-param footgun in the counting screen.
+ */
+export function isConsentGateOpen(generalHealthConsented: boolean): boolean {
+  return generalHealthConsented === true;
+}
+
+// ─── createTapHandler() — Y-7 rapid-tap fix (functional updater) ──────────────
+
+/** setState-style updater accepting a functional updater (React setDraft shape). */
+type DraftUpdater = (updater: (prev: KickCountDraft | null) => KickCountDraft | null) => void;
+
+export interface TapHandlerDeps {
+  /** React state setter — MUST accept a functional updater. */
+  setDraft: DraftUpdater;
+  /** Persist a draft (e.g. serial-queued saveDraft). */
+  persist: (draft: KickCountDraft) => Promise<void>;
+  /** Called after a successful persist (e.g. setPhase('counting')). */
+  onSaved?: () => void;
+  /** Called if persist rejects (e.g. setPhase('save-error') — SC-K1). */
+  onError?: () => void;
+}
+
+/**
+ * Y-7 fix: return a tap handler that uses the FUNCTIONAL-updater form, so rapid
+ * taps within one render frame each compose on the LATEST draft rather than a
+ * stale closure snapshot (which dropped counts). Persist is derived from the new
+ * value inside the updater (per-tap persistence, B.1/Y4); the save-error path is
+ * preserved via onError (SC-K1). The count is never lost from in-memory state.
+ *
+ * FOLLOW-UP (tracked in Backlog): the persist side-effect runs INSIDE the setState
+ * updater. Safe in RN's current legacy (non-concurrent) mode, but under StrictMode
+ * or concurrent rendering the updater double-invokes → double persist/onSaved. Move
+ * persist out of the updater before enabling either. Count integrity survives (serial
+ * queue writes the same value); only phase/persist would fire twice.
+ */
+export function createTapHandler(deps: TapHandlerDeps): () => void {
+  const { setDraft, persist, onSaved, onError } = deps;
+  return () => {
+    setDraft((prev) => {
+      if (!prev) return prev;
+      const updated = tap(prev);
+      void persist(updated).then(
+        () => onSaved?.(),
+        () => onError?.(),
+      );
+      return updated;
+    });
+  };
+}
+
+// ─── createUndoHandler() — rapid-undo fix (functional updater, mirrors tap) ────
+
+/**
+ * Same-class fix as createTapHandler for the −1 button. Uses the FUNCTIONAL-updater
+ * form so rapid undos — and undos interleaved with queued taps — compose on the
+ * LATEST draft instead of a stale closure snapshot (which dropped undos AND could
+ * clobber composed tap counts). Floors at 0: at count 0 it is a no-op (no persist),
+ * matching the button being disabled at 0. Persist/onSaved/onError mirror tap (SC-K1).
+ */
+export function createUndoHandler(deps: TapHandlerDeps): () => void {
+  const { setDraft, persist, onSaved, onError } = deps;
+  return () => {
+    setDraft((prev) => {
+      if (!prev || prev.movementCount === 0) return prev; // disabled at 0 — no write
+      const updated = undo(prev);
+      void persist(updated).then(
+        () => onSaved?.(),
+        () => onError?.(),
+      );
+      return updated;
+    });
+  };
 }

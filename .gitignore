@@ -6,3 +6,5 @@ coverage/
 
 # Claude Code local permissions (do not commit)
 .claude/settings.local.json
+
+bun.lock

@@ -673,6 +673,9 @@ export function ReminderFormScreen({
                 >
                   <Text style={styles.pickerCancelText}>{t('general.cancel')}</Text>
                 </TouchableOpacity>
+                <Text style={styles.pickerTitle}>
+                  {activePickerMode === 'date' ? t('picker.selectDate') : t('picker.selectTime')}
+                </Text>
                 <TouchableOpacity
                   style={styles.pickerDoneBtn}
                   onPress={confirmPickerIOS}
@@ -798,6 +801,7 @@ const styles = StyleSheet.create({
   },
   pickerCancelBtn: { minHeight: 44, justifyContent: 'center' },
   pickerCancelText: { fontSize: 15, color: '#94818A' },
+  pickerTitle: { fontSize: 15, color: '#3A2A30', fontWeight: '600', textAlign: 'center' },
   pickerDoneBtn: { minHeight: 44, justifyContent: 'center' },
   pickerDoneText: { fontSize: 15, color: '#C0485F', fontWeight: '600' },
   iosPicker: { alignSelf: 'center' },

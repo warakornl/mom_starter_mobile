@@ -29,10 +29,16 @@ export async function performLogout(deps: LogoutDeps): Promise<void> {
   } catch {
     // Token clear failure is non-fatal — continue clearing local state.
   }
-  // Health-store isolation (order irrelevant — independent singletons).
-  deps.resetSupplyStore();
-  deps.resetKickCountStore();
-  deps.resetCalendarStore();
+  // Health-store isolation (order irrelevant — independent singletons). Each is
+  // guarded so a synchronous throw in one still attempts the others and never
+  // strands the user before onComplete.
+  for (const reset of [deps.resetSupplyStore, deps.resetKickCountStore, deps.resetCalendarStore]) {
+    try {
+      reset();
+    } catch {
+      // store reset failure is non-fatal
+    }
+  }
   await deps.clearKickCountDraft().catch(() => {
     // Draft clear is best-effort; never blocks logout.
   });

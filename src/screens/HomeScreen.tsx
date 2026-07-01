@@ -1029,8 +1029,8 @@ const styles = StyleSheet.create({
   },
 
   settingsBtn: {
-    width: 40,
-    height: 40,
+    width: 44,
+    height: 44,
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: 4,

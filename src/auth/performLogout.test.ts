@@ -75,4 +75,16 @@ describe('performLogout — clears tokens + all health stores, then navigates', 
     await performLogout(deps);
     expect(calls[calls.length - 1]).toBe('onComplete');
   });
+
+  it('still navigates + attempts every store even if one reset throws synchronously', async () => {
+    const { deps, calls } = makeDeps({
+      resetSupplyStore: () => { throw new Error('supply reset blew up'); },
+    });
+    await performLogout(deps);
+    // the throwing reset must not strand the user or skip the other stores
+    expect(calls).toEqual(
+      expect.arrayContaining(['resetKickCountStore', 'resetCalendarStore', 'onComplete']),
+    );
+    expect(calls[calls.length - 1]).toBe('onComplete');
+  });
 });

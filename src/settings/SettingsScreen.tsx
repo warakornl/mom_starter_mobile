@@ -10,7 +10,6 @@
 
 import React from 'react';
 import {
-  View,
   Text,
   TouchableOpacity,
   StyleSheet,
@@ -86,33 +85,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FBF6F1',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 8,
-    paddingVertical: 8,
-  },
-  backBtn: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  backBtnText: {
-    fontSize: 30,
-    color: '#1A1A1A',
-    lineHeight: 32,
-  },
-  title: {
-    flex: 1,
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1A1A1A',
-    textAlign: 'center',
-  },
-  headerSpacer: {
-    width: 44,
   },
   scrollContent: {
     paddingHorizontal: 16,

@@ -499,7 +499,7 @@ export function CalendarScreen({
   const monthLabel = formatCivilDate(`${displayMonth}`, locale);
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView testID="calendar-screen" style={styles.container}>
       {/* Sync status banners */}
       {syncing && (
         <View style={styles.syncBar}>
@@ -602,12 +602,14 @@ export function CalendarScreen({
           </Text>
           <View style={styles.addBtns}>
             <TouchableOpacity
+              testID="calendar-add-appointment-btn"
               style={styles.addBtn}
               onPress={onAddAppointment}
             >
               <Text style={styles.addBtnText}>{t('calendar.addAppointment')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
+              testID="calendar-add-reminder-btn"
               style={[styles.addBtn, styles.addBtnSecondary]}
               onPress={onAddReminder}
             >
@@ -629,6 +631,7 @@ export function CalendarScreen({
               return (
                 <TouchableOpacity
                   key={item.item.id + idx}
+                  testID="calendar-agenda-item"
                   style={styles.agendaItem}
                   onPress={() => onEditAppointment?.(item.item.id)}
                 >
@@ -659,6 +662,7 @@ export function CalendarScreen({
             return (
               <TouchableOpacity
                 key={item.id + idx}
+                testID="calendar-agenda-item"
                 style={styles.agendaItem}
                 onPress={() => {
                   if (item.status !== 'done') {

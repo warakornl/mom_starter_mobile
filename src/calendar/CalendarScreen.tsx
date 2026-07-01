@@ -48,6 +48,7 @@
  */
 
 import React, { useState, useCallback, useMemo, useEffect, useRef } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   View,
   Text,
@@ -306,6 +307,16 @@ export function CalendarScreen({
   const refreshFromStore = useCallback(() => {
     setRefreshKey((k) => k + 1);
   }, []);
+
+  // Re-read the store whenever the screen regains focus — e.g. returning from
+  // AppointmentForm/ReminderForm after a save. Without this, a native-stack
+  // goBack() does not remount CalendarScreen, so a just-created item would not
+  // appear until the next foreground/pull.
+  useFocusEffect(
+    useCallback(() => {
+      refreshFromStore();
+    }, [refreshFromStore]),
+  );
 
   // ── Sync pull ──────────────────────────────────────────────────────────────
 

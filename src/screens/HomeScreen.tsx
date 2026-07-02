@@ -664,7 +664,7 @@ export function HomeScreen({
     return () => sub.remove();
   }, [recomputeFromEdd, recomputeFromBirthDate]);
 
-  // Logout now lives in SettingsScreen (reached via the ⚙ gear → Settings). The
+  // Logout now lives in SettingsScreen (reached via the ☰ menu button → Settings). The
   // shared performLogout runner there clears tokens + all health stores (PDPA 1.1).
 
   // ─── Loading ─────────────────────────────────────────────────────────────
@@ -798,7 +798,7 @@ export function HomeScreen({
             accessibilityLabel={t('home.settingsA11y')}
             testID="home-settings-btn"
           >
-            <Text style={styles.settingsIcon}>⚙</Text>
+            <Text style={styles.settingsIcon}>☰</Text>
           </TouchableOpacity>
         )}
       </View>

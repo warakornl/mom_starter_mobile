@@ -139,6 +139,17 @@ export function createConsentQueue(storage: ConsentQueueStorage) {
       return [...entries];
     },
 
+    /**
+     * Returns true if there is already a pending entry for this (consentType, granted) pair.
+     * Used by callers before enqueue to prevent duplicate queued actions (§4.2 / S1).
+     *
+     * Dedup key: (consentType, granted) — same purpose + same direction.
+     * A pending grant and a pending withdraw for the same type are treated as different.
+     */
+    hasPendingEntry(consentType: ConsentType, granted: boolean): boolean {
+      return entries.some(e => e.consentType === consentType && e.granted === granted);
+    },
+
     /** Persist the current queue to storage. Call after every mutation. */
     async persist(): Promise<void> {
       await storage.save(JSON.stringify(entries));

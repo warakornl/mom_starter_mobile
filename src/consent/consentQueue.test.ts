@@ -182,6 +182,40 @@ describe('consentQueue.markRetried', () => {
   });
 });
 
+// ─── hasPendingEntry (S1 dedup) ──────────────────────────────────────────────
+
+describe('consentQueue.hasPendingEntry', () => {
+  it('returns false when no entries exist', () => {
+    const queue = createConsentQueue(new InMemoryQueueStorage());
+    expect(queue.hasPendingEntry('general_health', true)).toBe(false);
+  });
+
+  it('returns true when a matching (consentType, granted) entry is pending', () => {
+    const queue = createConsentQueue(new InMemoryQueueStorage());
+    queue.enqueue('general_health', true, 'v1.0-th');
+    expect(queue.hasPendingEntry('general_health', true)).toBe(true);
+  });
+
+  it('returns false for a different consentType', () => {
+    const queue = createConsentQueue(new InMemoryQueueStorage());
+    queue.enqueue('general_health', true, 'v1.0-th');
+    expect(queue.hasPendingEntry('cloud_storage', true)).toBe(false);
+  });
+
+  it('returns false when granted flag differs (grant vs withdraw)', () => {
+    const queue = createConsentQueue(new InMemoryQueueStorage());
+    queue.enqueue('general_health', true, 'v1.0-th');
+    expect(queue.hasPendingEntry('general_health', false)).toBe(false);
+  });
+
+  it('returns false after the matching entry is removed', () => {
+    const queue = createConsentQueue(new InMemoryQueueStorage());
+    const entry = queue.enqueue('general_health', true, 'v1.0-th');
+    queue.remove(entry.id);
+    expect(queue.hasPendingEntry('general_health', true)).toBe(false);
+  });
+});
+
 // ─── persist / restore ───────────────────────────────────────────────────────
 
 describe('consentQueue persist/restore', () => {

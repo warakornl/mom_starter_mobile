@@ -188,6 +188,12 @@ export function ManageConsentsScreen({
         const result = await client.postConsent(type, granted, version, tokens.accessToken);
 
         if (result.ok) {
+          // Dequeue any queued entry for (type, granted) so the "รอซิงค์"
+          // badge clears and drainConsentQueue does not re-POST (F1 fix).
+          if (consentQueue.hasPendingEntry(type, granted)) {
+            consentQueue.removePending(type, granted);
+            void consentQueue.persist();
+          }
           setRowStatus((prev) => ({ ...prev, [type]: 'idle' }));
         } else {
           // Queue for background retry; show inline error

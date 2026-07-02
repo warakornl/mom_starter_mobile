@@ -30,7 +30,7 @@
  *   mondayOf(epochDay) = epochDay - isoDow0(epochDay)
  *   tokenOf(epochDay) = TOKENS[isoDow0(epochDay)]
  *   Verification: 1970-01-01 (epoch day 0) = Thursday → (0+3)%7=3=TH ✓
- *                 2026-07-01 (epoch day 20636) → (20636+3)%7=2=WE ✓
+ *                 2026-07-01 (epoch day 20635) → (20635+3)%7=2=WE ✓
  *
  * All arithmetic is on civil dates (no timezone, no offset, no UTC).
  * DST never affects expansion (firing re-anchoring is a scheduler concern only).
@@ -96,7 +96,7 @@ const ISO_TOKENS = ['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU'] as const;
  *
  * Pinned formula: ((epochDay + 3) mod 7 + 7) mod 7
  * Verification: epoch day 0 = 1970-01-01 = Thursday → (0+3)%7 = 3 = TH ✓
- *               2026-07-01 = epoch day 20636 → (20636+3)%7 = 2 = WE ✓
+ *               2026-07-01 = epoch day 20635 → (20635+3)%7 = 2 = WE ✓
  */
 function isoDow0(epochDay: number): number {
   return ((epochDay + 3) % 7 + 7) % 7;

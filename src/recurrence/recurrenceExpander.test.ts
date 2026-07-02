@@ -130,7 +130,7 @@ describe('recurrenceExpander golden vectors (FLAG-4, data-model.md §3.5)', () =
 
 describe('recurrenceExpander weekly golden vectors (GV-8..GV-13)', () => {
   // Anchor date: 2026-07-01 = Wednesday (verified: isoDow0 = (epochDay+3)%7; epoch
-  // day 0 = 1970-01-01 = Thursday; 2026-07-01 epoch day = 20636; (20636+3)%7 = 2 = WE)
+  // day 0 = 1970-01-01 = Thursday; 2026-07-01 epoch day = 20635; (20635+3)%7 = 2 = WE)
 
   it('GV-8: single weekday interval 1, anchor IS that weekday', () => {
     // freq=weekly, byDay=["WE"], startAt=2026-07-01T08:00 (Wed), window [2026-07-01..2026-07-15]

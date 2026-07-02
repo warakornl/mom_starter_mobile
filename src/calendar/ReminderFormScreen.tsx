@@ -462,6 +462,10 @@ export function ReminderFormScreen({
               setFreq(f);
               // Clear byDay when switching away from weekly to avoid stale state
               if (f !== 'weekly') setByDay([]);
+              // one_off/daily forbid interval — reset it so a stale weekly/
+              // every_n_days interval can't silently block Save (validator error
+              // with no visible interval field).
+              if (f === 'one_off' || f === 'daily') setInterval('1');
             }}
           >
             <Text style={[styles.chipText, freq === f && styles.chipTextSelected]}>

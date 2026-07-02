@@ -5,11 +5,16 @@
  * ออกจากระบบ → confirm) and cannot be triggered by accident. It reuses the shared
  * performLogout runner so the same PDPA health-store clearing (1.1 appsec) applies.
  *
- * PDPA entry point: "Manage Permissions" button navigates to ConsentScreen so
- * returning users can review/change their consent choices at any time (ม.19).
+ * PDPA entry point: "Manage Permissions" button navigates to ConsentScreen (S3)
+ * so returning users can review/grant their consent choices. NOTE: This currently
+ * routes to the grant-only S3 screen. Full withdrawal support (ม.19 — withdrawal
+ * as easy as granting) requires the full S8 Manage-Consents screen, which is a
+ * planned follow-up and NOT yet implemented. Do not claim ม.19 compliance until S8
+ * is built and reviewed.
  *
  * Future home for: language, account management, widget picker.
- * Deferred: full S8 Manage-Consents screen (list all consents with toggle rows).
+ * Deferred: full S8 Manage-Consents screen (list all consent types with toggle rows
+ * and withdrawal support). This is the correct place for ม.19 compliance.
  */
 
 import React from 'react';
@@ -36,8 +41,9 @@ interface SettingsScreenProps {
   /** Runs after logout completes — navigate to the unauthenticated entry (Welcome). */
   onLogout: () => void;
   /**
-   * Navigate to ConsentScreen so the user can review/update their PDPA consents.
-   * PDPA ม.19: withdrawal must be as easy as granting; this fulfils the route.
+   * Navigate to ConsentScreen so the user can review their PDPA consents.
+   * Currently routes to the grant-only S3 screen. Full ม.19 withdrawal support
+   * (withdrawal as easy as granting) requires the deferred S8 screen.
    * Optional — no-op if not provided (so existing tests do not break).
    */
   onManageConsent?: () => void;
@@ -76,7 +82,7 @@ export function SettingsScreen({ tokenStorage, onLogout, onManageConsent }: Sett
   return (
     <SafeAreaView style={styles.container} edges={['bottom']} testID="settings-screen">
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* ── Privacy & Consent (PDPA ม.19 — withdrawal as easy as granting) ── */}
+        {/* ── Privacy & Consent (routes to grant-only S3; full S8 withdrawal is deferred) ── */}
         {onManageConsent && (
           <>
             <Text style={styles.sectionLabel}>{t('settings.privacy')}</Text>

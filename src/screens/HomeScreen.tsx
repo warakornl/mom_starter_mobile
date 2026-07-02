@@ -727,7 +727,7 @@ export function HomeScreen({
               accessibilityLabel={t('home.settingsA11y')}
               testID="home-settings-btn"
             >
-              <Text style={styles.settingsIcon}>⚙</Text>
+              <Text style={styles.settingsIcon}>☰</Text>
             </TouchableOpacity>
           )}
         </View>

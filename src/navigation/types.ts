@@ -61,10 +61,17 @@ export type RootStackParamList = {
 
   /**
    * Consent — S3 first-run PDPA consent screen.
-   * Entry: after VerifyEmail (new registrations) and from Settings > Manage Permissions.
+   * Entry: after VerifyEmail (new registrations only).
    * No params — uses tokenStorage from context / props.
    */
   Consent: undefined;
+
+  /**
+   * ManageConsents — S8 Manage-Consents screen (PDPA ม.19 withdrawal).
+   * Entry: Settings > Manage Permissions.
+   * Lists all 6 consent purposes with toggle grant/withdraw.
+   */
+  ManageConsents: undefined;
 
   // ── Kick Count ──────────────────────────────────────────────────────────────
   /**

@@ -37,7 +37,7 @@
  * Carry-forward:
  * - ForgotPassword screen (onForgotPassword is currently a no-op)
  * - Expo Linking deep-link for momstarter://verify?token= → VerifyEmailScreen
- * - Consent screen for settings entry (re-visit) is registered but full S8 is deferred
+ * - ManageConsents screen (S8) is registered; Settings routes to it for ม.19 withdrawal
  */
 
 import React, { useState } from 'react';
@@ -67,6 +67,7 @@ import { KickCountHistoryScreen } from '../kickCount/KickCountHistoryScreen';
 import { KickCountDetailScreen } from '../kickCount/KickCountDetailScreen';
 import { calendarSyncStore } from '../sync/calendarSyncStore';
 import { ConsentScreen } from '../screens/ConsentScreen';
+import { ManageConsentsScreen } from '../screens/ManageConsentsScreen';
 import { useT } from '../i18n/LanguageContext';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -396,7 +397,25 @@ export function RootNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps):
             onLogout={() =>
               navigation.reset({ index: 0, routes: [{ name: 'Welcome' }] })
             }
-            onManageConsent={() => navigation.navigate('Consent')}
+            onManageConsent={() => navigation.navigate('ManageConsents')}
+          />
+        )}
+      </Stack.Screen>
+
+      {/* ManageConsents — S8 Manage-Consents screen (PDPA ม.19 withdrawal).
+       * Entry: Settings > Manage Permissions (returning users).
+       * Lists all 6 consent types with toggle grant/withdraw.
+       * Withdrawal confirmation sheet shown for 4 of 6 types (§3.3.2).
+       */}
+      <Stack.Screen
+        name="ManageConsents"
+        options={{ title: t('consent.manage.title'), headerBackTitle: t('general.back') }}
+      >
+        {({ navigation }) => (
+          <ManageConsentsScreen
+            tokenStorage={tokenStorage}
+            apiBaseUrl={apiBaseUrl}
+            onBack={() => navigation.goBack()}
           />
         )}
       </Stack.Screen>

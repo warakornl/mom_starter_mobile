@@ -5,16 +5,11 @@
  * ออกจากระบบ → confirm) and cannot be triggered by accident. It reuses the shared
  * performLogout runner so the same PDPA health-store clearing (1.1 appsec) applies.
  *
- * PDPA entry point: "Manage Permissions" button navigates to ConsentScreen (S3)
- * so returning users can review/grant their consent choices. NOTE: This currently
- * routes to the grant-only S3 screen. Full withdrawal support (ม.19 — withdrawal
- * as easy as granting) requires the full S8 Manage-Consents screen, which is a
- * planned follow-up and NOT yet implemented. Do not claim ม.19 compliance until S8
- * is built and reviewed.
+ * PDPA entry point: "Manage Permissions" button navigates to ManageConsentsScreen (S8)
+ * where users can review, grant, or withdraw any of the 6 consent types (ม.19 —
+ * withdrawal is as easy as granting).
  *
  * Future home for: language, account management, widget picker.
- * Deferred: full S8 Manage-Consents screen (list all consent types with toggle rows
- * and withdrawal support). This is the correct place for ม.19 compliance.
  */
 
 import React from 'react';
@@ -42,9 +37,8 @@ interface SettingsScreenProps {
   /** Runs after logout completes — navigate to the unauthenticated entry (Welcome). */
   onLogout: () => void;
   /**
-   * Navigate to ConsentScreen so the user can review their PDPA consents.
-   * Currently routes to the grant-only S3 screen. Full ม.19 withdrawal support
-   * (withdrawal as easy as granting) requires the deferred S8 screen.
+   * Navigate to ManageConsentsScreen (S8) so the user can review, grant, or
+   * withdraw any of the 6 PDPA consent types (ม.19 compliance).
    * Optional — no-op if not provided (so existing tests do not break).
    */
   onManageConsent?: () => void;

@@ -78,7 +78,7 @@ export function SettingsScreen({ tokenStorage, onLogout, onManageConsent }: Sett
   return (
     <SafeAreaView style={styles.container} edges={['bottom']} testID="settings-screen">
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        {/* ── Privacy & Consent (routes to grant-only S3; full S8 withdrawal is deferred) ── */}
+        {/* ── Privacy & Consent (routes to S8 ManageConsentsScreen — full grant + withdrawal) ── */}
         {onManageConsent && (
           <>
             <Text style={styles.sectionLabel}>{t('settings.privacy')}</Text>

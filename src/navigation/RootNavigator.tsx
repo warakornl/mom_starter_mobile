@@ -172,8 +172,8 @@ export function RootNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps):
       </Stack.Screen>
 
       {/* Consent — S3 first-run PDPA consent (general_health + cloud_storage).
-       * Entry: VerifyEmail onVerified (new registrations).
-       * Entry: Settings > Manage Permissions (returning users).
+       * Entry: VerifyEmail onVerified (new registrations only).
+       * Returning users manage consents via Settings > ManageConsentsScreen (S8).
        * onContinue resets to Home regardless of what the user chose;
        *   generalHealthGranted=false → limited mode (gate logic in HomeScreen).
        */}

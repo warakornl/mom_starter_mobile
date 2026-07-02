@@ -103,7 +103,40 @@ export function createConsentSync(
     }
   }
 
-  return { queue, drain };
+  /**
+   * Restore durable queue entries into memory. Call once at app startup BEFORE
+   * any enqueue/persist call so that `persist()` never clobbers un-restored entries
+   * (N2 — startup clobber/data-loss race).
+   *
+   * Sets `_restored = true` so a subsequent `drain()` call skips the lazy restore
+   * and does not double-restore.
+   *
+   * Idempotent: if already restored, this is a no-op.
+   */
+  async function restoreQueue(): Promise<void> {
+    if (_restored) return;
+    await queue.restore();
+    _restored = true;
+  }
+
+  /**
+   * Clear the durable consent queue (in-memory + persisted storage).
+   * Call during logout so a subsequent user's foreground drain finds nothing
+   * and cannot POST a previous user's consent entries under the new user's token
+   * (N1 — cross-user consent contamination).
+   *
+   * Best-effort: any persist error is swallowed so logout is never blocked.
+   */
+  async function resetQueue(): Promise<void> {
+    queue.clear();
+    try {
+      await queue.persist();
+    } catch {
+      // persist failure is non-fatal — in-memory is already cleared
+    }
+  }
+
+  return { queue, drain, restoreQueue, resetQueue };
 }
 
 // ─── Storage proxy (allows configuring durable storage after module init) ──────
@@ -161,6 +194,37 @@ export const consentQueue: ConsentQueue = _sync.queue;
  */
 export function configureConsentQueueStorage(storage: ConsentQueueStorage): void {
   _storageProxy.configure(storage);
+}
+
+/**
+ * Restore the durable consent queue into memory at app startup.
+ *
+ * Call once in App.tsx right after `configureConsentQueueStorage()` so that
+ * any `enqueue` + `persist` that fires before the first foreground cycle
+ * appends to — rather than overwrites — the prior-session persisted entries
+ * (N2 — startup clobber/data-loss race fix).
+ *
+ * Idempotent: a subsequent `drain()` call will see `_restored = true` and
+ * skip its own lazy restore, so there is no double-restore.
+ *
+ * Fire-and-forget: `void restoreConsentQueue()` is fine. If storage fails,
+ * the queue starts empty (no data loss — entries are retry metadata only).
+ */
+export async function restoreConsentQueue(): Promise<void> {
+  return _sync.restoreQueue();
+}
+
+/**
+ * Clear the durable consent queue (in-memory + persisted storage).
+ *
+ * Call during logout so a subsequent user's foreground drain finds an empty
+ * queue and cannot POST a previous user's consent entries under the new
+ * user's token (N1 — cross-user consent contamination fix, PDPA-legally-significant).
+ *
+ * Best-effort: any storage error is swallowed so logout is never blocked.
+ */
+export async function resetConsentQueue(): Promise<void> {
+  return _sync.resetQueue();
 }
 
 /**

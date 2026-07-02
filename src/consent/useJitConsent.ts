@@ -116,6 +116,12 @@ export function useJitConsent(
         const client = createConsentApiClient(apiBaseUrl);
         const result = await client.postConsent(purpose, true, version, tokens.accessToken);
         if (result.ok) {
+          // Dequeue any queued entry for this grant so the badge clears and
+          // drainConsentQueue does not re-POST a duplicate row (F1 fix).
+          if (consentQueue.hasPendingEntry(purpose, true)) {
+            consentQueue.removePending(purpose, true);
+            void consentQueue.persist();
+          }
           setJitState((prev) => applyGrantSuccess(prev));
         } else {
           // Queue for background retry; keep optimistic store state

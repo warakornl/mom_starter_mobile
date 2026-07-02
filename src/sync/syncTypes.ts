@@ -69,18 +69,37 @@ export interface SupplyItemRecord {
 // ─── Reminder (api-contract.md §"Reminders" / data-model.md §3.5) ────────────
 
 /**
+ * Two-letter ISO/RFC-5545 weekday tokens — canonical order MO<TU<WE<TH<FR<SA<SU.
+ * Used by RecurrenceRuleWire.byDay (weekly freq only).
+ *
+ * BINDING: tokens are self-describing and locale-free. Using integer weekday
+ * indices (JS 0=Sun, Java 1=Mon) would cause byte-divergence in the
+ * occurrence-id hash (uuidv5 input). Tokens prevent that class of bug.
+ * See recurrence-weekly-byday-design.md §1.1.
+ */
+export type WeekdayToken = 'MO' | 'TU' | 'WE' | 'TH' | 'FR' | 'SA' | 'SU';
+
+/**
  * RecurrenceRule wire format (the recurrenceRule field inside ReminderRecord).
  * FLAG-4 grammar — must pass server validation on sync/push:
- *   freq=one_off: timesOfDay/interval/until MUST be absent.
- *   freq=daily:   timesOfDay R & non-empty; interval absent.
- *   freq=every_n_days: timesOfDay R; interval R ≥ 1.
+ *   freq=one_off:     timesOfDay/interval/byDay/until MUST be absent.
+ *   freq=daily:       timesOfDay R & non-empty; interval/byDay absent.
+ *   freq=every_n_days: timesOfDay R; interval R ≥ 1; byDay absent.
+ *   freq=weekly (NEW): timesOfDay R & non-empty; byDay R & non-empty (canonical
+ *                      MO<TU<WE<TH<FR<SA<SU order); interval optional 1–52 (absent=1).
  *   timesOfDay canonical: ascending, distinct, "HH:mm" zero-padded 24h.
+ *   byDay canonical: ascending (MO<TU<…<SU), distinct, non-empty iff freq=weekly.
  *   until: inclusive civil "YYYY-MM-DD" or absent.
+ *
+ * Contract change (see recurrence-weekly-byday-design.md) — additive/backward-compat:
+ *   existing one_off/daily/every_n_days rules have no byDay and unchanged freq.
  */
 export interface RecurrenceRuleWire {
-  freq: 'one_off' | 'daily' | 'every_n_days';
+  freq: 'one_off' | 'daily' | 'every_n_days' | 'weekly';
   interval?: number;
   timesOfDay?: string[];
+  /** Present and non-empty iff freq === 'weekly'. Canonical order MO<TU<WE<TH<FR<SA<SU. */
+  byDay?: WeekdayToken[];
   until?: string;
 }
 

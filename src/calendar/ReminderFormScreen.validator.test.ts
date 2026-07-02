@@ -133,6 +133,27 @@ describe('validateRecurrenceRule — weekly byDay rules', () => {
   });
 });
 
+// ─── until FORBIDDEN on one_off (server rejects; client must mirror) ─────────
+
+describe('validateRecurrenceRule — until forbidden for one_off', () => {
+  it('one_off with until set is rejected (field=until)', () => {
+    const errors = valid('one_off', '', [], '2026-08-01', OK_START, []);
+    expect(errors.some((e) => e.field === 'until')).toBe(true);
+  });
+
+  it('one_off with empty until still passes', () => {
+    expect(valid('one_off', '', [], '', OK_START, [])).toEqual([]);
+  });
+
+  it('daily with until set still passes (only one_off is forbidden)', () => {
+    expect(valid('daily', '', OK_TIMES, '2026-08-01', OK_START, [])).toEqual([]);
+  });
+
+  it('weekly with until set still passes (only one_off is forbidden)', () => {
+    expect(valid('weekly', '', OK_TIMES, '2026-08-01', OK_START, ['MO'])).toEqual([]);
+  });
+});
+
 // ─── unknown freq still rejected ─────────────────────────────────────────────
 
 describe('validateRecurrenceRule — unknown freq', () => {

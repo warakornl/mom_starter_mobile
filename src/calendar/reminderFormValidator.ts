@@ -76,6 +76,10 @@ export function validateRecurrenceRule(
     if (interval.trim() && interval.trim() !== '1') {
       errors.push({ field: 'interval', message: 'interval must be absent for one_off' });
     }
+    // until MUST be absent — server rejects until on one_off (strict-subset mirror)
+    if (until.trim()) {
+      errors.push({ field: 'until', message: 'until is forbidden for one_off' });
+    }
 
   } else if (freq === 'weekly') {
     // timesOfDay required and non-empty (same as daily/every_n_days)

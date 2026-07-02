@@ -45,8 +45,7 @@ import {
 import type { TokenStorage } from '../auth/tokenStorage';
 import { createConsentApiClient } from '../consent/consentApiClient';
 import { consentStore } from '../consent/consentStore';
-import { createConsentQueue } from '../consent/consentQueue';
-import type { ConsentQueueStorage } from '../consent/consentQueue';
+import { consentQueue } from '../consent/consentSync';
 import { useT } from '../i18n/LanguageContext';
 import type { Locale } from '../auth/types';
 
@@ -57,22 +56,10 @@ function consentTextVersion(locale: Locale): string {
   return locale === 'en' ? 'v1.0-en' : 'v1.0-th';
 }
 
-// ─── In-memory queue storage (queue survives RN memory; SecureStore binding is prod) ─
-
-/**
- * In-memory ConsentQueueStorage.
- * For the first-run slice the queue is in-memory only. A SecureStore binding
- * (to survive full app-kill restarts) is a carry-forward for the next slice.
- */
-class InMemoryConsentQueueStorage implements ConsentQueueStorage {
-  private data: string | null = null;
-  async save(json: string): Promise<void> { this.data = json; }
-  async load(): Promise<string | null> { return this.data; }
-}
-
-// Module-level queue so it persists across re-mounts within a session.
-const _queueStorage = new InMemoryConsentQueueStorage();
-const _consentQueue = createConsentQueue(_queueStorage);
+// NOTE: consentQueue is imported from consentSync (module-level durable queue).
+// It is backed by a storage proxy configured at app startup (App.tsx) with
+// expo-secure-store, so queued consents survive app-kill restarts (B2 §4.2.4).
+// Drain is wired in HomeScreen on AppState 'active' (foreground).
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -141,12 +128,14 @@ export function ConsentScreen({
       if (result.ok) {
         consentStore.setGranted('general_health', true, version);
       } else {
-        // Queue for background retry
-        const entry = _consentQueue.enqueue('general_health', true, version);
-        void _queueStorage.save(JSON.stringify(_consentQueue.getEntries()));
-        // Mark as pending but don't block the user
-        consentStore.setGranted('general_health', true, version); // optimistic stays
-        void entry; // suppress unused variable warning
+        // Queue for background retry — dedup so retrying the screen doesn't
+        // append duplicate entries (S1: dedup by consentType + granted direction)
+        if (!consentQueue.hasPendingEntry('general_health', true)) {
+          consentQueue.enqueue('general_health', true, version);
+          void consentQueue.persist();
+        }
+        // Optimistic local state stays so health logging proceeds offline
+        consentStore.setGranted('general_health', true, version);
         hadError = true;
       }
     }
@@ -162,8 +151,10 @@ export function ConsentScreen({
       if (result.ok) {
         consentStore.setGranted('cloud_storage', true, version);
       } else {
-        _consentQueue.enqueue('cloud_storage', true, version);
-        void _queueStorage.save(JSON.stringify(_consentQueue.getEntries()));
+        if (!consentQueue.hasPendingEntry('cloud_storage', true)) {
+          consentQueue.enqueue('cloud_storage', true, version);
+          void consentQueue.persist();
+        }
         consentStore.setGranted('cloud_storage', true, version); // optimistic
         hadError = true;
       }
@@ -218,8 +209,10 @@ export function ConsentScreen({
             tokens.accessToken,
           );
           if (!result.ok) {
-            _consentQueue.enqueue('cloud_storage', true, version);
-            void _queueStorage.save(JSON.stringify(_consentQueue.getEntries()));
+            if (!consentQueue.hasPendingEntry('cloud_storage', true)) {
+              consentQueue.enqueue('cloud_storage', true, version);
+              void consentQueue.persist();
+            }
             consentStore.setGranted('cloud_storage', true, version);
           } else {
             consentStore.setGranted('cloud_storage', true, version);

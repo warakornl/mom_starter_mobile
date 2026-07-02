@@ -71,6 +71,7 @@ import { computeOccurrenceId } from '../occurrence/occurrenceId';
 import { bucketCivilDay } from './civilDayBucketer';
 import type { TokenStorage } from '../auth/tokenStorage';
 import type { ChecklistItemRecord, ReminderOccurrenceRecord, OccurrenceStatus } from '../sync/syncTypes';
+import { consumePendingCalendarFocusDate } from './pendingCalendarFocusDate';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -312,9 +313,18 @@ export function CalendarScreen({
   // AppointmentForm/ReminderForm after a save. Without this, a native-stack
   // goBack() does not remount CalendarScreen, so a just-created item would not
   // appear until the next foreground/pull.
+  //
+  // Also consume any pending focus date set by the form screen on save so the
+  // agenda auto-scrolls to the new item's date instead of staying on today.
   useFocusEffect(
     useCallback(() => {
       refreshFromStore();
+
+      const focusDate = consumePendingCalendarFocusDate();
+      if (focusDate) {
+        setSelectedDate(focusDate);
+        setDisplayMonth(focusDate.slice(0, 7) + '-01');
+      }
     }, [refreshFromStore]),
   );
 

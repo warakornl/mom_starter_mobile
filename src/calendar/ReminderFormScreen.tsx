@@ -48,6 +48,7 @@ import type { MessageKey } from '../i18n/messages';
 import { formatCivilDate } from '../i18n/messages';
 import type { Locale } from '../auth/types';
 import { toCivilDate, toCivilTime, parseCivilDate, parseCivilTime } from './dateTimePickerFormat';
+import { setPendingCalendarFocusDate } from './pendingCalendarFocusDate';
 
 // ─── FLAG-4 grammar validation (client mirror of server 422) ─────────────────
 
@@ -310,6 +311,10 @@ export function ReminderFormScreen({
     }
 
     // TODO carry-forward: schedule OS local notification (expo-notifications)
+
+    // Signal CalendarScreen to auto-select the reminder's start date on focus.
+    // Must be set before onSave() / navigation.goBack() so useFocusEffect picks it up.
+    setPendingCalendarFocusDate(startDate);
 
     // Navigate back first, then push (fire-and-forget — no await to not block UI)
     onSave?.();

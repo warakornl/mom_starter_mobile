@@ -48,6 +48,7 @@ import { localCivilToday } from '../pregnancy/gestationalAge';
 import { toCivilDate, toCivilTime, parseCivilDate, parseCivilTime } from './dateTimePickerFormat';
 import { formatCivilDate } from '../i18n/messages';
 import type { Locale } from '../auth/types';
+import { setPendingCalendarFocusDate } from './pendingCalendarFocusDate';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -233,6 +234,10 @@ export function AppointmentFormScreen({
       };
       calendarSyncStore.enqueueCreateChecklistItem(created);
     }
+
+    // Signal CalendarScreen to auto-select the appointment's date on focus.
+    // Must be set before onSave() / navigation.goBack() so useFocusEffect picks it up.
+    setPendingCalendarFocusDate(scheduledAt.slice(0, 10));
 
     // Navigate back first, then push (fire-and-forget — no await to not block UI)
     onSave?.();

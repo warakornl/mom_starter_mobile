@@ -466,6 +466,10 @@ export function ReminderFormScreen({
               // every_n_days interval can't silently block Save (validator error
               // with no visible interval field).
               if (f === 'one_off' || f === 'daily') setInterval('1');
+              // one_off forbids until (server rejects it) — clear any set value
+              // so the user can't inadvertently 422 by switching freq after
+              // having picked an until date.
+              if (f === 'one_off') setUntil('');
             }}
           >
             <Text style={[styles.chipText, freq === f && styles.chipTextSelected]}>
@@ -589,43 +593,47 @@ export function ReminderFormScreen({
         </>
       )}
 
-      {/* Until (optional) — Pressable + clear button */}
-      <Text style={styles.label}>{t('reminder.fieldUntil')}</Text>
-      <View style={styles.untilRow}>
-        <TouchableOpacity
-          style={[
-            styles.pickerField,
-            styles.untilPickerField,
-            fieldError('until') ? styles.inputError : null,
-          ]}
-          onPress={openUntilPicker}
-          accessibilityRole="button"
-          accessibilityLabel={
-            until.trim()
-              ? `${t('reminder.fieldUntil')}: ${formatCivilDate(until.trim(), locale as Locale)}`
-              : t('reminder.untilPlaceholder')
-          }
-        >
-          <Text style={[styles.pickerFieldText, !until.trim() && styles.pickerFieldPlaceholder]}>
-            {until.trim() ? formatCivilDate(until.trim(), locale as Locale) : t('reminder.untilPlaceholder')}
-          </Text>
-          <Text style={styles.pickerChevron} accessibilityElementsHidden={true}>›</Text>
-        </TouchableOpacity>
-        {until.trim() ? (
-          <TouchableOpacity
-            style={styles.untilClearBtn}
-            onPress={() => setUntil('')}
-            accessibilityRole="button"
-            accessibilityLabel={t('general.clear')}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Text style={styles.untilClearText}>✕</Text>
-          </TouchableOpacity>
-        ) : null}
-      </View>
-      {fieldError('until') ? (
-        <Text style={styles.errorText}>{fieldError('until')}</Text>
-      ) : null}
+      {/* Until (optional) — hidden for one_off (meaningless + server rejects it) */}
+      {freq !== 'one_off' && (
+        <>
+          <Text style={styles.label}>{t('reminder.fieldUntil')}</Text>
+          <View style={styles.untilRow}>
+            <TouchableOpacity
+              style={[
+                styles.pickerField,
+                styles.untilPickerField,
+                fieldError('until') ? styles.inputError : null,
+              ]}
+              onPress={openUntilPicker}
+              accessibilityRole="button"
+              accessibilityLabel={
+                until.trim()
+                  ? `${t('reminder.fieldUntil')}: ${formatCivilDate(until.trim(), locale as Locale)}`
+                  : t('reminder.untilPlaceholder')
+              }
+            >
+              <Text style={[styles.pickerFieldText, !until.trim() && styles.pickerFieldPlaceholder]}>
+                {until.trim() ? formatCivilDate(until.trim(), locale as Locale) : t('reminder.untilPlaceholder')}
+              </Text>
+              <Text style={styles.pickerChevron} accessibilityElementsHidden={true}>›</Text>
+            </TouchableOpacity>
+            {until.trim() ? (
+              <TouchableOpacity
+                style={styles.untilClearBtn}
+                onPress={() => setUntil('')}
+                accessibilityRole="button"
+                accessibilityLabel={t('general.clear')}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <Text style={styles.untilClearText}>✕</Text>
+              </TouchableOpacity>
+            ) : null}
+          </View>
+          {fieldError('until') ? (
+            <Text style={styles.errorText}>{fieldError('until')}</Text>
+          ) : null}
+        </>
+      )}
 
       {/* Active toggle */}
       <View style={styles.row}>

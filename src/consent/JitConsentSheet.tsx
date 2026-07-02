@@ -27,7 +27,7 @@
  * testIDs: first-run-consent.md §5 (consent-jit-* prefix).
  */
 
-import React, { useState } from 'react';
+import React from 'react';
 import {
   View,
   Text,
@@ -73,6 +73,18 @@ export interface JitConsentSheetProps {
   onRetry: () => void;
   /** Whether the sheet is visible (allows caller to animate out cleanly) */
   visible: boolean;
+  /**
+   * Parental attestation checkbox state (ม.20).
+   * Owned by the caller (useJitConsent.parentalAttested) — single source of truth.
+   * NEVER pre-set to true; the caller's hook initialises it to false.
+   * Only relevant for infant_feeding + child_health.
+   */
+  parentalAttested: boolean;
+  /**
+   * Callback to toggle the parental attestation checkbox.
+   * Delegates to useJitConsent.setParentalAttested so hook and sheet stay in sync.
+   */
+  onParentalAttest: (v: boolean) => void;
 }
 
 // ─── i18n key maps ────────────────────────────────────────────────────────────
@@ -113,15 +125,12 @@ export function JitConsentSheet({
   error,
   onRetry,
   visible,
+  parentalAttested,
+  onParentalAttest,
 }: JitConsentSheetProps): React.JSX.Element {
   const { t } = useT();
 
-  /**
-   * Parental attestation checkbox state (ม.20).
-   * NEVER pre-set to true. Resets whenever the sheet is mounted fresh.
-   */
-  const [parentalAttested, setParentalAttested] = useState(false);
-
+  // parentalAttested is now owned by the caller (useJitConsent) — single source of truth.
   const grantEnabled = isGrantEnabled(type, parentalAttested) && !isLoading;
   const declineEnabled = !isLoading;
   const needsAttestation = requiresParentalAttestation(type);
@@ -206,7 +215,7 @@ export function JitConsentSheet({
               <TouchableOpacity
                 testID={attestTestId}
                 style={styles.attestRow}
-                onPress={() => setParentalAttested((v) => !v)}
+                onPress={() => onParentalAttest(!parentalAttested)}
                 accessibilityRole="checkbox"
                 accessibilityState={{ checked: parentalAttested }}
                 accessibilityLabel={t(attestKey as Parameters<typeof t>[0])}

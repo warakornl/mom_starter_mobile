@@ -50,7 +50,7 @@ import { SecureTokenStorage } from './src/auth/secureTokenStorage';
 import { API_BASE_URL } from './src/config';
 import { LanguageProvider } from './src/i18n/LanguageContext';
 import { consentStore } from './src/consent/consentStore';
-import { configureConsentQueueStorage } from './src/consent/consentSync';
+import { configureConsentQueueStorage, restoreConsentQueue } from './src/consent/consentSync';
 
 // ─── Consent persistence setup (B1 + B2) ─────────────────────────────────────
 //
@@ -71,6 +71,13 @@ configureConsentQueueStorage({
   save: (json: string) => SecureStore.setItemAsync(CONSENT_QUEUE_KEY, json),
   load: () => SecureStore.getItemAsync(CONSENT_QUEUE_KEY),
 });
+
+// N2: restore the durable queue into memory immediately at startup.
+// This prevents any enqueue+persist that fires before the first foreground
+// transition from clobbering un-restored prior-session entries in storage.
+// Fire-and-forget: on storage error the queue starts empty (entries are
+// retry metadata only — no data loss beyond the retry opportunity).
+void restoreConsentQueue();
 
 export default function App(): React.JSX.Element {
   // Create once for the lifetime of the app — every screen that needs tokens

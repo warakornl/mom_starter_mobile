@@ -530,6 +530,53 @@ const th = {
   'kick.detailExportPdf': 'ส่งออกเป็น PDF หมอ',
   /** template: {n} = week */
   'kick.detailWeekValue': 'สัปดาห์ {n}',
+
+  // ── Consent (PDPA ม.26 / ม.20) ────────────────────────────────────────────────
+  // Keys per first-run-consent.md §6 + consent-copy.md (v1.0 DRAFT — lawyer review pending §Z-2).
+  // Text version tag: "v1.0-th" (Thai) / "v1.0-en" (English).
+  // ⚠️ DRAFT: copy is informational; licensed Thai legal counsel must approve before launch.
+
+  // S3 screen chrome
+  'consent.screen.title': 'สมุดสุขภาพของคุณ',
+  'consent.screen.subtitle': 'เลือกวิธีดูแลข้อมูลของคุณ — คุณเป็นผู้ตัดสินใจ และเปลี่ยนได้ทุกเมื่อ',
+  'consent.screen.continue_btn': 'ดำเนินการต่อ',
+  'consent.screen.saving': 'กำลังบันทึก',
+
+  // general_health consent (S3 item 1 — §2 consent-copy.md)
+  'consent.general_health.title': 'บันทึกสุขภาพในเครื่อง',
+  'consent.general_health.data_copy': 'ข้อมูลสุขภาพระหว่างตั้งครรภ์ถึงหลังคลอดที่คุณกรอกเอง เช่น กำหนดคลอด (EDD) น้ำหนัก ความดัน ยาที่แพทย์สั่ง อาการที่คุณสังเกต การนับลูกดิ้น และวิธีคลอด ข้อมูลนี้ถือเป็น "ข้อมูลสุขภาพ" ที่กฎหมายคุ้มครองเป็นพิเศษ และถูกเก็บไว้ในเครื่องของคุณ',
+  'consent.general_health.purpose_copy': 'เพื่อบันทึกข้อมูลสุขภาพของคุณลงในสมุดสุขภาพในแอป และช่วยสรุปให้คุณนำไปคุยกับคุณหมอได้ง่ายขึ้น เราใช้ข้อมูลนี้เพื่อ "เตือน บันทึก และสรุป" เท่านั้น ไม่นำไปวินิจฉัยโรค ไม่วิเคราะห์ค่าสุขภาพแทนแพทย์ และไม่นำไปทำโฆษณา',
+  'consent.general_health.grant_btn': 'ให้ความยินยอม',
+  'consent.general_health.granted_label': 'บันทึกไว้แล้ว',
+  'consent.general_health.required_note': 'ยังไม่ได้ให้ความยินยอมบันทึกสุขภาพ',
+  // Skip sheet (§3.1.6) — shown when user taps Continue without general_health
+  'consent.general_health.skip_sheet.title': 'ยังไม่ได้ยินยอมบันทึกสุขภาพ',
+  'consent.general_health.skip_sheet.body': 'ไม่เป็นไรค่ะ คุณยังใช้แอปได้ในโหมดอ่านอย่างเดียว — เปิดดูปฏิทิน คำแนะนำ และเนื้อหาต่าง ๆ ได้ตามปกติ แต่จะยัง บันทึกข้อมูลสุขภาพ (เช่น กำหนดคลอด ยา หรือน้ำหนัก) ไม่ได้ จนกว่าจะเปิดสิทธิ์นี้ เปิดได้ทุกเมื่อที่ บัญชี › จัดการความยินยอม',
+  'consent.general_health.skip_sheet.go_back_btn': 'กลับและให้ความยินยอม',
+  'consent.general_health.skip_sheet.continue_anyway_btn': 'ดำเนินการต่อโดยไม่บันทึก',
+
+  // cloud_storage consent (S3 item 2 — §3 consent-copy.md)
+  'consent.cloud_storage.title': 'ซิงค์ข้ามอุปกรณ์',
+  'consent.cloud_storage.data_copy': 'ข้อมูลสุขภาพชุดเดียวกับที่คุณบันทึกไว้ในเครื่อง จะถูกส่งไปเก็บอย่างปลอดภัยบนเซิร์ฟเวอร์ของเราซึ่งตั้งอยู่ในประเทศไทย ข้อมูลถูกเข้ารหัสทั้งตอนส่งและตอนเก็บ',
+  'consent.cloud_storage.purpose_copy': 'เพื่อให้โทรศัพท์และแท็บเล็ตของคุณเห็นข้อมูลเดียวกัน และมีสำเนาสำรองไว้เผื่อเปลี่ยนเครื่องหรือทำเครื่องหาย',
+  'consent.cloud_storage.off_note': 'ปิดได้ ใช้งานเต็มรูปแบบในเครื่อง',
+
+  // Shared consent UI
+  'consent.text_version.label': 'เวอร์ชันข้อความ',
+  'consent.policy_link': 'นโยบายความเป็นส่วนตัว',
+  'consent.change_later_note': 'คุณเปลี่ยนสิทธิ์เหล่านี้ได้ทุกเมื่อใน บัญชี › จัดการความยินยอม',
+
+  // Error / retry panel (§3.1.5)
+  'consent.error.save_failed': 'บันทึกไม่สำเร็จ · จะลองใหม่อัตโนมัติ',
+  'consent.error.retry_btn': 'ลองอีกครั้ง',
+
+  // Home screen limited-mode elements (§3.1.6, §4.3)
+  'consent.home.health_nudge_banner': 'เปิดสิทธิ์บันทึกสุขภาพ ›',
+  'consent.limited_mode.health_gate_inline': 'ต้องให้ความยินยอมบันทึกสุขภาพก่อน · เปิดสิทธิ์ ›',
+  'consent.limited_mode.health_gate_feeding_context': 'ต้องเปิดสิทธิ์บันทึกสุขภาพก่อนเพื่อบันทึกการให้นม',
+
+  // Settings entry point (minimal — full S8 is deferred)
+  'consent.settings.manage_btn': 'จัดการความยินยอม',
 };
 
 // ─── English catalog (must match th shape exactly) ────────────────────────────
@@ -946,6 +993,52 @@ const en: MsgShape = {
   'kick.detailNoteLabel': 'My notes',
   'kick.detailExportPdf': 'Export to doctor PDF',
   'kick.detailWeekValue': 'Week {n}',
+
+  // ── Consent (PDPA) ───────────────────────────────────────────────────────────
+  // English translations of Thai consent copy (consent-copy.md v1.0 DRAFT).
+  // ⚠️ DRAFT: licensed Thai legal counsel must approve before launch (§Z-2).
+
+  // S3 screen chrome
+  'consent.screen.title': 'Your health handbook',
+  'consent.screen.subtitle': 'Choose how your records are handled — it\'s your choice, and you can change it anytime.',
+  'consent.screen.continue_btn': 'Continue',
+  'consent.screen.saving': 'Saving...',
+
+  // general_health consent (S3 item 1)
+  'consent.general_health.title': 'Health logging on this device',
+  'consent.general_health.data_copy': 'The pregnancy-to-postpartum health details you enter yourself — such as your due date (EDD), weight, blood pressure, doctor-prescribed medications, symptoms you notice, kick counts, and delivery type. This is "health data," which the law protects specially, and it is kept on your device.',
+  'consent.general_health.purpose_copy': 'To record your health information in the app\'s handbook and help summarize it so you can share it with your doctor. We use this only to "remind, log, and summarize" — never to diagnose, never to interpret your results in place of a doctor, and never for advertising.',
+  'consent.general_health.grant_btn': 'Grant access',
+  'consent.general_health.granted_label': 'Granted',
+  'consent.general_health.required_note': 'Health logging permission not yet set',
+  // Skip sheet (§3.1.6)
+  'consent.general_health.skip_sheet.title': 'Health logging not granted yet',
+  'consent.general_health.skip_sheet.body': 'That\'s okay — you can still use the app in read-only mode. You can browse the calendar, guidance, and content as usual, but you won\'t be able to save any health data (like your due date, medications, or weight) until you turn this on. You can enable it anytime in Account › Manage Permissions.',
+  'consent.general_health.skip_sheet.go_back_btn': 'Go back & grant',
+  'consent.general_health.skip_sheet.continue_anyway_btn': 'Continue anyway',
+
+  // cloud_storage consent (S3 item 2)
+  'consent.cloud_storage.title': 'Sync across your devices',
+  'consent.cloud_storage.data_copy': 'The same health records you save on your device are sent to be stored securely on our server, which is located in Thailand. Your data is encrypted both in transit and at rest.',
+  'consent.cloud_storage.purpose_copy': 'So your phone and tablet show the same records, and you have a backup in case you change or lose your device.',
+  'consent.cloud_storage.off_note': 'Off is fine — works fully on device',
+
+  // Shared consent UI
+  'consent.text_version.label': 'Consent text',
+  'consent.policy_link': 'Privacy Policy',
+  'consent.change_later_note': 'Change these anytime in Account › Manage Permissions',
+
+  // Error / retry panel (§3.1.5)
+  'consent.error.save_failed': 'Couldn\'t save — will retry automatically',
+  'consent.error.retry_btn': 'Retry',
+
+  // Home screen limited-mode elements (§4.3)
+  'consent.home.health_nudge_banner': 'Enable health logging ›',
+  'consent.limited_mode.health_gate_inline': 'Health logging needs your ok first · Enable ›',
+  'consent.limited_mode.health_gate_feeding_context': 'Enable health logging first to log feeding sessions',
+
+  // Settings entry point (minimal — full S8 is deferred)
+  'consent.settings.manage_btn': 'Manage Permissions',
 };
 
 // ─── Exports ──────────────────────────────────────────────────────────────────

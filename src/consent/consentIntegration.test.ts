@@ -248,3 +248,120 @@ describe('performLogout resets consent store (§4.5 cross-user isolation)', () =
     expect(store2.isGranted('general_health')).toBe(false);
   });
 });
+
+// ─── N1: logout must clear durable consent queue ─────────────────────────────
+
+describe('N1 cross-user queue contamination — logout clears durable queue (§4.2)', () => {
+  it('after resetQueue(), in-memory queue is empty (User B drain finds no User A entries)', async () => {
+    // User A: queue a consent while offline, persist it
+    const qStorage = new InMemoryQueueStorage();
+    const { queue, resetQueue } = createConsentSync(qStorage, { postConsent: jest.fn() } as never);
+    queue.enqueue('general_health', true, 'v1.0-th');
+    await queue.persist();
+    expect(queue.getEntries()).toHaveLength(1);
+
+    // User A logs out → resetQueue is called
+    await resetQueue();
+
+    // In-memory queue is empty
+    expect(queue.getEntries()).toHaveLength(0);
+  });
+
+  it('after resetQueue(), persisted storage is empty (User B cold-start finds nothing)', async () => {
+    const qStorage = new InMemoryQueueStorage();
+    const { queue, resetQueue } = createConsentSync(qStorage, { postConsent: jest.fn() } as never);
+    queue.enqueue('general_health', true, 'v1.0-th');
+    await queue.persist();
+
+    // Logout
+    await resetQueue();
+
+    // Persisted storage reflects the cleared queue
+    const stored = await qStorage.load();
+    const parsed = JSON.parse(stored ?? '[]') as unknown[];
+    expect(parsed).toHaveLength(0);
+  });
+
+  it('User B foreground drain after User A logout POSTs nothing (no contamination)', async () => {
+    // User A: enqueue + persist + logout (resetQueue)
+    const qStorage = new InMemoryQueueStorage();
+    const postConsentA = jest.fn().mockResolvedValue(makeSuccessResult());
+    const { queue: qA, resetQueue } = createConsentSync(qStorage, { postConsent: postConsentA } as never);
+    qA.enqueue('general_health', true, 'v1.0-th');
+    await qA.persist();
+    await resetQueue(); // ← logout step
+
+    // User B: new session on the same device, logs in
+    const tokenStorage = new InMemoryTokenStorage();
+    await tokenStorage.save(makeTokens());
+    const postConsentB = jest.fn().mockResolvedValue(makeSuccessResult());
+    const { queue: qB, drain: drainB } = createConsentSync(qStorage, { postConsent: postConsentB } as never);
+    await qB.restore(); // startup restore (N2 fix)
+
+    // User B foreground → drain
+    await drainB(tokenStorage, 'https://api.test');
+
+    // User B's drain must NOT have POSTed any of User A's entries
+    expect(postConsentB).not.toHaveBeenCalled();
+    expect(qB.getEntries()).toHaveLength(0);
+  });
+});
+
+// ─── N2: startup restore prevents enqueue from clobbering persisted entries ──
+
+describe('N2 startup restore — enqueue must not clobber pre-existing persisted entries', () => {
+  it('new enqueue after restoreQueue() does NOT drop a prior-session persisted entry', async () => {
+    // Session 1: entry Y saved (e.g. the user consented offline, app was killed)
+    const qStorage = new InMemoryQueueStorage();
+    const { queue: q1 } = createConsentSync(qStorage, { postConsent: jest.fn() } as never);
+    q1.enqueue('cloud_storage', true, 'v1.0-th');
+    await q1.persist();
+
+    // Session 2: new JS session — restore FIRST, then enqueue X
+    const { queue: q2, restoreQueue } = createConsentSync(qStorage, { postConsent: jest.fn() } as never);
+    await restoreQueue(); // startup restore (N2 fix — was missing before)
+    q2.enqueue('general_health', true, 'v1.0-th');
+    await q2.persist();
+
+    // Both entries survive: Y (from session 1) and X (just enqueued)
+    const entries = q2.getEntries();
+    expect(entries).toHaveLength(2);
+    const types = entries.map(e => e.consentType).sort();
+    expect(types).toEqual(['cloud_storage', 'general_health']);
+  });
+
+  it('without restore, a new enqueue in session 2 silently drops the session-1 entry (regression proof)', async () => {
+    // This test PROVES the N2 bug: not calling restore before enqueue causes data loss.
+    // It is intentionally the inverse of the "after fix" test above.
+    const qStorage = new InMemoryQueueStorage();
+    const { queue: q1 } = createConsentSync(qStorage, { postConsent: jest.fn() } as never);
+    q1.enqueue('cloud_storage', true, 'v1.0-th');
+    await q1.persist();
+
+    // Session 2: no restore, immediately enqueue + persist
+    const { queue: q2 } = createConsentSync(qStorage, { postConsent: jest.fn() } as never);
+    // (intentionally NO restoreQueue() call here)
+    q2.enqueue('general_health', true, 'v1.0-th');
+    await q2.persist(); // overwrites storage with just ['general_health'] → cloud_storage lost
+
+    // Confirm data loss when restore is skipped (demonstrates the bug that N2 fixes)
+    const stored = await qStorage.load();
+    const parsed = JSON.parse(stored ?? '[]') as Array<{ consentType: string }>;
+    const types = parsed.map(e => e.consentType);
+    expect(types).not.toContain('cloud_storage'); // Y was dropped — bug confirmed
+    expect(types).toContain('general_health');    // only X survives
+  });
+
+  it('restoreQueue() is idempotent (calling twice does not duplicate entries)', async () => {
+    const qStorage = new InMemoryQueueStorage();
+    const { queue: q1 } = createConsentSync(qStorage, { postConsent: jest.fn() } as never);
+    q1.enqueue('general_health', true, 'v1.0-th');
+    await q1.persist();
+
+    const { queue: q2, restoreQueue } = createConsentSync(qStorage, { postConsent: jest.fn() } as never);
+    await restoreQueue();
+    await restoreQueue(); // second call must be a no-op (guard via _restored)
+
+    expect(q2.getEntries()).toHaveLength(1);
+  });
+});

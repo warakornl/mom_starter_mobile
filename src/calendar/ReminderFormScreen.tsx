@@ -450,14 +450,19 @@ export function ReminderFormScreen({
         <Text style={styles.errorText}>{fieldError('startAt')}</Text>
       ) : null}
 
-      {/* Freq */}
+      {/* Freq — renamed "ทำซ้ำ" / "Repeat" per design. Includes weekly chip. */}
       <Text style={styles.label}>{t('reminder.fieldFreq')}</Text>
       <View style={styles.chipRow}>
-        {(['one_off', 'daily', 'every_n_days'] as const).map((f) => (
+        {(['one_off', 'daily', 'every_n_days', 'weekly'] as const).map((f) => (
           <TouchableOpacity
             key={f}
+            testID={`reminder-freq-${f}`}
             style={[styles.chip, freq === f && styles.chipSelected]}
-            onPress={() => setFreq(f)}
+            onPress={() => {
+              setFreq(f);
+              // Clear byDay when switching away from weekly to avoid stale state
+              if (f !== 'weekly') setByDay([]);
+            }}
           >
             <Text style={[styles.chipText, freq === f && styles.chipTextSelected]}>
               {t(`reminder.freq.${f}` as MessageKey)}
@@ -466,7 +471,7 @@ export function ReminderFormScreen({
         ))}
       </View>
 
-      {/* Interval (only for every_n_days) */}
+      {/* Interval (every_n_days: days; weekly: weeks) */}
       {freq === 'every_n_days' && (
         <>
           <Text style={styles.label}>{t('reminder.fieldInterval')}</Text>
@@ -481,8 +486,65 @@ export function ReminderFormScreen({
           ) : null}
         </>
       )}
+      {freq === 'weekly' && (
+        <>
+          <Text style={styles.label}>{t('reminder.fieldIntervalWeeks')}</Text>
+          <TextInput
+            testID="reminder-interval-weeks"
+            style={[styles.input, fieldError('interval') ? styles.inputError : null]}
+            value={interval}
+            onChangeText={setInterval}
+            keyboardType="number-pad"
+            placeholder="1"
+            placeholderTextColor="#94818A"
+          />
+          {fieldError('interval') ? (
+            <Text style={styles.errorText}>{fieldError('interval')}</Text>
+          ) : null}
+        </>
+      )}
 
-      {/* Times of day (only for daily / every_n_days) */}
+      {/* Day-of-week selector — shown only for weekly freq */}
+      {freq === 'weekly' && (
+        <>
+          <Text style={styles.label}>{t('reminder.fieldByDay')}</Text>
+          <View style={styles.chipRow}>
+            {WEEKDAY_TOKENS.map((tok) => {
+              const selected = byDay.includes(tok);
+              return (
+                <TouchableOpacity
+                  key={tok}
+                  testID={`reminder-byday-${tok.toLowerCase()}`}
+                  style={[styles.chip, styles.byDayChip, selected && styles.chipSelected]}
+                  onPress={() => {
+                    setByDay((prev) => {
+                      const next = selected
+                        ? prev.filter((t) => t !== tok)
+                        : [...prev, tok];
+                      // Maintain canonical order (MO<TU<WE<TH<FR<SA<SU)
+                      return next.sort(
+                        (a, b) => (WEEKDAY_TOKEN_INDEX[a] ?? 0) - (WEEKDAY_TOKEN_INDEX[b] ?? 0),
+                      );
+                    });
+                  }}
+                  accessibilityRole="button"
+                  accessibilityState={{ selected }}
+                  accessibilityLabel={t(`reminder.byDay.${tok}` as MessageKey)}
+                >
+                  <Text style={[styles.chipText, selected && styles.chipTextSelected]}>
+                    {t(`reminder.byDay.${tok}` as MessageKey)}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+          {fieldError('byDay') ? (
+            <Text style={styles.errorText}>{t('reminder.errorByDayRequired')}</Text>
+          ) : null}
+        </>
+      )}
+
+      {/* Times of day (only for daily / every_n_days / weekly) */}
       {freq !== 'one_off' && (
         <>
           <Text style={styles.label}>{t('reminder.fieldTimesOfDay')}</Text>
@@ -696,6 +758,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#EBE1D9',
     backgroundColor: '#FFFFFF',
+  },
+  /** byDay chips are square-ish for uniform weekday labels (จ/อ/พ etc.) */
+  byDayChip: {
+    paddingHorizontal: 10,
+    minWidth: 38,
+    alignItems: 'center',
   },
   chipSelected: { backgroundColor: '#A8505A', borderColor: '#A8505A' },
   chipText: { fontSize: 13, color: '#5F4A52' },

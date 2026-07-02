@@ -447,7 +447,7 @@ export function CalendarScreen({
     );
   }
 
-  // Mark done / snooze for a reminder occurrence (FLAG-7/W-A)
+  // Mark done / snooze / edit for a reminder occurrence (FLAG-7/W-A + Feature B)
   const handleOccurrenceAction = useCallback(
     (
       id: string,
@@ -496,11 +496,20 @@ export function CalendarScreen({
                 },
               ]
             : []),
+          // Feature B (#13): "แก้ไข" option → opens ReminderFormScreen in edit mode.
+          // onEditReminder is declared + wired in RootNavigator; was never called
+          // from this Alert until now.
+          {
+            text: t('calendar.editReminder'),
+            onPress: () => {
+              onEditReminder?.(reminderId);
+            },
+          },
           { text: t('general.cancel'), style: 'cancel' },
         ],
       );
     },
-    [t, refreshFromStore, syncPush],
+    [t, refreshFromStore, syncPush, onEditReminder],
   );
 
   // ── Render ──────────────────────────────────────────────────────────────────

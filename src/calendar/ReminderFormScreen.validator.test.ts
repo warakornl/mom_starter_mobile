@@ -9,7 +9,7 @@
  *
  * TDD: these tests are written BEFORE the implementation to lock the contract.
  */
-import { validateRecurrenceRule } from './ReminderFormScreen';
+import { validateRecurrenceRule } from './reminderFormValidator';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 

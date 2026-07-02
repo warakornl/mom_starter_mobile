@@ -50,87 +50,22 @@ import type { Locale } from '../auth/types';
 import { toCivilDate, toCivilTime, parseCivilDate, parseCivilTime } from './dateTimePickerFormat';
 import { setPendingCalendarFocusDate } from './pendingCalendarFocusDate';
 
-// ─── FLAG-4 grammar validation (client mirror of server 422) ─────────────────
+// ─── FLAG-4 grammar validation — imported from pure-TS module (testable) ──────
+//
+// The validator + related types are defined in reminderFormValidator.ts (no React
+// imports) so they can be unit-tested without a React Native environment.
+// Re-exported here so existing callers that import from ReminderFormScreen.tsx
+// continue to work without change.
 
-export interface RuleValidationError {
-  field: 'freq' | 'interval' | 'timesOfDay' | 'until' | 'startAt';
-  message: string;
-}
+import {
+  validateRecurrenceRule,
+  WEEKDAY_TOKENS,
+  WEEKDAY_TOKEN_INDEX,
+  type RuleValidationError,
+} from './reminderFormValidator';
 
-/**
- * Validate a recurrenceRule + startAt against the FLAG-4 grammar.
- * Returns [] on success or an array of errors.
- * Must be a strict subset of the server's validation so a passing client form
- * is guaranteed not to produce a server-side 422 validation_error.
- */
-export function validateRecurrenceRule(
-  freq: string,
-  interval: string,
-  timesOfDay: string[],
-  until: string,
-  startAt: string,
-): RuleValidationError[] {
-  const errors: RuleValidationError[] = [];
-
-  // startAt: must be "YYYY-MM-DDTHH:mm"
-  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(startAt)) {
-    errors.push({ field: 'startAt', message: 'startAt must be YYYY-MM-DDTHH:mm' });
-  }
-
-  if (!['one_off', 'daily', 'every_n_days'].includes(freq)) {
-    errors.push({ field: 'freq', message: 'Unknown freq' });
-    return errors; // can't validate further
-  }
-
-  if (freq === 'one_off') {
-    // timesOfDay MUST be absent (forbidden for one_off)
-    if (timesOfDay.length > 0) {
-      errors.push({ field: 'timesOfDay', message: 'timesOfDay is forbidden for one_off' });
-    }
-    // interval MUST be absent
-    if (interval.trim() && interval.trim() !== '1') {
-      errors.push({ field: 'interval', message: 'interval must be absent for one_off' });
-    }
-  } else {
-    // daily / every_n_days: timesOfDay required and non-empty
-    if (timesOfDay.length === 0) {
-      errors.push({ field: 'timesOfDay', message: 'timesOfDay must be non-empty' });
-    } else {
-      // Validate each time: strict 24h "HH:mm" — rejects 25:00, 08:99 etc.
-      for (const t of timesOfDay) {
-        if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(t)) {
-          errors.push({ field: 'timesOfDay', message: `Invalid time format: ${t}` });
-        }
-      }
-      // Validate ascending (no duplicates)
-      for (let i = 1; i < timesOfDay.length; i++) {
-        if (timesOfDay[i] <= timesOfDay[i - 1]) {
-          errors.push({ field: 'timesOfDay', message: 'timesOfDay must be distinct and ascending' });
-          break;
-        }
-      }
-    }
-
-    if (freq === 'every_n_days') {
-      const n = Number(interval);
-      if (!interval.trim() || !Number.isInteger(n) || n < 1) {
-        errors.push({ field: 'interval', message: 'interval must be an integer ≥ 1 for every_n_days' });
-      }
-    } else if (freq === 'daily') {
-      // interval must be absent (or 1)
-      if (interval.trim() && interval.trim() !== '1') {
-        errors.push({ field: 'interval', message: 'interval must be absent for daily' });
-      }
-    }
-  }
-
-  // until: if provided, must be "YYYY-MM-DD"
-  if (until.trim() && !/^\d{4}-\d{2}-\d{2}$/.test(until.trim())) {
-    errors.push({ field: 'until', message: 'until must be YYYY-MM-DD' });
-  }
-
-  return errors;
-}
+export type { RuleValidationError } from './reminderFormValidator';
+export { validateRecurrenceRule, WEEKDAY_TOKENS, WEEKDAY_TOKEN_INDEX } from './reminderFormValidator';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -192,7 +127,7 @@ export function ReminderFormScreen({
   const [type, setType] = useState<ReminderType>(existingReminder?.type ?? 'custom');
   const [startDate, setStartDate] = useState(existingStartDate);
   const [startTime, setStartTime] = useState(existingStartTime);
-  const [freq, setFreq] = useState<'one_off' | 'daily' | 'every_n_days'>(
+  const [freq, setFreq] = useState<'one_off' | 'daily' | 'every_n_days' | 'weekly'>(
     existingRule?.freq ?? 'one_off',
   );
   const [interval, setInterval] = useState(
@@ -203,6 +138,11 @@ export function ReminderFormScreen({
   );
   const [until, setUntil] = useState(existingRule?.until ?? '');
   const [active, setActive] = useState(existingReminder?.active ?? true);
+  /**
+   * Selected weekday tokens for freq='weekly' (canonical MO<TU<WE<TH<FR<SA<SU order).
+   * Pre-populated from existing rule's byDay when editing.
+   */
+  const [byDay, setByDay] = useState<string[]>(existingRule?.byDay ?? []);
 
   const [errors, setErrors] = useState<RuleValidationError[]>([]);
   const [titleError, setTitleError] = useState('');
@@ -257,7 +197,7 @@ export function ReminderFormScreen({
     const startAt = buildStartAt(startDate, startTime);
     // For one_off, the timesOfDay to validate against should be empty
     const todValidate = freq === 'one_off' ? [] : timesOfDay;
-    const ruleErrors = validateRecurrenceRule(freq, interval, todValidate, until, startAt);
+    const ruleErrors = validateRecurrenceRule(freq, interval, todValidate, until, startAt, byDay);
     setErrors(ruleErrors);
     if (ruleErrors.length > 0) valid = false;
 
@@ -275,6 +215,16 @@ export function ReminderFormScreen({
     const recurrenceRule: RecurrenceRuleWire = { freq };
     if (freq === 'every_n_days') {
       recurrenceRule.interval = Number(interval);
+    }
+    if (freq === 'weekly') {
+      // interval optional for weekly (absent = 1); only include if user set it
+      if (interval.trim() && interval.trim() !== '1') {
+        recurrenceRule.interval = Number(interval.trim());
+      }
+      // byDay in canonical order (UI toggles maintain order; sort as safety net)
+      recurrenceRule.byDay = [...byDay].sort(
+        (a, b) => (WEEKDAY_TOKEN_INDEX[a] ?? 0) - (WEEKDAY_TOKEN_INDEX[b] ?? 0),
+      ) as RecurrenceRuleWire['byDay'];
     }
     if (freq !== 'one_off' && timesOfDay.length > 0) {
       // Sort ascending (canonical form)

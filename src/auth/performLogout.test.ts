@@ -87,4 +87,28 @@ describe('performLogout — clears tokens + all health stores, then navigates', 
     );
     expect(calls[calls.length - 1]).toBe('onComplete');
   });
+
+  it('calls resetConsentQueue when provided (N1 — durable queue cleared on logout)', async () => {
+    const { deps, calls } = makeDeps({
+      resetConsentQueue: async () => { calls.push('resetConsentQueue'); },
+    });
+    await performLogout(deps);
+    expect(calls).toContain('resetConsentQueue');
+    expect(calls[calls.length - 1]).toBe('onComplete');
+  });
+
+  it('still navigates when resetConsentQueue is omitted (backward-compat, optional dep)', async () => {
+    // No resetConsentQueue provided → must not break existing callers
+    const { deps, calls } = makeDeps(); // no resetConsentQueue
+    await performLogout(deps);
+    expect(calls[calls.length - 1]).toBe('onComplete');
+  });
+
+  it('still navigates even if resetConsentQueue rejects (best-effort)', async () => {
+    const { deps, calls } = makeDeps({
+      resetConsentQueue: async () => { throw new Error('secure-store full'); },
+    });
+    await performLogout(deps);
+    expect(calls[calls.length - 1]).toBe('onComplete');
+  });
 });

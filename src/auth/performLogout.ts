@@ -19,6 +19,12 @@ export interface LogoutDeps {
   resetCalendarStore: () => void;
   /** Reset the consent store (clears isGranted state so the next user starts fresh). */
   resetConsentStore?: () => void;
+  /**
+   * Clear the durable consent queue (in-memory + persisted).
+   * Prevents a prior-session queued consent entry from being POSTed under the
+   * next user's token on the next foreground drain (N1 — PDPA cross-user leak).
+   */
+  resetConsentQueue?: () => Promise<void>;
   /** Clear the in-progress kick-count draft from secure store (best-effort). */
   clearKickCountDraft: () => Promise<void>;
   /** Runs LAST — navigate to the unauthenticated entry (e.g. Welcome). */
@@ -44,5 +50,10 @@ export async function performLogout(deps: LogoutDeps): Promise<void> {
   await deps.clearKickCountDraft().catch(() => {
     // Draft clear is best-effort; never blocks logout.
   });
+  if (deps.resetConsentQueue) {
+    await deps.resetConsentQueue().catch(() => {
+      // Queue clear is best-effort; never blocks logout.
+    });
+  }
   deps.onComplete();
 }

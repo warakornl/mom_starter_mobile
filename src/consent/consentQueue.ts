@@ -151,6 +151,24 @@ export function createConsentQueue(storage: ConsentQueueStorage) {
     },
 
     /**
+     * Remove any pending entry matching (consentType, granted).
+     *
+     * Call on inline retry SUCCESS so the "รอซิงค์" badge clears and
+     * `drainConsentQueue` does not re-POST a duplicate row (F1 fix).
+     *
+     * Guard: only removes entries where BOTH consentType AND granted match —
+     * a still-pending DIFFERENT action (e.g. a pending withdrawal for the
+     * same type, or a pending grant for a different type) is never touched.
+     *
+     * Call `persist()` afterwards to commit the removal to durable storage.
+     */
+    removePending(consentType: ConsentType, granted: boolean): void {
+      entries = entries.filter(
+        (e) => !(e.consentType === consentType && e.granted === granted),
+      );
+    },
+
+    /**
      * Clear all in-memory entries (does NOT persist automatically).
      * Call `persist()` afterwards to commit the empty state to durable storage.
      *

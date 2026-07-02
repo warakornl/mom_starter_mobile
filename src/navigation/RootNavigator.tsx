@@ -396,6 +396,7 @@ export function RootNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps):
             onLogout={() =>
               navigation.reset({ index: 0, routes: [{ name: 'Welcome' }] })
             }
+            onManageConsent={() => navigation.navigate('Consent')}
           />
         )}
       </Stack.Screen>

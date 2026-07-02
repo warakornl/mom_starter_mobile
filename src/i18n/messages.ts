@@ -213,6 +213,7 @@ const th = {
   'home.settingsA11y': 'ตั้งค่า',
   'settings.title': 'ตั้งค่า',
   'settings.account': 'บัญชีผู้ใช้',
+  'settings.privacy': 'ความเป็นส่วนตัวและการยินยอม',
 
   // ── Profile Setup ─────────────────────────────────────────────────────────────
   'profile.navTitle': 'ตั้งกำหนดคลอด',
@@ -711,6 +712,7 @@ const en: MsgShape = {
   'home.settingsA11y': 'Settings',
   'settings.title': 'Settings',
   'settings.account': 'Account',
+  'settings.privacy': 'Privacy & Permissions',
 
   // ── Profile Setup ─────────────────────────────────────────────────────────────
   'profile.navTitle': 'Set due date',

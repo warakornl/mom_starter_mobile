@@ -5,7 +5,11 @@
  * ออกจากระบบ → confirm) and cannot be triggered by accident. It reuses the shared
  * performLogout runner so the same PDPA health-store clearing (1.1 appsec) applies.
  *
- * Future home for: language, account management, consent, widget picker.
+ * PDPA entry point: "Manage Permissions" button navigates to ConsentScreen so
+ * returning users can review/change their consent choices at any time (ม.19).
+ *
+ * Future home for: language, account management, widget picker.
+ * Deferred: full S8 Manage-Consents screen (list all consents with toggle rows).
  */
 
 import React from 'react';
@@ -24,15 +28,22 @@ import { supplySyncStore } from '../sync/supplySyncStore';
 import { kickCountSyncStore } from '../kickCount/kickCountSyncStore';
 import { calendarSyncStore } from '../sync/calendarSyncStore';
 import { clearDraft } from '../kickCount/kickCountDraftStore';
+import { consentStore } from '../consent/consentStore';
 
 interface SettingsScreenProps {
   /** Shared secure token storage — cleared on logout. */
   tokenStorage: TokenStorage;
   /** Runs after logout completes — navigate to the unauthenticated entry (Welcome). */
   onLogout: () => void;
+  /**
+   * Navigate to ConsentScreen so the user can review/update their PDPA consents.
+   * PDPA ม.19: withdrawal must be as easy as granting; this fulfils the route.
+   * Optional — no-op if not provided (so existing tests do not break).
+   */
+  onManageConsent?: () => void;
 }
 
-export function SettingsScreen({ tokenStorage, onLogout }: SettingsScreenProps): React.JSX.Element {
+export function SettingsScreen({ tokenStorage, onLogout, onManageConsent }: SettingsScreenProps): React.JSX.Element {
   const { t } = useT();
 
   async function handleLogout(): Promise<void> {
@@ -41,6 +52,7 @@ export function SettingsScreen({ tokenStorage, onLogout }: SettingsScreenProps):
       resetSupplyStore: () => supplySyncStore.reset(),
       resetKickCountStore: () => kickCountSyncStore.reset(),
       resetCalendarStore: () => calendarSyncStore.reset(),
+      resetConsentStore: () => consentStore.reset(),
       clearKickCountDraft: () => clearDraft(),
       onComplete: onLogout,
     });
@@ -64,6 +76,23 @@ export function SettingsScreen({ tokenStorage, onLogout }: SettingsScreenProps):
   return (
     <SafeAreaView style={styles.container} edges={['bottom']} testID="settings-screen">
       <ScrollView contentContainerStyle={styles.scrollContent}>
+        {/* ── Privacy & Consent (PDPA ม.19 — withdrawal as easy as granting) ── */}
+        {onManageConsent && (
+          <>
+            <Text style={styles.sectionLabel}>{t('settings.privacy')}</Text>
+            <TouchableOpacity
+              testID="settings-manage-consent-btn"
+              style={styles.menuRow}
+              onPress={onManageConsent}
+              accessibilityRole="button"
+              accessibilityLabel={t('consent.settings.manage_btn')}
+            >
+              <Text style={styles.menuRowText}>{t('consent.settings.manage_btn')}</Text>
+              <Text style={styles.menuRowChevron}>›</Text>
+            </TouchableOpacity>
+          </>
+        )}
+
         <Text style={styles.sectionLabel}>{t('settings.account')}</Text>
 
         {/* Logout — de-emphasized, red, at the bottom of the account section. */}
@@ -108,5 +137,26 @@ const styles = StyleSheet.create({
     color: '#9B1C35', // rose/700 — destructive
     fontSize: 16,
     fontWeight: '500',
+  },
+
+  // Consent "Manage Permissions" row
+  menuRow: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    minHeight: 52,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  menuRowText: {
+    fontSize: 16,
+    color: '#3A2A30', // ink
+  },
+  menuRowChevron: {
+    fontSize: 18,
+    color: '#94818A', // ink/faint
   },
 });

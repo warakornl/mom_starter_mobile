@@ -17,6 +17,8 @@ export interface LogoutDeps {
   resetKickCountStore: () => void;
   /** Reset the calendar (appointments/reminders) sync store. */
   resetCalendarStore: () => void;
+  /** Reset the consent store (clears isGranted state so the next user starts fresh). */
+  resetConsentStore?: () => void;
   /** Clear the in-progress kick-count draft from secure store (best-effort). */
   clearKickCountDraft: () => Promise<void>;
   /** Runs LAST — navigate to the unauthenticated entry (e.g. Welcome). */
@@ -32,7 +34,7 @@ export async function performLogout(deps: LogoutDeps): Promise<void> {
   // Health-store isolation (order irrelevant — independent singletons). Each is
   // guarded so a synchronous throw in one still attempts the others and never
   // strands the user before onComplete.
-  for (const reset of [deps.resetSupplyStore, deps.resetKickCountStore, deps.resetCalendarStore]) {
+  for (const reset of [deps.resetSupplyStore, deps.resetKickCountStore, deps.resetCalendarStore, ...(deps.resetConsentStore ? [deps.resetConsentStore] : [])]) {
     try {
       reset();
     } catch {

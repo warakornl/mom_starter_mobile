@@ -5,7 +5,8 @@
  *   Welcome → Login | Register
  *   Login → Home (on success) | Register (create account link)
  *   Register → VerifyEmail (on 202) | Login (sign-in link)
- *   VerifyEmail → Home (on verify success) | Register (change email)
+ *   VerifyEmail → Consent (on verify success) | Register (change email)
+ *   Consent → Home (on continue — limited mode or full mode)
  *   Home — checks for PregnancyProfile on mount:
  *     → ProfileSetup (if GET /v1/pregnancy-profile returns 404)
  *     → stays on Home (if profile exists — pregnant or postpartum)
@@ -36,7 +37,7 @@
  * Carry-forward:
  * - ForgotPassword screen (onForgotPassword is currently a no-op)
  * - Expo Linking deep-link for momstarter://verify?token= → VerifyEmailScreen
- * - Consent screen between VerifyEmail and ProfileSetup
+ * - Consent screen for settings entry (re-visit) is registered but full S8 is deferred
  */
 
 import React, { useState } from 'react';
@@ -65,6 +66,7 @@ import { KickCountSummaryScreen } from '../kickCount/KickCountSummaryScreen';
 import { KickCountHistoryScreen } from '../kickCount/KickCountHistoryScreen';
 import { KickCountDetailScreen } from '../kickCount/KickCountDetailScreen';
 import { calendarSyncStore } from '../sync/calendarSyncStore';
+import { ConsentScreen } from '../screens/ConsentScreen';
 import { useT } from '../i18n/LanguageContext';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -158,10 +160,32 @@ export function RootNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps):
             pendingToken={route.params.pendingToken}
             tokenStorage={tokenStorage}
             onVerified={() =>
-              navigation.reset({ index: 0, routes: [{ name: 'Home' }] })
+              // S3: first-run consent before Home (PDPA prod-gate)
+              navigation.reset({ index: 0, routes: [{ name: 'Consent' }] })
             }
             onChangeEmail={() =>
               navigation.reset({ index: 0, routes: [{ name: 'Register' }] })
+            }
+          />
+        )}
+      </Stack.Screen>
+
+      {/* Consent — S3 first-run PDPA consent (general_health + cloud_storage).
+       * Entry: VerifyEmail onVerified (new registrations).
+       * Entry: Settings > Manage Permissions (returning users).
+       * onContinue resets to Home regardless of what the user chose;
+       *   generalHealthGranted=false → limited mode (gate logic in HomeScreen).
+       */}
+      <Stack.Screen
+        name="Consent"
+        options={{ headerShown: false }}
+      >
+        {({ navigation }) => (
+          <ConsentScreen
+            tokenStorage={tokenStorage}
+            apiBaseUrl={apiBaseUrl}
+            onContinue={() =>
+              navigation.reset({ index: 0, routes: [{ name: 'Home' }] })
             }
           />
         )}
@@ -392,14 +416,12 @@ export function RootNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps):
         name="KickCountHome"
         options={{ title: t('kick.navTitle'), headerBackTitle: t('general.back') }}
       >
-        {() => (
+        {({ navigation }) => (
           <KickCountHomeScreen
             gestationalWeek={kickProps.gestationalWeek}
             lifecycle={kickProps.lifecycle}
             generalHealthConsented={kickProps.generalHealthConsented}
-            onRequestConsent={() => {
-              // TODO: navigate to ConsentScreen once built (carry-forward)
-            }}
+            onRequestConsent={() => navigation.navigate('Consent')}
             tokenStorage={tokenStorage}
             apiBaseUrl={apiBaseUrl}
           />
@@ -434,14 +456,12 @@ export function RootNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps):
         name="KickCountHistory"
         options={{ title: t('kick.historyNavTitle'), headerBackTitle: t('general.back') }}
       >
-        {() => (
+        {({ navigation }) => (
           <KickCountHistoryScreen
             gestationalWeek={kickProps.gestationalWeek}
             lifecycle={kickProps.lifecycle}
             generalHealthConsented={kickProps.generalHealthConsented}
-            onRequestConsent={() => {
-              // TODO: navigate to ConsentScreen once built (carry-forward)
-            }}
+            onRequestConsent={() => navigation.navigate('Consent')}
           />
         )}
       </Stack.Screen>

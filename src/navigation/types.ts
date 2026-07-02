@@ -59,6 +59,13 @@ export type RootStackParamList = {
    */
   Settings: undefined;
 
+  /**
+   * Consent — S3 first-run PDPA consent screen.
+   * Entry: after VerifyEmail (new registrations) and from Settings > Manage Permissions.
+   * No params — uses tokenStorage from context / props.
+   */
+  Consent: undefined;
+
   // ── Kick Count ──────────────────────────────────────────────────────────────
   /**
    * KickCountHome — SC-K0: module entry (wk≥32+pregnant only).

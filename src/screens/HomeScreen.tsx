@@ -69,6 +69,8 @@ import type { ProfileSnapshot } from '../pregnancy/PregnancyProfileContext';
 import { useT } from '../i18n/LanguageContext';
 import { formatCivilDate } from '../i18n/messages';
 import { shouldShowModule } from '../kickCount/kickCountLogic';
+import { consentStore } from '../consent/consentStore';
+import { createConsentApiClient } from '../consent/consentApiClient';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -594,6 +596,20 @@ export function HomeScreen({
       return;
     }
 
+    // Hydrate consent state for returning users (§4.5 first-run-consent.md).
+    // Non-blocking: if this fails, consentStore stays at whatever state it had
+    // (fail-closed: isGranted returns false).
+    // SECURITY: accessToken is NEVER logged.
+    try {
+      const consentClient = createConsentApiClient(apiBaseUrl);
+      const consentsResult = await consentClient.getConsents(accessToken);
+      if (consentsResult.ok) {
+        consentStore.hydrate(consentsResult.page.items);
+      }
+    } catch {
+      // network error — proceed with current (possibly empty) consent state
+    }
+
     const client = createPregnancyClient(apiBaseUrl);
     const result = await client.getProfile(accessToken, localCivilToday());
 
@@ -611,7 +627,7 @@ export function HomeScreen({
           edd: profile.edd,
           todayCivil: localCivilToday(),
           lifecycle: 'postpartum',
-          generalHealthConsented: true, // TODO: wire consent store (carry-forward)
+          generalHealthConsented: consentStore.isGranted('general_health'),
         });
       } else {
         loadedEdd.current = profile.edd;
@@ -624,7 +640,7 @@ export function HomeScreen({
           edd: profile.edd,
           todayCivil: localCivilToday(),
           lifecycle: 'pregnant',
-          generalHealthConsented: true, // TODO: wire consent store (carry-forward)
+          generalHealthConsented: consentStore.isGranted('general_health'),
         });
       }
     } else if (result.status === 404) {
@@ -710,6 +726,10 @@ export function HomeScreen({
     );
   }
 
+  // ─── Consent limited-mode derived value ──────────────────────────────────
+  // Fail-closed: isGranted returns false when no record (no health data saved).
+  const generalHealthGranted = consentStore.isGranted('general_health');
+
   // ─── Postpartum mode ──────────────────────────────────────────────────────
 
   if (state.kind === 'postpartum') {
@@ -736,6 +756,22 @@ export function HomeScreen({
           contentContainerStyle={styles.scrollContent}
         >
           <PostpartumBanner profile={profile} pp={pp} />
+          {/* Limited-mode nudge banner (§4.3 first-run-consent.md) — only shown when
+              general_health is not granted. Tapping navigates to Consent screen via
+              Settings (deferred — no onConsent prop yet). */}
+          {!generalHealthGranted && (
+            <TouchableOpacity
+              testID="consent-home-health-logging-nudge-banner"
+              style={styles.consentNudgeBanner}
+              onPress={onSettings}
+              accessibilityRole="button"
+              accessibilityLabel={t('consent.home.health_nudge_banner')}
+            >
+              <Text style={styles.consentNudgeBannerText}>
+                {t('consent.home.health_nudge_banner')}
+              </Text>
+            </TouchableOpacity>
+          )}
           <PostpartumDayCard pp={pp} />
           <View style={styles.placeholderCard}>
             <Text style={styles.placeholderText}>
@@ -811,6 +847,20 @@ export function HomeScreen({
           ga={ga}
           onBirthEvent={() => onBirthEvent(profile.version)}
         />
+        {/* Limited-mode nudge banner (§4.3 first-run-consent.md) */}
+        {!generalHealthGranted && (
+          <TouchableOpacity
+            testID="consent-home-health-logging-nudge-banner"
+            style={styles.consentNudgeBanner}
+            onPress={onSettings}
+            accessibilityRole="button"
+            accessibilityLabel={t('consent.home.health_nudge_banner')}
+          >
+            <Text style={styles.consentNudgeBannerText}>
+              {t('consent.home.health_nudge_banner')}
+            </Text>
+          </TouchableOpacity>
+        )}
 
         <View style={styles.section}>
           <Text style={styles.sectionLabel}>{t('home.pregnancyProgress')}</Text>
@@ -1038,5 +1088,23 @@ const styles = StyleSheet.create({
   settingsIcon: {
     fontSize: 22,
     color: '#5F4A52',
+  },
+
+  // ── Consent limited-mode nudge banner (§4.3 first-run-consent.md) ───────────
+  // Shown at the top of the home scroll when general_health is not granted.
+  // Uses rose/600 (#A8505A) to match the consent screen's primary colour.
+  consentNudgeBanner: {
+    marginHorizontal: 0,
+    marginBottom: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    backgroundColor: '#A8505A', // rose/600
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  consentNudgeBannerText: {
+    fontFamily: 'IBMPlexSans-SemiBold',
+    fontSize: 14,
+    color: '#FFFFFF',
   },
 });

@@ -576,8 +576,90 @@ const th = {
   'consent.limited_mode.health_gate_inline': 'ต้องให้ความยินยอมบันทึกสุขภาพก่อน · เปิดสิทธิ์ ›',
   'consent.limited_mode.health_gate_feeding_context': 'ต้องเปิดสิทธิ์บันทึกสุขภาพก่อนเพื่อบันทึกการให้นม',
 
-  // Settings entry point (minimal — full S8 is deferred)
+  // Settings entry point
   'consent.settings.manage_btn': 'จัดการความยินยอม',
+
+  // ── pdf_egress JIT sheet (§3.2a + consent-copy.md §4) ──────────────────────
+  'consent.pdf_egress.title': 'สร้าง PDF สรุปให้คุณหมอ',
+  'consent.pdf_egress.body_copy': 'ข้อมูลสุขภาพของคุณจะถูกรวบรวมเป็นไฟล์ PDF เพื่อให้คุณนำไปให้คุณหมอดูได้สะดวก ไฟล์นี้ถูกสร้างขึ้นเพื่อคุณเท่านั้น เราไม่ส่งไปที่อื่น',
+  'consent.pdf_egress.grant_btn': 'ยินยอม',
+  'consent.pdf_egress.blocked_inline': 'ต้องให้ความยินยอมก่อนสร้าง PDF · ไปที่ จัดการความยินยอม ›',
+
+  // ── sensitive_lab_results JIT sheet (§3.2b + consent-copy.md §5) ─────────
+  'consent.sensitive_lab.title': 'รวมบันทึกผลตรวจในรายงาน',
+  'consent.sensitive_lab.body_copy': 'ในรายการตรวจต่าง ๆ คุณอาจพิมพ์บันทึกอิสระไว้ ซึ่งบางครั้งอาจมีผลตรวจที่อ่อนไหวมาก เช่น ผลเลือดหรือผลคัดกรอง หากคุณยินยอม เราจะรวมบันทึกเหล่านี้ไว้ในไฟล์ PDF เพื่อให้คุณหมอเห็นครบ ระบบไม่เคยอ่านหรือแยกแยะเนื้อหาในบันทึกของคุณ',
+  'consent.sensitive_lab.hide_note': 'ถ้าปิด บันทึกจะถูกซ่อน ยังสร้าง PDF ได้',
+  'consent.sensitive_lab.grant_btn': 'ยินยอมและรวมบันทึก',
+  'consent.sensitive_lab.hide_btn': 'ซ่อนบันทึก',
+
+  // ── infant_feeding JIT sheet (§3.2c + consent-copy.md §6.1) ──────────────
+  'consent.infant_feeding.title': 'บันทึกการให้นมลูก',
+  'consent.infant_feeding.body_copy': 'ข้อมูลนี้เป็นข้อมูลของลูกคุณ คุณกำลังให้ความยินยอมในฐานะผู้ใช้อำนาจปกครอง เราจะเก็บ เวลา ปริมาณ ข้างที่ให้นม และบันทึกอิสระที่คุณพิมพ์ เพื่อช่วยคุณบันทึกการให้นมและรวมไว้ในรายงาน PDF ให้คุณหมอ',
+  'consent.infant_feeding.parental_note': 'ข้อมูลของลูก · คุณยินยอมในฐานะผู้ปกครอง',
+  'consent.infant_feeding.grant_btn': 'ยินยอม (ในฐานะผู้ปกครอง)',
+  'consent.infant_feeding.parental_attest_label': 'ฉันเป็นผู้ปกครอง/ผู้ใช้อำนาจปกครองของเด็กคนนี้',
+
+  // ── child_health JIT sheet (§3.2d + consent-copy.md §6.2) ────────────────
+  'consent.child_health.title': 'สุขภาพและอาการของลูก',
+  'consent.child_health.body_copy': 'ข้อมูลนี้เป็นข้อมูลสุขภาพของลูกคุณ ซึ่งกฎหมายคุ้มครองเป็นพิเศษ คุณกำลังให้ความยินยอมในฐานะผู้ใช้อำนาจปกครอง เราจะเก็บ อาการของลูกและบันทึกสุขภาพที่คุณจดไว้ เพื่อบันทึกในเครื่อง ซิงค์ และรวมในรายงาน PDF ให้คุณหมอ',
+  'consent.child_health.parental_note': 'ข้อมูลของลูก · คุณยินยอมในฐานะผู้ปกครอง',
+  'consent.child_health.browse_note': 'การดูคำแนะนำอาการโดยไม่บันทึกไม่ต้องการความยินยอมนี้',
+  'consent.child_health.grant_btn': 'ยินยอม (ในฐานะผู้ปกครอง)',
+  'consent.child_health.parental_attest_label': 'ฉันเป็นผู้ปกครอง/ผู้ใช้อำนาจปกครองของเด็กคนนี้',
+
+  // ── Shared JIT sheet UI (§3.2e) ─────────────────────────────────────────
+  'consent.jit.decline_btn': 'ไม่ใช่ตอนนี้',
+  'consent.jit.change_later_note': 'เปลี่ยนใจได้ที่ บัญชี › จัดการความยินยอม',
+  'consent.jit.saving': 'กำลังบันทึก',
+  'consent.jit.save_failed': 'บันทึกไม่สำเร็จ ลองอีกครั้ง',
+  'consent.jit.retry_btn': 'ลองใหม่',
+
+  // ── S8 Manage-Consents screen (§3.3 + consent-copy.md §7) ────────────────
+  'consent.manage.title': 'จัดการความยินยอม',
+  'consent.manage.subtitle': 'เปิดหรือปิดได้ทุกเมื่อ การปิดไม่ใช่การลบข้อมูล',
+  'consent.manage.section.core': 'ฟีเจอร์หลัก',
+  'consent.manage.section.sync': 'การซิงค์และรายงาน',
+  'consent.manage.section.baby': 'ข้อมูลของลูก',
+
+  // S8 row short captions (§3.3.1 wireframe)
+  'consent.manage.row.general_health.caption': 'วันคลอด · ยา · น้ำหนัก · อาการ',
+  'consent.manage.row.cloud_storage.caption': 'บันทึกเห็นเหมือนกันทุกเครื่อง',
+  'consent.manage.row.pdf_egress.caption': 'สรุปให้คุณหมอ',
+  'consent.manage.row.sensitive_lab.caption': 'บันทึกอิสระในรายการตรวจทุกหมวด',
+
+  // S8 withdrawal confirmation sheets (§3.3.2 + consent-copy.md §7)
+  'consent.manage.withdraw_confirm.general_health.title': 'ปิดการบันทึกสุขภาพ',
+  'consent.manage.withdraw_confirm.general_health.body': 'ข้อมูลสุขภาพที่คุณบันทึกไว้แล้วยังคงอยู่ในเครื่องนี้อย่างปลอดภัย — การปิดสิทธิ์ไม่ใช่การลบข้อมูล สิ่งที่เปลี่ยนคือ คุณจะยังบันทึกข้อมูลสุขภาพใหม่ไม่ได้จนกว่าจะเปิดสิทธิ์นี้อีกครั้ง',
+  'consent.manage.withdraw_confirm.cloud_storage.title': 'ปิดการซิงค์',
+  'consent.manage.withdraw_confirm.cloud_storage.body': 'ข้อมูลทั้งหมดของคุณยังอยู่ในเครื่องนี้อย่างปลอดภัย เราจะหยุดซิงค์ข้อมูลใหม่ทันที ส่วนข้อมูลที่เคยเก็บบนคลาวด์จะถูกลบตามนโยบายการเก็บรักษาข้อมูล (ไม่ใช่ลบทันที)',
+  'consent.manage.withdraw_confirm.infant_feeding.title': 'ปิดการบันทึกการให้นม',
+  'consent.manage.withdraw_confirm.infant_feeding.body': 'บันทึกการให้นมของลูกที่เก็บไว้แล้วยังอยู่ปลอดภัย การปิดสิทธิ์ไม่ใช่การลบข้อมูล คุณจะยังบันทึกและซิงค์การให้นมใหม่ไม่ได้จนกว่าจะเปิดอีกครั้ง',
+  'consent.manage.withdraw_confirm.child_health.title': 'ปิดการบันทึกสุขภาพของลูก',
+  'consent.manage.withdraw_confirm.child_health.body': 'บันทึกสุขภาพและอาการของลูกที่เก็บไว้แล้วยังอยู่ปลอดภัย การปิดสิทธิ์ไม่ใช่การลบข้อมูล คุณจะยังบันทึกและซิงค์ข้อมูลสุขภาพของลูกใหม่ไม่ได้จนกว่าจะเปิดอีกครั้ง',
+  'consent.manage.withdraw_confirm.do_it_btn': 'ปิดสิทธิ์นี้',
+  'consent.manage.withdraw_confirm.cancel_btn': 'ยกเลิก',
+
+  // S8 loading / error states (§3.3.0)
+  'consent.manage.load_error': 'โหลดไม่สำเร็จ ลองอีกครั้ง',
+  'consent.manage.load_retry_btn': 'ลองอีกครั้ง',
+  'consent.manage.pending_sync_badge': 'รอซิงค์',
+
+  // S8 footer
+  'consent.manage.policy_link': 'นโยบายความเป็นส่วนตัว',
+  'consent.manage.history_link': 'ประวัติความยินยอม',
+
+  // Toast feedback (§5 — consent-success-toast-grant / consent-success-toast-withdraw)
+  'consent.success.toast_grant': 'ให้ความยินยอมแล้ว',
+  'consent.success.toast_off': 'สิทธิ์ปิดแล้ว',
+  'consent.success.toast_on': 'ซิงค์เปิดอยู่',
+
+  // Home banner: policy version update (§4.6)
+  'consent.home.version_update_banner': 'นโยบายความเป็นส่วนตัวมีการอัปเดต · ดูสิ่งที่เปลี่ยนแปลง ›',
+
+  // Consent history (§6)
+  'consent.history.title': 'ประวัติความยินยอม',
+  'consent.history.item.granted': 'ให้ความยินยอม',
+  'consent.history.item.withdrawn': 'ถอนความยินยอม',
 };
 
 // ─── English catalog (must match th shape exactly) ────────────────────────────
@@ -1039,8 +1121,90 @@ const en: MsgShape = {
   'consent.limited_mode.health_gate_inline': 'Health logging needs your ok first · Enable ›',
   'consent.limited_mode.health_gate_feeding_context': 'Enable health logging first to log feeding sessions',
 
-  // Settings entry point (minimal — full S8 is deferred)
+  // Settings entry point
   'consent.settings.manage_btn': 'Manage Permissions',
+
+  // ── pdf_egress JIT sheet ──────────────────────────────────────────────────
+  'consent.pdf_egress.title': 'Create a PDF summary for your doctor',
+  'consent.pdf_egress.body_copy': 'Your health records will be compiled into a PDF so you can easily share them with your doctor. This file is created only for you — we don\'t send it anywhere else.',
+  'consent.pdf_egress.grant_btn': 'Grant access',
+  'consent.pdf_egress.blocked_inline': 'PDF creation needs your permission · Go to Manage Permissions ›',
+
+  // ── sensitive_lab_results JIT sheet ──────────────────────────────────────
+  'consent.sensitive_lab.title': 'Include your test notes in the report',
+  'consent.sensitive_lab.body_copy': 'In your checklist items you may have typed free-text notes, which can sometimes contain very sensitive results such as blood tests or screenings. If you agree, we\'ll include these notes in the PDF so your doctor sees the full picture.',
+  'consent.sensitive_lab.hide_note': 'If off, notes are hidden; PDF still works',
+  'consent.sensitive_lab.grant_btn': 'Grant & include notes',
+  'consent.sensitive_lab.hide_btn': 'Hide notes',
+
+  // ── infant_feeding JIT sheet ──────────────────────────────────────────────
+  'consent.infant_feeding.title': 'Log your baby\'s feeding sessions',
+  'consent.infant_feeding.body_copy': 'This is your baby\'s data, and you are giving consent as the parent or legal guardian. We store feeding times, amounts, which side, and any notes you type — to help you log feeds and include them in a PDF for your doctor.',
+  'consent.infant_feeding.parental_note': 'Baby\'s data — you consent as parent',
+  'consent.infant_feeding.grant_btn': 'Grant (as parent)',
+  'consent.infant_feeding.parental_attest_label': 'I am the parent / legal guardian of this child',
+
+  // ── child_health JIT sheet ────────────────────────────────────────────────
+  'consent.child_health.title': 'Log your baby\'s health and symptoms',
+  'consent.child_health.body_copy': 'This is your baby\'s health data, which the law protects specially. You are giving consent as the parent or legal guardian. We store your baby\'s symptoms and the health notes you record — to log them on your device, sync, and include them in a PDF for your doctor.',
+  'consent.child_health.parental_note': 'Baby\'s data — you consent as parent',
+  'consent.child_health.browse_note': 'Browsing symptom guidance without saving does not require this consent',
+  'consent.child_health.grant_btn': 'Grant (as parent)',
+  'consent.child_health.parental_attest_label': 'I am the parent / legal guardian of this child',
+
+  // ── Shared JIT sheet UI ────────────────────────────────────────────────────
+  'consent.jit.decline_btn': 'Not now',
+  'consent.jit.change_later_note': 'Change this anytime in Account › Manage Permissions',
+  'consent.jit.saving': 'Saving...',
+  'consent.jit.save_failed': 'Couldn\'t save — retry',
+  'consent.jit.retry_btn': 'Retry',
+
+  // ── S8 Manage-Consents screen ─────────────────────────────────────────────
+  'consent.manage.title': 'Manage Permissions',
+  'consent.manage.subtitle': 'Turn any on or off. Turning off ≠ deleting data.',
+  'consent.manage.section.core': 'Core',
+  'consent.manage.section.sync': 'Sync & reports',
+  'consent.manage.section.baby': 'Baby data',
+
+  // S8 row short captions
+  'consent.manage.row.general_health.caption': 'Due date · medications · weight · symptoms',
+  'consent.manage.row.cloud_storage.caption': 'Same records across all your devices',
+  'consent.manage.row.pdf_egress.caption': 'Summaries for your doctor',
+  'consent.manage.row.sensitive_lab.caption': 'Free-text notes in all checklist items',
+
+  // S8 withdrawal confirmation sheets
+  'consent.manage.withdraw_confirm.general_health.title': 'Turn off health logging',
+  'consent.manage.withdraw_confirm.general_health.body': 'The health records you\'ve already saved stay safe on this device — turning this off is not deleting your data. What changes is that you won\'t be able to save new health data until you turn this permission back on.',
+  'consent.manage.withdraw_confirm.cloud_storage.title': 'Turn sync off',
+  'consent.manage.withdraw_confirm.cloud_storage.body': 'All your records stay safe on this device. We\'ll stop syncing new data right away. Data previously stored in the cloud will be removed according to our data retention policy (not immediately).',
+  'consent.manage.withdraw_confirm.infant_feeding.title': 'Turn off feeding log',
+  'consent.manage.withdraw_confirm.infant_feeding.body': 'Your baby\'s saved feeding logs stay safe. Turning this off is not deleting data. You won\'t be able to log or sync new feeds until you turn it back on.',
+  'consent.manage.withdraw_confirm.child_health.title': 'Turn off baby health log',
+  'consent.manage.withdraw_confirm.child_health.body': 'Your baby\'s saved health and symptom logs stay safe. Turning this off is not deleting data. You won\'t be able to log or sync new baby health data until you turn it back on.',
+  'consent.manage.withdraw_confirm.do_it_btn': 'Turn off this permission',
+  'consent.manage.withdraw_confirm.cancel_btn': 'Cancel',
+
+  // S8 loading / error states
+  'consent.manage.load_error': 'Could not load your permissions',
+  'consent.manage.load_retry_btn': 'Retry',
+  'consent.manage.pending_sync_badge': 'Pending sync',
+
+  // S8 footer
+  'consent.manage.policy_link': 'Privacy Policy',
+  'consent.manage.history_link': 'Consent history',
+
+  // Toast feedback
+  'consent.success.toast_grant': 'Permission granted',
+  'consent.success.toast_off': 'Permission turned off',
+  'consent.success.toast_on': 'Sync is on',
+
+  // Home banner: policy version update
+  'consent.home.version_update_banner': 'Privacy policy updated · See what changed ›',
+
+  // Consent history
+  'consent.history.title': 'Consent History',
+  'consent.history.item.granted': 'Granted',
+  'consent.history.item.withdrawn': 'Withdrawn',
 };
 
 // ─── Exports ──────────────────────────────────────────────────────────────────

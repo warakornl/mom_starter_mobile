@@ -209,8 +209,8 @@ function SupplyFormModal({
           <TextInput
             style={formStyles.input}
             value={form.onHandQty}
-            onChangeText={(v) => onChange({ onHandQty: v })}
-            keyboardType="numeric"
+            onChangeText={(v) => onChange({ onHandQty: v.replace(/[^0-9]/g, '') })}
+            keyboardType="number-pad"
             returnKeyType="next"
           />
 
@@ -219,8 +219,8 @@ function SupplyFormModal({
           <TextInput
             style={formStyles.input}
             value={form.lowThreshold}
-            onChangeText={(v) => onChange({ lowThreshold: v })}
-            keyboardType="numeric"
+            onChangeText={(v) => onChange({ lowThreshold: v.replace(/[^0-9]/g, '') })}
+            keyboardType="number-pad"
             returnKeyType="done"
             onSubmitEditing={onSave}
           />

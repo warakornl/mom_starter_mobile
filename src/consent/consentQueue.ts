@@ -150,6 +150,18 @@ export function createConsentQueue(storage: ConsentQueueStorage) {
       return entries.some(e => e.consentType === consentType && e.granted === granted);
     },
 
+    /**
+     * Clear all in-memory entries (does NOT persist automatically).
+     * Call `persist()` afterwards to commit the empty state to durable storage.
+     *
+     * Used by `resetConsentQueue` during logout so a subsequent user's foreground
+     * drain finds an empty queue and cannot POST a previous user's consent entries
+     * under the new user's token (N1 — cross-user consent contamination).
+     */
+    clear(): void {
+      entries = [];
+    },
+
     /** Persist the current queue to storage. Call after every mutation. */
     async persist(): Promise<void> {
       await storage.save(JSON.stringify(entries));

@@ -262,3 +262,31 @@ describe('consentQueue persist/restore', () => {
     expect(queue.getEntries()).toHaveLength(0);
   });
 });
+
+// ─── clear (N1: cross-user isolation) ────────────────────────────────────────
+
+describe('consentQueue.clear', () => {
+  it('empties the in-memory queue when entries are present', () => {
+    const queue = createConsentQueue(new InMemoryQueueStorage());
+    queue.enqueue('general_health', true, 'v1.0-th');
+    queue.enqueue('cloud_storage', true, 'v1.0-th');
+    expect(queue.getEntries()).toHaveLength(2);
+
+    queue.clear();
+
+    expect(queue.getEntries()).toHaveLength(0);
+  });
+
+  it('clear on an already-empty queue is a no-op (no throw)', () => {
+    const queue = createConsentQueue(new InMemoryQueueStorage());
+    expect(() => queue.clear()).not.toThrow();
+    expect(queue.getEntries()).toHaveLength(0);
+  });
+
+  it('hasPendingEntry returns false for all types after clear', () => {
+    const queue = createConsentQueue(new InMemoryQueueStorage());
+    queue.enqueue('general_health', true, 'v1.0-th');
+    queue.clear();
+    expect(queue.hasPendingEntry('general_health', true)).toBe(false);
+  });
+});

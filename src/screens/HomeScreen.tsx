@@ -71,6 +71,7 @@ import { formatCivilDate } from '../i18n/messages';
 import { shouldShowModule } from '../kickCount/kickCountLogic';
 import { consentStore } from '../consent/consentStore';
 import { createConsentApiClient } from '../consent/consentApiClient';
+import { drainConsentQueue } from '../consent/consentSync';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -596,18 +597,23 @@ export function HomeScreen({
       return;
     }
 
-    // Hydrate consent state for returning users (§4.5 first-run-consent.md).
-    // Non-blocking: if this fails, consentStore stays at whatever state it had
-    // (fail-closed: isGranted returns false).
+    // B1 (§4.5.4): Load cached consent state FIRST so that a failing GET
+    // (offline / 5xx) keeps the last-known granted state. A returning consented
+    // user is NOT dropped to limited mode on a cold start without network.
+    // Only a successful GET then merges fresh server data over the cache.
     // SECURITY: accessToken is NEVER logged.
+    await consentStore.loadFromStorage();
+
     try {
       const consentClient = createConsentApiClient(apiBaseUrl);
       const consentsResult = await consentClient.getConsents(accessToken);
       if (consentsResult.ok) {
+        // Merges server records (latest grantedAt wins); also auto-persists
         consentStore.hydrate(consentsResult.page.items);
       }
+      // GET failure → cached state from loadFromStorage() remains (§4.5.4)
     } catch {
-      // network error — proceed with current (possibly empty) consent state
+      // network error — cached consent state preserved (§4.5.4)
     }
 
     const client = createPregnancyClient(apiBaseUrl);
@@ -664,6 +670,11 @@ export function HomeScreen({
     function handleAppState(next: AppStateStatus): void {
       if (next !== 'active') return;
 
+      // B2 (§4.2.4): Drain any queued consent POSTs on foreground so that
+      // consents that failed while offline are retried automatically.
+      // Best-effort — drainConsentQueue never throws.
+      void drainConsentQueue(tokenStorage, apiBaseUrl);
+
       if (loadedEdd.current) {
         const ga = recomputeFromEdd(loadedEdd.current);
         setState((prev) =>
@@ -678,7 +689,7 @@ export function HomeScreen({
     }
     const sub = AppState.addEventListener('change', handleAppState);
     return () => sub.remove();
-  }, [recomputeFromEdd, recomputeFromBirthDate]);
+  }, [recomputeFromEdd, recomputeFromBirthDate, tokenStorage, apiBaseUrl]);
 
   // Logout now lives in SettingsScreen (reached via the ☰ menu button → Settings). The
   // shared performLogout runner there clears tokens + all health stores (PDPA 1.1).

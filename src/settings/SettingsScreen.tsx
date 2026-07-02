@@ -34,6 +34,7 @@ import { kickCountSyncStore } from '../kickCount/kickCountSyncStore';
 import { calendarSyncStore } from '../sync/calendarSyncStore';
 import { clearDraft } from '../kickCount/kickCountDraftStore';
 import { consentStore } from '../consent/consentStore';
+import { resetConsentQueue } from '../consent/consentSync';
 
 interface SettingsScreenProps {
   /** Shared secure token storage — cleared on logout. */
@@ -59,6 +60,7 @@ export function SettingsScreen({ tokenStorage, onLogout, onManageConsent }: Sett
       resetKickCountStore: () => kickCountSyncStore.reset(),
       resetCalendarStore: () => calendarSyncStore.reset(),
       resetConsentStore: () => consentStore.reset(),
+      resetConsentQueue: () => resetConsentQueue(),
       clearKickCountDraft: () => clearDraft(),
       onComplete: onLogout,
     });

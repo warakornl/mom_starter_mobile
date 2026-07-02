@@ -126,6 +126,103 @@ describe('recurrenceExpander golden vectors (FLAG-4, data-model.md §3.5)', () =
 
 });
 
+// ─── GV-8..GV-13: weekly golden vectors (recurrence-weekly-byday-design.md §2.3) ─
+
+describe('recurrenceExpander weekly golden vectors (GV-8..GV-13)', () => {
+  // Anchor date: 2026-07-01 = Wednesday (verified: isoDow0 = (epochDay+3)%7; epoch
+  // day 0 = 1970-01-01 = Thursday; 2026-07-01 epoch day = 20636; (20636+3)%7 = 2 = WE)
+
+  it('GV-8: single weekday interval 1, anchor IS that weekday', () => {
+    // freq=weekly, byDay=["WE"], startAt=2026-07-01T08:00 (Wed), window [2026-07-01..2026-07-15]
+    // Fires on all Wednesdays: 07-01, 07-08, 07-15
+    expect(
+      expand(
+        { freq: 'weekly', timesOfDay: ['08:00'], byDay: ['WE'], startAt: '2026-07-01T08:00' },
+        '2026-07-01', '2026-07-15',
+      ),
+    ).toEqual(['2026-07-01T08:00', '2026-07-08T08:00', '2026-07-15T08:00']);
+  });
+
+  it('GV-9: Mon/Wed/Fri, interval 1, anchor Wed', () => {
+    // freq=weekly, byDay=["MO","WE","FR"], startAt=2026-07-01T09:00 (Wed), window [07-01..07-08]
+    // MO=06-29(before window), WE=07-01✓, FR=07-03✓, MO=07-06✓, WE=07-08✓, FR=07-10(after)
+    expect(
+      expand(
+        { freq: 'weekly', timesOfDay: ['09:00'], byDay: ['MO', 'WE', 'FR'], startAt: '2026-07-01T09:00' },
+        '2026-07-01', '2026-07-08',
+      ),
+    ).toEqual([
+      '2026-07-01T09:00', '2026-07-03T09:00',
+      '2026-07-06T09:00', '2026-07-08T09:00',
+    ]);
+  });
+
+  it('GV-10: every 2 weeks on Monday; anchor Wed (week 0). 07-06=week1(skip), 07-13=week2(fire), 07-27=week4(fire)', () => {
+    // freq=weekly, interval=2, byDay=["MO"], startAt=2026-07-01T07:00 (Wed)
+    // anchorMonday=2026-06-29 (epochDay - 2)
+    // 07-06 MO: weekIndex=(07-06 - 06-29)/7=1 → 1%2≠0 skip
+    // 07-13 MO: weekIndex=2 → 2%2=0 fire
+    // 07-20 MO: weekIndex=3 → skip
+    // 07-27 MO: weekIndex=4 → 4%2=0 fire
+    expect(
+      expand(
+        { freq: 'weekly', interval: 2, timesOfDay: ['07:00'], byDay: ['MO'], startAt: '2026-07-01T07:00' },
+        '2026-07-01', '2026-08-01',
+      ),
+    ).toEqual(['2026-07-13T07:00', '2026-07-27T07:00']);
+  });
+
+  it('GV-11: first-day anchor guard + multi-times; anchor Wed 14:00, byDay incl WE', () => {
+    // freq=weekly, byDay=["WE"], timesOfDay=["08:00","14:00","20:00"], startAt=2026-07-01T14:00
+    // 07-01 Wed: skip 08:00 (< 14:00 anchor guard), emit 14:00, 20:00
+    // 07-08 Wed: emit 08:00, 14:00, 20:00
+    expect(
+      expand(
+        {
+          freq: 'weekly',
+          timesOfDay: ['08:00', '14:00', '20:00'],
+          byDay: ['WE'],
+          startAt: '2026-07-01T14:00',
+        },
+        '2026-07-01', '2026-07-08',
+      ),
+    ).toEqual([
+      '2026-07-01T14:00', '2026-07-01T20:00',
+      '2026-07-08T08:00', '2026-07-08T14:00', '2026-07-08T20:00',
+    ]);
+  });
+
+  it('GV-12: anchor weekday NOT in byDay → first fire on next matching weekday', () => {
+    // freq=weekly, byDay=["FR"], startAt=2026-07-01T07:00 (Wed, NOT in byDay)
+    // 07-03 Fri: week 0 (same ISO Monday 06-29), tokenOf=FR ✓ → fire
+    // 07-10 Fri: week 1 → 1%1=0 → fire
+    expect(
+      expand(
+        { freq: 'weekly', timesOfDay: ['07:00'], byDay: ['FR'], startAt: '2026-07-01T07:00' },
+        '2026-07-01', '2026-07-10',
+      ),
+    ).toEqual(['2026-07-03T07:00', '2026-07-10T07:00']);
+  });
+
+  it('GV-13: inclusive until clips the last week', () => {
+    // freq=weekly, byDay=["WE","FR"], startAt=2026-07-01T07:00, until=2026-07-08
+    // window [2026-07-01..2026-07-31] but until=07-08 clips it
+    // 07-01 WE ✓, 07-03 FR ✓, 07-08 WE ✓, 07-10 FR (past until) → stop
+    expect(
+      expand(
+        {
+          freq: 'weekly',
+          timesOfDay: ['07:00'],
+          byDay: ['WE', 'FR'],
+          startAt: '2026-07-01T07:00',
+          until: '2026-07-08',
+        },
+        '2026-07-01', '2026-07-31',
+      ),
+    ).toEqual(['2026-07-01T07:00', '2026-07-03T07:00', '2026-07-08T07:00']);
+  });
+});
+
 // ─── Existing behavior tests (updated to new API: startAt instead of startDate) ──
 
 describe('recurrenceExpander existing behavior', () => {

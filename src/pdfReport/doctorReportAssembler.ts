@@ -20,7 +20,7 @@
  *   1. Pregnancy profile (lifecycle, EDD, gestational week)
  *   2. Medication & adherence (placeholder — medication logging not yet built)
  *   3. Kick-count sessions (date-range filtered, capped to 10)
- *   4. Self-logs weight/BP/swelling (placeholder — self-log feature not yet built)
+ *   4. Self-logs weight/BP/swelling (data-driven from selfLogSyncStore, decoded from base64)
  *   5. Appointments & checklist (date-range filtered)
  *   6. Lab/notes line — "ผลถูกซ่อน" when includeSensitiveNotes=false (spec §2.2)
  *   Footer: spec §7 mandatory disclaimer
@@ -29,8 +29,8 @@
  *   - Medication & adherence: no medication-logging feature exists in the app yet.
  *     Section renders with "ยังไม่มีข้อมูลในช่วงนี้ / not tracked yet" placeholder.
  *     Fully populating this section requires building the medication-log store first.
- *   - Self-logs (weight/BP/swelling): no self-logging feature exists yet.
- *     Same placeholder. Requires a self-log store to be built.
+ *   - Self-logs (weight/BP/swelling): shipped. Caller (DoctorPdfScreen) decodes
+ *     base64 values from selfLogSyncStore and passes decoded ReportSelfLog[] here.
  *
  * Security:
  *   - NEVER include auth tokens, passwords, or any credential.
@@ -150,8 +150,8 @@ function formatDate(isoDate: string, locale: Locale): string {
   return `${MONTHS_EN[m - 1]} ${d}, ${y}`;
 }
 
-/** Format "YYYY-MM-DDTHH:mm" floating-civil datetime → date string only. */
-function formatDateTime(floatingCivil: string, locale: Locale): string {
+/** Format "YYYY-MM-DDTHH:mm" floating-civil datetime → localized date + time string. */
+export function formatDateTime(floatingCivil: string, locale: Locale): string {
   const datePart = floatingCivil.substring(0, 10);
   const timePart = floatingCivil.substring(11, 16); // "HH:mm"
   const dateFormatted = formatDate(datePart, locale);
@@ -620,7 +620,7 @@ function buildLabLine(includeSensitiveNotes: boolean, locale: Locale): string {
  *   1. Profile header
  *   2. Medication & adherence (placeholder)
  *   3. Kick-counts (date-range filtered)
- *   4. Self-logs (placeholder)
+ *   4. Self-logs (data-driven: weight/BP/swelling from decoded base64 values)
  *   5. Appointments (date-range filtered)
  *   6. Lab results hidden line (when !includeSensitiveNotes)
  *   Footer: §7 disclaimer

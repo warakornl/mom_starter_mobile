@@ -58,14 +58,14 @@ import {
 } from 'react-native';
 
 import { useT } from '../i18n/LanguageContext';
-import type { MessageKey } from '../i18n/messages';
+import type { Locale } from '../auth/types';
 import type { TokenStorage } from '../auth/tokenStorage';
 import { JitConsentSheet } from '../consent/JitConsentSheet';
 import { useJitConsent } from '../consent/useJitConsent';
 import { localCivilToday } from '../pregnancy/gestationalAge';
 import { kickCountSyncStore } from '../kickCount/kickCountSyncStore';
 import { calendarSyncStore } from '../sync/calendarSyncStore';
-import { buildDoctorReportHtml } from './doctorReportAssembler';
+import { buildDoctorReportHtml, LABELS, isWithinRange } from './doctorReportAssembler';
 import { createProductionPdfService } from './pdfService';
 import {
   decidePdfEgressAction,
@@ -333,7 +333,6 @@ export function DoctorPdfScreen({
             profile={profile}
             locale={locale}
             includeSensitiveNotes={builderState.includeSensitiveNotes}
-            t={t}
           />
         </ScrollView>
 
@@ -413,11 +412,23 @@ export function DoctorPdfScreen({
         {/* ── Manifest (what's included) — spec §2 ─────────────────────── */}
         <Text style={styles.sectionLabel}>{t('pdf.screen.manifestTitle')}</Text>
         <View style={styles.manifestCard}>
+          {/*
+           * All ManifestRow entries are DISPLAY-ONLY (non-interactive).
+           * The first four items are always included in the PDF.
+           *
+           * DEFERRED: sensitive_lab_results opt-in toggle (spec §2.2 / §4).
+           * The spec requires a real Toggle gated by useJitConsent('sensitive_lab_results')
+           * to wire BuilderPhaseState.includeSensitiveNotes=true. This is deferred to
+           * a future slice because the sensitive_lab_results consent type and its
+           * associated UX flow have not been fully specced for this release.
+           * Safe default: sensitive notes are always hidden (includeSensitiveNotes=false),
+           * so no unintended health-data egress occurs in the meantime.
+           */}
           <ManifestRow icon="◉" label={t('pdf.screen.manifestMedication')} />
           <ManifestRow icon="◉" label={t('pdf.screen.manifestKickCounts')} />
           <ManifestRow icon="◉" label={t('pdf.screen.manifestSelfLogs')} />
           <ManifestRow icon="◉" label={t('pdf.screen.manifestAppointments')} />
-          {/* Sensitive notes row — off by default (spec §2.2) */}
+          {/* Lab notes row: display-only placeholder; toggle is DEFERRED (see above) */}
           <ManifestRow
             icon="☐"
             label={`${t('pdf.screen.manifestLabNotes')} — ${t('pdf.screen.manifestLabDefault')}`}
@@ -494,91 +505,102 @@ interface ReportPreviewProps {
   dateFrom: string;
   dateTo: string;
   profile: ReportProfile;
-  locale: string;
+  locale: Locale;
   includeSensitiveNotes: boolean;
-  t: (key: MessageKey, params?: Record<string, string | number>) => string;
 }
 
+/**
+ * ReportPreview — faithful native React Native render of the PDF sections.
+ *
+ * Section labels, placeholder text, and the §7 disclaimer are derived from
+ * the same LABELS map used by doctorReportAssembler, so the preview and the
+ * actual PDF output can never drift apart (spec §3 anti-surprise guarantee).
+ *
+ * Range filtering in KickCountPreviewSection and AppointmentPreviewSection
+ * uses the exported isWithinRange helper from doctorReportAssembler — same
+ * logic as the assembler's own filtering.
+ */
 function ReportPreview({
   dateFrom,
   dateTo,
   profile,
+  locale,
   includeSensitiveNotes,
-  t,
 }: ReportPreviewProps): React.JSX.Element {
-  // Section placeholders (data sources not yet built — mirrors assembler behavior)
-  const medPlaceholder = t('pdf.screen.generating').includes('Building')
-    ? 'Not tracked yet in this range · medication logging feature not yet built'
-    : 'ยังไม่มีข้อมูลในช่วงนี้ · ฟีเจอร์บันทึกยายังไม่ถูกสร้าง';
-  const selfLogPlaceholder = t('pdf.screen.generating').includes('Building')
-    ? 'Not tracked yet in this range · self-log feature not yet built'
-    : 'ยังไม่มีข้อมูลในช่วงนี้ · ฟีเจอร์บันทึกตนเองยังไม่ถูกสร้าง';
+  // Use locale directly — never infer language from translated string content.
+  const L = LABELS[locale];
 
   const lifecycleLabel =
-    profile.lifecycle === 'postpartum' ? 'หลังคลอด / Postpartum'
-      : profile.lifecycle === 'ended' ? 'สิ้นสุด / Ended'
-        : 'ตั้งครรภ์ / Pregnant';
+    profile.lifecycle === 'postpartum' ? L.lifecyclePostpartum
+      : profile.lifecycle === 'ended' ? L.lifecycleEnded
+        : L.lifecyclePregnant;
 
   return (
     <View style={styles.previewPage}>
-      {/* Header */}
-      <Text style={styles.previewH1}>รายงานสุขภาพ / Health Report</Text>
-      <Text style={styles.previewRange}>{dateFrom} – {dateTo}</Text>
+      {/* Header — derived from shared LABELS */}
+      <Text style={styles.previewH1}>{L.reportTitle}</Text>
+      <Text style={styles.previewRange}>{L.rangeLabel}: {dateFrom} {L.rangeSep} {dateTo}</Text>
       <View style={styles.divider} />
 
       {/* Profile */}
-      <Text style={styles.previewH2}>ข้อมูลการตั้งครรภ์ / Profile</Text>
-      <Text style={styles.previewBody}>{lifecycleLabel}</Text>
-      <Text style={styles.previewBody}>EDD: {profile.edd}</Text>
-      <Text style={styles.previewBody}>อายุครรภ์ / Week: {profile.gestationalWeek}</Text>
+      <Text style={styles.previewH2}>{L.profileTitle}</Text>
+      <Text style={styles.previewBody}>{L.lifecycle}: {lifecycleLabel}</Text>
+      <Text style={styles.previewBody}>{L.edd}: {profile.edd}</Text>
+      <Text style={styles.previewBody}>{L.gestationalWeek}: {profile.gestationalWeek} {L.weekUnit}</Text>
 
-      {/* Medication */}
-      <Text style={styles.previewH2}>ยาและการกินยา / Medication & adherence</Text>
-      <Text style={styles.previewPlaceholder}>{medPlaceholder}</Text>
+      {/* Medication — placeholder matches assembler (spec §3, data-source gap) */}
+      <Text style={styles.previewH2}>{L.medTitle}</Text>
+      <Text style={styles.previewPlaceholder}>{L.medPlaceholder}</Text>
 
-      {/* Kick-counts — from store (filtered by range inside assembler) */}
-      <Text style={styles.previewH2}>นับลูกดิ้น / Kick-counts</Text>
-      <KickCountPreviewSection dateFrom={dateFrom} dateTo={dateTo} />
+      {/* Kick-counts — filtered by isWithinRange from assembler (same logic) */}
+      <Text style={styles.previewH2}>{L.kickTitle}</Text>
+      <KickCountPreviewSection dateFrom={dateFrom} dateTo={dateTo} noDataLabel={L.noData} />
 
-      {/* Self-logs */}
-      <Text style={styles.previewH2}>บันทึกตนเอง / Self-logs (weight/BP/swelling)</Text>
-      <Text style={styles.previewPlaceholder}>{selfLogPlaceholder}</Text>
+      {/* Self-logs — placeholder matches assembler (spec §3, data-source gap) */}
+      <Text style={styles.previewH2}>{L.selfLogTitle}</Text>
+      <Text style={styles.previewPlaceholder}>{L.selfLogPlaceholder}</Text>
 
-      {/* Appointments */}
-      <Text style={styles.previewH2}>นัดหมาย / Appointments</Text>
-      <AppointmentPreviewSection dateFrom={dateFrom} dateTo={dateTo} />
+      {/* Appointments — filtered by isWithinRange from assembler (same logic) */}
+      <Text style={styles.previewH2}>{L.apptTitle}</Text>
+      <AppointmentPreviewSection
+        dateFrom={dateFrom}
+        dateTo={dateTo}
+        noDataLabel={L.noData}
+        doneLabel={L.apptDone}
+        pendingLabel={L.apptPending}
+      />
 
-      {/* Lab hidden line (spec §3) */}
+      {/* Lab hidden line — uses shared labHiddenLine from LABELS (spec §3) */}
       {!includeSensitiveNotes && (
-        <Text style={styles.previewLabHidden}>
-          ผลแล็บ/บันทึก: ผลถูกซ่อน (ไม่ได้ยินยอมให้รวมผลที่ละเอียดอ่อน){'\n'}
-          Lab / notes: results hidden (sensitive results not consented for inclusion)
-        </Text>
+        <Text style={styles.previewLabHidden}>{L.labHiddenLine}</Text>
       )}
 
       <View style={styles.divider} />
 
-      {/* §7 Disclaimer — always visible in preview (spec §3, US-10/US-11) */}
-      <Text style={styles.previewDisclaimer}>
-        {'ⓘ '}แอปไม่วินิจฉัย/ไม่ให้คำแนะนำทางการแพทย์ · เป็นบันทึกส่วนตัวเพื่อแสดงต่อแพทย์{'\n'}
-        This app does not diagnose or give medical advice. Personal record for your doctor.
-      </Text>
+      {/* §7 Disclaimer — uses shared disclaimer from LABELS (spec §3, US-10/US-11) */}
+      <Text style={styles.previewDisclaimer}>{'ⓘ '}{L.disclaimer}</Text>
     </View>
   );
 }
 
 /** Reads kick sessions in range from kickCountSyncStore and renders them. */
-function KickCountPreviewSection({ dateFrom, dateTo }: { dateFrom: string; dateTo: string }): React.JSX.Element {
+function KickCountPreviewSection({
+  dateFrom,
+  dateTo,
+  noDataLabel,
+}: {
+  dateFrom: string;
+  dateTo: string;
+  noDataLabel: string;
+}): React.JSX.Element {
+  // Uses isWithinRange from doctorReportAssembler — same filtering as the PDF assembler.
   const sessions = kickCountSyncStore.getActiveSessions()
-    .filter((s) => {
-      const date = s.startedAt.substring(0, 10);
-      return date >= dateFrom && date <= dateTo;
-    })
+    .filter((s) => isWithinRange(s.startedAt, dateFrom, dateTo))
     .sort((a, b) => b.startedAt.localeCompare(a.startedAt))
     .slice(0, 10);
 
   if (sessions.length === 0) {
-    return <Text style={styles.previewBody}>ไม่มีข้อมูลในช่วงนี้ / No data in this range</Text>;
+    return <Text style={styles.previewBody}>{noDataLabel}</Text>;
   }
 
   return (
@@ -593,12 +615,24 @@ function KickCountPreviewSection({ dateFrom, dateTo }: { dateFrom: string; dateT
 }
 
 /** Reads appointments in range from calendarSyncStore and renders them. */
-function AppointmentPreviewSection({ dateFrom, dateTo }: { dateFrom: string; dateTo: string }): React.JSX.Element {
+function AppointmentPreviewSection({
+  dateFrom,
+  dateTo,
+  noDataLabel,
+  doneLabel,
+  pendingLabel,
+}: {
+  dateFrom: string;
+  dateTo: string;
+  noDataLabel: string;
+  doneLabel: string;
+  pendingLabel: string;
+}): React.JSX.Element {
+  // Uses isWithinRange from doctorReportAssembler — same filtering as the PDF assembler.
   const appts = calendarSyncStore.getActiveChecklistItems()
     .filter((c) => {
-      if (!c.scheduledAt) return true; // undated — always include
-      const date = c.scheduledAt.substring(0, 10);
-      return date >= dateFrom && date <= dateTo;
+      if (!c.scheduledAt) return true; // undated — always include (mirrors assembler)
+      return isWithinRange(c.scheduledAt, dateFrom, dateTo);
     })
     .sort((a, b) => {
       const sa = a.scheduledAt ?? '9999';
@@ -607,14 +641,14 @@ function AppointmentPreviewSection({ dateFrom, dateTo }: { dateFrom: string; dat
     });
 
   if (appts.length === 0) {
-    return <Text style={styles.previewBody}>ไม่มีข้อมูลในช่วงนี้ / No data in this range</Text>;
+    return <Text style={styles.previewBody}>{noDataLabel}</Text>;
   }
 
   return (
     <>
       {appts.map((a) => (
         <Text key={a.id} style={styles.previewBody}>
-          {a.scheduledAt ? a.scheduledAt.substring(0, 10) : '—'}: {a.title} · {a.done ? '✓' : '…'}
+          {a.scheduledAt ? a.scheduledAt.substring(0, 10) : '—'}: {a.title} · {a.done ? doneLabel : pendingLabel}
         </Text>
       ))}
     </>

@@ -87,6 +87,8 @@ import { resetConsentQueue } from '../consent/consentSync';
 import { suggestionStore } from '../suggestion/suggestionStore';
 import { expensesSyncStore } from '../expenses/expensesSyncStore';
 import { selfLogSyncStore } from '../selfLog/selfLogSyncStore';
+import { medicationPlanSyncStore } from '../medication/medicationPlanSyncStore';
+import { medicationLogSyncStore } from '../medication/medicationLogSyncStore';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -241,6 +243,8 @@ export function RootNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps):
                 resetKickCountStore: () => kickCountSyncStore.reset(),
                 resetCalendarStore: () => calendarSyncStore.reset(),
                 resetSelfLogStore: () => selfLogSyncStore.reset(),
+                resetMedicationPlanStore: () => medicationPlanSyncStore.reset(),
+                resetMedicationLogStore: () => medicationLogSyncStore.reset(),
                 resetConsentStore: () => consentStore.reset(),
                 resetConsentQueue: () => resetConsentQueue(),
                 resetSuggestionStore: () => suggestionStore.reset(),

@@ -24,6 +24,8 @@ function makeDeps(overrides: Partial<LogoutDeps> = {}): {
     resetKickCountStore: () => { calls.push('resetKickCountStore'); },
     resetCalendarStore: () => { calls.push('resetCalendarStore'); },
     resetSelfLogStore: () => { calls.push('resetSelfLogStore'); },
+    resetMedicationPlanStore: () => { calls.push('resetMedicationPlanStore'); },
+    resetMedicationLogStore: () => { calls.push('resetMedicationLogStore'); },
     clearKickCountDraft: async () => { calls.push('clearKickCountDraft'); },
     onComplete: () => { calls.push('onComplete'); },
     ...overrides,
@@ -187,6 +189,46 @@ describe('performLogout — resetSelfLogStore (PDPA SD-5: no cross-account self-
     // A throw in resetSelfLogStore must never strand the user before onComplete.
     const { deps, calls } = makeDeps({
       resetSelfLogStore: () => { throw new Error('self-log store reset failure'); },
+    });
+    await performLogout(deps);
+    expect(calls[calls.length - 1]).toBe('onComplete');
+  });
+});
+
+// ─── resetMedicationPlanStore + resetMedicationLogStore — PDPA: no cross-account medication leak ──
+//
+// Both are REQUIRED deps (not optional) — medication plans and logs are MOTHER-health data
+// (general_health gated). A missing reset() is a cross-account-leak bug (SD-5).
+// Pattern mirrors resetSelfLogStore (required) and resetExpensesStore (optional→required).
+
+describe('performLogout — resetMedicationPlanStore (PDPA: no cross-account medication plan leak)', () => {
+  it('calls resetMedicationPlanStore when logout runs', async () => {
+    const { deps, calls } = makeDeps();
+    await performLogout(deps);
+    expect(calls).toContain('resetMedicationPlanStore');
+    expect(calls[calls.length - 1]).toBe('onComplete');
+  });
+
+  it('still navigates + continues even if resetMedicationPlanStore throws synchronously', async () => {
+    const { deps, calls } = makeDeps({
+      resetMedicationPlanStore: () => { throw new Error('medication plan store reset failure'); },
+    });
+    await performLogout(deps);
+    expect(calls[calls.length - 1]).toBe('onComplete');
+  });
+});
+
+describe('performLogout — resetMedicationLogStore (PDPA: no cross-account medication log leak)', () => {
+  it('calls resetMedicationLogStore when logout runs', async () => {
+    const { deps, calls } = makeDeps();
+    await performLogout(deps);
+    expect(calls).toContain('resetMedicationLogStore');
+    expect(calls[calls.length - 1]).toBe('onComplete');
+  });
+
+  it('still navigates + continues even if resetMedicationLogStore throws synchronously', async () => {
+    const { deps, calls } = makeDeps({
+      resetMedicationLogStore: () => { throw new Error('medication log store reset failure'); },
     });
     await performLogout(deps);
     expect(calls[calls.length - 1]).toBe('onComplete');

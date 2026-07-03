@@ -218,6 +218,8 @@ describe('session-expiry / no-token auto-logout — PDPA cross-account-leak guar
       resetKickCountStore: () => kickCountSyncStore.reset(),
       resetCalendarStore: () => calendarSyncStore.reset(),
       resetSelfLogStore: () => selfLogSyncStore.reset(),
+      resetMedicationPlanStore: () => {},
+      resetMedicationLogStore: () => {},
       clearKickCountDraft: async () => {},
       onComplete: () => {},
     });
@@ -238,6 +240,8 @@ describe('session-expiry / no-token auto-logout — PDPA cross-account-leak guar
       resetKickCountStore: () => kickCountSyncStore.reset(),
       resetCalendarStore: () => calendarSyncStore.reset(),
       resetSelfLogStore: () => selfLogSyncStore.reset(),
+      resetMedicationPlanStore: () => {},
+      resetMedicationLogStore: () => {},
       clearKickCountDraft: async () => {},
       onComplete: () => {},
     });

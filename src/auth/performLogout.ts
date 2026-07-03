@@ -45,6 +45,20 @@ export interface LogoutDeps {
    * Required (not optional) — mirrors resetKickCountStore as a health-data isolation guard.
    */
   resetSelfLogStore: () => void;
+  /**
+   * Reset the medication plan sync store (MOTHER-health — general_health gated).
+   * Prevents User A's medication plan data (name/dose ciphertext, schedule rules)
+   * from leaking to User B after logout within the same JS session (SD-5).
+   * CRITICAL: required (not optional) — same posture as resetSelfLogStore.
+   */
+  resetMedicationPlanStore: () => void;
+  /**
+   * Reset the medication log sync store (MOTHER-health — general_health gated).
+   * Prevents User A's medication log data (taken/missed events, occurrence times)
+   * from leaking to User B after logout within the same JS session (SD-5).
+   * CRITICAL: required (not optional) — immutable events are still health data.
+   */
+  resetMedicationLogStore: () => void;
   /** Clear the in-progress kick-count draft from secure store (best-effort). */
   clearKickCountDraft: () => Promise<void>;
   /** Runs LAST — navigate to the unauthenticated entry (e.g. Welcome). */
@@ -60,7 +74,7 @@ export async function performLogout(deps: LogoutDeps): Promise<void> {
   // Health-store isolation (order irrelevant — independent singletons). Each is
   // guarded so a synchronous throw in one still attempts the others and never
   // strands the user before onComplete.
-  for (const reset of [deps.resetSupplyStore, deps.resetKickCountStore, deps.resetCalendarStore, deps.resetSelfLogStore, ...(deps.resetConsentStore ? [deps.resetConsentStore] : []), ...(deps.resetSuggestionStore ? [deps.resetSuggestionStore] : []), ...(deps.resetExpensesStore ? [deps.resetExpensesStore] : [])]) {
+  for (const reset of [deps.resetSupplyStore, deps.resetKickCountStore, deps.resetCalendarStore, deps.resetSelfLogStore, deps.resetMedicationPlanStore, deps.resetMedicationLogStore, ...(deps.resetConsentStore ? [deps.resetConsentStore] : []), ...(deps.resetSuggestionStore ? [deps.resetSuggestionStore] : []), ...(deps.resetExpensesStore ? [deps.resetExpensesStore] : [])]) {
     try {
       reset();
     } catch {

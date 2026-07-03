@@ -66,7 +66,8 @@ import { useJitConsent } from '../consent/useJitConsent';
 import { localCivilToday } from '../pregnancy/gestationalAge';
 import { kickCountSyncStore } from '../kickCount/kickCountSyncStore';
 import { calendarSyncStore } from '../sync/calendarSyncStore';
-import { buildDoctorReportHtml, LABELS, isWithinRange } from './doctorReportAssembler';
+import { selfLogSyncStore } from '../selfLog/selfLogSyncStore';
+import { buildDoctorReportHtml, LABELS, isWithinRange, type ReportSelfLog } from './doctorReportAssembler';
 import { kickCountChartSvg } from './reportCharts';
 import { createProductionPdfService } from './pdfService';
 import {
@@ -93,6 +94,36 @@ let _svc: ReturnType<typeof createProductionPdfService> | null = null;
 function getPdfService() {
   if (!_svc) _svc = createProductionPdfService();
   return _svc;
+}
+
+// ─── Base64 decode helper ────────────────────────────────────────────────────
+
+/**
+ * Decode a base64 ciphertext field to UTF-8 plaintext (MVP posture — K-7 carry-forward).
+ *
+ * Mirrors encodeFieldToBase64 in captureScreenLogic.ts (reverse direction).
+ * MVP: plaintext bytes base64-encoded; AES-GCM decryption is a carry-forward
+ * to appsec-engineer.
+ *
+ * Security: NEVER log the return value — it contains MOTHER-health data (SD-5).
+ */
+function decodeBase64Field(b64: string | null | undefined): string | null {
+  if (b64 == null || b64 === '') return null;
+  try {
+    if (typeof Buffer !== 'undefined') {
+      // Node.js / Jest test environment
+      return Buffer.from(b64, 'base64').toString('utf8');
+    }
+    // React Native / Hermes: atob handles base64; TextDecoder handles UTF-8
+    const binary = atob(b64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    return new TextDecoder('utf-8').decode(bytes);
+  } catch {
+    return null;
+  }
 }
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -165,10 +196,25 @@ export function DoctorPdfScreen({
         note: c.note ?? null,
       }));
 
+      // Decode base64 self-log values before passing to the assembler (data minimization:
+      // assembler filters by range; we pass all live records and let it filter).
+      // Security: never log decoded values — MOTHER-health data (SD-5).
+      const selfLogs: ReportSelfLog[] = selfLogSyncStore.getSelfLogs().map((s) => ({
+        id: s.id,
+        loggedAt: s.loggedAt,
+        metricType: s.metricType,
+        valueNumeric: decodeBase64Field(s.valueNumeric),
+        valueNumericSecondary: decodeBase64Field(s.valueNumericSecondary),
+        valueText: decodeBase64Field(s.valueText),
+        unit: s.unit ?? null,
+        note: decodeBase64Field(s.note),
+      }));
+
       const html = buildDoctorReportHtml({
         profile,
         kickSessions,
         appointments,
+        selfLogs,
         dateFrom,
         dateTo,
         reportDate: today,
@@ -565,9 +611,14 @@ function ReportPreview({
         locale={locale}
       />
 
-      {/* Self-logs — placeholder matches assembler (spec §3, data-source gap) */}
+      {/* Self-logs — real data from selfLogSyncStore, decoded and filtered (spec §3) */}
       <Text style={styles.previewH2}>{L.selfLogTitle}</Text>
-      <Text style={styles.previewPlaceholder}>{L.selfLogPlaceholder}</Text>
+      <SelfLogPreviewSection
+        dateFrom={dateFrom}
+        dateTo={dateTo}
+        locale={locale}
+        includeSensitiveNotes={includeSensitiveNotes}
+      />
 
       {/* Appointments — filtered by isWithinRange from assembler (same logic) */}
       <Text style={styles.previewH2}>{L.apptTitle}</Text>
@@ -668,6 +719,83 @@ function KickCountPreviewSection({
         <Text style={styles.previewChartCaption}>{captionLine}</Text>
       )}
     </View>
+  );
+}
+
+/**
+ * SelfLogPreviewSection — native React Native preview of the self-log section.
+ *
+ * Reads from selfLogSyncStore, decodes base64 values, filters by range using
+ * the same isWithinRange helper as the PDF assembler (single source of truth).
+ *
+ * Always rendered (numeric):  weight, blood_pressure — verbatim, no grading (INV-S1 / AC-20).
+ * Gated (includeSensitiveNotes): swelling/lochia/symptom valueText; note (any type).
+ *
+ * Security: NEVER log decoded values (SD-5).
+ */
+function SelfLogPreviewSection({
+  dateFrom,
+  dateTo,
+  locale,
+  includeSensitiveNotes,
+}: {
+  dateFrom: string;
+  dateTo: string;
+  locale: Locale;
+  includeSensitiveNotes: boolean;
+}): React.JSX.Element {
+  const L = LABELS[locale];
+
+  // Decode + filter — same logic as handlePreviewTap / assembler (data minimization)
+  const inRange = selfLogSyncStore
+    .getSelfLogs()
+    .filter((s) => isWithinRange(s.loggedAt, dateFrom, dateTo))
+    .sort((a, b) => a.loggedAt.localeCompare(b.loggedAt));
+
+  if (inRange.length === 0) {
+    return <Text style={styles.previewBody}>{L.selfLogNoData}</Text>;
+  }
+
+  return (
+    <>
+      {inRange.map((s) => {
+        const dateStr = s.loggedAt.substring(0, 16).replace('T', ' ');
+
+        let line: string;
+        if (s.metricType === 'weight') {
+          const val = decodeBase64Field(s.valueNumeric) ?? '';
+          const unit = locale === 'th' ? L.selfLogUnitKg : L.selfLogUnitKg;
+          line = `${L.selfLogWeight} ${val} ${unit}`;
+        } else if (s.metricType === 'blood_pressure') {
+          const sys = decodeBase64Field(s.valueNumeric) ?? '';
+          const dia = decodeBase64Field(s.valueNumericSecondary) ?? '';
+          line = `${L.selfLogBP} ${sys}/${dia} ${L.selfLogUnitMmhg}`;
+        } else {
+          // swelling / lochia / symptom — valueText gated
+          const metricLabel =
+            s.metricType === 'swelling' ? L.selfLogSwelling
+              : s.metricType === 'lochia' ? L.selfLogLochia
+                : L.selfLogSymptom;
+          if (includeSensitiveNotes) {
+            const val = decodeBase64Field(s.valueText) ?? '';
+            line = `${metricLabel} ${val}`;
+          } else {
+            line = `${metricLabel} · ${L.selfLogValueHidden}`;
+          }
+        }
+
+        const decodedNote = includeSensitiveNotes ? decodeBase64Field(s.note) : null;
+
+        return (
+          <React.Fragment key={s.id}>
+            <Text style={styles.previewBody}>{dateStr}: {line}</Text>
+            {decodedNote ? (
+              <Text style={styles.previewPlaceholder}>{L.selfLogNoteLabel}: {decodedNote}</Text>
+            ) : null}
+          </React.Fragment>
+        );
+      })}
+    </>
   );
 }
 

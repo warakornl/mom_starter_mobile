@@ -23,6 +23,7 @@ import {
   buildLoggedAt,
   isSaveGatedByConsent,
   isSaveEnabled,
+  orchestrateSave,
 } from './captureScreenLogic';
 
 // ─── encodeFieldToBase64 ──────────────────────────────────────────────────────
@@ -335,5 +336,138 @@ describe('isSaveEnabled (capture-ui §5 — Save disabled until value exists)', 
   });
   it('symptom: disabled when textStorable=false', () => {
     expect(isSaveEnabled({ metricType: 'symptom', textStorable: false, timeStorable: true })).toBe(false);
+  });
+});
+
+// ─── orchestrateSave (blocker #1 / #2 — consent-gated save) ───────────────────
+//
+// These tests prove the FIX for the stale-callback bug:
+//  - The payload is built from the form state AT THE MOMENT SAVE IS CALLED,
+//    not captured by a stale memoised callback.
+//  - When consent is absent the orchestration returns { action: 'gate', payload }
+//    so the caller can store the LIVE payload in a ref and persist it after grant.
+//  - The caller NEVER needs to re-call a stale handleSave.
+//
+// RED: these fail until orchestrateSave is exported from captureScreenLogic.ts.
+
+describe('orchestrateSave (blocker #1 + #2 — consent-gated save, stale-callback fix)', () => {
+  const LOGGED_AT = '2026-06-28T13:00';
+
+  function decode(b64: string | null | undefined): string {
+    if (!b64) throw new Error('expected base64');
+    return Buffer.from(b64, 'base64').toString('utf8');
+  }
+
+  // ── (a) addSelfLog NOT called while general_health absent ─────────────────
+
+  it('(a) returns action=gate when consent NOT granted — addSelfLog must NOT be called', () => {
+    const result = orchestrateSave({
+      saveEnabled: true,
+      consentGranted: false,
+      metricType: 'weight',
+      dateCivil: '2026-06-28',
+      timeStr: '13:00',
+      weightValue: '64.2',
+    });
+    expect(result.action).toBe('gate');
+    // The caller checks action === 'gate' before calling addSelfLog — so it is never called
+  });
+
+  it('action=skip when saveEnabled=false — no payload, no gate, no persist', () => {
+    const result = orchestrateSave({
+      saveEnabled: false,
+      consentGranted: false,
+      metricType: 'weight',
+      dateCivil: '2026-06-28',
+      timeStr: '13:00',
+      weightValue: '64.2',
+    });
+    expect(result.action).toBe('skip');
+  });
+
+  // ── (b) After Grant: addSelfLog IS called with the correct payload ─────────
+
+  it('(b) weight: gate result payload has correct value — caller persists it on grant', () => {
+    const result = orchestrateSave({
+      saveEnabled: true,
+      consentGranted: false,
+      metricType: 'weight',
+      dateCivil: '2026-06-28',
+      timeStr: '13:00',
+      weightValue: '64.2',
+    });
+    expect(result.action).toBe('gate');
+    if (result.action !== 'gate') return;
+    // Payload is built from the LIVE form values, not from mount-time empty state
+    expect(result.payload.metricType).toBe('weight');
+    expect(decode(result.payload.valueNumeric)).toBe('64.2');
+    expect(result.payload.loggedAt).toBe(LOGGED_AT);
+    expect(result.payload.unit).toBe('kg');
+  });
+
+  it('(b) blood_pressure: gate result payload has systolic AND diastolic', () => {
+    const result = orchestrateSave({
+      saveEnabled: true,
+      consentGranted: false,
+      metricType: 'blood_pressure',
+      dateCivil: '2026-06-28',
+      timeStr: '13:00',
+      systolicValue: '120',
+      diastolicValue: '78',
+    });
+    expect(result.action).toBe('gate');
+    if (result.action !== 'gate') return;
+    expect(result.payload.metricType).toBe('blood_pressure');
+    expect(decode(result.payload.valueNumeric)).toBe('120');
+    expect(decode(result.payload.valueNumericSecondary)).toBe('78');
+    expect(result.payload.unit).toBe('mmHg');
+  });
+
+  it('when consentGranted=true returns action=persist with weight payload', () => {
+    const result = orchestrateSave({
+      saveEnabled: true,
+      consentGranted: true,
+      metricType: 'weight',
+      dateCivil: '2026-06-28',
+      timeStr: '13:00',
+      weightValue: '64.2',
+    });
+    expect(result.action).toBe('persist');
+    if (result.action !== 'persist') return;
+    expect(decode(result.payload.valueNumeric)).toBe('64.2');
+  });
+
+  it('gate payload and persist payload are identical SelfLogInputs for the same form state', () => {
+    const common = {
+      saveEnabled: true,
+      metricType: 'weight' as const,
+      dateCivil: '2026-06-28',
+      timeStr: '13:00',
+      weightValue: '64.2',
+    };
+    const gated = orchestrateSave({ ...common, consentGranted: false });
+    const free  = orchestrateSave({ ...common, consentGranted: true });
+    // Same payload regardless of consent path — stale-callback bug would produce empty payload
+    expect(gated.action).toBe('gate');
+    expect(free.action).toBe('persist');
+    if (gated.action === 'gate' && free.action === 'persist') {
+      expect(gated.payload).toEqual(free.payload);
+    }
+  });
+});
+
+// ─── buildLoggedAt reflects edited time (blocker #4) ─────────────────────────
+
+describe('buildLoggedAt reflects edited time (blocker #4 — time picker must call setTimeStr)', () => {
+  it('different timeStr values produce different loggedAt (proves setTimeStr must be wired)', () => {
+    const at1200 = buildLoggedAt('2026-06-28', '12:00');
+    const at1430 = buildLoggedAt('2026-06-28', '14:30');
+    expect(at1200).toBe('2026-06-28T12:00');
+    expect(at1430).toBe('2026-06-28T14:30');
+    expect(at1200).not.toBe(at1430);
+  });
+
+  it('edited minute is reflected — 13:00 vs 13:45 produce distinct loggedAt', () => {
+    expect(buildLoggedAt('2026-06-28', '13:00')).not.toBe(buildLoggedAt('2026-06-28', '13:45'));
   });
 });

@@ -167,6 +167,69 @@ export function buildLoggedAt(dateCivil: string, time: string): string {
   return `${dateCivil}T${time}`;
 }
 
+// ─── Save orchestration (consent-gated save, stale-callback fix) ──────────────
+
+/**
+ * Result of orchestrateSave — tells the caller what to do next.
+ *
+ *  skip    — saveEnabled was false; nothing to do.
+ *  gate    — consent absent; payload is the freshly-built SelfLogInput.
+ *            Caller must store payload in a ref and persist it after consent
+ *            is granted (§B.4 flow: "entered values held → Save completes").
+ *  persist — consent already granted; caller should call addSelfLog(payload).
+ */
+export type SaveOrchestrationResult =
+  | { action: 'skip' }
+  | { action: 'gate'; payload: SelfLogInput }
+  | { action: 'persist'; payload: SelfLogInput };
+
+/**
+ * Pure orchestration for the capture-screen Save action.
+ *
+ * Builds the SelfLogInput from the CURRENT form values (not a memoised
+ * snapshot), then decides the action based on consent state.
+ *
+ * The stale-callback bug arose because handleConsentGrant called a memoised
+ * handleSave that captured the mount-time (empty) form state. This function
+ * fixes the root cause: the payload is always built from the live params
+ * passed in, and the caller decides to persist it immediately or store it in
+ * a ref for later (grant path). No stale closure can creep in.
+ *
+ * Security: NEVER log any param value (MOTHER-health SD-5).
+ */
+export function orchestrateSave(params: {
+  saveEnabled: boolean;
+  consentGranted: boolean;
+  metricType: SelfLogMetricType;
+  dateCivil: string;
+  timeStr: string;
+  weightValue?: string;
+  systolicValue?: string;
+  diastolicValue?: string;
+  textValue?: string;
+  noteText?: string;
+}): SaveOrchestrationResult {
+  if (!params.saveEnabled) return { action: 'skip' };
+
+  const loggedAt = buildLoggedAt(params.dateCivil, params.timeStr);
+  const payload = buildSelfLogInput({
+    metricType: params.metricType,
+    weightValue: params.metricType === 'weight' ? params.weightValue : undefined,
+    systolicValue: params.metricType === 'blood_pressure' ? params.systolicValue : undefined,
+    diastolicValue: params.metricType === 'blood_pressure' ? params.diastolicValue : undefined,
+    textValue: ['swelling', 'lochia', 'symptom'].includes(params.metricType)
+      ? params.textValue
+      : undefined,
+    loggedAt,
+    note: params.noteText?.trim() || undefined,
+  });
+
+  if (isSaveGatedByConsent(params.consentGranted)) {
+    return { action: 'gate', payload };
+  }
+  return { action: 'persist', payload };
+}
+
 // ─── Consent gate ─────────────────────────────────────────────────────────────
 
 /**

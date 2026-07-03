@@ -79,8 +79,6 @@ import {
   validateWeight,
   validateBP,
   validateTime,
-  HINT_NOT_A_NUMBER,
-  HINT_DOUBLE_CHECK,
 } from './captureValidation';
 import {
   buildWeightEchoLine,
@@ -88,13 +86,11 @@ import {
   buildTextEchoLine,
 } from './captureEcho';
 import {
-  encodeFieldToBase64,
-  buildSelfLogInput,
   getDefaultTime,
-  buildLoggedAt,
-  isSaveGatedByConsent,
   isSaveEnabled,
+  orchestrateSave,
 } from './captureScreenLogic';
+import type { SelfLogInput } from '../sync/syncTypes';
 
 // ─── Navigation types ─────────────────────────────────────────────────────────
 
@@ -323,7 +319,6 @@ function TypeSegmentedControl({ selected, onSelect, typeLabel }: TypeControlProp
 interface ConsentNudgeProps {
   visible: boolean;
   isLoading: boolean;
-  error: string | null;
   onGrant: () => void;
   onNotNow: () => void;
   title: string;
@@ -336,7 +331,6 @@ interface ConsentNudgeProps {
 function ConsentNudgeModal({
   visible,
   isLoading,
-  error,
   onGrant,
   onNotNow,
   title,
@@ -361,9 +355,6 @@ function ConsentNudgeModal({
           <ScrollView contentContainerStyle={consentStyles.content} showsVerticalScrollIndicator={false}>
             <Text style={consentStyles.title}>{title}</Text>
             <Text style={consentStyles.body}>{body}</Text>
-            {error !== null && (
-              <Text style={consentStyles.error}>{error}</Text>
-            )}
             <TouchableOpacity
               testID="capture-consent-grant"
               style={[consentStyles.grantBtn, isLoading && consentStyles.grantBtnLoading]}
@@ -440,9 +431,9 @@ export function CaptureScreen({ tokenStorage, apiBaseUrl }: CaptureScreenProps):
   // ── Consent modal state ───────────────────────────────────────────────────
   const [showConsentModal, setShowConsentModal] = useState(false);
   const [consentLoading, setConsentLoading] = useState(false);
-  const [consentError, setConsentError] = useState<string | null>(null);
-  // pendingSave: when true, the save is re-attempted after consent is granted
-  const pendingSaveRef = useRef(false);
+  // pendingPayloadRef: holds the freshly-built SelfLogInput captured at the
+  // moment Save was gated (§B.4). Grant path persists this — no stale closure.
+  const pendingPayloadRef = useRef<SelfLogInput | null>(null);
 
   // ── Validation ────────────────────────────────────────────────────────────
   const weightValidation = validateWeight(weightValue);
@@ -486,11 +477,13 @@ export function CaptureScreen({ tokenStorage, apiBaseUrl }: CaptureScreenProps):
   }
 
   // ── Consent grant ─────────────────────────────────────────────────────────
+  // FIX #1: handleConsentGrant no longer calls handleSave() (stale-callback bug).
+  // Instead, it persists pendingPayloadRef.current — the SelfLogInput captured
+  // at gate time with the LIVE form values. No stale closure can creep in.
   const handleConsentGrant = useCallback((): void => {
     const version = consentTextVersion(locale as Locale);
     consentStore.setGranted('general_health', true, version);
     setConsentLoading(true);
-    setConsentError(null);
 
     void (async () => {
       try {
@@ -513,49 +506,58 @@ export function CaptureScreen({ tokenStorage, apiBaseUrl }: CaptureScreenProps):
       } finally {
         setConsentLoading(false);
         setShowConsentModal(false);
-        // Re-attempt the pending save now that consent is granted
-        if (pendingSaveRef.current) {
-          pendingSaveRef.current = false;
-          handleSave();
+        // Persist the payload captured at gate time — no stale handleSave call
+        const pending = pendingPayloadRef.current;
+        if (pending) {
+          pendingPayloadRef.current = null;
+          try {
+            selfLogSyncStore.addSelfLog(pending);
+            setScreenState('saved');
+          } catch {
+            setScreenState('error');
+          }
         }
       }
     })();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [locale, tokenStorage, apiBaseUrl]);
 
   // ── Save ──────────────────────────────────────────────────────────────────
+  // Uses orchestrateSave (pure function) so payload is always built from LIVE
+  // form state. When gated, payload is stored in pendingPayloadRef for the
+  // grant path — no stale useCallback closure can drop the entered value.
   const handleSave = useCallback((): void => {
-    if (!saveEnabled) return;
+    const result = orchestrateSave({
+      saveEnabled,
+      consentGranted: consentStore.isGranted('general_health'),
+      metricType,
+      dateCivil,
+      timeStr,
+      weightValue: metricType === 'weight' ? weightValue : undefined,
+      systolicValue: metricType === 'blood_pressure' ? systolicValue : undefined,
+      diastolicValue: metricType === 'blood_pressure' ? diastolicValue : undefined,
+      textValue: ['swelling', 'lochia', 'symptom'].includes(metricType) ? textValue : undefined,
+      noteText,
+    });
 
-    // general_health consent gate (self-log-behavior §B.4)
-    if (isSaveGatedByConsent(consentStore.isGranted('general_health'))) {
-      pendingSaveRef.current = true;
+    if (result.action === 'skip') return;
+
+    if (result.action === 'gate') {
+      // §B.4: hold the fresh payload in a ref; show consent nudge.
+      // handleConsentGrant will persist pendingPayloadRef.current after grant.
+      pendingPayloadRef.current = result.payload;
       setShowConsentModal(true);
       return;
     }
 
+    // action === 'persist'
     setScreenState('saving');
-
     try {
-      const loggedAt = buildLoggedAt(dateCivil, timeStr);
-
-      const input = buildSelfLogInput({
-        metricType,
-        weightValue: metricType === 'weight' ? weightValue : undefined,
-        systolicValue: metricType === 'blood_pressure' ? systolicValue : undefined,
-        diastolicValue: metricType === 'blood_pressure' ? diastolicValue : undefined,
-        textValue: ['swelling', 'lochia', 'symptom'].includes(metricType) ? textValue : undefined,
-        loggedAt,
-        note: noteText.trim() || undefined,
-      });
-
       // Local write — sub-100ms; never waits on network (capture-ui §9)
-      selfLogSyncStore.addSelfLog(input);
+      selfLogSyncStore.addSelfLog(result.payload);
       setScreenState('saved');
     } catch {
       setScreenState('error');
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     saveEnabled, metricType, weightValue, systolicValue, diastolicValue,
     textValue, dateCivil, timeStr, noteText,
@@ -789,12 +791,10 @@ export function CaptureScreen({ tokenStorage, apiBaseUrl }: CaptureScreenProps):
       <ConsentNudgeModal
         visible={showConsentModal}
         isLoading={consentLoading}
-        error={consentError}
         onGrant={handleConsentGrant}
         onNotNow={() => {
-          pendingSaveRef.current = false;
+          pendingPayloadRef.current = null;
           setShowConsentModal(false);
-          setConsentError(null);
         }}
         title={t('capture.consent.title')}
         body={t('capture.consent.body')}

@@ -16,6 +16,10 @@
  *   - kickCountSessions  (immutable event union; only status=completed push-accepted;
  *                         terminal-status guard client+server; gated cloud_storage
  *                         + general_health; note encrypted as note_cipher)
+ *   - selfLogs           (immutable event union; create-only + tombstone;
+ *                         5 metricTypes: weight|blood_pressure|swelling|lochia|symptom;
+ *                         value/note fields are opaque base64 ciphertext strings;
+ *                         gated cloud_storage + general_health; FLAG-1 loggedAt)
  *
  * Key contract rules encoded here:
  *   - push: three-bucket changes (created/updated/deleted)
@@ -349,6 +353,124 @@ export interface ExpenseRecord {
   deletedAt?: string | null;
 }
 
+// ─── SelfLog (api-contract.md §687 + self-log-behavior.md §1/§B) ─────────────
+
+/**
+ * Five-enum metric type for self-log records (self-log-behavior.md §1).
+ * Contract: metricType enum(weight, blood_pressure, swelling, lochia, symptom).
+ * The only accepted enum values; server has a DB CHECK on the same set.
+ */
+export type SelfLogMetricType =
+  | 'weight'
+  | 'blood_pressure'
+  | 'swelling'
+  | 'lochia'
+  | 'symptom';
+
+/**
+ * SelfLogInput — the write-side payload for a self-log create (sync/push).
+ *
+ * Immutable event (D2/contract §687): each record has a distinct client-gen UUIDv4.
+ * Re-pushing the same id is a server no-op (version not bumped, no field overwrite).
+ * Updates are NOT accepted — a correction creates a NEW row + tombstones the old one.
+ *
+ * Field population by metricType (self-log-behavior.md §1):
+ *   weight          → valueNumeric R, unit="kg",   others null
+ *   blood_pressure  → valueNumeric R (systolic), valueNumericSecondary R (diastolic),
+ *                      unit="mmHg", valueText null
+ *   swelling        → valueText R, valueNumeric/Secondary null, unit null
+ *   lochia          → valueText R, valueNumeric/Secondary null, unit null
+ *   symptom         → valueText R, valueNumeric/Secondary null, unit null
+ *
+ * Encryption posture (MVP — self-log-behavior.md §B.3 + ADR self-log-encryption-posture.md):
+ *   valueNumeric / valueNumericSecondary / valueText / note are opaque base64 strings
+ *   produced by the client (MVP: plaintext bytes base64-encoded). Same local-string
+ *   posture as KickCountSessionRecord.note (K-7). The server stores them verbatim
+ *   as bytea ciphertext and never parses/bounds-checks them (D3/D4/G4).
+ *
+ * loggedAt is the floating-civil bucket key "YYYY-MM-DDTHH:mm" (FLAG-1).
+ * unit is a fixed plaintext label chosen by metricType; never user-typed.
+ *
+ * MOTHER-health: gated cloud_storage (whole-batch) + general_health (per-collection).
+ * Security: never log any value/note field — health data (SD-5).
+ */
+export interface SelfLogInput {
+  /** Closed enum — 5 values (self-log-behavior.md §1). */
+  metricType: SelfLogMetricType;
+  /**
+   * Base64 ciphertext — numeric value (systolic for blood_pressure, kg for weight).
+   * Required for weight and blood_pressure; null/absent for swelling/lochia/symptom.
+   */
+  valueNumeric?: string | null;
+  /**
+   * Base64 ciphertext — diastolic reading (blood_pressure only).
+   * Required for blood_pressure; null/absent for all others.
+   */
+  valueNumericSecondary?: string | null;
+  /**
+   * Base64 ciphertext — descriptive text value (swelling / lochia / symptom).
+   * Required for swelling, lochia, symptom; null/absent for weight / blood_pressure.
+   * Never scored, never parsed (no-interpretation boundary — INV-S2/D3).
+   */
+  valueText?: string | null;
+  /**
+   * Plaintext unit label — "kg" | "mmHg" | null.
+   * Chosen by metricType (never user-typed): weight→"kg", blood_pressure→"mmHg",
+   * others→null. Display metadata only; server never keys on it.
+   */
+  unit?: string | null;
+  /**
+   * Floating-civil "YYYY-MM-DDTHH:mm" — the calendar bucket key (FLAG-1).
+   * No offset, no trailing Z. Calendar bucketing uses the date-part.
+   * Never UTC-normalized; shifts never occur on time-zone travel/DST.
+   */
+  loggedAt: string;
+  /**
+   * Optional free-text note — base64 ciphertext. Never parsed (INV-S4).
+   * Applies to any metricType. PDF inclusion gated by sensitive_lab_results.
+   */
+  note?: string | null;
+}
+
+/**
+ * SelfLog — full self-log record including the <sync> block.
+ *
+ * Returned by GET /self-logs and by sync/pull.
+ * Value/note fields are returned as ciphertext for the client to decrypt.
+ * The server never decrypts server-side; cross-user access is structurally
+ * impossible (every query is user_id = subject — D7).
+ *
+ * version = 0 is the create sentinel; server assigns version ≥ 1 on first apply.
+ * Immutable event — once created a row is never rewritten in place (D2).
+ */
+export interface SelfLog {
+  /** UUIDv4 client-generated (canonical lowercase 8-4-4-4-12). */
+  id: string;
+  /** Closed enum — 5 values. */
+  metricType: SelfLogMetricType;
+  /** Base64 ciphertext — see SelfLogInput for per-type population rules. */
+  valueNumeric?: string | null;
+  /** Base64 ciphertext — diastolic (blood_pressure only). */
+  valueNumericSecondary?: string | null;
+  /** Base64 ciphertext — descriptive value (swelling/lochia/symptom only). */
+  valueText?: string | null;
+  /** Plaintext unit label: "kg" | "mmHg" | null. */
+  unit?: string | null;
+  /** Floating-civil "YYYY-MM-DDTHH:mm" — the calendar bucket key (FLAG-1). */
+  loggedAt: string;
+  /** Base64 ciphertext — optional note. Never parsed (INV-S4). */
+  note?: string | null;
+  // ── <sync> block ─────────────────────────────────────────────────────────
+  /** Create sentinel = 0; server assigns ≥ 1 on first apply. */
+  version: number;
+  /** Server-assigned UTC ISO instant. */
+  createdAt: string;
+  /** Server-assigned UTC ISO instant. */
+  updatedAt: string;
+  /** Tombstone instant (null / absent for live records). */
+  deletedAt?: string | null;
+}
+
 // ─── Union of all sync records (for ConflictRecord.serverRecord) ──────────────
 
 export type SyncRecord =
@@ -357,7 +479,8 @@ export type SyncRecord =
   | ReminderOccurrenceRecord
   | ChecklistItemRecord
   | KickCountSessionRecord
-  | ExpenseRecord;
+  | ExpenseRecord
+  | SelfLog;
 
 // ─── Push request ─────────────────────────────────────────────────────────────
 
@@ -415,6 +538,29 @@ export interface SyncChangeSet {
     created: ExpenseRecord[];
     updated: ExpenseRecord[];
     /** Bare uuids (tombstone-wins, soft-delete). */
+    deleted: string[];
+  };
+  /**
+   * selfLogs — immutable event union (D2/contract §687).
+   *
+   * Create-only: each self-log is a distinct client-gen UUIDv4 that unions
+   * across devices without conflict (like kickCountSessions / MedicationLog).
+   * updated[] is ALWAYS EMPTY — immutable event logs have no in-place rewrites.
+   * A correction creates a new row (new UUID) and/or tombstones the old one.
+   *
+   * Server: per-collection general_health gate (rejected[] when absent);
+   *   whole-batch cloud_storage gate first. Re-push of existing id = no-op
+   *   (version not bumped, fields not overwritten — D2).
+   *
+   * Security: value/note fields are base64 ciphertext; never log them (SD-5).
+   * MOTHER-health: gated cloud_storage (whole-batch) + general_health (per-collection).
+   */
+  selfLogs?: {
+    /** New self-log events from this device's offline queue. */
+    created: SelfLog[];
+    /** Always empty — immutable event, no in-place rewrites (D2). */
+    updated: SelfLog[];
+    /** Bare uuids for tombstone-wins (soft-delete via crypto-shred). */
     deleted: string[];
   };
 }
@@ -489,6 +635,20 @@ export interface SyncPullPage {
     expenses?: {
       created: ExpenseRecord[];
       updated: ExpenseRecord[];
+      deleted: string[];
+    };
+    /**
+     * selfLogs pull — immutable event union.
+     * OQ-SYNC-17: server returns live rows in updated[], tombstones in deleted[],
+     * created[] always empty on pull. Client upserts by id.
+     * Value/note fields are returned as ciphertext for client-side decryption.
+     */
+    selfLogs?: {
+      /** OQ-SYNC-17: always empty on pull (server puts live rows in updated[]). */
+      created: SelfLog[];
+      /** Live self-log rows in the pull window — client upserts by id. */
+      updated: SelfLog[];
+      /** Tombstoned uuids — client removes matching local rows. */
       deleted: string[];
     };
   };

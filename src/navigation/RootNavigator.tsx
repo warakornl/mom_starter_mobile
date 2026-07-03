@@ -72,6 +72,7 @@ import { ManageConsentsScreen } from '../screens/ManageConsentsScreen';
 import { SuggestionFlowScreen } from '../suggestion/SuggestionFlowScreen';
 import { DoctorPdfScreen } from '../pdfReport/DoctorPdfScreen';
 import { CaptureScreen } from '../capture/CaptureScreen';
+import { buildAddCaptureParams } from '../calendar/calendarAddCaptureHandler';
 import { useT } from '../i18n/LanguageContext';
 
 // ── Logout deps for the session-expiry / no-token auto-logout path ───────────
@@ -373,7 +374,7 @@ export function RootNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps):
               navigation.navigate('ReminderForm', { reminderId })
             }
             onAddCapture={(loggedAtDate: string) =>
-              navigation.navigate('Capture', { loggedAtDate })
+              navigation.navigate('Capture', buildAddCaptureParams(loggedAtDate))
             }
           />
         )}

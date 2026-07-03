@@ -94,3 +94,21 @@ export function applyPostStart(prev: JitState): JitState {
     error:     null,
   };
 }
+
+/**
+ * Returns new state when the user taps "Try again" after a decline.
+ *
+ * Spec §4: decline must be frictionless AND re-armable — the user can try
+ * again without remounting. This resets `declined` so the consent sheet
+ * appears again. Does NOT optimistically grant consent.
+ *
+ * PDPA ม.19: withdrawal (and decline) as easy as granting.
+ */
+export function applyRearm(prev: JitState): JitState {
+  return {
+    ...prev,
+    declined:  false,
+    isLoading: false,
+    error:     null,
+  };
+}

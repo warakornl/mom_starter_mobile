@@ -178,10 +178,18 @@ export function DoctorPdfButton({
     setPdfState((prev) => applyConsentDeclined(prev));
   }, [jit]);
 
-  // ── Retry ───────────────────────────────────────────────────────────────────
+  // ── Retry (error state) ─────────────────────────────────────────────────────
   const handleRetry = useCallback(() => {
     setPdfState((prev) => applyReset(prev));
   }, []);
+
+  // ── Re-arm (declined state) — spec §4 ───────────────────────────────────────
+  // After decline, the blocked view shows a "Try again" affordance that re-arms
+  // the JIT hook so the consent sheet appears again without remounting.
+  const handleRearm = useCallback(() => {
+    jit.rearm();
+    setPdfState((prev) => applyReset(prev));
+  }, [jit]);
 
   // ── Render ──────────────────────────────────────────────────────────────────
 
@@ -234,11 +242,21 @@ export function DoctorPdfButton({
     );
   }
 
-  // ── Consent declined state ──────────────────────────────────────────────────
+  // ── Consent declined state — spec §4 re-armable ────────────────────────────
   if (pdfState.status === 'consent_declined' || jit.declined) {
     return (
       <View testID={PDF_CONSENT_BLOCKED_TESTID} style={styles.blockedContainer}>
         <Text style={styles.blockedText}>{t('pdf.consentBlocked')}</Text>
+        {/* Re-arm affordance: spec §4 — decline is frictionless AND re-armable */}
+        <TouchableOpacity
+          testID="pdf-doctor-rearm-btn"
+          style={styles.rearmBtn}
+          onPress={handleRearm}
+          accessibilityRole="button"
+          accessibilityLabel={t('pdf.cta')}
+        >
+          <Text style={styles.rearmBtnText}>{t('pdf.tryConsent')}</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -370,10 +388,27 @@ const styles = StyleSheet.create({
   blockedContainer: {
     paddingVertical: 12,
     paddingHorizontal: 16,
+    alignItems: 'center',
+    gap: 8,
   },
   blockedText: {
     fontSize: 14,
     color: '#5F4A52',
     textAlign: 'center',
+  },
+  // Re-arm button (spec §4 — try again after decline)
+  rearmBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#A8505A',
+    alignSelf: 'center',
+  },
+  rearmBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#A8505A',
+    fontFamily: 'IBMPlexSans-SemiBold',
   },
 });

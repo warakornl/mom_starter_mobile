@@ -57,6 +57,7 @@ import {
   applyGrantError,
   applyDecline,
   applyPostStart,
+  applyRearm,
 } from './useJitConsentLogic';
 import { useT } from '../i18n/LanguageContext';
 
@@ -79,6 +80,12 @@ export interface UseJitConsentReturn {
   grant: () => void;
   /** Call this when user declines (no POST — ม.19) */
   decline: () => void;
+  /**
+   * Re-arm after a decline so the consent sheet appears again.
+   * Spec §4: decline must be frictionless and re-armable without remounting.
+   * PDPA ม.19: withdrawal/decline as easy as granting.
+   */
+  rearm: () => void;
   /** Parental attestation checkbox state (ม.20; always starts false) */
   parentalAttested: boolean;
   /** Toggle the parental attestation checkbox */
@@ -147,6 +154,13 @@ export function useJitConsent(
     setJitState((prev) => applyDecline(prev));
   }, []);
 
+  // ── rearm ──────────────────────────────────────────────────────────────────
+  const rearm = useCallback((): void => {
+    // Resets declined=false so the consent sheet can be shown again.
+    // Spec §4: decline re-armable without remounting.
+    setJitState((prev) => applyRearm(prev));
+  }, []);
+
   // ── setParentalAttested ────────────────────────────────────────────────────
   const setParentalAttested = useCallback((v: boolean): void => {
     setJitState((prev) => ({ ...prev, parentalAttested: v }));
@@ -158,6 +172,7 @@ export function useJitConsent(
     error:               jitState.error,
     grant,
     decline,
+    rearm,
     parentalAttested:    jitState.parentalAttested,
     setParentalAttested,
     declined:            jitState.declined,

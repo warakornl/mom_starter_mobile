@@ -735,6 +735,8 @@ const th = {
   'pdf.error': 'สร้าง PDF ไม่สำเร็จ · ลองอีกครั้ง',
   'pdf.retry': 'ลองอีกครั้ง',
   'pdf.consentBlocked': 'ต้องให้ความยินยอมก่อนสร้าง PDF · ไปที่ จัดการความยินยอม ›',
+  /** Re-arm affordance (spec §4 — decline is frictionless and re-armable). */
+  'pdf.tryConsent': 'ลองอีกครั้ง / ยินยอม',
 };
 
 // ─── English catalog (must match th shape exactly) ────────────────────────────
@@ -1354,6 +1356,8 @@ const en: MsgShape = {
   'pdf.error': 'Could not create PDF — try again',
   'pdf.retry': 'Try again',
   'pdf.consentBlocked': 'PDF creation needs your permission · Go to Manage Permissions ›',
+  /** Re-arm affordance (spec §4 — decline is frictionless and re-armable). */
+  'pdf.tryConsent': 'Try again / Give consent',
 };
 
 // ─── Exports ──────────────────────────────────────────────────────────────────

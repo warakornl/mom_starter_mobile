@@ -139,6 +139,11 @@ export interface HomeScreenProps {
    * Optional — no-op if not provided (keeps existing snapshot tests working).
    */
   onDoctorPdf?: () => void;
+  /**
+   * Navigate to MedicationPlanListScreen (bottom-nav tab — ยา / Plans).
+   * Optional — no-op if not provided (keeps existing snapshot tests working).
+   */
+  onMedication?: () => void;
 }
 
 // ─── Screen state ─────────────────────────────────────────────────────────────
@@ -600,6 +605,7 @@ export function HomeScreen({
   onProfileLoaded,
   onSuggestions,
   onDoctorPdf,
+  onMedication,
 }: HomeScreenProps): React.JSX.Element {
   const { t } = useT();
   const [state, setState] = useState<ScreenState>({ kind: 'loading' });
@@ -930,6 +936,18 @@ export function HomeScreen({
               <Text style={styles.doctorPdfBtnText}>{t('pdf.screen.navTitle')}</Text>
             </TouchableOpacity>
           )}
+          {/* Medication Plans — postpartum entry (medication-plan-ui.md §1) */}
+          {onMedication && (
+            <TouchableOpacity
+              testID="home-medication-shortcut"
+              style={styles.medicationBtn}
+              onPress={onMedication}
+              accessibilityRole="button"
+              accessibilityLabel={t('medication.navTitle')}
+            >
+              <Text style={styles.medicationBtnText}>{t('medication.tabLabel')}</Text>
+            </TouchableOpacity>
+          )}
         </ScrollView>
       </SafeAreaView>
     );
@@ -1079,6 +1097,18 @@ export function HomeScreen({
             accessibilityLabel={t('pdf.screen.navTitle')}
           >
             <Text style={styles.doctorPdfBtnText}>{t('pdf.screen.navTitle')}</Text>
+          </TouchableOpacity>
+        )}
+        {/* Medication Plans — bottom-nav tab entry (medication-plan-ui.md §1) */}
+        {onMedication && (
+          <TouchableOpacity
+            testID="home-medication-shortcut"
+            style={styles.medicationBtn}
+            onPress={onMedication}
+            accessibilityRole="button"
+            accessibilityLabel={t('medication.navTitle')}
+          >
+            <Text style={styles.medicationBtnText}>{t('medication.tabLabel')}</Text>
           </TouchableOpacity>
         )}
       </ScrollView>
@@ -1236,6 +1266,25 @@ const styles = StyleSheet.create({
     fontFamily: 'IBMPlexSans-SemiBold',
     fontSize: 16,
     color: '#FFFFFF',
+    fontWeight: '700',
+  },
+
+  // ── Medication Plans shortcut ─────────────────────────────────────────────
+  medicationBtn: {
+    backgroundColor: '#FBF6F1',
+    borderWidth: 1.5,
+    borderColor: '#A8505A',
+    borderRadius: 10,
+    minHeight: 52,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+    marginVertical: 8,
+  },
+  medicationBtnText: {
+    fontFamily: 'IBMPlexSans-SemiBold',
+    fontSize: 16,
+    color: '#A8505A',
     fontWeight: '700',
   },
 

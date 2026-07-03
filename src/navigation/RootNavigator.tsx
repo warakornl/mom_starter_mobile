@@ -73,6 +73,7 @@ import { SuggestionFlowScreen } from '../suggestion/SuggestionFlowScreen';
 import { DoctorPdfScreen } from '../pdfReport/DoctorPdfScreen';
 import { CaptureScreen } from '../capture/CaptureScreen';
 import { buildAddCaptureParams } from '../calendar/calendarAddCaptureHandler';
+import { MedicationPlanListScreen } from '../medication/MedicationPlanListScreen';
 import { useT } from '../i18n/LanguageContext';
 
 // ── Logout deps for the session-expiry / no-token auto-logout path ───────────
@@ -263,6 +264,7 @@ export function RootNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps):
             onSupplies={() => navigation.navigate('Supplies')}
             onExpenses={() => navigation.navigate('Expenses')}
             onCalendar={() => navigation.navigate('Calendar')}
+            onMedication={() => navigation.navigate('MedicationPlans')}
             onKickCount={() => navigation.navigate('KickCountHome')}
             onSettings={() => navigation.navigate('Settings')}
             onSuggestions={() => navigation.navigate('Suggestions')}
@@ -556,6 +558,28 @@ export function RootNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps):
           <CaptureScreen
             tokenStorage={tokenStorage}
             apiBaseUrl={apiBaseUrl}
+          />
+        )}
+      </Stack.Screen>
+
+      {/* MedicationPlans — Medication Plan Management (medication-plan-ui.md).
+       *
+       * Entry: bottom-nav tab at the same level as Calendar, Expenses, Supplies.
+       *   Wired via HomeScreen.onMedication (shortcut at the same tier as the
+       *   others) pending a future TabNavigator refactor.
+       * general_health gates Save → warm consent-nudge → persist on Grant.
+       * cloud_storage absent → local-save + "not synced" toast.
+       * No health data in route params (PDPA SD-9).
+       */}
+      <Stack.Screen
+        name="MedicationPlans"
+        options={{ title: t('medication.navTitle'), headerBackTitle: t('general.back') }}
+      >
+        {({ navigation }) => (
+          <MedicationPlanListScreen
+            tokenStorage={tokenStorage}
+            apiBaseUrl={apiBaseUrl}
+            onManageConsents={() => navigation.navigate('ManageConsents')}
           />
         )}
       </Stack.Screen>

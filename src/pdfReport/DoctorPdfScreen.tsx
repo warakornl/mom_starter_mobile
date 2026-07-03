@@ -56,6 +56,7 @@ import {
   StyleSheet,
   SafeAreaView,
 } from 'react-native';
+import { SvgXml } from 'react-native-svg';
 
 import { useT } from '../i18n/LanguageContext';
 import type { Locale } from '../auth/types';
@@ -66,6 +67,7 @@ import { localCivilToday } from '../pregnancy/gestationalAge';
 import { kickCountSyncStore } from '../kickCount/kickCountSyncStore';
 import { calendarSyncStore } from '../sync/calendarSyncStore';
 import { buildDoctorReportHtml, LABELS, isWithinRange } from './doctorReportAssembler';
+import { kickCountChartSvg } from './reportCharts';
 import { createProductionPdfService } from './pdfService';
 import {
   decidePdfEgressAction,
@@ -552,9 +554,16 @@ function ReportPreview({
       <Text style={styles.previewH2}>{L.medTitle}</Text>
       <Text style={styles.previewPlaceholder}>{L.medPlaceholder}</Text>
 
-      {/* Kick-counts — filtered by isWithinRange from assembler (same logic) */}
+      {/* Kick-counts — SVG chart rendered from the SAME kickCountChartSvg function
+          as the PDF assembler: preview == PDF (single source of truth). */}
       <Text style={styles.previewH2}>{L.kickTitle}</Text>
-      <KickCountPreviewSection dateFrom={dateFrom} dateTo={dateTo} noDataLabel={L.noData} />
+      <KickCountPreviewSection
+        dateFrom={dateFrom}
+        dateTo={dateTo}
+        noDataLabel={L.noData}
+        chartTitle={L.kickChartTitle}
+        locale={locale}
+      />
 
       {/* Self-logs — placeholder matches assembler (spec §3, data-source gap) */}
       <Text style={styles.previewH2}>{L.selfLogTitle}</Text>
@@ -583,34 +592,82 @@ function ReportPreview({
   );
 }
 
-/** Reads kick sessions in range from kickCountSyncStore and renders them. */
+/**
+ * KickCountPreviewSection — renders the kick-count bar chart SVG in the
+ * native preview using react-native-svg's SvgXml.
+ *
+ * SINGLE SOURCE OF TRUTH: calls the SAME kickCountChartSvg function used by
+ * doctorReportAssembler, so the preview and PDF are guaranteed to show the
+ * same chart (spec §3 anti-surprise guarantee).
+ *
+ * CONSENT: only rendered when gateAction === 'generate' (post-consent path).
+ *   The chart SVG is built from live store data only after pdf_egress is granted.
+ *
+ * K-5b: neutral ink — no valence coloring (enforced in reportCharts.ts).
+ */
 function KickCountPreviewSection({
   dateFrom,
   dateTo,
   noDataLabel,
+  chartTitle,
+  locale,
 }: {
   dateFrom: string;
   dateTo: string;
   noDataLabel: string;
+  chartTitle: string;
+  locale: Locale;
 }): React.JSX.Element {
-  // Uses isWithinRange from doctorReportAssembler — same filtering as the PDF assembler.
-  const sessions = kickCountSyncStore.getActiveSessions()
+  const L = LABELS[locale];
+
+  // Apply the same filter / sort / cap as the PDF assembler (single source of truth)
+  const inRange = kickCountSyncStore.getActiveSessions()
     .filter((s) => isWithinRange(s.startedAt, dateFrom, dateTo))
     .sort((a, b) => b.startedAt.localeCompare(a.startedAt))
     .slice(0, 10);
 
-  if (sessions.length === 0) {
-    return <Text style={styles.previewBody}>{noDataLabel}</Text>;
-  }
+  // Sort oldest-first for left-to-right time flow (mirrors assembler)
+  const chronological = [...inRange].sort((a, b) =>
+    a.startedAt.localeCompare(b.startedAt),
+  );
+
+  const chartData = chronological.map((s) => ({
+    date: s.startedAt.substring(0, 10),
+    count: s.movementCount,
+  }));
+
+  // Build the same caption line as the assembler
+  const totalSessions = chartData.length;
+  const captionLine =
+    totalSessions === 0
+      ? undefined
+      : (() => {
+          const avgCount = Math.round(
+            chartData.reduce((sum, s) => sum + s.count, 0) / totalSessions,
+          );
+          return `${totalSessions} ${L.kickChartSessions} · ${L.kickChartAvg} ${avgCount} ${L.kickChartAvgUnit}`;
+        })();
+
+  // Generate the SVG using the same function as the PDF assembler
+  const svgString = kickCountChartSvg(chartData, {
+    noDataLabel,
+    caption: captionLine,
+    title: chartTitle,
+    width: 320,   // narrower for mobile screen; proportions preserved
+    height: 200,
+  });
 
   return (
-    <>
-      {sessions.map((s) => (
-        <Text key={s.id} style={styles.previewBody} accessibilityLabel={`${s.movementCount} movements`}>
-          {s.startedAt.substring(0, 10)}: {s.movementCount} ครั้ง / movements
-        </Text>
-      ))}
-    </>
+    <View
+      style={styles.chartContainer}
+      accessibilityLabel={chartTitle}
+      accessibilityRole="image"
+    >
+      <SvgXml xml={svgString} width="100%" height={200} />
+      {captionLine != null && (
+        <Text style={styles.previewChartCaption}>{captionLine}</Text>
+      )}
+    </View>
   );
 }
 
@@ -800,6 +857,8 @@ const styles = StyleSheet.create({
   previewLabHidden: { fontSize: 12, color: NEUTRAL_400, marginTop: 12, fontStyle: 'italic' },
   previewDisclaimer: { fontSize: 11, color: NEUTRAL_400, marginTop: 12 },
   divider: { height: 1, backgroundColor: BORDER, marginVertical: 12 },
+  chartContainer: { marginVertical: 8 },
+  previewChartCaption: { fontSize: 11, color: NEUTRAL_400, textAlign: 'center', marginTop: 2 },
 
   // Action bar
   actionBar: {

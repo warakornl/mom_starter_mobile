@@ -98,6 +98,16 @@ function filterChangeSetByIds(
     };
   }
 
+  // expenses — mutable LWW, per-record rejected re-enqueue
+  if (changes.expenses) {
+    const e = changes.expenses;
+    result.expenses = {
+      created: e.created.filter((rec) => rejectedIds.has(rec.id)),
+      updated: e.updated.filter((rec) => rejectedIds.has(rec.id)),
+      deleted: e.deleted.filter((id) => rejectedIds.has(id)),
+    };
+  }
+
   return result;
 }
 

@@ -47,6 +47,7 @@ import type { FetchFn } from '../auth/authApiClient';
 import type { SyncStore } from './syncStore';
 import type { CalendarSyncStore } from './calendarSyncStore';
 import type { KickCountSyncStore } from '../kickCount/kickCountSyncStore';
+import type { ExpensesSyncStore } from '../expenses/expensesSyncStore';
 import type {
   SyncChangeSet,
   SyncPushResponse,
@@ -59,6 +60,7 @@ import type {
   ReminderOccurrenceRecord,
   ChecklistItemRecord,
   KickCountSessionRecord,
+  ExpenseRecord,
 } from './syncTypes';
 
 // ─── Collection adapter interface ─────────────────────────────────────────────
@@ -288,6 +290,7 @@ function createSyncClientWithAdapters(
         applyPullChanges('reminderOccurrences', page.changes?.reminderOccurrences, adapterMap);
         applyPullChanges('checklistItems', page.changes?.checklistItems, adapterMap);
         applyPullChanges('kickCountSessions', page.changes?.kickCountSessions, adapterMap);
+        applyPullChanges('expenses', page.changes?.expenses, adapterMap);
 
         const isLastPage = !page.nextCursor;
 
@@ -431,6 +434,44 @@ export function createKickCountSyncClient(
         upsertRecord: (record) =>
           store.upsertSession(record as KickCountSessionRecord),
         tombstoneRecord: (id) => store.tombstoneSession(id),
+      },
+    ],
+  ]);
+  return createSyncClientWithAdapters(baseUrl, adapterMap, store, fetchFn);
+}
+
+/**
+ * Creates a sync client bound to an ExpensesSyncStore.
+ * Handles collection: expenses (mutable LWW, cloud_storage gated).
+ *
+ * Pull: processes changes.expenses from the shared /v1/sync/pull endpoint.
+ *       Unknown collections (supplyItems, reminders, etc.) are silently
+ *       ignored by the adapter map — each screen only processes its own data.
+ * Push: drainQueue() places records under changes.expenses for the shared
+ *       /v1/sync/push endpoint.
+ *
+ * Security: NEVER log amount, note, or incurredOn values (financial data).
+ *
+ * @param baseUrl  API base URL (no trailing slash)
+ * @param store    ExpensesSyncStore singleton
+ * @param fetchFn  Defaults to global `fetch`; inject a mock in tests
+ */
+export function createExpensesSyncClient(
+  baseUrl: string,
+  store: ExpensesSyncStore,
+  fetchFn: FetchFn = fetch,
+) {
+  const adapterMap = new Map<string, SyncCollectionAdapter>([
+    [
+      'expenses',
+      {
+        stampApplied: (id, version, updatedAt) =>
+          store.stampApplied(id, version, updatedAt),
+        adoptServerRecord: (record) =>
+          store.adoptServerRecord(record as ExpenseRecord),
+        upsertRecord: (record) =>
+          store.upsertExpense(record as ExpenseRecord),
+        tombstoneRecord: (id) => store.tombstoneExpense(id),
       },
     ],
   ]);

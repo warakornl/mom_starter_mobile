@@ -71,6 +71,11 @@ import {
   computeCategoryBreakdown,
   groupExpensesByDate,
 } from './expensesUtils';
+import {
+  filterAmountInput,
+  satangToInputString,
+  isValidCivilDate,
+} from './expensesScreenHandlers';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -225,8 +230,8 @@ function ExpenseFormModal({
               testID="expenses-form-amount"
               style={formStyles.amountInput}
               value={form.amountBaht}
-              onChangeText={(v) => onChange({ amountBaht: v.replace(/[^0-9]/g, '') })}
-              keyboardType="number-pad"
+              onChangeText={(v) => onChange({ amountBaht: filterAmountInput(v) })}
+              keyboardType="decimal-pad"
               placeholder="0"
               placeholderTextColor="#94818A"
               autoFocus={!isEdit}

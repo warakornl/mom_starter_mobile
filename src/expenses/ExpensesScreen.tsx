@@ -1161,7 +1161,7 @@ export function ExpensesScreen({ tokenStorage, apiBaseUrl }: ExpensesScreenProps
             </Text>
             {isCurrentMonth && (
               <TouchableOpacity
-                testID="expenses-add"
+                testID="expenses-add-empty"
                 style={styles.addFirstBtn}
                 onPress={openAdd}
                 accessibilityRole="button"

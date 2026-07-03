@@ -859,8 +859,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#A8505A',
   },
   addBtnSecondary: { backgroundColor: '#3B8C8C' },
-  /** Capture / self-log add button — sage green to distinguish from appt (rose) and reminder (teal). */
-  addBtnCapture: { backgroundColor: '#4A7A56' },
+  /** Capture / self-log add button — design-system sage status/logged token #4C6B57
+   *  (design-system.md §1.3/§5.8). Replaces off-token #4A7A56. */
+  addBtnCapture: { backgroundColor: '#4C6B57' },
   addBtnText: { fontSize: 12, color: '#FFFFFF', fontWeight: '600' },
   addBtnTextSecondary: { color: '#FFFFFF' },
   addBtnTextCapture: { color: '#FFFFFF' },

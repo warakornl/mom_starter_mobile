@@ -300,6 +300,55 @@ export interface KickCountSessionRecord {
   deletedAt?: string | null;
 }
 
+// ─── ExpenseRecord (api-contract.md §"Expenses") ─────────────────────────────
+
+/**
+ * Five-enum category for expense records (expenses-feature §3.2).
+ * Keys stable; labels are i18n catalog entries (expenses.category.*).
+ */
+export type ExpenseCategory =
+  | 'baby-supplies'
+  | 'healthcare'
+  | 'baby-gear'
+  | 'mother'
+  | 'other';
+
+/**
+ * ExpenseRecord — a single spending entry, offline-first LWW mutable record.
+ *
+ * Design notes:
+ *   - amount: integer satang (฿1 = 100 satang) — no float drift; display as ฿ with 2 decimals.
+ *   - incurredOn: floating-civil "YYYY-MM-DD" bucket key (FLAG-1); decides which
+ *     month's total the expense counts toward. Never shifts on TZ travel.
+ *   - note: optional free-text, client-encrypted (EX-2), never parsed server-side.
+ *   - clientId: client-generated stable id for device tracking.
+ *   - version: 0 = create sentinel; server assigns ≥ 1.
+ *
+ * Security: expense amounts are financial (not health) data — cloud_storage gate.
+ * note field is the one field that could carry a health proxy — client-encrypted (EX-2).
+ * NEVER log amount, note, or incurredOn to console.
+ */
+export interface ExpenseRecord {
+  /** UUIDv4 client-generated. */
+  id: string;
+  /** Amount in satang (integer). ฿1 = 100 satang. */
+  amount: number;
+  /** The fixed five-enum spending bucket (expenses-feature §3.2). */
+  category: ExpenseCategory;
+  /** Floating-civil "YYYY-MM-DD" — the month-bucket key (FLAG-1). */
+  incurredOn: string;
+  /** Optional free-text note — client-encrypted (EX-2), never parsed. */
+  note?: string | null;
+  /** Client identifier for per-device tracking. */
+  clientId: string;
+  // ── <sync> block ────────────────────────────────────────────────────────────
+  /** Create sentinel = 0; server assigns ≥ 1. LWW mutable. */
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt?: string | null;
+}
+
 // ─── Union of all sync records (for ConflictRecord.serverRecord) ──────────────
 
 export type SyncRecord =
@@ -307,7 +356,8 @@ export type SyncRecord =
   | ReminderRecord
   | ReminderOccurrenceRecord
   | ChecklistItemRecord
-  | KickCountSessionRecord;
+  | KickCountSessionRecord
+  | ExpenseRecord;
 
 // ─── Push request ─────────────────────────────────────────────────────────────
 
@@ -354,6 +404,17 @@ export interface SyncChangeSet {
     /** Always empty for kickCountSessions (immutable event — no updates). */
     updated: KickCountSessionRecord[];
     /** Bare uuids for tombstone-wins (soft delete). */
+    deleted: string[];
+  };
+  /**
+   * expenses — mutable LWW spending entries (expenses-feature §3.1).
+   * amount in satang (integer). incurredOn is floating-civil YYYY-MM-DD.
+   * note is client-encrypted (EX-2). Cloud_storage gated (no health consent needed).
+   */
+  expenses?: {
+    created: ExpenseRecord[];
+    updated: ExpenseRecord[];
+    /** Bare uuids (tombstone-wins, soft-delete). */
     deleted: string[];
   };
 }
@@ -422,6 +483,12 @@ export interface SyncPullPage {
       /** OQ-SYNC-17: server always sends live rows here (not created[]). */
       created: KickCountSessionRecord[];
       updated: KickCountSessionRecord[];
+      deleted: string[];
+    };
+    /** expenses pull: live rows updated/created, tombstones in deleted[]. */
+    expenses?: {
+      created: ExpenseRecord[];
+      updated: ExpenseRecord[];
       deleted: string[];
     };
   };

@@ -120,4 +120,22 @@ export type RootStackParamList = {
    * No health data in route params (PDPA SD-9).
    */
   DoctorPdf: undefined;
+
+  /**
+   * Capture — Quick Capture / Self-log form (capture-ui.md).
+   * Entry: Day-Detail "Add" / Home shortcut / specific-context reminder.
+   *
+   * metricType: if present, type control is hidden and pre-set.
+   *             if absent, the type segmented control is shown (generic "Add").
+   * loggedAtDate: YYYY-MM-DD of the day being logged (default = today).
+   * defaultTime:  HH:mm override (e.g. from a reminder occurrence time).
+   *              If absent: now on today / 12:00 on non-today (capture-ui §2).
+   *
+   * Security: NO health values in route params (PDPA SD-9).
+   */
+  Capture: {
+    metricType?: import('../sync/syncTypes').SelfLogMetricType;
+    loggedAtDate?: string;
+    defaultTime?: string;
+  };
 };

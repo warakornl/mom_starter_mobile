@@ -18,6 +18,7 @@
 
 import {
   encodeFieldToBase64,
+  decodeFieldFromBase64,
   buildSelfLogInput,
   getDefaultTime,
   buildLoggedAt,
@@ -469,5 +470,61 @@ describe('buildLoggedAt reflects edited time (blocker #4 — time picker must ca
 
   it('edited minute is reflected — 13:00 vs 13:45 produce distinct loggedAt', () => {
     expect(buildLoggedAt('2026-06-28', '13:00')).not.toBe(buildLoggedAt('2026-06-28', '13:45'));
+  });
+});
+
+// ─── decodeFieldFromBase64 (SD-5 — blocker) ──────────────────────────────────
+//
+// RED phase: these tests fail until decodeFieldFromBase64 is exported from
+// captureScreenLogic.ts. The encode side (encodeFieldToBase64) is already
+// tested; the decode side and the round-trip have no coverage.
+//
+// Boundary under test: the Hermes atob+TextDecoder vs Node Buffer divergence
+// for Thai multi-byte UTF-8.
+//
+// Security: test values here are test fixtures only — never log health values.
+
+describe('decodeFieldFromBase64 (SD-5 — shared codec, inverse of encodeFieldToBase64)', () => {
+  // ── Null / empty guard ───────────────────────────────────────────────────────
+
+  it('returns null for null input', () => {
+    expect(decodeFieldFromBase64(null)).toBeNull();
+  });
+
+  it('returns null for undefined input', () => {
+    expect(decodeFieldFromBase64(undefined)).toBeNull();
+  });
+
+  it('returns null for empty-string input', () => {
+    expect(decodeFieldFromBase64('')).toBeNull();
+  });
+
+  // ── Direct decode from known base64 constant ─────────────────────────────────
+  // "NjQuMg==" is the standard base64 encoding of ASCII "64.2"
+
+  it('decodes known base64 constant "NjQuMg==" to "64.2"', () => {
+    expect(decodeFieldFromBase64('NjQuMg==')).toBe('64.2');
+  });
+
+  // ── Round-trip: decodeFieldFromBase64(encodeFieldToBase64(x)) === x ──────────
+
+  it('round-trip: "64.2" (weight value) encodes then decodes identically', () => {
+    const original = '64.2';
+    expect(decodeFieldFromBase64(encodeFieldToBase64(original))).toBe(original);
+  });
+
+  it('round-trip: Thai "เล็กน้อย" (swelling value, 3-byte UTF-8 chars)', () => {
+    const original = 'เล็กน้อย';
+    expect(decodeFieldFromBase64(encodeFieldToBase64(original))).toBe(original);
+  });
+
+  it('round-trip: Thai "หมายเหตุพิเศษ" (note value)', () => {
+    const original = 'หมายเหตุพิเศษ';
+    expect(decodeFieldFromBase64(encodeFieldToBase64(original))).toBe(original);
+  });
+
+  it('round-trip: emoji "👶" (4-byte UTF-8 sequence)', () => {
+    const original = '👶';
+    expect(decodeFieldFromBase64(encodeFieldToBase64(original))).toBe(original);
   });
 });

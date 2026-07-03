@@ -18,7 +18,12 @@
 
 import type { SelfLogInput, SelfLogMetricType } from '../sync/syncTypes';
 
-// ─── Base64 encoding (MVP: plaintext bytes base64-encoded) ────────────────────
+// ─── Base64 codec (MVP: plaintext bytes base64-encoded) ──────────────────────
+//
+// Both encode and decode live here so they form a single source of truth.
+// DoctorPdfScreen imports decodeFieldFromBase64 from here; it does NOT keep a
+// local copy. The Hermes atob+TextDecoder vs Node Buffer divergence (Thai
+// multi-byte UTF-8) is tested via the round-trip in captureScreenLogic.test.ts.
 
 /**
  * Encode a UTF-8 string to base64 (MVP posture — K-7 carry-forward).
@@ -44,6 +49,40 @@ export function encodeFieldToBase64(text: string): string {
   const bytes = encoder.encode(text);
   const chars = Array.from(bytes, (b: number) => String.fromCharCode(b));
   return btoa(chars.join(''));
+}
+
+/**
+ * Decode a base64 field back to UTF-8 plaintext (inverse of encodeFieldToBase64).
+ *
+ * MVP: plaintext bytes base64-encoded; AES-GCM decryption is a carry-forward
+ * to appsec-engineer before production egress (same flag as K-7).
+ *
+ * Returns null for null / undefined / empty input (stores use null for absent fields).
+ *
+ * Works in:
+ *  - Node.js / Jest test environment (Buffer available globally)
+ *  - React Native / Hermes (atob + TextDecoder — available RN 0.71+;
+ *    TextDecoder handles Thai 3-byte and emoji 4-byte UTF-8 correctly)
+ *
+ * NEVER log the return value — it contains MOTHER-health plaintext (SD-5).
+ */
+export function decodeFieldFromBase64(b64: string | null | undefined): string | null {
+  if (b64 == null || b64 === '') return null;
+  try {
+    if (typeof Buffer !== 'undefined') {
+      // Node.js / Jest test environment
+      return Buffer.from(b64, 'base64').toString('utf8');
+    }
+    // React Native / Hermes: atob handles base64; TextDecoder handles UTF-8
+    const binary = atob(b64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+    return new TextDecoder('utf-8').decode(bytes);
+  } catch {
+    return null;
+  }
 }
 
 // ─── SelfLogInput builder ─────────────────────────────────────────────────────

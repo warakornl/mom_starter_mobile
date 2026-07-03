@@ -818,6 +818,40 @@ const th = {
   // Error state (§4.4)
   'expenses.errorHeadline': 'เปิดข้อมูลในเครื่องไม่สำเร็จ',
   'expenses.errorSubline': 'ข้อมูลของคุณยังอยู่',
+
+  // ── Quick Capture / Self-Log (capture-ui.md §2/§3/§4/§5) ─────────────────────
+  'capture.navTitle': 'บันทึกข้อมูล',
+  'capture.close': 'ปิด',
+  'capture.save': 'บันทึก',
+  'capture.typeLabel': 'ประเภท:',
+  'capture.type.weight': 'น้ำหนัก',
+  'capture.type.blood_pressure': 'ความดัน',
+  'capture.type.swelling': 'บวม',
+  'capture.type.lochia': 'น้ำคาวปลา',
+  'capture.type.symptom': 'อาการ',
+  'capture.field.when': 'เมื่อ',
+  'capture.field.note': 'บันทึกเพิ่ม (ไม่บังคับ)',
+  'capture.field.notePlaceholder': 'พิมพ์...',
+  'capture.field.valuePlaceholder': 'พิมพ์ค่า',
+  'capture.field.textPlaceholder': 'บรรยาย...',
+  'capture.notePrivacy': 'เก็บไว้ในเครื่อง · ไม่ถูกอ่านหรือวิเคราะห์',
+  'capture.echoPrefix': 'จะบันทึกเป็น:',
+  'capture.echoPlaceholder': '— กรอกค่าเพื่อดูตัวอย่าง —',
+  'capture.saved': 'บันทึกแล้ว',
+  'capture.savedMsg': 'บันทึกข้อมูลสำเร็จ',
+  'capture.viewCalendar': 'ดูในปฏิทิน',
+  'capture.done': 'เสร็จ',
+  'capture.error': 'บันทึกไม่สำเร็จ ลองอีกครั้ง',
+  'capture.retry': 'ลองอีกครั้ง',
+  // Consent nudge (self-log-behavior §B.4 — general_health gate)
+  'capture.consent.title': 'ต้องให้ความยินยอมก่อนบันทึกสุขภาพ',
+  'capture.consent.body': 'เปิดสิทธิ์บันทึกสุขภาพเพื่อบันทึกน้ำหนัก ความดัน และอาการต่างๆ — ข้อมูลเก็บไว้ในเครื่องเท่านั้น',
+  'capture.consent.grant': 'ให้ความยินยอม',
+  'capture.consent.notNow': 'ไม่ใช่ตอนนี้',
+  'capture.consent.changeLater': 'เปลี่ยนได้ทุกเมื่อที่ บัญชี › จัดการความยินยอม',
+  // Unit labels (display only — not user-typed)
+  'capture.unit.kg': 'กก.',
+  'capture.unit.mmHg': 'mmHg',
 };
 
 // ─── English catalog (must match th shape exactly) ────────────────────────────
@@ -1516,6 +1550,40 @@ const en: MsgShape = {
   // Error state (§4.4)
   'expenses.errorHeadline': "Couldn't open your expenses",
   'expenses.errorSubline': 'Your data is still here',
+
+  // ── Quick Capture / Self-Log (capture-ui.md §2/§3/§4/§5) ─────────────────────
+  'capture.navTitle': 'Log',
+  'capture.close': 'Close',
+  'capture.save': 'Save',
+  'capture.typeLabel': 'Type:',
+  'capture.type.weight': 'Weight',
+  'capture.type.blood_pressure': 'Blood pressure',
+  'capture.type.swelling': 'Swelling',
+  'capture.type.lochia': 'Lochia',
+  'capture.type.symptom': 'Symptom',
+  'capture.field.when': 'When',
+  'capture.field.note': 'Note (optional)',
+  'capture.field.notePlaceholder': 'Type…',
+  'capture.field.valuePlaceholder': 'Enter value',
+  'capture.field.textPlaceholder': 'Describe…',
+  'capture.notePrivacy': 'Kept on your device · never read or interpreted',
+  'capture.echoPrefix': 'Will save as:',
+  'capture.echoPlaceholder': '— fill in a value to preview —',
+  'capture.saved': 'Saved',
+  'capture.savedMsg': 'Entry saved',
+  'capture.viewCalendar': 'View in calendar',
+  'capture.done': 'Done',
+  'capture.error': "Couldn't save — try again",
+  'capture.retry': 'Try again',
+  // Consent nudge (self-log-behavior §B.4 — general_health gate)
+  'capture.consent.title': 'Health logging permission needed',
+  'capture.consent.body': 'To record weight, blood pressure, and symptoms, please grant health logging permission — data stays on your device.',
+  'capture.consent.grant': 'Grant access',
+  'capture.consent.notNow': 'Not now',
+  'capture.consent.changeLater': 'Change anytime in Account › Manage Permissions',
+  // Unit labels (display only — not user-typed)
+  'capture.unit.kg': 'kg',
+  'capture.unit.mmHg': 'mmHg',
 };
 
 // ─── Exports ──────────────────────────────────────────────────────────────────

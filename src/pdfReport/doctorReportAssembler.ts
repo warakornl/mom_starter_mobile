@@ -129,10 +129,13 @@ function civilDatePart(isoOrFloating: string): string {
 }
 
 /**
- * Returns true if the given floating-civil datetime falls within [dateFrom, dateTo]
- * (inclusive, based on the date part only).
+ * isWithinRange — returns true if the given floating-civil datetime falls within
+ * [dateFrom, dateTo] (inclusive, based on the date part only).
+ *
+ * Exported so ReportPreview's sub-components can share the same filtering logic
+ * as the assembler, preventing the preview and PDF from drifting apart.
  */
-function isWithinRange(floatingCivil: string, dateFrom: string, dateTo: string): boolean {
+export function isWithinRange(floatingCivil: string, dateFrom: string, dateTo: string): boolean {
   const date = civilDatePart(floatingCivil);
   return date >= dateFrom && date <= dateTo;
 }
@@ -149,7 +152,14 @@ function esc(s: string): string {
 
 // ─── i18n label maps ──────────────────────────────────────────────────────────
 
-const LABELS = {
+/**
+ * LABELS — exported so the ReportPreview component can derive its section
+ * labels, placeholder strings, and disclaimer from the same source as the PDF
+ * assembler, preventing drift between the preview and the actual PDF output.
+ *
+ * Callers: use LABELS[locale].xxx; do not hard-code strings in the preview.
+ */
+export const LABELS = {
   th: {
     reportTitle: 'รายงานสุขภาพสำหรับแพทย์',
     reportDate: 'วันที่สร้างรายงาน',

@@ -6,12 +6,12 @@
  *   - Profile section included (EDD, gestational week, lifecycle)
  *   - Medication & adherence section (first, always — placeholder when no data)
  *   - Kick-count section (date-range filtered)
- *   - Self-logs section (placeholder when no data source)
+ *   - Self-logs section — real data rendered verbatim; empty-range wording; gating
  *   - Appointments section (date-range filtered)
  *   - Lab results hidden line (when includeSensitiveNotes=false)
  *   - Date range filtering: data outside range is NOT included
  *   - Thai (th) + English (en) locale labels both work
- *   - Empty inputs for all sections → no crash, placeholder text (never "error")
+ *   - Empty inputs for all sections → no crash, empty-state text (never "error")
  *   - Generated HTML contains no raw secrets (no tokens, no passwords)
  *   - Report date and range are present (BE calendar in th, CE in en)
  *   - HTML is well-formed enough (has <html>, <body>)
@@ -26,6 +26,7 @@
 import {
   buildDoctorReportHtml,
   type DoctorReportInput,
+  type ReportSelfLog,
 } from './doctorReportAssembler';
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
@@ -78,10 +79,102 @@ const appointments = [
 
 const reportDate = '2026-07-03';
 
+// ─── Self-log fixtures (decoded plaintext values — no base64 here) ─────────────
+
+/** Blood-pressure log within range */
+const selfLogBP: ReportSelfLog = {
+  id: 'sl-bp1',
+  loggedAt: '2026-07-01T13:00',
+  metricType: 'blood_pressure',
+  valueNumeric: '120',
+  valueNumericSecondary: '78',
+  valueText: null,
+  unit: 'mmHg',
+  note: null,
+};
+
+/** Weight log within range */
+const selfLogWeight: ReportSelfLog = {
+  id: 'sl-w1',
+  loggedAt: '2026-07-02T09:00',
+  metricType: 'weight',
+  valueNumeric: '64.2',
+  valueNumericSecondary: null,
+  valueText: null,
+  unit: 'kg',
+  note: null,
+};
+
+/** Swelling log within range (valueText field — gated by includeSensitiveNotes) */
+const selfLogSwelling: ReportSelfLog = {
+  id: 'sl-sw1',
+  loggedAt: '2026-07-03T10:00',
+  metricType: 'swelling',
+  valueNumeric: null,
+  valueNumericSecondary: null,
+  valueText: 'เล็กน้อย',
+  unit: null,
+  note: null,
+};
+
+/** Weight log with a note (note gated by includeSensitiveNotes) */
+const selfLogWithNote: ReportSelfLog = {
+  id: 'sl-note',
+  loggedAt: '2026-07-05T08:00',
+  metricType: 'weight',
+  valueNumeric: '65.0',
+  valueNumericSecondary: null,
+  valueText: null,
+  unit: 'kg',
+  note: 'หมายเหตุพิเศษ',
+};
+
+/** Weight log OUTSIDE the date range — must be excluded */
+const selfLogOutOfRange: ReportSelfLog = {
+  id: 'sl-oor',
+  loggedAt: '2026-05-15T09:00',   // before dateFrom 2026-07-01
+  metricType: 'weight',
+  valueNumeric: '99.9',
+  valueNumericSecondary: null,
+  valueText: null,
+  unit: 'kg',
+  note: null,
+};
+
+/** Extreme BP — must render identically to normal BP (INV-S1 / AC-20) */
+const selfLogBPExtreme: ReportSelfLog = {
+  id: 'sl-bp-x',
+  loggedAt: '2026-07-04T08:00',
+  metricType: 'blood_pressure',
+  valueNumeric: '150',
+  valueNumericSecondary: '95',
+  valueText: null,
+  unit: 'mmHg',
+  note: null,
+};
+
+/** Normal BP for INV-S1 comparison */
+const selfLogBPNormal: ReportSelfLog = {
+  id: 'sl-bp-n',
+  loggedAt: '2026-07-05T08:00',
+  metricType: 'blood_pressure',
+  valueNumeric: '110',
+  valueNumericSecondary: '70',
+  valueText: null,
+  unit: 'mmHg',
+  note: null,
+};
+
+/** Returns a fresh array of all self-logs that fall within the base date range */
+function selfLogsInRange(): ReportSelfLog[] {
+  return [selfLogBP, selfLogWeight, selfLogSwelling];
+}
+
 const baseInput: DoctorReportInput = {
   profile: baseProfile,
   kickSessions,
   appointments,
+  selfLogs: [],
   dateFrom: '2026-07-01',
   dateTo: '2026-07-31',
   reportDate,
@@ -266,7 +359,7 @@ describe('buildDoctorReportHtml', () => {
     expect(html).toContain('77');
   });
 
-  // ── Self-logs section (spec §3 — placeholder since no data source) ──────────
+  // ── Self-logs section (spec §3) ────────────────────────────────────────────
 
   it('includes self-logs section header (th)', () => {
     const html = buildDoctorReportHtml({ ...baseInput, locale: 'th' });
@@ -278,14 +371,16 @@ describe('buildDoctorReportHtml', () => {
     expect(html).toMatch(/self-log|weight|blood pressure/i);
   });
 
-  it('renders self-log placeholder when no data (th)', () => {
-    const html = buildDoctorReportHtml({ ...baseInput, locale: 'th' });
-    expect(html).toMatch(/ยังไม่มีข้อมูล|not tracked/i);
+  it('renders empty-range wording when selfLogs is empty — NOT old "feature not built" (th)', () => {
+    const html = buildDoctorReportHtml({ ...baseInput, selfLogs: [], locale: 'th' });
+    expect(html).toMatch(/ไม่มีข้อมูลในช่วงนี้/i);
+    expect(html).not.toMatch(/ฟีเจอร์บันทึกตนเองยังไม่ถูกสร้าง/);
   });
 
-  it('renders self-log placeholder when no data (en)', () => {
-    const html = buildDoctorReportHtml({ ...baseInput, locale: 'en' });
-    expect(html).toMatch(/not tracked yet/i);
+  it('renders empty-range wording when selfLogs is empty — NOT old "feature not built" (en)', () => {
+    const html = buildDoctorReportHtml({ ...baseInput, selfLogs: [], locale: 'en' });
+    expect(html).toMatch(/no data in this range/i);
+    expect(html).not.toMatch(/self-log feature not yet built/i);
   });
 
   // ── Appointments section ───────────────────────────────────────────────────
@@ -513,5 +608,166 @@ describe('buildDoctorReportHtml', () => {
     const html1 = buildDoctorReportHtml(baseInput);
     const html2 = buildDoctorReportHtml(baseInput);
     expect(html1).toBe(html2);
+  });
+
+  // ── Self-log section — real data (spec §A.4, pdf-doctor-ui §3) ───────────
+
+  it('renders BP value verbatim: ความดัน 120/78 mmHg (th)', () => {
+    const html = buildDoctorReportHtml({ ...baseInput, selfLogs: [selfLogBP] });
+    expect(html).toContain('ความดัน 120/78 mmHg');
+  });
+
+  it('renders weight value verbatim: น้ำหนัก 64.2 กก. (th)', () => {
+    const html = buildDoctorReportHtml({ ...baseInput, selfLogs: [selfLogWeight] });
+    expect(html).toContain('น้ำหนัก 64.2 กก.');
+  });
+
+  it('renders BP value verbatim: Blood pressure 120/78 mmHg (en)', () => {
+    const html = buildDoctorReportHtml({ ...baseInput, locale: 'en', selfLogs: [selfLogBP] });
+    expect(html).toContain('Blood pressure 120/78 mmHg');
+  });
+
+  it('renders weight value verbatim: Weight 64.2 kg (en)', () => {
+    const html = buildDoctorReportHtml({ ...baseInput, locale: 'en', selfLogs: [selfLogWeight] });
+    expect(html).toContain('Weight 64.2 kg');
+  });
+
+  it('excludes self-log outside date range', () => {
+    const html = buildDoctorReportHtml({
+      ...baseInput,
+      selfLogs: [...selfLogsInRange(), selfLogOutOfRange],
+    });
+    // selfLogOutOfRange has valueNumeric '99.9' — must NOT appear in self-log value
+    expect(html).not.toContain('99.9');
+  });
+
+  it('includes self-logs exactly on the lower boundary', () => {
+    const onBoundary: ReportSelfLog = {
+      id: 'sl-boundary',
+      loggedAt: '2026-07-01T00:00',   // exactly dateFrom
+      metricType: 'weight',
+      valueNumeric: '55.5',
+      valueNumericSecondary: null,
+      valueText: null,
+      unit: 'kg',
+      note: null,
+    };
+    const html = buildDoctorReportHtml({ ...baseInput, selfLogs: [onBoundary] });
+    expect(html).toContain('55.5');
+  });
+
+  // weight/BP always shown (numeric values — not gated by includeSensitiveNotes)
+  it('BP value rendered when includeSensitiveNotes=false (always-render numeric)', () => {
+    const html = buildDoctorReportHtml({
+      ...baseInput,
+      selfLogs: [selfLogBP],
+      includeSensitiveNotes: false,
+    });
+    expect(html).toContain('ความดัน 120/78 mmHg');
+  });
+
+  it('weight value rendered when includeSensitiveNotes=false (always-render numeric)', () => {
+    const html = buildDoctorReportHtml({
+      ...baseInput,
+      selfLogs: [selfLogWeight],
+      includeSensitiveNotes: false,
+    });
+    expect(html).toContain('น้ำหนัก 64.2 กก.');
+  });
+
+  // swelling valueText gated by includeSensitiveNotes (spec §A.4 / G-5)
+  it('swelling value hidden when includeSensitiveNotes=false — label + hidden-line shown', () => {
+    const html = buildDoctorReportHtml({
+      ...baseInput,
+      selfLogs: [selfLogSwelling],
+      includeSensitiveNotes: false,
+    });
+    // Label "บวม" must appear
+    expect(html).toMatch(/บวม/i);
+    // Value must NOT appear
+    expect(html).not.toContain('เล็กน้อย');
+    // A "results hidden" marker must appear inside the self-log section
+    expect(html).toMatch(/ผลถูกซ่อน/i);
+  });
+
+  it('swelling value shown when includeSensitiveNotes=true', () => {
+    const html = buildDoctorReportHtml({
+      ...baseInput,
+      selfLogs: [selfLogSwelling],
+      includeSensitiveNotes: true,
+    });
+    expect(html).toContain('เล็กน้อย');
+  });
+
+  // note gated by includeSensitiveNotes (any metricType)
+  it('note hidden when includeSensitiveNotes=false', () => {
+    const html = buildDoctorReportHtml({
+      ...baseInput,
+      selfLogs: [selfLogWithNote],
+      includeSensitiveNotes: false,
+    });
+    expect(html).not.toContain('หมายเหตุพิเศษ');
+  });
+
+  it('note shown when includeSensitiveNotes=true', () => {
+    const html = buildDoctorReportHtml({
+      ...baseInput,
+      selfLogs: [selfLogWithNote],
+      includeSensitiveNotes: true,
+    });
+    expect(html).toContain('หมายเหตุพิเศษ');
+  });
+
+  // INV-S1: extreme vs normal BP — identical HTML structure (no grading, AC-20)
+  it('INV-S1: BP 150/95 and 110/70 render with identical surrounding HTML structure (no grading)', () => {
+    // Use same loggedAt so only the numeric values differ
+    const extremeLog: ReportSelfLog = { ...selfLogBPExtreme, loggedAt: '2026-07-04T08:00' };
+    const normalLog: ReportSelfLog = { ...selfLogBPNormal, loggedAt: '2026-07-04T08:00' };
+
+    const makeHtml = (log: ReportSelfLog) =>
+      buildDoctorReportHtml({ ...baseInput, selfLogs: [log], locale: 'th' });
+
+    const htmlExtreme = makeHtml(extremeLog);
+    const htmlNormal = makeHtml(normalLog);
+
+    // Strip out the numeric values themselves — everything else (tags, classes, structure) must match
+    const normalise = (html: string, systolic: string, diastolic: string) =>
+      html.replace(`${systolic}/${diastolic}`, 'SYS/DIA');
+
+    const normExtreme = normalise(htmlExtreme, '150', '95');
+    const normNormal = normalise(htmlNormal, '110', '70');
+
+    // After normalising the value, surrounding HTML must be byte-identical (no conditional styling)
+    expect(normExtreme).toBe(normNormal);
+  });
+
+  it('INV-S1: no grade words in self-log section for any value', () => {
+    const html = buildDoctorReportHtml({
+      ...baseInput,
+      selfLogs: [selfLogBPExtreme, selfLogBPNormal, selfLogWeight],
+      includeSensitiveNotes: true,
+    });
+    expect(html).not.toMatch(/normal|high|low|abnormal|สูง|ต่ำ|ผิดปกติ/i);
+  });
+
+  it('empty-range wording used when all self-logs are outside range (NOT old placeholder)', () => {
+    const html = buildDoctorReportHtml({
+      ...baseInput,
+      selfLogs: [selfLogOutOfRange],
+      dateFrom: '2026-07-01',
+      dateTo: '2026-07-31',
+    });
+    expect(html).toMatch(/ไม่มีข้อมูลในช่วงนี้/i);
+    expect(html).not.toMatch(/ฟีเจอร์บันทึกตนเองยังไม่ถูกสร้าง/);
+  });
+
+  it('multiple self-logs in range all rendered (mixed metricTypes)', () => {
+    const html = buildDoctorReportHtml({
+      ...baseInput,
+      selfLogs: [selfLogBP, selfLogWeight],
+      includeSensitiveNotes: true,
+    });
+    expect(html).toContain('ความดัน 120/78 mmHg');
+    expect(html).toContain('น้ำหนัก 64.2 กก.');
   });
 });

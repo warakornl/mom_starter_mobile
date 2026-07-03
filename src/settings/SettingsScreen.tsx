@@ -32,6 +32,7 @@ import { consentStore } from '../consent/consentStore';
 import { resetConsentQueue } from '../consent/consentSync';
 import { suggestionStore } from '../suggestion/suggestionStore';
 import { expensesSyncStore } from '../expenses/expensesSyncStore';
+import { selfLogSyncStore } from '../selfLog/selfLogSyncStore';
 
 interface SettingsScreenProps {
   /** Shared secure token storage — cleared on logout. */
@@ -59,6 +60,7 @@ export function SettingsScreen({ tokenStorage, onLogout, onManageConsent }: Sett
       resetConsentQueue: () => resetConsentQueue(),
       resetSuggestionStore: () => suggestionStore.reset(),
       resetExpensesStore: () => expensesSyncStore.reset(),
+      resetSelfLogStore: () => selfLogSyncStore.reset(),
       clearKickCountDraft: () => clearDraft(),
       onComplete: onLogout,
     });

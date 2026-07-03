@@ -217,6 +217,49 @@ describe('suggestionStore.loadFromStorage', () => {
   });
 });
 
+// ─── cold-start scenario ──────────────────────────────────────────────────────
+
+describe('suggestionStore — cold-start: dismissed state survives loadFromStorage', () => {
+  it('dismissed keys loaded from storage are still returned by getDismissedKeys', async () => {
+    const storage = makeMemStorage();
+    // Simulate a previous session that dismissed two suggestions
+    const prevStore = createSuggestionStore(storage);
+    prevStore.dismiss('kick_count_start');
+    prevStore.dismiss('triferdine_daily');
+    await Promise.resolve(); // flush save micro-task
+
+    // Cold start: a brand-new store instance loads from the same durable storage
+    const freshStore = createSuggestionStore(storage);
+    await freshStore.loadFromStorage();
+
+    const dismissed = freshStore.getDismissedKeys();
+    expect(dismissed).toContain('kick_count_start');
+    expect(dismissed).toContain('triferdine_daily');
+  });
+
+  it('dismissed state after cold-start prevents suggestions from being offerable', async () => {
+    // This test ties the store cold-start restore to the engine contract:
+    // a dismissed suggestion must NOT appear in getOfferable after a restart.
+    const { getOfferable } = await import('./suggestionEngine');
+    const storage = makeMemStorage();
+
+    // Session 1: dismiss kick_count_start
+    const sessionOneStore = createSuggestionStore(storage);
+    sessionOneStore.dismiss('kick_count_start');
+    await Promise.resolve();
+
+    // Session 2: cold start — load from storage and verify engine hides the dismissed key
+    const sessionTwoStore = createSuggestionStore(storage);
+    await sessionTwoStore.loadFromStorage();
+
+    const offerable = getOfferable(
+      { lifecycle: 'pregnant', stage: 'T3', gestationalWeek: 34, now: new Date() },
+      sessionTwoStore.getState(),
+    );
+    expect(offerable.map((s) => s.key)).not.toContain('kick_count_start');
+  });
+});
+
 // ─── getDismissedKeys ─────────────────────────────────────────────────────────
 
 describe('suggestionStore.getDismissedKeys', () => {

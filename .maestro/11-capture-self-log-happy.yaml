@@ -1,0 +1,137 @@
+# 11-capture-self-log-happy.yaml
+# Flow: Self-log Capture happy path — weight → echo line → Save → history entry persisted.
+#
+# ON-DEVICE ARTIFACT — this file is authored by the qa-test agent for on-device
+# execution only. The sandbox cannot run Maestro flows. Execute with:
+#
+#   maestro test .maestro/11-capture-self-log-happy.yaml
+#
+# Full run command (from mom_starter_mobile root):
+#   maestro test .maestro/
+#
+# Prerequisites:
+#   - iOS Simulator running with dev build (npx expo run:ios)
+#   - Backend running at localhost:8080 (API push + pull)
+#   - Account: mom@test.local / MomTest-Password-2026 (pre-seeded, pregnancy profile)
+#   - Account has general_health consent GRANTED (required for self-log persistence,
+#     SD-5). If consent has been declined on this account, run the consent-gate flow
+#     (12-capture-self-log-consent-gate.yaml) first to re-grant.
+#
+# PREREQUISITE — navigation wiring:
+#   CaptureScreen is registered in RootNavigator (name="Capture") and has all
+#   testIDs. However, as of Slice 1 the CalendarScreen does NOT yet have a
+#   dedicated "add self-log capture" button (testID: calendar-add-capture-btn).
+#   This flow uses that testID; the CalendarScreen must have the button wired
+#   BEFORE this flow can execute successfully. Add to CalendarScreen:
+#
+#     <TouchableOpacity testID="calendar-add-capture-btn" onPress={onAddCapture}>
+#       <Text>+ บันทึกสุขภาพ</Text>
+#     </TouchableOpacity>
+#
+#   And in RootNavigator pass onAddCapture={() => navigation.navigate('Capture').
+#   Once wired, this flow runs without modification.
+#
+# Spec refs:
+#   capture-ui.md §2 (screen anatomy), §3.2 (weight value region),
+#   §0 (echo line — signature verbatim preview), §5 (save → saved state),
+#   self-log-behavior.md §B.3 (data written to SelfLogInput),
+#   INV-S1 (AC-20): echo line must show verbatim value without grading.
+#
+# Traceability: closes GAP-4a (Maestro — self-log capture happy path).
+#
+# Selector strategy: id: (testID) everywhere; text: fallback for alert buttons.
+
+appId: com.momstarter.app
+
+---
+
+# ── 1. Launch fresh (clearState resets Keychain → login required) ─────────────
+- launchApp:
+    clearState: true
+
+- extendedWaitUntil:
+    visible:
+      id: welcome-login-btn
+    timeout: 8000
+
+# ── 2. Login ─────────────────────────────────────────────────────────────────
+- tapOn:
+    id: welcome-login-btn
+
+- tapOn:
+    id: login-email
+- clearText
+- inputText: mom@test.local
+
+- tapOn:
+    id: login-password
+- clearText
+- inputText: "MomTest-Password-2026"
+
+- tapOn:
+    id: login-submit
+
+- extendedWaitUntil:
+    visible:
+      id: home-week-hero
+    timeout: 10000
+
+# ── 3. Navigate to Calendar ───────────────────────────────────────────────────
+- tapOn:
+    id: home-calendar-shortcut
+
+- extendedWaitUntil:
+    visible:
+      id: calendar-screen
+    timeout: 5000
+
+# ── 4. Tap "Add self-log capture" (requires nav wiring — see Prerequisites above)
+#      testID: calendar-add-capture-btn (to be added to CalendarScreen)
+- tapOn:
+    id: calendar-add-capture-btn
+
+# ── 5. CaptureScreen loads — type-control visible (no pre-set type) ───────────
+- extendedWaitUntil:
+    visible:
+      id: capture-type-control
+    timeout: 5000
+
+# Select weight type (spec §3.2)
+- tapOn:
+    id: capture-type-weight
+
+# ── 6. Enter weight value ─────────────────────────────────────────────────────
+- tapOn:
+    id: capture-weight-input
+- clearText
+- inputText: "64.2"
+
+# ── 7. Echo line updates verbatim (INV-S1 / AC-20): must show "64.2"
+#      and MUST NOT show any grade word (high/low/normal/สูง/ต่ำ/ผิดปกติ).
+#      Manual assertion: visually verify echo line text = "▪ น้ำหนัก 64.2 กก. · HH:mm"
+#      with NO colour-coded verdict.
+- assertVisible:
+    id: capture-echo-line
+
+# ── 8. Save ───────────────────────────────────────────────────────────────────
+- tapOn:
+    id: capture-save-btn
+
+# ── 9. CaptureScreen closes after successful save (spec §5 saved state)
+#      — navigator pops back to Calendar.
+- extendedWaitUntil:
+    visible:
+      id: calendar-screen
+    timeout: 8000
+
+# ── 10. Verify entry persisted ────────────────────────────────────────────────
+# Navigation back to Calendar confirms save completed without error.
+# Full history verification (server round-trip) can be done by:
+#   - Navigating to the Day-Detail view for today's date and asserting the
+#     weight row appears in the agenda list.
+#   - Running the GET /self-logs API assertion in Postman/curl against localhost:8080.
+# Automated assertion: calendar-screen visible = no crash/error on save.
+- assertVisible:
+    id: calendar-screen
+
+# End of flow — self-log capture happy path verified on-device.

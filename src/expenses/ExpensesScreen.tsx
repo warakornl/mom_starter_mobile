@@ -53,8 +53,10 @@ import {
   Modal,
   ScrollView,
   AppState,
+  Platform,
   type AppStateStatus,
 } from 'react-native';
+import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { v4 as uuidv4 } from 'uuid';
 
 import type { TokenStorage } from '../auth/tokenStorage';
@@ -76,6 +78,9 @@ import {
   satangToInputString,
   isValidCivilDate,
 } from './expensesScreenHandlers';
+import { toCivilDate, parseCivilDate } from '../calendar/dateTimePickerFormat';
+import { formatCivilDate } from '../i18n/messages';
+import type { Locale } from '../auth/types';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -186,8 +191,36 @@ function ExpenseFormModal({
   onDelete?: () => void;
   onCancel: () => void;
 }): React.JSX.Element {
-  const { t } = useT();
+  const { t, locale } = useT();
   const isEdit = Boolean(form.id);
+
+  // ── Date picker state (mirrors AppointmentFormScreen pattern) ──────────────
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  // tempPickerDate holds the spinning wheel value on iOS; committed on "Done"
+  const [tempPickerDate, setTempPickerDate] = useState<Date>(
+    parseCivilDate(form.incurredOn),
+  );
+
+  function openDatePicker() {
+    setTempPickerDate(parseCivilDate(form.incurredOn));
+    setShowDatePicker(true);
+  }
+
+  function handleDateChangeAndroid(_event: DateTimePickerEvent, selectedDate?: Date) {
+    setShowDatePicker(false);
+    if (selectedDate) {
+      onChange({ incurredOn: toCivilDate(selectedDate) });
+    }
+  }
+
+  function handleDateChangeIOS(_event: DateTimePickerEvent, selectedDate?: Date) {
+    if (selectedDate) setTempPickerDate(selectedDate);
+  }
+
+  function confirmDateIOS() {
+    onChange({ incurredOn: toCivilDate(tempPickerDate) });
+    setShowDatePicker(false);
+  }
 
   // Echo line preview
   const previewAmountSatang = bahtStringToSatang(form.amountBaht);
@@ -245,16 +278,20 @@ function ExpenseFormModal({
             onChange={(c) => onChange({ category: c })}
           />
 
-          {/* Date field */}
+          {/* Date field — picker button (spec §3.2/§7: stepper/picker, not free-text) */}
           <Text style={formStyles.label}>{t('expenses.fieldDate')}</Text>
-          <TextInput
-            style={formStyles.input}
-            value={form.incurredOn}
-            onChangeText={(v) => onChange({ incurredOn: v })}
-            placeholder="YYYY-MM-DD"
-            placeholderTextColor="#94818A"
-            maxLength={10}
-          />
+          <TouchableOpacity
+            testID="expenses-form-date"
+            style={formStyles.pickerField}
+            onPress={openDatePicker}
+            accessibilityRole="button"
+            accessibilityLabel={`${t('expenses.fieldDate')}: ${formatCivilDate(form.incurredOn, locale as Locale)}`}
+          >
+            <Text style={formStyles.pickerFieldText}>
+              {formatCivilDate(form.incurredOn, locale as Locale)}
+            </Text>
+            <Text style={formStyles.pickerChevron} accessibilityElementsHidden={true}>›</Text>
+          </TouchableOpacity>
 
           {/* Note field */}
           <Text style={formStyles.label}>{t('expenses.fieldNote')}</Text>
@@ -302,6 +339,58 @@ function ExpenseFormModal({
           )}
         </View>
       </SafeAreaView>
+
+      {/* ── Date picker — Android: dialog rendered directly ── */}
+      {Platform.OS === 'android' && showDatePicker && (
+        <DateTimePicker
+          mode="date"
+          display="default"
+          value={parseCivilDate(form.incurredOn)}
+          onChange={handleDateChangeAndroid}
+        />
+      )}
+
+      {/* ── Date picker — iOS bottom sheet ── */}
+      {Platform.OS === 'ios' && (
+        <Modal
+          visible={showDatePicker}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setShowDatePicker(false)}
+        >
+          <View style={formStyles.pickerOverlay}>
+            <View style={formStyles.pickerCard}>
+              <View style={formStyles.pickerBtnRow}>
+                <TouchableOpacity
+                  style={formStyles.pickerCancelBtn}
+                  onPress={() => setShowDatePicker(false)}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('general.cancel')}
+                >
+                  <Text style={formStyles.pickerCancelText}>{t('general.cancel')}</Text>
+                </TouchableOpacity>
+                <Text style={formStyles.pickerTitle}>{t('picker.selectDate')}</Text>
+                <TouchableOpacity
+                  testID="expenses-form-date-picker-done"
+                  style={formStyles.pickerDoneBtn}
+                  onPress={confirmDateIOS}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('general.done')}
+                >
+                  <Text style={formStyles.pickerDoneText}>{t('general.done')}</Text>
+                </TouchableOpacity>
+              </View>
+              <DateTimePicker
+                mode="date"
+                display="spinner"
+                value={tempPickerDate}
+                onChange={handleDateChangeIOS}
+                style={formStyles.iosPicker}
+              />
+            </View>
+          </View>
+        </Modal>
+      )}
     </Modal>
   );
 }
@@ -403,6 +492,69 @@ const formStyles = StyleSheet.create({
     fontFamily: 'IBMPlexSans-SemiBold',
     color: '#8E3A44',
   },
+  // Date picker field (replaces free-text TextInput)
+  pickerField: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#EBE1D9',
+    borderRadius: 12,
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    minHeight: 48,
+  },
+  pickerFieldText: {
+    flex: 1,
+    fontFamily: 'IBMPlexSans-Regular',
+    fontSize: 16,
+    color: '#3A2A30',
+  },
+  pickerChevron: {
+    fontSize: 18,
+    color: '#94818A',
+    marginLeft: 8,
+  },
+  // Bottom-sheet picker modal (iOS)
+  pickerOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(58,42,48,0.4)',
+    justifyContent: 'flex-end',
+  },
+  pickerCard: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingBottom: 32,
+  },
+  pickerBtnRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#EBE1D9',
+  },
+  pickerCancelBtn: { minHeight: 44, justifyContent: 'center' as const },
+  pickerCancelText: {
+    fontFamily: 'IBMPlexSans-Regular',
+    fontSize: 15,
+    color: '#94818A',
+  },
+  pickerTitle: {
+    fontFamily: 'IBMPlexSans-SemiBold',
+    fontSize: 15,
+    color: '#3A2A30',
+    textAlign: 'center' as const,
+  },
+  pickerDoneBtn: { minHeight: 44, justifyContent: 'center' as const },
+  pickerDoneText: {
+    fontFamily: 'IBMPlexSans-SemiBold',
+    fontSize: 15,
+    color: '#A8505A',
+  },
+  iosPicker: { alignSelf: 'center' as const },
+
   // Echo line
   echoContainer: {
     backgroundColor: '#FBF3EE',
@@ -766,6 +918,10 @@ export function ExpensesScreen({ tokenStorage, apiBaseUrl }: ExpensesScreenProps
   function handleSave(): void {
     const validation = validateAmountInput(form.amountBaht);
     if (!validation.valid) return;
+
+    // Guard: date must be a valid civil date (picker always provides one, but
+    // guard against an empty/malformed value from edge cases or test injection).
+    if (!isValidCivilDate(form.incurredOn)) return;
 
     const satang = bahtStringToSatang(form.amountBaht);
     const now = new Date().toISOString();

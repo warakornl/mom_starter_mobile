@@ -31,6 +31,12 @@ export interface LogoutDeps {
    * after a cold start (PDPA cross-account data leak — MUST clear on logout).
    */
   resetSuggestionStore?: () => void;
+  /**
+   * Reset the expenses sync store (financial data — cloud_storage gated).
+   * Prevents User A's expense records from being visible to User B after
+   * logout within the same JS session (PDPA cross-account isolation).
+   */
+  resetExpensesStore?: () => void;
   /** Clear the in-progress kick-count draft from secure store (best-effort). */
   clearKickCountDraft: () => Promise<void>;
   /** Runs LAST — navigate to the unauthenticated entry (e.g. Welcome). */
@@ -46,7 +52,7 @@ export async function performLogout(deps: LogoutDeps): Promise<void> {
   // Health-store isolation (order irrelevant — independent singletons). Each is
   // guarded so a synchronous throw in one still attempts the others and never
   // strands the user before onComplete.
-  for (const reset of [deps.resetSupplyStore, deps.resetKickCountStore, deps.resetCalendarStore, ...(deps.resetConsentStore ? [deps.resetConsentStore] : []), ...(deps.resetSuggestionStore ? [deps.resetSuggestionStore] : [])]) {
+  for (const reset of [deps.resetSupplyStore, deps.resetKickCountStore, deps.resetCalendarStore, ...(deps.resetConsentStore ? [deps.resetConsentStore] : []), ...(deps.resetSuggestionStore ? [deps.resetSuggestionStore] : []), ...(deps.resetExpensesStore ? [deps.resetExpensesStore] : [])]) {
     try {
       reset();
     } catch {

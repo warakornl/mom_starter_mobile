@@ -136,3 +136,30 @@ describe('performLogout — clears tokens + all health stores, then navigates', 
     expect(calls[calls.length - 1]).toBe('onComplete');
   });
 });
+
+// ─── resetExpensesStore — PDPA: no cross-account expense leak ─────────────────
+
+describe('performLogout — resetExpensesStore (PDPA: no cross-account expense leak)', () => {
+  it('calls resetExpensesStore when provided', async () => {
+    const { deps, calls } = makeDeps({
+      resetExpensesStore: () => { calls.push('resetExpensesStore'); },
+    });
+    await performLogout(deps);
+    expect(calls).toContain('resetExpensesStore');
+    expect(calls[calls.length - 1]).toBe('onComplete');
+  });
+
+  it('still navigates when resetExpensesStore is omitted (backward-compat, optional dep)', async () => {
+    const { deps, calls } = makeDeps(); // no resetExpensesStore
+    await performLogout(deps);
+    expect(calls[calls.length - 1]).toBe('onComplete');
+  });
+
+  it('still navigates + continues even if resetExpensesStore throws synchronously', async () => {
+    const { deps, calls } = makeDeps({
+      resetExpensesStore: () => { throw new Error('expenses store reset failure'); },
+    });
+    await performLogout(deps);
+    expect(calls[calls.length - 1]).toBe('onComplete');
+  });
+});

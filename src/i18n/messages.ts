@@ -724,6 +724,17 @@ const th = {
   'suggestion.postnatal_checkup.reason': 'ติดตามสุขภาพหลังคลอด — โดยทั่วไปนัดที่ 6 สัปดาห์',
   'suggestion.baby_feeding_log.title': 'บันทึกการให้นม',
   'suggestion.baby_feeding_log.reason': 'ช่วยติดตามตารางให้นมและปริมาณสำหรับลูกน้อย',
+
+  // ── PDF Doctor Report (pdf-doctor-ui.md) ─────────────────────────────────────
+  // Entry point button and all UI states for the on-device doctor-summary PDF.
+  'pdf.cta': 'สร้าง PDF ให้หมอ',
+  'pdf.ctaA11y': 'สร้าง PDF สรุปสุขภาพสำหรับแพทย์',
+  'pdf.generating': 'กำลังสร้าง PDF...',
+  'pdf.shared': 'แชร์ไฟล์แล้ว',
+  'pdf.sharedSubline': 'PDF ถูกเปิดในแอปที่คุณเลือก',
+  'pdf.error': 'สร้าง PDF ไม่สำเร็จ · ลองอีกครั้ง',
+  'pdf.retry': 'ลองอีกครั้ง',
+  'pdf.consentBlocked': 'ต้องให้ความยินยอมก่อนสร้าง PDF · ไปที่ จัดการความยินยอม ›',
 };
 
 // ─── English catalog (must match th shape exactly) ────────────────────────────
@@ -1333,6 +1344,16 @@ const en: MsgShape = {
   'suggestion.postnatal_checkup.reason': 'Follow up after birth — typically scheduled at 6 weeks.',
   'suggestion.baby_feeding_log.title': 'Log feeding sessions',
   'suggestion.baby_feeding_log.reason': 'Track feeding times and amounts for your baby.',
+
+  // ── PDF Doctor Report ─────────────────────────────────────────────────────────
+  'pdf.cta': 'Create PDF for doctor',
+  'pdf.ctaA11y': 'Create a health-summary PDF for your doctor',
+  'pdf.generating': 'Creating PDF...',
+  'pdf.shared': 'File shared',
+  'pdf.sharedSubline': 'The PDF was opened in your chosen app.',
+  'pdf.error': 'Could not create PDF — try again',
+  'pdf.retry': 'Try again',
+  'pdf.consentBlocked': 'PDF creation needs your permission · Go to Manage Permissions ›',
 };
 
 // ─── Exports ──────────────────────────────────────────────────────────────────

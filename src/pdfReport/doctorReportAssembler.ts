@@ -42,7 +42,7 @@
  */
 
 import type { Locale } from '../auth/types';
-import type { ChecklistItemCategory } from '../sync/syncTypes';
+import type { ChecklistItemCategory, SelfLogMetricType } from '../sync/syncTypes';
 import { kickCountChartSvg } from './reportCharts';
 
 // ─── Input types ──────────────────────────────────────────────────────────────
@@ -72,10 +72,49 @@ export interface ReportAppointment {
   note: string | null | undefined;
 }
 
+/**
+ * ReportSelfLog — a single decoded self-log for the PDF section.
+ *
+ * Values here are ALREADY DECODED from base64 (the caller — DoctorPdfScreen —
+ * decodes them from selfLogSyncStore before passing to the assembler).
+ * The assembler is pure and renders them verbatim — no interpretation, no grading.
+ *
+ * Field population mirrors self-log-behavior.md §1:
+ *   weight         → valueNumeric (kg string), unit="kg", others null
+ *   blood_pressure → valueNumeric (systolic), valueNumericSecondary (diastolic),
+ *                    unit="mmHg", valueText null
+ *   swelling/lochia/symptom → valueText (descriptive), others null, unit null
+ *
+ * Security: NEVER log any value/note field — MOTHER-health data (SD-5).
+ */
+export interface ReportSelfLog {
+  id: string;
+  /** Floating-civil "YYYY-MM-DDTHH:mm" — calendar bucket key (FLAG-1). */
+  loggedAt: string;
+  /** Closed enum — 5 values (self-log-behavior.md §1). */
+  metricType: SelfLogMetricType;
+  /** Decoded plaintext: kg for weight, systolic for blood_pressure; null otherwise. */
+  valueNumeric: string | null | undefined;
+  /** Decoded plaintext: diastolic for blood_pressure only; null otherwise. */
+  valueNumericSecondary: string | null | undefined;
+  /** Decoded plaintext: descriptive value for swelling/lochia/symptom; null otherwise. */
+  valueText: string | null | undefined;
+  /** Plaintext unit label: "kg" | "mmHg" | null (display metadata only). */
+  unit: string | null | undefined;
+  /** Decoded plaintext optional note. Gated on includeSensitiveNotes. Never parsed. */
+  note: string | null | undefined;
+}
+
 export interface DoctorReportInput {
   profile: ReportProfile;
   kickSessions: ReportKickSession[];
   appointments: ReportAppointment[];
+  /**
+   * Decoded self-log records. Values must already be decoded from base64
+   * by the caller (DoctorPdfScreen). The assembler renders verbatim — no
+   * interpretation, no grading, no colour (spec §A.4, AC-20, INV-S1).
+   */
+  selfLogs?: ReportSelfLog[];
   /** Civil "YYYY-MM-DD" start of the report range (inclusive). */
   dateFrom: string;
   /** Civil "YYYY-MM-DD" end of the report range (inclusive). */
@@ -190,7 +229,24 @@ export const LABELS = {
     kickWeek: 'อายุครรภ์',
     kickMinutes: 'นาที',
     selfLogTitle: 'บันทึกตนเอง (น้ำหนัก/ความดัน/บวม) / Self-logs',
-    selfLogPlaceholder: 'ยังไม่มีข้อมูลในช่วงนี้ · ฟีเจอร์บันทึกตนเองยังไม่ถูกสร้าง',
+    /** Empty-range wording (spec §A.4) — replaces old "feature not built" placeholder. */
+    selfLogNoData: 'ไม่มีข้อมูลในช่วงนี้',
+    /** Metric-type display labels (th) — used as row prefix. */
+    selfLogWeight: 'น้ำหนัก',
+    selfLogBP: 'ความดัน',
+    selfLogSwelling: 'บวม',
+    selfLogLochia: 'น้ำคาวปลา',
+    selfLogSymptom: 'อาการ',
+    /** Display unit for weight in Thai (stored unit "kg" → display "กก."). */
+    selfLogUnitKg: 'กก.',
+    selfLogUnitMmhg: 'mmHg',
+    /**
+     * Inline "results hidden" marker for swelling/lochia/symptom valueText
+     * and for note when includeSensitiveNotes=false (spec §A.4 / G-5).
+     * Distinct from the whole-section labHiddenLine.
+     */
+    selfLogValueHidden: 'ผลถูกซ่อน (ไม่ได้ยินยอมให้รวมผลที่ละเอียดอ่อน)',
+    selfLogNoteLabel: 'หมายเหตุ',
     apptTitle: 'นัดหมายและเช็กลิสต์ / Appointments',
     apptDate: 'วันที่',
     apptStatus: 'สถานะ',
@@ -233,7 +289,17 @@ export const LABELS = {
     kickWeek: 'Week',
     kickMinutes: 'min',
     selfLogTitle: 'Self-logs (weight / blood pressure / swelling)',
-    selfLogPlaceholder: 'Not tracked yet in this range · self-log feature not yet built',
+    /** Empty-range wording (spec §A.4). */
+    selfLogNoData: 'No data in this range',
+    selfLogWeight: 'Weight',
+    selfLogBP: 'Blood pressure',
+    selfLogSwelling: 'Swelling',
+    selfLogLochia: 'Lochia',
+    selfLogSymptom: 'Symptom',
+    selfLogUnitKg: 'kg',
+    selfLogUnitMmhg: 'mmHg',
+    selfLogValueHidden: 'results hidden (sensitive results not consented for inclusion)',
+    selfLogNoteLabel: 'Note',
     apptTitle: 'Appointments & checklist',
     apptDate: 'Date',
     apptStatus: 'Status',
@@ -359,18 +425,120 @@ function buildKickSection(
     </section>`;
 }
 
+/** Minimal shape consumed by selfLogMetricLabel — avoids the literal-type mismatch from `as const`. */
+interface SelfLogLabels {
+  selfLogWeight: string;
+  selfLogBP: string;
+  selfLogSwelling: string;
+  selfLogLochia: string;
+  selfLogSymptom: string;
+  selfLogUnitKg: string;
+  selfLogUnitMmhg: string;
+  selfLogValueHidden: string;
+  selfLogNoteLabel: string;
+  selfLogNoData: string;
+  selfLogTitle: string;
+}
+
 /**
- * Self-logs section (spec §3 — weight/BP/swelling).
- *
- * DATA-SOURCE GAP: no self-logging feature exists yet.
- * Renders a placeholder until the self-log store is built.
+ * Returns the display label for a metricType (locale-aware).
  */
-function buildSelfLogSection(locale: Locale): string {
+function selfLogMetricLabel(metricType: SelfLogMetricType, L: SelfLogLabels): string {
+  switch (metricType) {
+    case 'weight':        return L.selfLogWeight;
+    case 'blood_pressure': return L.selfLogBP;
+    case 'swelling':      return L.selfLogSwelling;
+    case 'lochia':        return L.selfLogLochia;
+    case 'symptom':       return L.selfLogSymptom;
+  }
+}
+
+/**
+ * buildSelfLogSection — renders the self-log section from real data.
+ *
+ * Filter: only logs within [dateFrom, dateTo] via isWithinRange(loggedAt).
+ * Empty range → renders the spec §A.4 empty-range wording (NOT the old placeholder).
+ *
+ * Always rendered (structured numeric values — spec §A.4, pdf-doctor-ui §2.1):
+ *   weight         → "น้ำหนัก {value} {unit}" verbatim — no interpretation, no colour
+ *   blood_pressure → "ความดัน {systolic}/{diastolic} {unit}" verbatim — BP 150/95
+ *                    and 110/70 render with IDENTICAL style (AC-20 / INV-S1)
+ *
+ * Gated on includeSensitiveNotes (spec §A.4 / G-5):
+ *   swelling/lochia/symptom (valueText): when false → label + date + hidden-line;
+ *                                        when true  → label + date + value verbatim
+ *   note (any metricType): when false → omitted; when true → rendered
+ *
+ * Security: NEVER log any value/note content (SD-5).
+ */
+function buildSelfLogSection(
+  selfLogs: ReportSelfLog[],
+  dateFrom: string,
+  dateTo: string,
+  locale: Locale,
+  includeSensitiveNotes: boolean,
+): string {
   const L = LABELS[locale];
+
+  // Filter to range only (date part of floating-civil loggedAt)
+  const inRange = selfLogs.filter((s) => isWithinRange(s.loggedAt, dateFrom, dateTo));
+
+  if (inRange.length === 0) {
+    // Empty-range: spec §A.4 wording — NOT the old "feature not built" placeholder
+    return `
+    <section>
+      <h2>${esc(L.selfLogTitle)}</h2>
+      <p>${esc(L.selfLogNoData)}</p>
+    </section>`;
+  }
+
+  // Sort by loggedAt ascending so the report reads chronologically
+  const sorted = [...inRange].sort((a, b) => a.loggedAt.localeCompare(b.loggedAt));
+
+  const rows = sorted.map((s) => {
+    const dateStr = esc(formatDateTime(s.loggedAt, locale));
+    const label = esc(selfLogMetricLabel(s.metricType, L));
+
+    // Build the value cell content — structured vs gated (spec §A.4)
+    let valueCells: string;
+
+    if (s.metricType === 'weight') {
+      // Always rendered — verbatim, no interpretation
+      const displayUnit = L.selfLogUnitKg;
+      const val = esc(s.valueNumeric ?? '');
+      valueCells = `<td>${label} ${val} ${esc(displayUnit)}</td>`;
+    } else if (s.metricType === 'blood_pressure') {
+      // Always rendered — verbatim; 150/95 and 110/70 have IDENTICAL surrounding HTML (INV-S1)
+      const sys = esc(s.valueNumeric ?? '');
+      const dia = esc(s.valueNumericSecondary ?? '');
+      const unit = esc(L.selfLogUnitMmhg);
+      valueCells = `<td>${label} ${sys}/${dia} ${unit}</td>`;
+    } else {
+      // swelling / lochia / symptom — valueText is gated (spec §A.4 / G-5)
+      if (includeSensitiveNotes) {
+        const val = esc(s.valueText ?? '');
+        valueCells = `<td>${label} ${val}</td>`;
+      } else {
+        // Render label + hidden-line; NO value (G-5: intentional, not a bug)
+        valueCells = `<td>${label}</td><td class="lab-hidden">${esc(L.selfLogValueHidden)}</td>`;
+      }
+    }
+
+    // Note — gated on includeSensitiveNotes (any metricType)
+    const noteRow =
+      includeSensitiveNotes && s.note
+        ? `\n      <tr><td class="self-log-note-label">${esc(L.selfLogNoteLabel)}</td><td>${esc(s.note)}</td></tr>`
+        : '';
+
+    return `<tr><td>${dateStr}</td>${valueCells}</tr>${noteRow}`;
+  }).join('');
+
   return `
     <section>
       <h2>${esc(L.selfLogTitle)}</h2>
-      <p class="placeholder">${esc(L.selfLogPlaceholder)}</p>
+      <table>
+        <tbody>${rows}</tbody>
+      </table>
     </section>`;
 }
 
@@ -465,6 +633,7 @@ export function buildDoctorReportHtml(input: DoctorReportInput): string {
     profile,
     kickSessions,
     appointments,
+    selfLogs = [],
     dateFrom,
     dateTo,
     reportDate,
@@ -480,7 +649,7 @@ export function buildDoctorReportHtml(input: DoctorReportInput): string {
   const profileSection = buildProfileSection(profile, locale);
   const medSection = buildMedicationSection(locale);
   const kickSection = buildKickSection(kickSessions, dateFrom, dateTo, locale);
-  const selfLogSection = buildSelfLogSection(locale);
+  const selfLogSection = buildSelfLogSection(selfLogs, dateFrom, dateTo, locale, includeSensitiveNotes);
   const apptSection = buildAppointmentsSection(appointments, dateFrom, dateTo, locale);
   const labLine = buildLabLine(includeSensitiveNotes, locale);
 

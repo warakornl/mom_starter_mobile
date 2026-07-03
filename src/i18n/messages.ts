@@ -764,6 +764,58 @@ const th = {
   'pdf.screen.errorTitle': 'สร้างรายงานไม่สำเร็จ ลองอีกครั้ง',
   'pdf.screen.retryBtn': 'ลองอีกครั้ง',
   'pdf.screen.sensitiveFileReminder': 'ไฟล์นี้มีข้อมูลละเอียดอ่อน',
+
+  // ── Expenses (ค่าใช้จ่าย) ────────────────────────────────────────────────────
+  // Spec: expenses-ui.md §1–§9. Amount stored as satang (฿1=100 satang),
+  // displayed as ฿ with 2 decimals. note is encrypted (EX-2), never parsed.
+  // No notifications, no alerts, no budget target (expenses-feature §3.3/§5).
+  'expenses.navTitle': 'ค่าใช้จ่าย',
+  'expenses.shortcutBtn': 'ค่าใช้จ่าย ›',
+  // Month total (§2.1)
+  'expenses.totalLabel': 'เดือนนี้ใช้ไป',
+  /** template: {n} = count */
+  'expenses.totalCount': '{n} รายการ',
+  // Category breakdown (§2.2)
+  'expenses.category.baby-supplies': 'ของใช้เด็ก',
+  'expenses.category.healthcare': 'สุขภาพ',
+  'expenses.category.baby-gear': 'ของใช้ลูก',
+  'expenses.category.mother': 'แม่',
+  'expenses.category.other': 'อื่นๆ',
+  // List + empty (§4.2/§4.3)
+  'expenses.emptyHeadline': 'ยังไม่มีรายการในเดือนนี้',
+  'expenses.emptyBody': 'จดค่าใช้จ่ายไว้ แล้วดูยอดรวมของเดือนได้ที่นี่',
+  'expenses.emptyPastMonth': 'ไม่มีรายการในเดือนนี้',
+  'expenses.addFirst': '+ เพิ่มรายการแรก',
+  // Row labels
+  'expenses.noNote': '(ไม่มีบันทึก)',
+  // FAB + sheet header (§3.2)
+  'expenses.add': '+ เพิ่มรายการ',
+  'expenses.addTitle': 'เพิ่มรายการ',
+  'expenses.editTitle': 'แก้ไขรายการ',
+  // Form fields (§3.2)
+  'expenses.fieldAmount': 'จำนวนเงิน',
+  'expenses.fieldCategory': 'หมวดหมู่',
+  'expenses.fieldDate': 'วันที่',
+  'expenses.fieldNote': 'บันทึกเพิ่ม (ไม่บังคับ)',
+  'expenses.notePrivacyLine': 'เก็บไว้ในเครื่อง · ไม่ถูกอ่านหรือวิเคราะห์',
+  // Echo line (§3.2)
+  'expenses.echoPrefix': 'จะบันทึกเป็น:',
+  // Save / Delete / Cancel (§3.2)
+  'expenses.save': 'บันทึก',
+  'expenses.delete': 'ลบรายการนี้',
+  'expenses.deleteUndo': 'เลิกทำ',
+  'expenses.deleteToast': 'ลบแล้ว',
+  // Validation (§3.2)
+  'expenses.errorAmountRequired': 'ใส่จำนวนเงินมากกว่า 0',
+  // Sync status
+  'expenses.loading': 'กำลังโหลด',
+  'expenses.syncError': 'ซิงค์ไม่สำเร็จ · ลองอีกครั้ง',
+  'expenses.conflictNote': 'อัปเดตจากอุปกรณ์อื่น',
+  'expenses.rejectedNote': 'บางรายการถูกปฏิเสธ',
+  'expenses.refresh': 'รีเฟรช',
+  // Error state (§4.4)
+  'expenses.errorHeadline': 'เปิดข้อมูลในเครื่องไม่สำเร็จ',
+  'expenses.errorSubline': 'ข้อมูลของคุณยังอยู่',
 };
 
 // ─── English catalog (must match th shape exactly) ────────────────────────────
@@ -1409,9 +1461,57 @@ const en: MsgShape = {
   'pdf.screen.printBtn': 'Print',
   'pdf.screen.backToEdit': '‹ Edit',
   'pdf.screen.generating': 'Building report...',
-  'pdf.screen.errorTitle': "Couldn’t build the report — try again",
+  'pdf.screen.errorTitle': "Couldn't build the report — try again",
   'pdf.screen.retryBtn': 'Try again',
   'pdf.screen.sensitiveFileReminder': 'This file contains sensitive results',
+
+  // ── Expenses ──────────────────────────────────────────────────────────────────
+  'expenses.navTitle': 'Expenses',
+  'expenses.shortcutBtn': 'Expenses ›',
+  // Month total (§2.1)
+  'expenses.totalLabel': 'Spent this month',
+  'expenses.totalCount': '{n} expenses',
+  // Category breakdown (§2.2)
+  'expenses.category.baby-supplies': 'Baby supplies',
+  'expenses.category.healthcare': 'Healthcare',
+  'expenses.category.baby-gear': 'Baby gear',
+  'expenses.category.mother': 'Mother',
+  'expenses.category.other': 'Other',
+  // List + empty (§4.2/§4.3)
+  'expenses.emptyHeadline': 'No expenses this month',
+  'expenses.emptyBody': "Jot what you spend and watch this month's total here.",
+  'expenses.emptyPastMonth': 'No expenses in this month',
+  'expenses.addFirst': '+ Add your first',
+  // Row labels
+  'expenses.noNote': '(no note)',
+  // FAB + sheet header (§3.2)
+  'expenses.add': '+ Add expense',
+  'expenses.addTitle': 'Add expense',
+  'expenses.editTitle': 'Edit expense',
+  // Form fields (§3.2)
+  'expenses.fieldAmount': 'Amount',
+  'expenses.fieldCategory': 'Category',
+  'expenses.fieldDate': 'Date',
+  'expenses.fieldNote': 'Note (optional)',
+  'expenses.notePrivacyLine': 'Kept on your device · never read or interpreted',
+  // Echo line (§3.2)
+  'expenses.echoPrefix': 'Will save as:',
+  // Save / Delete / Cancel
+  'expenses.save': 'Save',
+  'expenses.delete': 'Delete',
+  'expenses.deleteUndo': 'Undo',
+  'expenses.deleteToast': 'Deleted',
+  // Validation (§3.2)
+  'expenses.errorAmountRequired': 'Enter an amount above zero.',
+  // Sync status
+  'expenses.loading': 'Loading',
+  'expenses.syncError': 'Sync failed — try again',
+  'expenses.conflictNote': 'Updated from another device',
+  'expenses.rejectedNote': 'Some items were rejected',
+  'expenses.refresh': 'Refresh',
+  // Error state (§4.4)
+  'expenses.errorHeadline': "Couldn't open your expenses",
+  'expenses.errorSubline': 'Your data is still here',
 };
 
 // ─── Exports ──────────────────────────────────────────────────────────────────

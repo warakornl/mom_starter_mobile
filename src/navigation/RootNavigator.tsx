@@ -73,6 +73,19 @@ import { SuggestionFlowScreen } from '../suggestion/SuggestionFlowScreen';
 import { DoctorPdfScreen } from '../pdfReport/DoctorPdfScreen';
 import { useT } from '../i18n/LanguageContext';
 
+// ── Logout deps for the session-expiry / no-token auto-logout path ───────────
+// RootNavigator wires these so that HomeScreen.loadProfile → no-token → onLogout()
+// routes through performLogout, clearing ALL health stores (PDPA 1.1 / SD-5).
+import { performLogout } from '../auth/performLogout';
+import { supplySyncStore } from '../sync/supplySyncStore';
+import { kickCountSyncStore } from '../kickCount/kickCountSyncStore';
+import { clearDraft } from '../kickCount/kickCountDraftStore';
+import { consentStore } from '../consent/consentStore';
+import { resetConsentQueue } from '../consent/consentSync';
+import { suggestionStore } from '../suggestion/suggestionStore';
+import { expensesSyncStore } from '../expenses/expensesSyncStore';
+import { selfLogSyncStore } from '../selfLog/selfLogSyncStore';
+
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 interface RootNavigatorProps {
@@ -214,9 +227,27 @@ export function RootNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps):
           <HomeScreen
             tokenStorage={tokenStorage}
             apiBaseUrl={apiBaseUrl}
-            onLogout={() =>
-              navigation.reset({ index: 0, routes: [{ name: 'Welcome' }] })
-            }
+            onLogout={() => {
+              // Route through performLogout so ALL health stores are reset on
+              // session-expiry / no-token exit — not just on explicit logout
+              // in SettingsScreen. clearTokens is safe to call even when the
+              // token is already gone: it's wrapped in try/catch inside
+              // performLogout (PDPA 1.1 / SD-5 cross-account-leak guard).
+              void performLogout({
+                clearTokens: () => tokenStorage.clear(),
+                resetSupplyStore: () => supplySyncStore.reset(),
+                resetKickCountStore: () => kickCountSyncStore.reset(),
+                resetCalendarStore: () => calendarSyncStore.reset(),
+                resetSelfLogStore: () => selfLogSyncStore.reset(),
+                resetConsentStore: () => consentStore.reset(),
+                resetConsentQueue: () => resetConsentQueue(),
+                resetSuggestionStore: () => suggestionStore.reset(),
+                resetExpensesStore: () => expensesSyncStore.reset(),
+                clearKickCountDraft: () => clearDraft(),
+                onComplete: () =>
+                  navigation.reset({ index: 0, routes: [{ name: 'Welcome' }] }),
+              });
+            }}
             onNeedsProfile={() =>
               navigation.reset({ index: 0, routes: [{ name: 'ProfileSetup' }] })
             }

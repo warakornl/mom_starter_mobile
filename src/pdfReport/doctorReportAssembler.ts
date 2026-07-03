@@ -43,6 +43,7 @@
 
 import type { Locale } from '../auth/types';
 import type { ChecklistItemCategory } from '../sync/syncTypes';
+import { kickCountChartSvg } from './reportCharts';
 
 // ─── Input types ──────────────────────────────────────────────────────────────
 
@@ -198,6 +199,11 @@ export const LABELS = {
     labHiddenLine:
       'ผลแล็บ/บันทึกข้อความ: ผลถูกซ่อน (ไม่ได้ยินยอมให้รวมผลที่ละเอียดอ่อน)',
     noData: 'ไม่มีข้อมูลในช่วงนี้',
+    /** Chart summary below the bar chart: "{n} sessions · avg {avg}" */
+    kickChartSessions: 'ครั้ง',
+    kickChartAvg: 'เฉลี่ย',
+    kickChartAvgUnit: 'ครั้ง/session',
+    kickChartTitle: 'แนวโน้มการนับลูกดิ้น',
   },
   en: {
     reportTitle: 'Health Report for Doctor',
@@ -236,6 +242,11 @@ export const LABELS = {
     labHiddenLine:
       'Lab results / text notes: results hidden (sensitive results not consented for inclusion)',
     noData: 'No data in this range',
+    /** Chart summary below the bar chart: "{n} sessions · avg {avg}" */
+    kickChartSessions: 'sessions',
+    kickChartAvg: 'avg',
+    kickChartAvgUnit: 'movements',
+    kickChartTitle: 'Kick-count trend',
   },
 } as const;
 
@@ -276,6 +287,20 @@ function buildMedicationSection(locale: Locale): string {
     </section>`;
 }
 
+/**
+ * buildKickSection — renders the kick-count section with an inline SVG bar chart.
+ *
+ * Chart renders date-ordered sessions (oldest left → most recent right) so the
+ * trend reads naturally left-to-right. The same chart data is produced by
+ * kickCountChartSvg (reportCharts.ts) used in DoctorPdfScreen's ReportPreview,
+ * ensuring preview == PDF (single source of truth).
+ *
+ * K-5b: no valence coloring — neutral ink bars only (enforced in reportCharts.ts).
+ * A compact text summary line appears below the chart for accessibility / fallback.
+ *
+ * CONSENT: only called after pdf_egress consent; chart receives data only on the
+ * post-consent path (enforced by the caller in DoctorPdfScreen / handlePreviewTap).
+ */
 function buildKickSection(
   sessions: ReportKickSession[],
   dateFrom: string,
@@ -291,40 +316,46 @@ function buildKickSection(
     .slice(0, 10);
 
   if (recent.length === 0) {
+    // Empty state: render SVG with no-data message so the chart area is consistent
+    const emptyChartSvg = kickCountChartSvg([], { noDataLabel: L.noData, title: L.kickChartTitle });
     return `
       <section>
         <h2>${esc(L.kickTitle)}</h2>
-        <p>${esc(L.noData)}</p>
+        ${emptyChartSvg}
       </section>`;
   }
 
-  const rows = recent.map((s) => {
-    const date = s.startedAt ? formatDateTime(s.startedAt, locale) : '';
-    const durationMin =
-      s.durationSeconds != null ? Math.round(s.durationSeconds / 60) : '—';
-    const wk = s.gestationalWeekAtStart != null ? s.gestationalWeekAtStart : '—';
-    return `<tr>
-      <td>${esc(date)}</td>
-      <td>${s.movementCount}</td>
-      <td>${durationMin} ${esc(L.kickMinutes)}</td>
-      <td>${wk}</td>
-    </tr>`;
-  }).join('');
+  // Sort oldest-first for left-to-right time flow in the chart
+  const chronological = [...recent].sort((a, b) => a.startedAt.localeCompare(b.startedAt));
+
+  const chartData = chronological.map((s) => ({
+    date: s.startedAt.substring(0, 10),
+    count: s.movementCount,
+  }));
+
+  // Build the summary caption line (total sessions · avg count)
+  const totalSessions = chartData.length;
+  const avgCount = Math.round(
+    chartData.reduce((sum, s) => sum + s.count, 0) / totalSessions,
+  );
+  const captionLine =
+    locale === 'th'
+      ? `${totalSessions} ${L.kickChartSessions} · ${L.kickChartAvg} ${avgCount} ${L.kickChartAvgUnit}`
+      : `${totalSessions} ${L.kickChartSessions} · ${L.kickChartAvg} ${avgCount} ${L.kickChartAvgUnit}`;
+
+  const chartSvg = kickCountChartSvg(chartData, {
+    noDataLabel: L.noData,
+    caption: captionLine,
+    title: L.kickChartTitle,
+    width: 500,
+    height: 220,
+  });
 
   return `
     <section>
       <h2>${esc(L.kickTitle)}</h2>
-      <table>
-        <thead>
-          <tr>
-            <th>${esc(L.kickDate)}</th>
-            <th>${esc(L.kickCount)}</th>
-            <th>${esc(L.kickDuration)}</th>
-            <th>${esc(L.kickWeek)}</th>
-          </tr>
-        </thead>
-        <tbody>${rows}</tbody>
-      </table>
+      ${chartSvg}
+      <p class="chart-summary">${esc(captionLine)}</p>
     </section>`;
 }
 
@@ -478,6 +509,7 @@ export function buildDoctorReportHtml(input: DoctorReportInput): string {
     .placeholder { color: #94818A; font-size: 12px; font-style: italic; margin: 4px 0; }
     .lab-hidden { color: #94818A; font-size: 12px; border-top: 1px solid #EBE1D9; padding-top: 8px; margin-top: 16px; }
     .disclaimer { color: #94818A; font-size: 11px; border-top: 1px solid #EBE1D9; margin-top: 24px; padding-top: 8px; }
+    .chart-summary { color: #94818A; font-size: 11px; margin-top: 4px; text-align: center; }
   </style>
 </head>
 <body>

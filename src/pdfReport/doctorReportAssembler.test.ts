@@ -463,10 +463,55 @@ describe('buildDoctorReportHtml', () => {
     });
     // The most recent sessions have movementCounts 15, 14, ... 6
     expect(html).toContain('15');
-    // Session 1-5 (oldest 5) should NOT be in the capped 10
-    // Verify total unique session IDs is bounded
-    const sessionIdMatches = [...html.matchAll(/s(\d+)/g)].map((m) => m[1]);
-    const uniqueIds = new Set(sessionIdMatches.map(Number));
-    expect(uniqueIds.size).toBeLessThanOrEqual(10);
+    // Chart SVG renders at most 10 bars
+    const rectMatches = [...html.matchAll(/<rect /g)];
+    expect(rectMatches.length).toBeLessThanOrEqual(10);
+  });
+
+  // ── Kick-count SVG chart integration ─────────────────────────────────────
+
+  it('kick-count section contains an inline <svg> bar chart', () => {
+    const html = buildDoctorReportHtml(baseInput);
+    expect(html).toContain('<svg ');
+    expect(html).toContain('</svg>');
+  });
+
+  it('kick-count chart has one <rect> bar per session in range', () => {
+    const html = buildDoctorReportHtml(baseInput); // 2 sessions in range
+    const rectMatches = [...html.matchAll(/<rect /g)];
+    expect(rectMatches.length).toBe(2);
+  });
+
+  it('kick-count chart SVG contains the value labels for each session', () => {
+    const html = buildDoctorReportHtml(baseInput);
+    // Session counts: 8 and 12
+    expect(html).toContain('>8<');
+    expect(html).toContain('>12<');
+  });
+
+  it('kick-count chart renders empty-state SVG (no <rect>) when no sessions', () => {
+    const html = buildDoctorReportHtml({ ...baseInput, kickSessions: [] });
+    expect(html).toContain('<svg ');
+    expect(html).not.toContain('<rect');
+  });
+
+  it('kick-count section has a text summary line (total sessions · avg count)', () => {
+    const html = buildDoctorReportHtml(baseInput);
+    // 2 sessions, avg of [8,12] = 10
+    expect(html).toMatch(/2.*session|2.*ครั้ง/i);
+    expect(html).toMatch(/avg|เฉลี่ย/i);
+  });
+
+  it('K-5b: kick-count chart uses no red or green valence fill', () => {
+    const html = buildDoctorReportHtml(baseInput);
+    expect(html).not.toMatch(/fill="(red|green)"/i);
+    expect(html).not.toMatch(/fill="#[Ff][Ff]0000"/);
+    expect(html).not.toMatch(/fill="#00[Ff][Ff]00"/);
+  });
+
+  it('kick-count chart is deterministic (same input → same SVG)', () => {
+    const html1 = buildDoctorReportHtml(baseInput);
+    const html2 = buildDoctorReportHtml(baseInput);
+    expect(html1).toBe(html2);
   });
 });

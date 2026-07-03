@@ -69,6 +69,7 @@ import { calendarSyncStore } from '../sync/calendarSyncStore';
 import { ConsentScreen } from '../screens/ConsentScreen';
 import { ManageConsentsScreen } from '../screens/ManageConsentsScreen';
 import { SuggestionFlowScreen } from '../suggestion/SuggestionFlowScreen';
+import { DoctorPdfScreen } from '../pdfReport/DoctorPdfScreen';
 import { useT } from '../i18n/LanguageContext';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -226,6 +227,7 @@ export function RootNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps):
             onKickCount={() => navigation.navigate('KickCountHome')}
             onSettings={() => navigation.navigate('Settings')}
             onSuggestions={() => navigation.navigate('Suggestions')}
+            onDoctorPdf={() => navigation.navigate('DoctorPdf')}
             onProfileLoaded={(snapshot) => setProfileSnapshot(snapshot)}
           />
         )}
@@ -450,6 +452,31 @@ export function RootNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps):
             onKickCount={() => navigation.navigate('KickCountHome')}
             onSupplies={() => navigation.navigate('Supplies')}
             onCalendar={() => navigation.navigate('Calendar')}
+          />
+        )}
+      </Stack.Screen>
+
+      {/* DoctorPdf — Builder→Preview→Share screen for the doctor-summary PDF.
+       *
+       * Entry: "รายงานสำหรับแพทย์" shortcut button on HomeScreen.
+       * profile prop derives from profileSnapshot (HomeScreen.onProfileLoaded).
+       * No health data in route params (PDPA SD-9).
+       * Spec: pdf-doctor-ui.md §1–§5.
+       */}
+      <Stack.Screen
+        name="DoctorPdf"
+        options={{ headerShown: false }}
+      >
+        {({ navigation }) => (
+          <DoctorPdfScreen
+            tokenStorage={tokenStorage}
+            apiBaseUrl={apiBaseUrl}
+            profile={{
+              edd: kickProps.edd || '2999-12-31',
+              gestationalWeek: kickProps.gestationalWeek,
+              lifecycle: kickProps.lifecycle,
+            }}
+            onBack={() => navigation.goBack()}
           />
         )}
       </Stack.Screen>

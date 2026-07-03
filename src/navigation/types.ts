@@ -106,4 +106,12 @@ export type RootStackParamList = {
    * Shows suggestion cards with Start / Snooze / Dismiss actions.
    */
   Suggestions: undefined;
+
+  /**
+   * DoctorPdf — Builder→Preview→Share screen for the doctor-summary PDF.
+   * Entry: "รายงานสำหรับแพทย์" button on HomeScreen (both pregnant & postpartum).
+   * Spec: pdf-doctor-ui.md §1–§5.
+   * No health data in route params (PDPA SD-9).
+   */
+  DoctorPdf: undefined;
 };

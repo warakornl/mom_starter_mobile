@@ -76,10 +76,9 @@ import { getOfferable } from '../suggestion/suggestionEngine';
 import { suggestionStore } from '../suggestion/suggestionStore';
 import { SuggestionBanner } from '../suggestion/SuggestionBanner';
 import type { SuggestionKey, CaptureTarget, OfferableSuggestion } from '../suggestion/types';
-import { DoctorPdfButton } from '../pdfReport/DoctorPdfButton';
-import { kickCountSyncStore } from '../kickCount/kickCountSyncStore';
-import { calendarSyncStore } from '../sync/calendarSyncStore';
-import { supplySyncStore } from '../sync/supplySyncStore';
+// Note: DoctorPdfButton, kickCountSyncStore, calendarSyncStore, supplySyncStore
+// were used by the old inline DoctorPdfButton. They are no longer needed here —
+// the DoctorPdfScreen reads from stores directly after navigation.
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -129,6 +128,12 @@ export interface HomeScreenProps {
    * Optional — when absent the "View all" link is hidden from the banner.
    */
   onSuggestions?: () => void;
+  /**
+   * Navigate to the DoctorPdfScreen (Builder→Preview→Share, spec §1–§5).
+   * Replaces the inline DoctorPdfButton that was previously on HomeScreen.
+   * Optional — no-op if not provided (keeps existing snapshot tests working).
+   */
+  onDoctorPdf?: () => void;
 }
 
 // ─── Screen state ─────────────────────────────────────────────────────────────
@@ -588,6 +593,7 @@ export function HomeScreen({
   onSettings,
   onProfileLoaded,
   onSuggestions,
+  onDoctorPdf,
 }: HomeScreenProps): React.JSX.Element {
   const { t } = useT();
   const [state, setState] = useState<ScreenState>({ kind: 'loading' });
@@ -895,34 +901,18 @@ export function HomeScreen({
               <Text style={styles.kickCountBtnText}>{t('kick.navTitle')}</Text>
             </TouchableOpacity>
           )}
-          {/* PDF Doctor Report — on-device summary; pdf_egress JIT consent gate */}
-          <DoctorPdfButton
-            tokenStorage={tokenStorage}
-            apiBaseUrl={apiBaseUrl}
-            profile={{
-              edd: profile.edd,
-              gestationalWeek: pp.postpartumWeek ?? 0,
-              lifecycle: 'postpartum',
-            }}
-            kickSessions={kickCountSyncStore.getActiveSessions().map((s) => ({
-              id: s.id,
-              startedAt: s.startedAt,
-              endedAt: s.endedAt ?? null,
-              movementCount: s.movementCount,
-              durationSeconds: s.durationSeconds ?? null,
-              gestationalWeekAtStart: s.gestationalWeekAtStart ?? null,
-              note: s.note ?? null,
-            }))}
-            appointments={calendarSyncStore.getActiveChecklistItems().map((c) => ({
-              id: c.id,
-              title: c.title,
-              scheduledAt: c.scheduledAt ?? null,
-              done: c.done,
-              category: c.category,
-              note: c.note ?? null,
-            }))}
-            reportDate={localCivilToday()}
-          />
+          {/* Doctor PDF Report — navigate to Builder→Preview→Share screen (spec §1–§5) */}
+          {onDoctorPdf && (
+            <TouchableOpacity
+              testID="home-doctor-pdf-btn"
+              style={styles.doctorPdfBtn}
+              onPress={onDoctorPdf}
+              accessibilityRole="button"
+              accessibilityLabel={t('pdf.screen.navTitle')}
+            >
+              <Text style={styles.doctorPdfBtnText}>{t('pdf.screen.navTitle')}</Text>
+            </TouchableOpacity>
+          )}
         </ScrollView>
       </SafeAreaView>
     );
@@ -1051,34 +1041,18 @@ export function HomeScreen({
             <Text style={styles.kickCountBtnText}>{t('kick.navTitle')}</Text>
           </TouchableOpacity>
         )}
-        {/* PDF Doctor Report — on-device summary; pdf_egress JIT consent gate */}
-        <DoctorPdfButton
-          tokenStorage={tokenStorage}
-          apiBaseUrl={apiBaseUrl}
-          profile={{
-            edd: profile.edd,
-            gestationalWeek: ga.gestationalWeek,
-            lifecycle: 'pregnant',
-          }}
-          kickSessions={kickCountSyncStore.getActiveSessions().map((s) => ({
-            id: s.id,
-            startedAt: s.startedAt,
-            endedAt: s.endedAt ?? null,
-            movementCount: s.movementCount,
-            durationSeconds: s.durationSeconds ?? null,
-            gestationalWeekAtStart: s.gestationalWeekAtStart ?? null,
-            note: s.note ?? null,
-          }))}
-          appointments={calendarSyncStore.getActiveChecklistItems().map((c) => ({
-            id: c.id,
-            title: c.title,
-            scheduledAt: c.scheduledAt ?? null,
-            done: c.done,
-            category: c.category,
-            note: c.note ?? null,
-          }))}
-          reportDate={localCivilToday()}
-        />
+        {/* Doctor PDF Report — navigate to Builder→Preview→Share screen (spec §1–§5) */}
+        {onDoctorPdf && (
+          <TouchableOpacity
+            testID="home-doctor-pdf-btn"
+            style={styles.doctorPdfBtn}
+            onPress={onDoctorPdf}
+            accessibilityRole="button"
+            accessibilityLabel={t('pdf.screen.navTitle')}
+          >
+            <Text style={styles.doctorPdfBtnText}>{t('pdf.screen.navTitle')}</Text>
+          </TouchableOpacity>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -1205,6 +1179,23 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#A8505A',
     textDecorationLine: 'underline',
+  },
+
+  // Doctor PDF nav entry button (replaces inline DoctorPdfButton — spec §1)
+  doctorPdfBtn: {
+    backgroundColor: '#A8505A',
+    borderRadius: 10,
+    minHeight: 52,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+    marginVertical: 8,
+  },
+  doctorPdfBtnText: {
+    fontFamily: 'IBMPlexSans-SemiBold',
+    fontSize: 16,
+    color: '#FFFFFF',
+    fontWeight: '700',
   },
 
   errorContainer: {

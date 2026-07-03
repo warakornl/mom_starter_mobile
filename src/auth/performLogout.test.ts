@@ -23,6 +23,7 @@ function makeDeps(overrides: Partial<LogoutDeps> = {}): {
     resetSupplyStore: () => { calls.push('resetSupplyStore'); },
     resetKickCountStore: () => { calls.push('resetKickCountStore'); },
     resetCalendarStore: () => { calls.push('resetCalendarStore'); },
+    resetSelfLogStore: () => { calls.push('resetSelfLogStore'); },
     clearKickCountDraft: async () => { calls.push('clearKickCountDraft'); },
     onComplete: () => { calls.push('onComplete'); },
     ...overrides,
@@ -40,6 +41,7 @@ describe('performLogout — clears tokens + all health stores, then navigates', 
         'resetSupplyStore',
         'resetKickCountStore',
         'resetCalendarStore',
+        'resetSelfLogStore',
         'clearKickCountDraft',
         'onComplete',
       ]),
@@ -158,6 +160,33 @@ describe('performLogout — resetExpensesStore (PDPA: no cross-account expense l
   it('still navigates + continues even if resetExpensesStore throws synchronously', async () => {
     const { deps, calls } = makeDeps({
       resetExpensesStore: () => { throw new Error('expenses store reset failure'); },
+    });
+    await performLogout(deps);
+    expect(calls[calls.length - 1]).toBe('onComplete');
+  });
+});
+
+// ─── resetSelfLogStore — PDPA SD-5: no cross-account self-log leak ────────────
+//
+// BLOCKER 2: resetSelfLogStore must be REQUIRED (not optional) in LogoutDeps —
+// a health-data isolation guard, not a backward-compat nicety.
+// These tests are parity with the resetExpensesStore suite above.
+
+describe('performLogout — resetSelfLogStore (PDPA SD-5: no cross-account self-log leak)', () => {
+  it('calls resetSelfLogStore when logout runs', async () => {
+    // RED: makeDeps() does not yet include resetSelfLogStore (currently optional and
+    // omitted from the baseline helper). After BLOCKER 2 fix: makeDeps() includes it
+    // as a required field and the implementation unconditionally calls it.
+    const { deps, calls } = makeDeps();
+    await performLogout(deps);
+    expect(calls).toContain('resetSelfLogStore');
+    expect(calls[calls.length - 1]).toBe('onComplete');
+  });
+
+  it('still navigates + continues even if resetSelfLogStore throws synchronously', async () => {
+    // A throw in resetSelfLogStore must never strand the user before onComplete.
+    const { deps, calls } = makeDeps({
+      resetSelfLogStore: () => { throw new Error('self-log store reset failure'); },
     });
     await performLogout(deps);
     expect(calls[calls.length - 1]).toBe('onComplete');

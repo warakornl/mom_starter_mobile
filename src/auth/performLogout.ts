@@ -42,8 +42,9 @@ export interface LogoutDeps {
    * Prevents User A's self-log health data (weight, BP, swelling, lochia, symptom)
    * from leaking to User B after logout within the same JS session.
    * CRITICAL: a missing reset() here is a cross-account-leak bug (SD-5).
+   * Required (not optional) — mirrors resetKickCountStore as a health-data isolation guard.
    */
-  resetSelfLogStore?: () => void;
+  resetSelfLogStore: () => void;
   /** Clear the in-progress kick-count draft from secure store (best-effort). */
   clearKickCountDraft: () => Promise<void>;
   /** Runs LAST — navigate to the unauthenticated entry (e.g. Welcome). */
@@ -59,7 +60,7 @@ export async function performLogout(deps: LogoutDeps): Promise<void> {
   // Health-store isolation (order irrelevant — independent singletons). Each is
   // guarded so a synchronous throw in one still attempts the others and never
   // strands the user before onComplete.
-  for (const reset of [deps.resetSupplyStore, deps.resetKickCountStore, deps.resetCalendarStore, ...(deps.resetConsentStore ? [deps.resetConsentStore] : []), ...(deps.resetSuggestionStore ? [deps.resetSuggestionStore] : []), ...(deps.resetExpensesStore ? [deps.resetExpensesStore] : []), ...(deps.resetSelfLogStore ? [deps.resetSelfLogStore] : [])]) {
+  for (const reset of [deps.resetSupplyStore, deps.resetKickCountStore, deps.resetCalendarStore, deps.resetSelfLogStore, ...(deps.resetConsentStore ? [deps.resetConsentStore] : []), ...(deps.resetSuggestionStore ? [deps.resetSuggestionStore] : []), ...(deps.resetExpensesStore ? [deps.resetExpensesStore] : [])]) {
     try {
       reset();
     } catch {

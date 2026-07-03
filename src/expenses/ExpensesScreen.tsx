@@ -795,6 +795,11 @@ export function ExpensesScreen({ tokenStorage, apiBaseUrl }: ExpensesScreenProps
   const [conflictCount, setConflictCount] = useState(0);
   const [rejectedItems, setRejectedItems] = useState<RejectedRecord[]>([]);
 
+  // Undo-delete toast state (spec §3.2/US-E3)
+  const [deleteToastVisible, setDeleteToastVisible] = useState(false);
+  const [undoRecord, setUndoRecord] = useState<ExpenseRecord | null>(null);
+  const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const clientRef = useRef(createExpensesSyncClient(apiBaseUrl, expensesSyncStore));
 
   const refreshFromStore = useCallback(() => {
@@ -963,8 +968,44 @@ export function ExpensesScreen({ tokenStorage, apiBaseUrl }: ExpensesScreenProps
 
   function handleDelete(): void {
     if (!form.id) return;
+    // Save the record before tombstoning (needed for Undo restore).
+    const snapshot = expensesSyncStore.getExpense(form.id);
+    if (!snapshot) return;
+
+    // Tombstone locally + queue delete
     expensesSyncStore.enqueueDelete(form.id);
     setFormVisible(false);
+    refreshFromStore();
+
+    // Show undo toast; push is deferred until the toast expires
+    setUndoRecord({ ...snapshot });
+    setDeleteToastVisible(true);
+
+    // Cancel any in-flight timer before starting a fresh one
+    if (undoTimerRef.current !== null) {
+      clearTimeout(undoTimerRef.current);
+    }
+    undoTimerRef.current = setTimeout(() => {
+      setDeleteToastVisible(false);
+      setUndoRecord(null);
+      undoTimerRef.current = null;
+      void syncPush();
+    }, 4000);
+  }
+
+  function handleUndoDelete(): void {
+    // Cancel the drain timer
+    if (undoTimerRef.current !== null) {
+      clearTimeout(undoTimerRef.current);
+      undoTimerRef.current = null;
+    }
+    setDeleteToastVisible(false);
+
+    if (!undoRecord) return;
+    // Re-insert with deletedAt: null — restores both local state and queues
+    // an update so the record is preserved on the server (LWW: update wins).
+    expensesSyncStore.enqueueUpdate({ ...undoRecord, deletedAt: null });
+    setUndoRecord(null);
     refreshFromStore();
     void syncPush();
   }
@@ -1143,6 +1184,22 @@ export function ExpensesScreen({ tokenStorage, apiBaseUrl }: ExpensesScreenProps
         onDelete={form.id ? handleDelete : undefined}
         onCancel={() => setFormVisible(false)}
       />
+
+      {/* Undo-delete toast (spec §3.2/US-E3) */}
+      {deleteToastVisible && (
+        <View testID="expenses-delete-toast" style={styles.deleteToast}>
+          <Text style={styles.deleteToastText}>{t('expenses.deleteToast')}</Text>
+          <TouchableOpacity
+            testID="expenses-delete-undo"
+            onPress={handleUndoDelete}
+            accessibilityRole="button"
+            accessibilityLabel={t('expenses.deleteUndo')}
+            style={styles.deleteToastUndoBtn}
+          >
+            <Text style={styles.deleteToastUndoText}>{t('expenses.deleteUndo')}</Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -1365,5 +1422,42 @@ const styles = StyleSheet.create({
     fontFamily: 'IBMPlexSans-SemiBold',
     fontSize: 16,
     color: '#FFFFFF',
+  },
+
+  // Undo-delete toast (spec §3.2/US-E3)
+  deleteToast: {
+    position: 'absolute',
+    bottom: 100,
+    left: 16,
+    right: 16,
+    backgroundColor: '#3A2A30',
+    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 6,
+  },
+  deleteToastText: {
+    fontFamily: 'IBMPlexSans-Regular',
+    fontSize: 14,
+    color: '#FFFFFF',
+    flex: 1,
+  },
+  deleteToastUndoBtn: {
+    paddingLeft: 16,
+    paddingVertical: 4,
+    minHeight: 44,
+    justifyContent: 'center',
+  },
+  deleteToastUndoText: {
+    fontFamily: 'IBMPlexSans-SemiBold',
+    fontSize: 14,
+    color: '#F2B8BE',
   },
 });

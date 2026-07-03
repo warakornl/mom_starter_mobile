@@ -25,6 +25,12 @@ export interface LogoutDeps {
    * next user's token on the next foreground drain (N1 — PDPA cross-user leak).
    */
   resetConsentQueue?: () => Promise<void>;
+  /**
+   * Reset the suggestion dismiss/snooze store (clears durable SecureStore too).
+   * Prevents User A's dismissed/snoozed suggestions from appearing for User B
+   * after a cold start (PDPA cross-account data leak — MUST clear on logout).
+   */
+  resetSuggestionStore?: () => void;
   /** Clear the in-progress kick-count draft from secure store (best-effort). */
   clearKickCountDraft: () => Promise<void>;
   /** Runs LAST — navigate to the unauthenticated entry (e.g. Welcome). */
@@ -40,7 +46,7 @@ export async function performLogout(deps: LogoutDeps): Promise<void> {
   // Health-store isolation (order irrelevant — independent singletons). Each is
   // guarded so a synchronous throw in one still attempts the others and never
   // strands the user before onComplete.
-  for (const reset of [deps.resetSupplyStore, deps.resetKickCountStore, deps.resetCalendarStore, ...(deps.resetConsentStore ? [deps.resetConsentStore] : [])]) {
+  for (const reset of [deps.resetSupplyStore, deps.resetKickCountStore, deps.resetCalendarStore, ...(deps.resetConsentStore ? [deps.resetConsentStore] : []), ...(deps.resetSuggestionStore ? [deps.resetSuggestionStore] : [])]) {
     try {
       reset();
     } catch {

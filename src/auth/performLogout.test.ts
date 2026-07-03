@@ -111,4 +111,28 @@ describe('performLogout — clears tokens + all health stores, then navigates', 
     await performLogout(deps);
     expect(calls[calls.length - 1]).toBe('onComplete');
   });
+
+  it('calls resetSuggestionStore when provided (PDPA: no cross-account suggestion leak)', async () => {
+    const { deps, calls } = makeDeps({
+      resetSuggestionStore: () => { calls.push('resetSuggestionStore'); },
+    });
+    await performLogout(deps);
+    expect(calls).toContain('resetSuggestionStore');
+    expect(calls[calls.length - 1]).toBe('onComplete');
+  });
+
+  it('still navigates when resetSuggestionStore is omitted (backward-compat, optional dep)', async () => {
+    // No resetSuggestionStore provided → must not break existing callers
+    const { deps, calls } = makeDeps(); // no resetSuggestionStore
+    await performLogout(deps);
+    expect(calls[calls.length - 1]).toBe('onComplete');
+  });
+
+  it('still navigates + continues even if resetSuggestionStore throws synchronously', async () => {
+    const { deps, calls } = makeDeps({
+      resetSuggestionStore: () => { throw new Error('store reset failure'); },
+    });
+    await performLogout(deps);
+    expect(calls[calls.length - 1]).toBe('onComplete');
+  });
 });

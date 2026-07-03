@@ -105,9 +105,16 @@ export function validateBP(input: string): ValidationResult {
     return { storable: false, hint: null };
   }
 
-  const num = parseFloat(trimmed);
-  // Reject NaN or non-integer (BP must be a whole number per spec)
-  if (isNaN(num) || !Number.isInteger(num)) {
+  // Integer-only regex: rejects trailing garbage ("120abc"), scientific notation
+  // ("1e2"), and decimals ("12.5") — mirrors validateWeight's /^[\d]+(?:\.\d*)?$/
+  // posture but integer-only for BP (whole-number mmHg per spec §3.3).
+  if (!/^\d+$/.test(trimmed)) {
+    return { storable: false, hint: HINT_NOT_A_NUMBER };
+  }
+
+  const num = parseInt(trimmed, 10);
+  // Reject NaN guard (redundant after regex but keeps intent explicit)
+  if (isNaN(num)) {
     return { storable: false, hint: HINT_NOT_A_NUMBER };
   }
 

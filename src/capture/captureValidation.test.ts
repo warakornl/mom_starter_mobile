@@ -145,6 +145,31 @@ describe('validateBP (capture-ui §3.3 + §4 — integer 30–300 mmHg, INV-S1/I
       expect(hint).not.toMatch(/too high|too low|ไม่ปกติ|abnormal|สูงเกิน|ต่ำเกิน/i);
     });
   });
+
+  describe('blocker #3 — trailing garbage and scientific notation rejected (integer regex guard)', () => {
+    it('"120abc" must NOT be storable — trailing letters slip past parseFloat', () => {
+      // RED: current code uses parseFloat("120abc")=120, isInteger(120)=true → storable:true (BUG)
+      expect(validateBP('120abc')).toEqual({ storable: false, hint: HINT_NOT_A_NUMBER });
+    });
+
+    it('"1e2" must NOT be storable — scientific notation slips past isInteger', () => {
+      // RED: parseFloat("1e2")=100, isInteger(100)=true → storable:true (BUG)
+      expect(validateBP('1e2')).toEqual({ storable: false, hint: HINT_NOT_A_NUMBER });
+    });
+
+    it('"12.5" is correctly rejected as non-integer (already works; regression guard)', () => {
+      expect(validateBP('12.5')).toEqual({ storable: false, hint: HINT_NOT_A_NUMBER });
+    });
+
+    it('"120" remains storable after adding regex guard (INV-S1 preserved)', () => {
+      expect(validateBP('120')).toEqual({ storable: true, hint: null });
+    });
+
+    it('"150" and "95" remain storable (extreme-BP INV-S1 preserved)', () => {
+      expect(validateBP('150')).toEqual({ storable: true, hint: null });
+      expect(validateBP('95')).toEqual({ storable: true, hint: null });
+    });
+  });
 });
 
 // ── validateTime ──────────────────────────────────────────────────────────────

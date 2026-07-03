@@ -76,6 +76,10 @@ import { getOfferable } from '../suggestion/suggestionEngine';
 import { suggestionStore } from '../suggestion/suggestionStore';
 import { SuggestionBanner } from '../suggestion/SuggestionBanner';
 import type { SuggestionKey, CaptureTarget, OfferableSuggestion } from '../suggestion/types';
+import { DoctorPdfButton } from '../pdfReport/DoctorPdfButton';
+import { kickCountSyncStore } from '../kickCount/kickCountSyncStore';
+import { calendarSyncStore } from '../sync/calendarSyncStore';
+import { supplySyncStore } from '../sync/supplySyncStore';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -891,6 +895,46 @@ export function HomeScreen({
               <Text style={styles.kickCountBtnText}>{t('kick.navTitle')}</Text>
             </TouchableOpacity>
           )}
+          {/* PDF Doctor Report — on-device summary; pdf_egress JIT consent gate */}
+          <DoctorPdfButton
+            tokenStorage={tokenStorage}
+            apiBaseUrl={apiBaseUrl}
+            profile={{
+              edd: profile.edd,
+              gestationalWeek: pp.postpartumWeek ?? 0,
+              lifecycle: 'postpartum',
+            }}
+            kickSessions={kickCountSyncStore.getActiveSessions().slice(0, 10).map((s) => ({
+              id: s.id,
+              startedAt: s.startedAt,
+              endedAt: s.endedAt ?? null,
+              movementCount: s.movementCount,
+              durationSeconds: s.durationSeconds ?? null,
+              gestationalWeekAtStart: s.gestationalWeekAtStart ?? null,
+              note: s.note ?? null,
+            }))}
+            appointments={calendarSyncStore.getActiveChecklistItems().map((c) => ({
+              id: c.id,
+              title: c.title,
+              scheduledAt: c.scheduledAt ?? null,
+              done: c.done,
+              category: c.category,
+              note: c.note ?? null,
+            }))}
+            reminders={calendarSyncStore.getActiveReminders().map((r) => ({
+              id: r.id,
+              displayTitle: r.displayTitle,
+              type: r.type,
+              active: r.active,
+            }))}
+            supplies={supplySyncStore.getSupplyItems().map((s) => ({
+              id: s.id,
+              name: s.name,
+              onHandQty: s.onHandQty,
+              category: s.category,
+            }))}
+            reportDate={localCivilToday()}
+          />
         </ScrollView>
       </SafeAreaView>
     );
@@ -1019,6 +1063,46 @@ export function HomeScreen({
             <Text style={styles.kickCountBtnText}>{t('kick.navTitle')}</Text>
           </TouchableOpacity>
         )}
+        {/* PDF Doctor Report — on-device summary; pdf_egress JIT consent gate */}
+        <DoctorPdfButton
+          tokenStorage={tokenStorage}
+          apiBaseUrl={apiBaseUrl}
+          profile={{
+            edd: profile.edd,
+            gestationalWeek: ga.gestationalWeek,
+            lifecycle: 'pregnant',
+          }}
+          kickSessions={kickCountSyncStore.getActiveSessions().slice(0, 10).map((s) => ({
+            id: s.id,
+            startedAt: s.startedAt,
+            endedAt: s.endedAt ?? null,
+            movementCount: s.movementCount,
+            durationSeconds: s.durationSeconds ?? null,
+            gestationalWeekAtStart: s.gestationalWeekAtStart ?? null,
+            note: s.note ?? null,
+          }))}
+          appointments={calendarSyncStore.getActiveChecklistItems().map((c) => ({
+            id: c.id,
+            title: c.title,
+            scheduledAt: c.scheduledAt ?? null,
+            done: c.done,
+            category: c.category,
+            note: c.note ?? null,
+          }))}
+          reminders={calendarSyncStore.getActiveReminders().map((r) => ({
+            id: r.id,
+            displayTitle: r.displayTitle,
+            type: r.type,
+            active: r.active,
+          }))}
+          supplies={supplySyncStore.getSupplyItems().map((s) => ({
+            id: s.id,
+            name: s.name,
+            onHandQty: s.onHandQty,
+            category: s.category,
+          }))}
+          reportDate={localCivilToday()}
+        />
       </ScrollView>
     </SafeAreaView>
   );

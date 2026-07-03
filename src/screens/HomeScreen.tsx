@@ -103,6 +103,11 @@ export interface HomeScreenProps {
    */
   onSupplies?: () => void;
   /**
+   * Navigate to ExpensesScreen (offline-first monthly expense ledger).
+   * Optional — no-op if not provided (keeps existing snapshots/tests working).
+   */
+  onExpenses?: () => void;
+  /**
    * Navigate to CalendarScreen (month/agenda — appointments + reminders).
    * Optional — no-op if not provided (keeps existing snapshots/tests working).
    */
@@ -588,6 +593,7 @@ export function HomeScreen({
   onNeedsProfile,
   onBirthEvent,
   onSupplies,
+  onExpenses,
   onCalendar,
   onKickCount,
   onSettings,
@@ -878,6 +884,17 @@ export function HomeScreen({
               <Text style={styles.suppliesBtnText}>{t('supplies.shortcutBtn')}</Text>
             </TouchableOpacity>
           )}
+          {onExpenses && (
+            <TouchableOpacity
+              testID="home-expenses-shortcut"
+              style={styles.expensesBtn}
+              onPress={onExpenses}
+              accessibilityRole="button"
+              accessibilityLabel={t('expenses.navTitle')}
+            >
+              <Text style={styles.expensesBtnText}>{t('expenses.shortcutBtn')}</Text>
+            </TouchableOpacity>
+          )}
           {onCalendar && (
             <TouchableOpacity
               testID="home-calendar-shortcut"
@@ -1018,6 +1035,17 @@ export function HomeScreen({
             <Text style={styles.suppliesBtnText}>{t('supplies.shortcutBtn')}</Text>
           </TouchableOpacity>
         )}
+        {onExpenses && (
+          <TouchableOpacity
+            testID="home-expenses-shortcut"
+            style={styles.expensesBtn}
+            onPress={onExpenses}
+            accessibilityRole="button"
+            accessibilityLabel={t('expenses.navTitle')}
+          >
+            <Text style={styles.expensesBtnText}>{t('expenses.shortcutBtn')}</Text>
+          </TouchableOpacity>
+        )}
         {onCalendar && (
           <TouchableOpacity
             testID="home-calendar-shortcut"
@@ -1149,6 +1177,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   suppliesBtnText: {
+    fontFamily: 'IBMPlexSans-SemiBold',
+    fontSize: 14,
+    color: '#A8505A',
+    textDecorationLine: 'underline',
+  },
+
+  // Expenses shortcut link (soft, in-scroll) — mirrors supplies style
+  expensesBtn: {
+    alignSelf: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+  },
+  expensesBtnText: {
     fontFamily: 'IBMPlexSans-SemiBold',
     fontSize: 14,
     color: '#A8505A',

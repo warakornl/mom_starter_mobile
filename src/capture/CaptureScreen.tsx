@@ -255,17 +255,14 @@ function BpRegion({
 
 interface TextRegionProps {
   metricType: 'swelling' | 'lochia' | 'symptom';
+  /** Locale-aware metric label from i18n — t('capture.type.*') */
+  metricLabel: string;
   value: string;
   onChangeText: (v: string) => void;
   placeholder: string;
 }
 
-function TextRegion({ metricType, value, onChangeText, placeholder }: TextRegionProps): React.JSX.Element {
-  const labelMap: Record<string, string> = {
-    swelling: 'บวม / Swelling',
-    lochia: 'น้ำคาวปลา / Lochia',
-    symptom: 'อาการ / Symptom',
-  };
+function TextRegion({ metricLabel, value, onChangeText, placeholder }: TextRegionProps): React.JSX.Element {
   return (
     <View style={fieldStyles.regionContainer}>
       <TextInput
@@ -277,7 +274,7 @@ function TextRegion({ metricType, value, onChangeText, placeholder }: TextRegion
         numberOfLines={3}
         placeholder={placeholder}
         placeholderTextColor="#94818A"
-        accessibilityLabel={`${labelMap[metricType]}, ช่องข้อความ / edit text`}
+        accessibilityLabel={`${metricLabel}, ช่องข้อความ / edit text`}
         textAlignVertical="top"
       />
     </View>
@@ -453,17 +450,32 @@ export function CaptureScreen({ tokenStorage, apiBaseUrl }: CaptureScreenProps):
     timeStorable: timeValidation.storable,
   });
 
-  // ── Echo line ─────────────────────────────────────────────────────────────
+  // ── Echo line (locale-aware labels from i18n — blocker #6) ─────────────────
   const echoLine = (() => {
     switch (metricType) {
       case 'weight':
-        return buildWeightEchoLine(weightValue, timeStr);
+        return buildWeightEchoLine(
+          weightValue,
+          timeStr,
+          t('capture.type.weight'),
+          t('capture.unit.kg'),
+        );
       case 'blood_pressure':
-        return buildBpEchoLine(systolicValue, diastolicValue, timeStr);
+        return buildBpEchoLine(
+          systolicValue,
+          diastolicValue,
+          timeStr,
+          t('capture.type.blood_pressure'),
+          t('capture.unit.mmHg'),
+        );
       case 'swelling':
       case 'lochia':
       case 'symptom':
-        return buildTextEchoLine(metricType, textValue, timeStr);
+        return buildTextEchoLine(
+          t(`capture.type.${metricType}` as Parameters<typeof t>[0]),
+          textValue,
+          timeStr,
+        );
     }
   })();
 
@@ -689,6 +701,7 @@ export function CaptureScreen({ tokenStorage, apiBaseUrl }: CaptureScreenProps):
           {(metricType === 'swelling' || metricType === 'lochia' || metricType === 'symptom') && (
             <TextRegion
               metricType={metricType}
+              metricLabel={t(`capture.type.${metricType}` as Parameters<typeof t>[0])}
               value={textValue}
               onChangeText={setTextValue}
               placeholder={t('capture.field.textPlaceholder')}

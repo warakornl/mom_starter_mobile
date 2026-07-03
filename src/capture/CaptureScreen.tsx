@@ -17,7 +17,7 @@
  *  - general_health consent gate (self-log-behavior §B.4):
  *      granted → save proceeds; absent/declined → inline nudge modal
  *  - Screen states: empty/filling/invalid/saving/saved/error (§5)
- *  - Connectivity pill (offline) — non-blocking
+ *  - Writes are local-first (selfLogSyncStore) — no offline state on the form
  *  - All a11y contracts from accessibility-notes.md §2/§4/§8
  *
  * INV-S1 (AC-20): BP 150/95 and 110/70 render with IDENTICAL visual weight —
@@ -74,6 +74,7 @@ import { createConsentApiClient } from '../consent/consentApiClient';
 import { consentQueue } from '../consent/consentSync';
 import { useT } from '../i18n/LanguageContext';
 import type { Locale } from '../auth/types';
+import { formatCaptureDate } from '../i18n/thaiDate';
 
 import {
   validateWeight,
@@ -421,6 +422,14 @@ export function CaptureScreen({ tokenStorage, apiBaseUrl }: CaptureScreenProps):
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [tempPickerDate, setTempPickerDate] = useState<Date>(parseCivilDate(initialDate));
 
+  // ── Time picker state (blocker #4 — setTimeStr was never called) ──────────
+  const [showTimePicker, setShowTimePicker] = useState(false);
+  const [tempPickerTime, setTempPickerTime] = useState<Date>(() => {
+    const [hh, mm] = initialTime.split(':').map(Number);
+    const [y, m, d] = initialDate.split('-').map(Number);
+    return new Date(y, m - 1, d, hh, mm);
+  });
+
   // ── Screen state ──────────────────────────────────────────────────────────
   type ScreenState = 'idle' | 'saving' | 'saved' | 'error';
   const [screenState, setScreenState] = useState<ScreenState>('idle');
@@ -596,6 +605,35 @@ export function CaptureScreen({ tokenStorage, apiBaseUrl }: CaptureScreenProps):
     setShowDatePicker(false);
   }
 
+  // ── Time picker handlers (blocker #4 — wires setTimeStr) ─────────────────
+
+  function openTimePicker(): void {
+    const [h, m] = timeStr.split(':').map(Number);
+    const [y, mo, d] = dateCivil.split('-').map(Number);
+    setTempPickerTime(new Date(y, mo - 1, d, h, m));
+    setShowTimePicker(true);
+  }
+
+  function handleTimeChangeAndroid(_e: DateTimePickerEvent, d?: Date): void {
+    setShowTimePicker(false);
+    if (d) {
+      const hh = String(d.getHours()).padStart(2, '0');
+      const mm = String(d.getMinutes()).padStart(2, '0');
+      setTimeStr(`${hh}:${mm}`);
+    }
+  }
+
+  function handleTimeChangeIOS(_e: DateTimePickerEvent, d?: Date): void {
+    if (d) setTempPickerTime(d);
+  }
+
+  function confirmTimeIOS(): void {
+    const hh = String(tempPickerTime.getHours()).padStart(2, '0');
+    const mm = String(tempPickerTime.getMinutes()).padStart(2, '0');
+    setTimeStr(`${hh}:${mm}`);
+    setShowTimePicker(false);
+  }
+
   // ── Type labels for segmented control ─────────────────────────────────────
   function typeLabel(type: SelfLogMetricType): string {
     const keyMap: Record<SelfLogMetricType, string> = {
@@ -610,7 +648,17 @@ export function CaptureScreen({ tokenStorage, apiBaseUrl }: CaptureScreenProps):
 
   // ── Saved confirmation (§5.1) ─────────────────────────────────────────────
   if (screenState === 'saved') {
-    const echoForSaved = echoLine.type === 'text' ? echoLine.value : '';
+    // Saved stamp includes date (spec §5.1: "▪ น้ำหนัก 64.2 กก. · 28 มิ.ย. 13:00")
+    // Build short date "D MMM" to insert before HH:mm in the echo line.
+    const [, mon, day] = dateCivil.split('-').map(Number);
+    const TH_M_SHORT = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+    const EN_M_SHORT = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const shortDate = locale === 'th'
+      ? `${day} ${TH_M_SHORT[mon - 1]}`
+      : `${day} ${EN_M_SHORT[mon - 1]}`;
+    const echoForSaved = echoLine.type === 'text'
+      ? echoLine.value.replace(` · ${timeStr}`, ` · ${shortDate} ${timeStr}`)
+      : '';
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.savedContainer}>
@@ -653,7 +701,7 @@ export function CaptureScreen({ tokenStorage, apiBaseUrl }: CaptureScreenProps):
           accessibilityLabel={t('capture.close')}
           style={styles.headerCloseBtn}
         >
-          <Text style={styles.headerCloseText}>{t('capture.close')} ‹</Text>
+          <Text style={styles.headerCloseText}>‹ {t('capture.close')}</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{t('capture.navTitle')}</Text>
         <View style={styles.headerSpacer} />
@@ -709,18 +757,30 @@ export function CaptureScreen({ tokenStorage, apiBaseUrl }: CaptureScreenProps):
           )}
         </View>
 
-        {/* Date / time row (capture-ui §2) */}
+        {/* Date / time row (capture-ui §2) — date and time are separately editable */}
         <View style={styles.section}>
+          <Text style={styles.sectionLabel}>{t('capture.field.when')}</Text>
           <View style={styles.dateTimeRow}>
-            <Text style={styles.sectionLabel}>{t('capture.field.when')}</Text>
+            {/* Date button → opens date picker (blocker #7: localized date) */}
             <TouchableOpacity
-              testID="capture-time-display"
+              testID="capture-date-display"
               onPress={openDatePicker}
               style={styles.dateTimeBtn}
               accessibilityRole="button"
-              accessibilityLabel={`${t('capture.field.when')}: ${dateCivil} ${timeStr}`}
+              accessibilityLabel={`${t('capture.field.when')}: ${formatCaptureDate(dateCivil, locale as Locale)}`}
             >
-              <Text style={styles.dateTimeText}>{dateCivil}  {timeStr}</Text>
+              <Text style={styles.dateTimeText}>{formatCaptureDate(dateCivil, locale as Locale)}</Text>
+              <Text style={styles.dateTimeEditIcon} accessibilityElementsHidden>✎</Text>
+            </TouchableOpacity>
+            {/* Time button → opens time picker (blocker #4: setTimeStr now wired) */}
+            <TouchableOpacity
+              testID="capture-time-display"
+              onPress={openTimePicker}
+              style={styles.dateTimeBtn}
+              accessibilityRole="button"
+              accessibilityLabel={`${t('capture.field.when')}: ${timeStr}`}
+            >
+              <Text style={styles.dateTimeText}>{timeStr}</Text>
               <Text style={styles.dateTimeEditIcon} accessibilityElementsHidden>✎</Text>
             </TouchableOpacity>
           </View>
@@ -763,7 +823,11 @@ export function CaptureScreen({ tokenStorage, apiBaseUrl }: CaptureScreenProps):
 
         {/* Error panel (§5 — local write error) */}
         {screenState === 'error' && (
-          <View testID="capture-save-error" style={styles.errorPanel}>
+          <View
+            testID="capture-save-error"
+            style={styles.errorPanel}
+            accessibilityLiveRegion="assertive"
+          >
             <Text style={styles.errorPanelText}>{t('capture.error')}</Text>
             <TouchableOpacity
               style={styles.retryBtn}
@@ -865,6 +929,58 @@ export function CaptureScreen({ tokenStorage, apiBaseUrl }: CaptureScreenProps):
           </View>
         </Modal>
       )}
+
+      {/* Time picker — Android: inline dialog (blocker #4 — wires setTimeStr) */}
+      {Platform.OS === 'android' && showTimePicker && (
+        <DateTimePicker
+          mode="time"
+          display="default"
+          value={tempPickerTime}
+          onChange={handleTimeChangeAndroid}
+          is24Hour
+        />
+      )}
+
+      {/* Time picker — iOS: bottom sheet (blocker #4 — floating-civil, no zone) */}
+      {Platform.OS === 'ios' && (
+        <Modal
+          visible={showTimePicker}
+          transparent
+          animationType="slide"
+          onRequestClose={() => setShowTimePicker(false)}
+        >
+          <View style={pickerStyles.overlay}>
+            <View style={pickerStyles.card}>
+              <View style={pickerStyles.btnRow}>
+                <TouchableOpacity
+                  style={pickerStyles.cancelBtn}
+                  onPress={() => setShowTimePicker(false)}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('general.cancel')}
+                >
+                  <Text style={pickerStyles.cancelText}>{t('general.cancel')}</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={pickerStyles.doneBtn}
+                  onPress={confirmTimeIOS}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('general.done')}
+                >
+                  <Text style={pickerStyles.doneText}>{t('general.done')}</Text>
+                </TouchableOpacity>
+              </View>
+              <DateTimePicker
+                mode="time"
+                display="spinner"
+                value={tempPickerTime}
+                onChange={handleTimeChangeIOS}
+                style={pickerStyles.picker}
+                is24Hour
+              />
+            </View>
+          </View>
+        </Modal>
+      )}
     </SafeAreaView>
   );
 }
@@ -888,7 +1004,7 @@ const styles = StyleSheet.create({
   },
   headerCloseBtn: {
     minWidth: 60,
-    minHeight: 44,
+    minHeight: 48,
     justifyContent: 'center',
   },
   headerCloseText: {
@@ -946,11 +1062,11 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
 
-  // Date/time row
+  // Date/time row — holds date + time buttons side by side (blocker #4)
   dateTimeRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexWrap: 'wrap',
+    gap: 8,
   },
   dateTimeBtn: {
     flexDirection: 'row',
@@ -1017,7 +1133,7 @@ const styles = StyleSheet.create({
     color: '#8E3A44', // rose/700
     flex: 1,
   },
-  retryBtn: { paddingLeft: 12, minHeight: 44, justifyContent: 'center' },
+  retryBtn: { paddingLeft: 12, minHeight: 48, justifyContent: 'center' },
   retryBtnText: {
     fontFamily: 'IBMPlexSans-SemiBold',
     fontSize: 14,
@@ -1220,12 +1336,12 @@ const segStyles = StyleSheet.create({
   },
   chip: {
     paddingHorizontal: 14,
-    paddingVertical: 8,
+    paddingVertical: 10,
     borderRadius: 999, // radius/pill
     borderWidth: 1,
     borderColor: '#EBE1D9',
     backgroundColor: '#FFFFFF',
-    minHeight: 36,
+    minHeight: 48, // a11y ≥ 48dp (blocker #5)
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1342,13 +1458,13 @@ const pickerStyles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#EBE1D9',
   },
-  cancelBtn: { minHeight: 44, justifyContent: 'center' as const },
+  cancelBtn: { minHeight: 48, justifyContent: 'center' as const },
   cancelText: {
     fontFamily: 'IBMPlexSans-Regular',
     fontSize: 15,
     color: '#94818A',
   },
-  doneBtn: { minHeight: 44, justifyContent: 'center' as const },
+  doneBtn: { minHeight: 48, justifyContent: 'center' as const },
   doneText: {
     fontFamily: 'IBMPlexSans-SemiBold',
     fontSize: 15,

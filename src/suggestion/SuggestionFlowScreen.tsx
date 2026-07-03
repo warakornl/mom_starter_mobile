@@ -44,7 +44,8 @@ import {
 
 import { getOfferable } from './suggestionEngine';
 import { suggestionStore } from './suggestionStore';
-import type { OfferableSuggestion, SuggestionKey, CaptureTarget } from './types';
+import { SUGGESTION_CATALOG } from './suggestionCatalog';
+import type { OfferableSuggestion, SuggestionKey, CaptureTarget, SuggestionCatalogEntry } from './types';
 import type { Stage } from '../pregnancy/gestationalAge';
 import type { Lifecycle } from '../pregnancy/types';
 import { useT } from '../i18n/LanguageContext';
@@ -319,6 +320,97 @@ const cardStyles = StyleSheet.create({
   },
 });
 
+// ─── Dismissed suggestions section (§3.1) ─────────────────────────────────────
+
+function DismissedSection({
+  entries,
+  onReenable,
+}: {
+  entries: SuggestionCatalogEntry[];
+  onReenable: (key: SuggestionKey) => void;
+}): React.JSX.Element {
+  const { t } = useT();
+  const reenableLabel = t('suggestion.action.reenable');
+  const sectionTitle = t('suggestion.dismissed.title');
+
+  return (
+    <View style={dismissedStyles.container} testID="suggestion-dismissed-section">
+      <Text style={dismissedStyles.sectionTitle}>{sectionTitle}</Text>
+      {entries.map((entry) => {
+        const titleKey = `suggestion.${entry.key}.title` as Parameters<typeof t>[0];
+        const title = t(titleKey);
+        const glyph = CAPTURE_GLYPHS[entry.captureTarget] ?? '🌱';
+        return (
+          <View key={entry.key} style={dismissedStyles.row} testID={`suggestion-dismissed-${entry.key}`}>
+            <Text style={dismissedStyles.glyph} accessibilityElementsHidden={true}>{glyph}</Text>
+            <Text style={dismissedStyles.title} numberOfLines={2}>{title}</Text>
+            <TouchableOpacity
+              testID={`suggestion-reenable-${entry.key}`}
+              style={dismissedStyles.reenableBtn}
+              onPress={() => onReenable(entry.key)}
+              accessibilityRole="button"
+              accessibilityLabel={`${reenableLabel}: ${title}`}
+            >
+              <Text style={dismissedStyles.reenableBtnText}>{reenableLabel}</Text>
+            </TouchableOpacity>
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
+const dismissedStyles = StyleSheet.create({
+  container: {
+    gap: 8,
+    paddingTop: 8,
+  },
+  sectionTitle: {
+    fontFamily: 'IBMPlexSans-SemiBold',
+    fontSize: 13,
+    lineHeight: 19,
+    color: '#94818A', // ink/faint
+    marginBottom: 4,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#EBE1D9',
+    padding: 12,
+  },
+  glyph: {
+    fontSize: 16,
+    lineHeight: 22,
+    flexShrink: 0,
+  },
+  title: {
+    flex: 1,
+    fontFamily: 'IBMPlexSans-Regular',
+    fontSize: 14,
+    lineHeight: 21,
+    color: '#94818A', // ink/faint — dimmed since dismissed
+  },
+  reenableBtn: {
+    height: 32,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: '#A8505A', // rose/600
+    borderRadius: 999,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flexShrink: 0,
+  },
+  reenableBtnText: {
+    fontFamily: 'IBMPlexSans-SemiBold',
+    fontSize: 13,
+    color: '#A8505A', // rose/600
+  },
+});
+
 // ─── Main screen ──────────────────────────────────────────────────────────────
 
 export function SuggestionFlowScreen({
@@ -336,8 +428,20 @@ export function SuggestionFlowScreen({
   const [tick, setTick] = useState(0);
   const recompute = useCallback(() => setTick((n) => n + 1), []);
 
+  // Toggle for the dismissed-suggestions section (spec §3.1 "View hidden")
+  const [showDismissed, setShowDismissed] = useState(false);
+
   // void tick is used to trigger re-render; suppress lint
   void tick;
+
+  // Dismissed entries — mapped from keys → catalog for the "View hidden" section.
+  // Dismiss is always recoverable via this section (spec §3.1).
+  // NOTE: an undo toast (suggestion.hidden.toast / suggestion.hidden.undo) is
+  // deferred; recoverability is guaranteed by the "View hidden" affordance below.
+  const dismissedKeys = suggestionStore.getDismissedKeys();
+  const dismissedEntries: SuggestionCatalogEntry[] = SUGGESTION_CATALOG.filter(
+    (entry) => (dismissedKeys as string[]).includes(entry.key),
+  );
 
   const suggestions: OfferableSuggestion[] = getOfferable(
     { lifecycle, stage, gestationalWeek, now: new Date() },
@@ -386,6 +490,11 @@ export function SuggestionFlowScreen({
     recompute();
   }
 
+  function handleReenable(key: SuggestionKey) {
+    suggestionStore.reenable(key);
+    recompute();
+  }
+
   // ── Render ───────────────────────────────────────────────────────────────
 
   return (
@@ -431,14 +540,37 @@ export function SuggestionFlowScreen({
         ) : (
           <View testID="suggestion-flow-empty" style={styles.emptyState}>
             <Text style={styles.emptyText}>{t('suggestion.screen.empty')}</Text>
-            <TouchableOpacity
-              style={styles.viewHiddenBtn}
-              accessibilityRole="button"
-              accessibilityLabel={t('suggestion.screen.viewHidden')}
-            >
-              <Text style={styles.viewHiddenText}>{t('suggestion.screen.viewHidden')}</Text>
-            </TouchableOpacity>
+            {dismissedEntries.length > 0 && (
+              <TouchableOpacity
+                testID="suggestion-flow-view-hidden"
+                style={styles.viewHiddenBtn}
+                onPress={() => setShowDismissed((prev) => !prev)}
+                accessibilityRole="button"
+                accessibilityLabel={t('suggestion.screen.viewHidden')}
+              >
+                <Text style={styles.viewHiddenText}>{t('suggestion.screen.viewHidden')}</Text>
+              </TouchableOpacity>
+            )}
           </View>
+        )}
+
+        {/* Dismissed suggestions section — §3.1 "View hidden" affordance.
+            Visible when toggled from empty state OR from the inline link below
+            when active suggestions exist. Re-enable restores → 'offered'. */}
+        {dismissedEntries.length > 0 && suggestions.length > 0 && (
+          <TouchableOpacity
+            testID="suggestion-flow-view-hidden"
+            style={styles.viewHiddenBtn}
+            onPress={() => setShowDismissed((prev) => !prev)}
+            accessibilityRole="button"
+            accessibilityLabel={t('suggestion.screen.viewHidden')}
+          >
+            <Text style={styles.viewHiddenText}>{t('suggestion.screen.viewHidden')}</Text>
+          </TouchableOpacity>
+        )}
+
+        {showDismissed && dismissedEntries.length > 0 && (
+          <DismissedSection entries={dismissedEntries} onReenable={handleReenable} />
         )}
       </ScrollView>
 

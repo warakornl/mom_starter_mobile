@@ -39,6 +39,12 @@ export type RootStackParamList = {
    */
   Supplies: undefined;
   /**
+   * Expenses screen — offline-first monthly expense ledger (expenses-feature).
+   * Entry: shortcut button on HomeScreen.
+   * amount stored as satang integer; displayed as ฿ with 2 decimals.
+   */
+  Expenses: undefined;
+  /**
    * Calendar screen — month/agenda combining appointments + reminder occurrences.
    * Entry: "ดูทั้งหมด" / calendar button on HomeScreen.
    */

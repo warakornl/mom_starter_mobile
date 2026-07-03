@@ -56,6 +56,7 @@ import { VerifyEmailScreen } from '../auth/VerifyEmailScreen';
 import { ProfileSetupScreen } from '../pregnancy/ProfileSetupScreen';
 import { BirthEventScreen } from '../pregnancy/BirthEventScreen';
 import { SuppliesScreen } from '../supplies/SuppliesScreen';
+import { ExpensesScreen } from '../expenses/ExpensesScreen';
 import { CalendarScreen } from '../calendar/CalendarScreen';
 import { AppointmentFormScreen } from '../calendar/AppointmentFormScreen';
 import { ReminderFormScreen } from '../calendar/ReminderFormScreen';
@@ -223,6 +224,7 @@ export function RootNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps):
               navigation.navigate('BirthEvent', { profileVersion })
             }
             onSupplies={() => navigation.navigate('Supplies')}
+            onExpenses={() => navigation.navigate('Expenses')}
             onCalendar={() => navigation.navigate('Calendar')}
             onKickCount={() => navigation.navigate('KickCountHome')}
             onSettings={() => navigation.navigate('Settings')}
@@ -288,6 +290,24 @@ export function RootNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps):
       >
         {() => (
           <SuppliesScreen
+            tokenStorage={tokenStorage}
+            apiBaseUrl={apiBaseUrl}
+          />
+        )}
+      </Stack.Screen>
+
+      {/* Expenses — offline-first monthly expense ledger (expenses-feature)
+       *
+       * Entry: shortcut button on HomeScreen ("ค่าใช้จ่าย ›").
+       * ExpensesSyncStore is module-level; data persists across in-session re-mounts.
+       * amount stored/synced as satang integer; displayed as ฿ with 2 decimals.
+       */}
+      <Stack.Screen
+        name="Expenses"
+        options={{ title: t('expenses.navTitle'), headerBackTitle: t('general.back') }}
+      >
+        {() => (
+          <ExpensesScreen
             tokenStorage={tokenStorage}
             apiBaseUrl={apiBaseUrl}
           />

@@ -784,6 +784,10 @@ export function HomeScreen({
   function handleSuggestionDismiss(key: SuggestionKey): void {
     suggestionStore.dismiss(key);
     setSuggestionTick((n) => n + 1);
+    // TODO (spec §2.2): show an undo toast using i18n keys
+    //   suggestion.hidden.toast / suggestion.hidden.undo
+    // that calls suggestionStore.reenable(key). Deferred: dismiss is recoverable
+    // via the "View hidden" section in SuggestionFlowScreen (§3.1).
   }
 
   // ─── Postpartum mode ──────────────────────────────────────────────────────

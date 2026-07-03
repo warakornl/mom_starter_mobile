@@ -20,6 +20,14 @@
  *                         5 metricTypes: weight|blood_pressure|swelling|lochia|symptom;
  *                         value/note fields are opaque base64 ciphertext strings;
  *                         gated cloud_storage + general_health; FLAG-1 loggedAt)
+ *   - medicationPlans    (mutable LWW like expenses/supplyItems; name/dose are opaque
+ *                         base64 ciphertext (ruling 4); scheduleRule jsonb plain;
+ *                         gated cloud_storage + general_health; FLAG-4 scheduleRule)
+ *   - medicationLogs     (immutable event union like selfLogs/kickCountSessions;
+ *                         create-only union-merge; note opaque base64 ciphertext;
+ *                         occurrenceTime floating-civil bucket key (FLAG-1/D5);
+ *                         loggedAt = response-only absolute UTC; gated
+ *                         cloud_storage + general_health)
  *
  * Key contract rules encoded here:
  *   - push: three-bucket changes (created/updated/deleted)
@@ -353,6 +361,241 @@ export interface ExpenseRecord {
   deletedAt?: string | null;
 }
 
+// ─── MedicationPlan + MedicationLog (api-contract.md §682–683 + medication-behavior.md §1) ──
+
+/**
+ * MedicationScheduleRule — the FLAG-4 recurrence grammar for medication plans.
+ *
+ * RULING 7.1 (medication-behavior.md §1.1): reuses the FLAG-4 expansion engine
+ * but with the civil anchor (startAt) folded INTO the rule rather than kept
+ * on the parent Reminder (which has its own separate `startAt` field).
+ *
+ * Grammar constraints (medication-behavior.md §1.1, RULING 7.1):
+ *   freq=one_off:      timesOfDay FORBIDDEN, interval absent, until absent.
+ *   freq=daily:        timesOfDay R & non-empty; interval absent.
+ *   freq=every_n_days: timesOfDay R & non-empty; interval R ≥ 2
+ *                      (interval=1 is canonicalized → 'daily' on push);
+ *                      until optional.
+ *
+ * Differences from RecurrenceRuleWire (reminders):
+ *   - No 'weekly' freq, no byDay (medication schedules are day-interval only).
+ *   - Adds startAt (floating-civil "YYYY-MM-DDTHH:mm" day-0 anchor; required).
+ *   - interval ≥ 2 (≥ 1 for reminders); interval=1 canonicalized to 'daily'.
+ *
+ * null scheduleRule ⇒ PRN / ad-hoc (M=0, no adherence denominator — §A.5).
+ * Closed grammar — unknown keys rejected on push (schedule_rule_invalid).
+ *
+ * MOTHER-health: scheduleRule is plaintext jsonb (not encrypted — D4).
+ * Security: do NOT log scheduleRule if it carries timing that infers drug class.
+ */
+export interface MedicationScheduleRule {
+  /** Recurrence cadence. */
+  freq: 'one_off' | 'daily' | 'every_n_days';
+  /**
+   * Floating-civil day-0 anchor "YYYY-MM-DDTHH:mm" (FLAG-1).
+   * Required for all freq values. Drives the first occurrence date and the
+   * FLAG-4 expansion engine. Never UTC-normalized.
+   */
+  startAt: string;
+  /**
+   * Wall-clock times for daily/every_n_days, each "HH:mm" zero-padded 24h.
+   * Required and non-empty for daily/every_n_days. FORBIDDEN for one_off.
+   * Canonical: ascending, distinct.
+   */
+  timesOfDay?: string[];
+  /**
+   * Step between occurrences — integer ≥ 2 (required iff freq='every_n_days').
+   * interval=1 MUST be canonicalized to freq='daily' before push (RULING 7.1).
+   * Absent for one_off and daily.
+   */
+  interval?: number;
+  /**
+   * Inclusive civil end date "YYYY-MM-DD" (optional for daily/every_n_days).
+   * Absent for one_off. When absent the plan runs indefinitely.
+   */
+  until?: string;
+}
+
+/**
+ * MedicationPlanInput — write-side payload for a medication plan create/update.
+ *
+ * Mutable record → LWW (like SupplyItem/Expense/ChecklistItem).
+ * Written via sync/push only (D1 — no REST write verb).
+ * Edits on the same id arbitrate by server version (S-A).
+ *
+ * Security (D4 / ruling 4):
+ *   name and dose are opaque base64 strings (MVP: plaintext-bytes-as-base64).
+ *   Same posture as SelfLog value/note fields (K-7).
+ *   The server stores them verbatim as name_cipher/dose_cipher bytea and
+ *   NEVER parses, queries, or decrypts them server-side.
+ *   scheduleRule, active, sourceSuggestionStateId are plaintext.
+ *   NEVER log name or dose (SD-2 / SD-5).
+ *
+ * MOTHER-health: gated cloud_storage (whole-batch) + general_health (per-collection).
+ */
+export interface MedicationPlanInput {
+  /**
+   * Drug / supplement name — opaque base64 ciphertext (ruling 4 / D4).
+   * Required on live (non-tombstone) rows — enforced by ck_medication_plan__live_name.
+   * Shown verbatim, never translated, never parsed (no-interpretation boundary).
+   */
+  name: string;
+  /**
+   * Dose text (e.g. "1 เม็ด", "150 mg") — opaque base64 ciphertext (ruling 4).
+   * Optional. Verbatim echo only; server never parses or queries.
+   */
+  dose?: string | null;
+  /**
+   * Recurrence rule — FLAG-4 grammar. null = PRN/ad-hoc (M=0, no denominator).
+   * When present MUST conform to MedicationScheduleRule grammar or server rejects
+   * with validation_error(schedule_rule_invalid).
+   */
+  scheduleRule?: MedicationScheduleRule | null;
+  /**
+   * Whether this plan is currently active.
+   * A single mutable boolean (LWW) — not a time-series.
+   * Deactivating never deletes; it stops the plan from feeding the reminder engine.
+   */
+  active: boolean;
+  /**
+   * Soft provenance link to the UserSuggestionState the plan was started from.
+   * NO DB FK (RULING 2 — server table not in MVP). Null for user-created plans.
+   * Apply-path ownership check is deferred/additive (D7 / §G-4).
+   */
+  sourceSuggestionStateId?: string | null;
+}
+
+/**
+ * MedicationPlan — full medication plan record including the <sync> block.
+ *
+ * Returned by GET /medication-plans and by sync/pull.
+ * name/dose are returned as ciphertext for the client to decrypt.
+ *
+ * version = 0 is the create sentinel; server assigns version ≥ 1 on first apply.
+ * Mutable LWW — every applied create/update ALWAYS bumps version (no no-op,
+ * because name_cipher/dose_cipher random IV defeats byte-compare — D2).
+ *
+ * Soft-delete tombstone: deletedAt is set + name_cipher/dose_cipher crypto-shredded
+ * to null (§4.4(A)). The DB CHECK ck_medication_plan__live_name allows null on
+ * tombstone rows.
+ *
+ * MOTHER-health: gated cloud_storage + general_health.
+ */
+export interface MedicationPlan {
+  /** UUIDv4 client-generated (canonical lowercase 8-4-4-4-12). */
+  id: string;
+  /** Opaque base64 ciphertext — see MedicationPlanInput.name. */
+  name: string;
+  /** Opaque base64 ciphertext — optional dose text. */
+  dose?: string | null;
+  /** FLAG-4 recurrence grammar. null = PRN/ad-hoc. */
+  scheduleRule?: MedicationScheduleRule | null;
+  /** Active state (LWW boolean). */
+  active: boolean;
+  /** Soft provenance ref — nullable soft link (no FK). */
+  sourceSuggestionStateId?: string | null;
+  // ── <sync> block ────────────────────────────────────────────────────────────
+  /** Create sentinel = 0; server assigns ≥ 1 on first apply. LWW mutable. */
+  version: number;
+  /** Server-assigned UTC ISO instant. */
+  createdAt: string;
+  /** Server-assigned UTC ISO instant (LWW ordering clock). */
+  updatedAt: string;
+  /** Tombstone instant (null / absent for live records). Soft-delete + crypto-shred. */
+  deletedAt?: string | null;
+}
+
+/**
+ * MedicationLogInput — write-side payload for a medication log create.
+ *
+ * Immutable event — create-only union-merge (D3, like SelfLog/KickCountSession).
+ * Each log has a distinct client-gen UUIDv4 → union across devices, no conflict.
+ * Re-pushing the same id = idempotent no-op (version not bumped, fields not overwritten).
+ * Updates are NOT accepted — a correction is a NEW row (new UUID) + tombstone of old.
+ *
+ * NOTE: loggedAt is NOT in MedicationLogInput. It is response-only (D5) —
+ * the server-assigned absolute-UTC record-creation instant. The client must
+ * not send it; the server ignores / rejects it if present.
+ *
+ * Security (D4):
+ *   note is an opaque base64 string (same posture as SelfLog.note).
+ *   NEVER log note, occurrenceTime, or medicationPlanId (health data — SD-5).
+ *
+ * MOTHER-health: gated cloud_storage (whole-batch) + general_health (per-collection).
+ */
+export interface MedicationLogInput {
+  /**
+   * The medication plan this dose fulfils. null = ad-hoc dose (no plan).
+   * When present MUST belong to the same JWT subject, else server rejects
+   * with validation_error(medication_plan_not_found) (D7 / §A.1).
+   */
+  medicationPlanId?: string | null;
+  /**
+   * Floating-civil wall-clock time "YYYY-MM-DDTHH:mm" — the adherence bucket key
+   * (FLAG-1 / D5). No offset, no trailing Z. Never UTC-normalized; shifts never
+   * occur on time-zone travel/DST. For a mark-done log it is the occurrence's
+   * scheduled scheduledLocalTime (AC-17), not now().
+   */
+  occurrenceTime: string;
+  /**
+   * Two-state enum — taken or missed. Both are equal-weight neutral facts (D3 /
+   * capture-ui §3.1). Never graded, never coloured, never shamed (AC-20).
+   * Server has DB CHECK IN ('taken','missed').
+   */
+  status: 'taken' | 'missed';
+  /**
+   * Optional free-text note — opaque base64 ciphertext (D4). Never parsed.
+   * PDF inclusion gated by sensitive_lab_results consent (§A.6).
+   */
+  note?: string | null;
+}
+
+/**
+ * MedicationLog — full log record including loggedAt (response-only) and
+ * the <sync> block.
+ *
+ * Returned by GET /medication-logs and by sync/pull.
+ *
+ * loggedAt is the server-assigned absolute-UTC record-creation instant. It is
+ * NOT a bucket key and is NOT in MedicationLogInput (D5). It is the immutable
+ * event's creation clock; the adherence bucket key is occurrenceTime.
+ *
+ * version = 0 is the create sentinel; server assigns ≥ 1 on first apply.
+ * Immutable event — re-push of same id is a no-op (version not bumped).
+ *
+ * MOTHER-health: gated cloud_storage + general_health.
+ */
+export interface MedicationLog {
+  /** UUIDv4 client-generated (canonical lowercase 8-4-4-4-12). */
+  id: string;
+  /** FK to MedicationPlan.id — nullable (null = ad-hoc dose). */
+  medicationPlanId?: string | null;
+  /**
+   * Floating-civil bucket key "YYYY-MM-DDTHH:mm" (FLAG-1 / D5).
+   * Date-part = adherence civil-day key (§A.5 / AC-22).
+   */
+  occurrenceTime: string;
+  /** Two-state enum — taken or missed. Equal-weight neutral facts (AC-20). */
+  status: 'taken' | 'missed';
+  /** Opaque base64 ciphertext — optional note. Never parsed. */
+  note?: string | null;
+  /**
+   * Absolute-UTC record-creation instant (server-assigned, response-only).
+   * NOT in MedicationLogInput (D5). NOT a bucket key. NOT sent by the client.
+   * The immutable event's creation clock; used for ordering in GET /medication-logs.
+   */
+  loggedAt: string;
+  // ── <sync> block ────────────────────────────────────────────────────────────
+  /** Create sentinel = 0; server assigns ≥ 1 on first apply. */
+  version: number;
+  /** Server-assigned UTC ISO instant. */
+  createdAt: string;
+  /** Server-assigned UTC ISO instant. */
+  updatedAt: string;
+  /** Tombstone instant (null / absent for live records). */
+  deletedAt?: string | null;
+}
+
 // ─── SelfLog (api-contract.md §687 + self-log-behavior.md §1/§B) ─────────────
 
 /**
@@ -480,7 +723,9 @@ export type SyncRecord =
   | ChecklistItemRecord
   | KickCountSessionRecord
   | ExpenseRecord
-  | SelfLog;
+  | SelfLog
+  | MedicationPlan
+  | MedicationLog;
 
 // ─── Push request ─────────────────────────────────────────────────────────────
 
@@ -561,6 +806,55 @@ export interface SyncChangeSet {
     /** Always empty — immutable event, no in-place rewrites (D2). */
     updated: SelfLog[];
     /** Bare uuids for tombstone-wins (soft-delete via crypto-shred). */
+    deleted: string[];
+  };
+  /**
+   * medicationPlans — mutable LWW records (D2 / medication-behavior.md §1.1).
+   *
+   * Like expenses/supplyItems/checklistItems: all three buckets are live.
+   * Edits on the same id arbitrate by server version (S-A / version-arbitrated).
+   * base version == current → apply + always bump (no no-op — *_cipher random IV).
+   * base < current → server_won. Tombstone-wins on soft-delete.
+   *
+   * name/dose are opaque base64 ciphertext (ruling 4 / D4) — server stores
+   * verbatim as name_cipher/dose_cipher bytea, never parses or queries.
+   * scheduleRule is plaintext jsonb. active and sourceSuggestionStateId plaintext.
+   *
+   * MOTHER-health: gated cloud_storage (whole-batch) + general_health (per-collection).
+   * Security: NEVER log name or dose (SD-2 / sensitive health data).
+   */
+  medicationPlans?: {
+    /** New medication plans from this device's offline queue (create sentinel version=0). */
+    created: MedicationPlan[];
+    /** Edited plans — LWW merge, version must match current server version. */
+    updated: MedicationPlan[];
+    /** Bare uuids for tombstone-wins (soft-delete + crypto-shred of name_cipher/dose_cipher). */
+    deleted: string[];
+  };
+  /**
+   * medicationLogs — immutable event union (D3 / medication-behavior.md §1.2).
+   *
+   * Like selfLogs/kickCountSessions: create-only union-merge across devices.
+   * Each log has a distinct client-gen UUIDv4 → union-merge, no conflict.
+   * updated[] is ALWAYS EMPTY — immutable event, no in-place rewrites (D3).
+   * A "correction" is a NEW row (new UUID) and/or a tombstone of the old one.
+   * Re-push of existing id = idempotent no-op (version not bumped, D3).
+   *
+   * occurrenceTime is the floating-civil bucket key (FLAG-1 / D5).
+   * note is opaque base64 ciphertext (D4). status = taken | missed (AC-20 —
+   * both are equal-weight neutral facts; never graded, never coloured).
+   *
+   * Server: per-collection general_health gate (rejected[] when absent);
+   *   whole-batch cloud_storage gate first.
+   * MOTHER-health: gated cloud_storage (whole-batch) + general_health (per-collection).
+   * Security: NEVER log note, occurrenceTime, or medicationPlanId (SD-5).
+   */
+  medicationLogs?: {
+    /** New medication log events from this device's offline queue. */
+    created: MedicationLog[];
+    /** Always empty — immutable event, no in-place rewrites (D3). */
+    updated: MedicationLog[];
+    /** Bare uuids for tombstone-wins (soft-delete). */
     deleted: string[];
   };
 }
@@ -648,6 +942,35 @@ export interface SyncPullPage {
       created: SelfLog[];
       /** Live self-log rows in the pull window — client upserts by id. */
       updated: SelfLog[];
+      /** Tombstoned uuids — client removes matching local rows. */
+      deleted: string[];
+    };
+    /**
+     * medicationPlans pull — mutable LWW.
+     * OQ-SYNC-17: server returns live rows in updated[], tombstones in deleted[].
+     * name/dose returned as ciphertext for client-side decryption.
+     * MOTHER-health: gated cloud_storage + general_health.
+     */
+    medicationPlans?: {
+      /** OQ-SYNC-17: server puts live rows in updated[]; created[] typically empty on pull. */
+      created: MedicationPlan[];
+      /** Live medication plan rows in the pull window — client upserts by id. */
+      updated: MedicationPlan[];
+      /** Tombstoned uuids — client removes matching local rows. */
+      deleted: string[];
+    };
+    /**
+     * medicationLogs pull — immutable event union.
+     * OQ-SYNC-17: server returns live rows in updated[], tombstones in deleted[],
+     * created[] always empty on pull. Client upserts by id.
+     * note returned as ciphertext for client-side decryption.
+     * MOTHER-health: gated cloud_storage + general_health.
+     */
+    medicationLogs?: {
+      /** OQ-SYNC-17: always empty on pull (server puts live rows in updated[]). */
+      created: MedicationLog[];
+      /** Live medication log rows in the pull window — client upserts by id. */
+      updated: MedicationLog[];
       /** Tombstoned uuids — client removes matching local rows. */
       deleted: string[];
     };

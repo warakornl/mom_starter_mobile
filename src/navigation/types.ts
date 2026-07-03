@@ -138,4 +138,12 @@ export type RootStackParamList = {
     loggedAtDate?: string;
     defaultTime?: string;
   };
+
+  /**
+   * MedicationPlans — Medication Plan Management screen (medication-plan-ui.md).
+   * Entry: bottom-nav tab at the same level as Calendar, Expenses, Supplies.
+   * No params — health data never in route params (PDPA SD-9).
+   * general_health consent gates Save; cloud_storage gate → local-only toast.
+   */
+  MedicationPlans: undefined;
 };

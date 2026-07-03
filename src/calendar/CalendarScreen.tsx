@@ -847,6 +847,8 @@ const styles = StyleSheet.create({
   addBtn: {
     paddingHorizontal: 12,
     paddingVertical: 6,
+    minHeight: 48,
+    justifyContent: 'center' as const,
     borderRadius: 14,
     backgroundColor: '#A8505A',
   },

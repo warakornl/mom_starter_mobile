@@ -858,6 +858,72 @@ const th = {
   // Unit labels (display only — not user-typed)
   'capture.unit.kg': 'กก.',
   'capture.unit.mmHg': 'mmHg',
+
+  // ── Medication Plans (medication-plan-ui.md §9) ──────────────────────────────
+  // Navigation / tab
+  'medication.navTitle': 'แผนยา',
+  'medication.tabLabel': 'ยา',
+  // Empty state
+  'medication.emptyHeadline': 'ยังไม่มีแผนยา',
+  'medication.emptyBody': 'เพิ่มยาที่ต้องกิน แล้วเราจะเตือนตามตาราง',
+  'medication.addFirst': '+ เพิ่มแผนยาแรก',
+  // Form titles
+  'medication.addTitle': 'เพิ่มแผนยา',
+  'medication.editTitle': 'แก้ไขแผนยา',
+  // Field labels
+  'medication.fieldName': 'ชื่อยา (จำเป็น)',
+  'medication.fieldDose': 'ขนาดยา (ไม่บังคับ)',
+  'medication.fieldSchedule': 'ตารางการกิน',
+  // Schedule chip labels (3 chips)
+  'medication.scheduleChip.daily': 'ทุกวัน',
+  'medication.scheduleChip.every_n_days': 'ทุก N วัน',
+  'medication.scheduleChip.one_off': 'ครั้งเดียว',
+  // Time-of-day sub-fields
+  'medication.fieldTimesOfDay': 'เวลาที่กิน',
+  'medication.addTime': '+ เพิ่มเวลา',
+  'medication.fieldInterval': 'กินทุกกี่วัน',
+  'medication.fieldStartDate': 'เริ่มตั้งแต่',
+  // Active toggle
+  'medication.fieldActive': 'ใช้งานอยู่',
+  'medication.activeSubLabelOn': 'กำลังสร้างการแจ้งเตือน',
+  'medication.activeSubLabelOff': 'หยุดสร้างการแจ้งเตือนใหม่ · ประวัติการกินยายังอยู่',
+  // Echo / preview
+  'medication.echoPrefix': 'จะแสดงในปฏิทินเป็น:',
+  // Actions
+  'medication.save': 'บันทึก',
+  'medication.add': '+ เพิ่มแผนยา',
+  'medication.deactivate': 'ปิดแผนยา',
+  'medication.reactivate': 'เปิดแผนยา',
+  'medication.delete': 'ลบแผนยา',
+  // List divider
+  'medication.pausedDivider': 'หยุดพักชั่วคราว',
+  'medication.inactiveTag': 'ปิดใช้งาน',
+  // Privacy / encryption notice
+  'medication.encryptionNotice': 'เข้ารหัสในเครื่อง',
+  'medication.privacyLine': 'เก็บไว้ในเครื่อง · ไม่ถูกอ่านหรือวิเคราะห์',
+  // Toast messages
+  'medication.deactivateToast': 'ปิดแผนยาแล้ว · ประวัติยังอยู่',
+  'medication.deleteToast': 'ลบแผนยาแล้ว',
+  'medication.saveToast': 'บันทึกแล้ว',
+  'medication.savedLocalOnly': 'บันทึกในเครื่องแล้ว (ยังไม่ได้ซิงค์)',
+  // Validation errors (typo-guard tone — never clinical)
+  'medication.errorNameRequired': 'ใส่ชื่อยา',
+  'medication.errorTimeRequired': 'เลือกเวลาสักหนึ่งเวลา',
+  'medication.errorIntervalMin': 'ต้องเป็น 2 วันขึ้นไป',
+  // Generic errors
+  'medication.saveError': 'บันทึกไม่สำเร็จ ลองอีกครั้ง',
+  'medication.loadError': 'เปิดข้อมูลในเครื่องไม่สำเร็จ',
+  // Consent nudge (general_health gate — warm, non-shaming)
+  'medication.consentNudgeTitle': 'ต้องให้ความยินยอมบันทึกสุขภาพก่อน',
+  'medication.consentNudgeAction': 'เปิดสิทธิ์',
+  // Delete confirm panel (2-step, inside sheet)
+  'medication.deleteConfirmTitle': 'ลบแผนยา {name} ?',
+  'medication.deleteConfirmBody1': 'แผนยานี้จะหายไปจากรายการ และหยุดสร้างการแจ้งเตือนใหม่',
+  'medication.deleteConfirmBody2': 'ประวัติการกินยาของคุณ (ที่บันทึกไว้แล้ว) ยังคงอยู่',
+  'medication.deleteConfirmOk': 'ยืนยันลบ',
+  'medication.deleteConfirmCancel': 'ยกเลิก',
+  // Offline pill
+  'medication.offlinePill': 'ออฟไลน์ · บันทึกไว้ในเครื่อง',
 };
 
 // ─── English catalog (must match th shape exactly) ────────────────────────────
@@ -1594,6 +1660,55 @@ const en: MsgShape = {
   // Unit labels (display only — not user-typed)
   'capture.unit.kg': 'kg',
   'capture.unit.mmHg': 'mmHg',
+
+  // ── Medication Plans (medication-plan-ui.md §9) ──────────────────────────────
+  'medication.navTitle': 'Medication Plans',
+  'medication.tabLabel': 'Plans',
+  'medication.emptyHeadline': 'No medication plans yet',
+  'medication.emptyBody': "Add what you take and we'll remind you on schedule.",
+  'medication.addFirst': '+ Add your first plan',
+  'medication.addTitle': 'Add medication plan',
+  'medication.editTitle': 'Edit medication plan',
+  'medication.fieldName': 'Medication name (required)',
+  'medication.fieldDose': 'Dose (optional)',
+  'medication.fieldSchedule': 'Schedule',
+  'medication.scheduleChip.daily': 'Daily',
+  'medication.scheduleChip.every_n_days': 'Every N days',
+  'medication.scheduleChip.one_off': 'One time',
+  'medication.fieldTimesOfDay': 'Times',
+  'medication.addTime': '+ Add a time',
+  'medication.fieldInterval': 'Every how many days?',
+  'medication.fieldStartDate': 'Starting from',
+  'medication.fieldActive': 'Active',
+  'medication.activeSubLabelOn': 'Generating reminders',
+  'medication.activeSubLabelOff': 'Stopped — medication history kept',
+  'medication.echoPrefix': 'Will appear in calendar as:',
+  'medication.save': 'Save',
+  'medication.add': '+ Add medication plan',
+  'medication.deactivate': 'Deactivate plan',
+  'medication.reactivate': 'Reactivate plan',
+  'medication.delete': 'Delete plan',
+  'medication.pausedDivider': 'Paused',
+  'medication.inactiveTag': 'Inactive',
+  'medication.encryptionNotice': 'Kept on device',
+  'medication.privacyLine': 'Kept on device · never read or interpreted',
+  'medication.deactivateToast': 'Plan paused · history kept',
+  'medication.deleteToast': 'Plan removed',
+  'medication.saveToast': 'Saved',
+  'medication.savedLocalOnly': 'Saved on this device (not synced)',
+  'medication.errorNameRequired': 'Add a name for this medication',
+  'medication.errorTimeRequired': 'Pick at least one time',
+  'medication.errorIntervalMin': 'Must be 2 days or more',
+  'medication.saveError': "Couldn't save — try again",
+  'medication.loadError': "Couldn't open your medication plans",
+  'medication.consentNudgeTitle': 'Health logging needs your ok',
+  'medication.consentNudgeAction': 'Enable logging ›',
+  'medication.deleteConfirmTitle': 'Delete {name}?',
+  'medication.deleteConfirmBody1': 'This plan will be removed. New reminders will stop.',
+  'medication.deleteConfirmBody2': 'Your logged medication history stays.',
+  'medication.deleteConfirmOk': 'Confirm delete',
+  'medication.deleteConfirmCancel': 'Cancel',
+  'medication.offlinePill': 'Offline · saved on this device',
 };
 
 // ─── Exports ──────────────────────────────────────────────────────────────────

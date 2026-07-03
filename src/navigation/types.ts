@@ -99,4 +99,11 @@ export type RootStackParamList = {
    * sessionId = id of the local completed KickCountSessionRecord.
    */
   KickCountDetail: { sessionId: string };
+
+  /**
+   * Suggestions — full stage-scoped suggestion list (suggestion-flow-ui.md).
+   * Entry: SuggestionBanner "View all" on HomeScreen.
+   * Shows suggestion cards with Start / Snooze / Dismiss actions.
+   */
+  Suggestions: undefined;
 };

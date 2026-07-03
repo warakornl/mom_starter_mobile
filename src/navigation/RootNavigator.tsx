@@ -68,6 +68,7 @@ import { KickCountDetailScreen } from '../kickCount/KickCountDetailScreen';
 import { calendarSyncStore } from '../sync/calendarSyncStore';
 import { ConsentScreen } from '../screens/ConsentScreen';
 import { ManageConsentsScreen } from '../screens/ManageConsentsScreen';
+import { SuggestionFlowScreen } from '../suggestion/SuggestionFlowScreen';
 import { useT } from '../i18n/LanguageContext';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -224,6 +225,7 @@ export function RootNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps):
             onCalendar={() => navigation.navigate('Calendar')}
             onKickCount={() => navigation.navigate('KickCountHome')}
             onSettings={() => navigation.navigate('Settings')}
+            onSuggestions={() => navigation.navigate('Suggestions')}
             onProfileLoaded={(snapshot) => setProfileSnapshot(snapshot)}
           />
         )}
@@ -416,6 +418,38 @@ export function RootNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps):
             tokenStorage={tokenStorage}
             apiBaseUrl={apiBaseUrl}
             onBack={() => navigation.goBack()}
+          />
+        )}
+      </Stack.Screen>
+
+      {/* Suggestions — stage-scoped suggestion list (suggestion-flow-ui.md)
+       *
+       * Entry: SuggestionBanner "View all" link on HomeScreen.
+       * Props: gestationalWeek/stage/lifecycle from profileSnapshot.
+       * Actions: Start routes to kick count / supplies / calendar;
+       *          Snooze + Dismiss update the local suggestionStore.
+       */}
+      <Stack.Screen
+        name="Suggestions"
+        options={{ headerShown: false }}
+      >
+        {({ navigation }) => (
+          <SuggestionFlowScreen
+            lifecycle={kickProps.lifecycle}
+            stage={
+              kickProps.lifecycle === 'pregnant'
+                ? (kickProps.gestationalWeek >= 28
+                    ? 'T3'
+                    : kickProps.gestationalWeek >= 14
+                      ? 'T2'
+                      : 'T1')
+                : null
+            }
+            gestationalWeek={kickProps.gestationalWeek}
+            onBack={() => navigation.goBack()}
+            onKickCount={() => navigation.navigate('KickCountHome')}
+            onSupplies={() => navigation.navigate('Supplies')}
+            onCalendar={() => navigation.navigate('Calendar')}
           />
         )}
       </Stack.Screen>

@@ -51,6 +51,7 @@ import { API_BASE_URL } from './src/config';
 import { LanguageProvider } from './src/i18n/LanguageContext';
 import { consentStore } from './src/consent/consentStore';
 import { configureConsentQueueStorage, restoreConsentQueue } from './src/consent/consentSync';
+import { suggestionStore } from './src/suggestion/suggestionStore';
 
 // ─── Consent persistence setup (B1 + B2) ─────────────────────────────────────
 //
@@ -59,11 +60,20 @@ import { configureConsentQueueStorage, restoreConsentQueue } from './src/consent
 
 const CONSENT_STATE_KEY = 'consent_state_v1';
 const CONSENT_QUEUE_KEY = 'consent_queue_v1';
+const SUGGESTION_STATE_KEY = 'suggestion_state_v1';
 
 // B1: consent state store persistence — enables cold-start cache (§4.5.4)
 consentStore.configurePersistence({
   save: (json: string) => SecureStore.setItemAsync(CONSENT_STATE_KEY, json),
   load: () => SecureStore.getItemAsync(CONSENT_STATE_KEY),
+});
+
+// Suggestion store persistence — dismiss/snooze state survives app restarts.
+// Stored under a versioned key so future schema changes can migrate cleanly.
+// Non-sensitive metadata: no health values, no tokens, no PII.
+suggestionStore.configurePersistence({
+  save: (json: string) => SecureStore.setItemAsync(SUGGESTION_STATE_KEY, json),
+  load: () => SecureStore.getItemAsync(SUGGESTION_STATE_KEY),
 });
 
 // B2: consent queue durable storage — queue survives app-kill restarts (§4.2.4)

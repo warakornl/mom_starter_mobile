@@ -72,6 +72,10 @@ import { shouldShowModule } from '../kickCount/kickCountLogic';
 import { consentStore } from '../consent/consentStore';
 import { createConsentApiClient } from '../consent/consentApiClient';
 import { drainConsentQueue } from '../consent/consentSync';
+import { getOfferable } from '../suggestion/suggestionEngine';
+import { suggestionStore } from '../suggestion/suggestionStore';
+import { SuggestionBanner } from '../suggestion/SuggestionBanner';
+import type { SuggestionKey, CaptureTarget, OfferableSuggestion } from '../suggestion/types';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -116,6 +120,11 @@ export interface HomeScreenProps {
    * Optional — no-op if not provided.
    */
   onProfileLoaded?: (snapshot: ProfileSnapshot) => void;
+  /**
+   * Navigate to SuggestionFlowScreen (full stage-suggestion list).
+   * Optional — when absent the "View all" link is hidden from the banner.
+   */
+  onSuggestions?: () => void;
 }
 
 // ─── Screen state ─────────────────────────────────────────────────────────────
@@ -574,9 +583,12 @@ export function HomeScreen({
   onKickCount,
   onSettings,
   onProfileLoaded,
+  onSuggestions,
 }: HomeScreenProps): React.JSX.Element {
   const { t } = useT();
   const [state, setState] = useState<ScreenState>({ kind: 'loading' });
+  // Incremented on each suggestion dismiss so the banner re-evaluates the store.
+  const [suggestionTick, setSuggestionTick] = useState(0);
 
   const loadedEdd = useRef<string | null>(null);
   const loadedBirthDate = useRef<string | null>(null);
@@ -603,6 +615,11 @@ export function HomeScreen({
     // Only a successful GET then merges fresh server data over the cache.
     // SECURITY: accessToken is NEVER logged.
     await consentStore.loadFromStorage();
+
+    // Restore suggestion dismiss/snooze state from durable storage so that
+    // dismissed suggestions don't reappear after an app restart.
+    // Best-effort: if storage fails, state starts empty (all suggestions offered).
+    await suggestionStore.loadFromStorage();
 
     try {
       const consentClient = createConsentApiClient(apiBaseUrl);
@@ -741,10 +758,46 @@ export function HomeScreen({
   // Fail-closed: isGranted returns false when no record (no health data saved).
   const generalHealthGranted = consentStore.isGranted('general_health');
 
+  // ─── Suggestion engine helpers ────────────────────────────────────────────
+  // suggestionTick changes on each dismiss, causing the banner to re-evaluate.
+  // void to suppress lint (tick is accessed via closure below).
+  void suggestionTick;
+
+  /**
+   * Resolve the primary navigation action for a suggestion's captureTarget.
+   * Deep-links to the most relevant screen per the spec's "primary action" rule.
+   */
+  function resolveSuggestionAction(captureTarget: CaptureTarget): () => void {
+    switch (captureTarget) {
+      case 'kick_count':
+        return () => onKickCount?.();
+      case 'supplies':
+        return () => onSupplies?.();
+      case 'appointment':
+      case 'medication':
+      case 'self_log':
+      default:
+        return () => onCalendar?.();
+    }
+  }
+
+  function handleSuggestionDismiss(key: SuggestionKey): void {
+    suggestionStore.dismiss(key);
+    setSuggestionTick((n) => n + 1);
+  }
+
   // ─── Postpartum mode ──────────────────────────────────────────────────────
 
   if (state.kind === 'postpartum') {
     const { profile, pp } = state;
+
+    // Suggestion banner for postpartum (computed locally)
+    const ppOfferables: OfferableSuggestion[] = getOfferable(
+      { lifecycle: 'postpartum', stage: null, gestationalWeek: 0, now: new Date() },
+      suggestionStore.getState(),
+    );
+    const ppTopSuggestion = ppOfferables[0] ?? null;
+
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.headerRow}>
@@ -767,9 +820,9 @@ export function HomeScreen({
           contentContainerStyle={styles.scrollContent}
         >
           <PostpartumBanner profile={profile} pp={pp} />
-          {/* Limited-mode nudge banner (§4.3 first-run-consent.md) — only shown when
-              general_health is not granted. Tapping navigates to Consent screen via
-              Settings (deferred — no onConsent prop yet). */}
+          {/* ─── Priority 1: Consent limited-mode nudge (compliance-critical) ────
+              Shown first when general_health is not granted (§4.3 first-run-consent.md).
+              Routes to Settings where the user can manage permissions. */}
           {!generalHealthGranted && (
             <TouchableOpacity
               testID="consent-home-health-logging-nudge-banner"
@@ -782,6 +835,17 @@ export function HomeScreen({
                 {t('consent.home.health_nudge_banner')}
               </Text>
             </TouchableOpacity>
+          )}
+          {/* ─── Priority 2: Suggestion banner (design-system §5.3) ─────────────
+              Shown only when ≥1 suggestion is offerable (AC-29) and the consent
+              nudge is not present (compliance nudge takes priority). */}
+          {generalHealthGranted && ppTopSuggestion && (
+            <SuggestionBanner
+              topSuggestion={ppTopSuggestion}
+              onAction={resolveSuggestionAction(ppTopSuggestion.captureTarget)}
+              onDismiss={() => handleSuggestionDismiss(ppTopSuggestion.key)}
+              onViewAll={onSuggestions}
+            />
           )}
           <PostpartumDayCard pp={pp} />
           <View style={styles.placeholderCard}>
@@ -832,6 +896,18 @@ export function HomeScreen({
 
   const { profile, ga } = state;
 
+  // Suggestion banner for pregnant mode — computed from engine (local, fast)
+  const pregnantOfferables: OfferableSuggestion[] = getOfferable(
+    {
+      lifecycle: 'pregnant',
+      stage: ga.currentStage,
+      gestationalWeek: ga.gestationalWeek,
+      now: new Date(),
+    },
+    suggestionStore.getState(),
+  );
+  const pregnantTopSuggestion = pregnantOfferables[0] ?? null;
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.headerRow}>
@@ -858,7 +934,9 @@ export function HomeScreen({
           ga={ga}
           onBirthEvent={() => onBirthEvent(profile.version)}
         />
-        {/* Limited-mode nudge banner (§4.3 first-run-consent.md) */}
+        {/* ─── Priority 1: Consent limited-mode nudge (compliance-critical) ────
+            Shown first when general_health is not granted (§4.3 first-run-consent.md).
+            Routes to Settings where the user can manage permissions. */}
         {!generalHealthGranted && (
           <TouchableOpacity
             testID="consent-home-health-logging-nudge-banner"
@@ -871,6 +949,17 @@ export function HomeScreen({
               {t('consent.home.health_nudge_banner')}
             </Text>
           </TouchableOpacity>
+        )}
+        {/* ─── Priority 2: Suggestion banner (design-system §5.3) ─────────────
+            Only shown when consent is granted AND ≥1 suggestion is offerable.
+            Consent nudge takes priority when not yet consented (compliance rule). */}
+        {generalHealthGranted && pregnantTopSuggestion && (
+          <SuggestionBanner
+            topSuggestion={pregnantTopSuggestion}
+            onAction={resolveSuggestionAction(pregnantTopSuggestion.captureTarget)}
+            onDismiss={() => handleSuggestionDismiss(pregnantTopSuggestion.key)}
+            onViewAll={onSuggestions}
+          />
         )}
 
         <View style={styles.section}>

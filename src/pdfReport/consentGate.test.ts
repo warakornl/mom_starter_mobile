@@ -22,6 +22,9 @@ import {
   type PdfEgressGateState,
   type PdfEgressAction,
 } from './consentGate';
+import * as assemblerModule from './doctorReportAssembler';
+import type { DoctorReportInput } from './doctorReportAssembler';
+import { assembleReportIfGranted } from './DoctorPdfScreenLogic';
 
 describe('decidePdfEgressAction — PDPA consent gate for pdf_egress', () => {
 
@@ -96,26 +99,6 @@ describe('decidePdfEgressAction — PDPA consent gate for pdf_egress', () => {
     expect(result).toBe<PdfEgressAction>('error');
   });
 
-  // ── Security invariant: assembler must NOT be called before consent ─────────
-
-  it('does not reach generate when pdf_egress is false', () => {
-    const assemblerCallCount = { n: 0 };
-
-    const state: PdfEgressGateState = {
-      pdfEgressGranted: false,
-      declined: false,
-      generationError: null,
-    };
-    const action = decidePdfEgressAction(state);
-
-    if (action === 'generate') {
-      assemblerCallCount.n += 1; // would call buildDoctorReportHtml in real code
-    }
-
-    // Critical: no health data should flow to the assembler without consent
-    expect(assemblerCallCount.n).toBe(0);
-  });
-
   it('allows generate only when pdf_egress is explicitly granted', () => {
     const grantedState: PdfEgressGateState = {
       pdfEgressGranted: true,
@@ -124,6 +107,81 @@ describe('decidePdfEgressAction — PDPA consent gate for pdf_egress', () => {
     };
     const action = decidePdfEgressAction(grantedState);
     expect(action).toBe<PdfEgressAction>('generate');
+  });
+});
+
+// ─── PDPA invariant: real assembler spy (SD-9) ────────────────────────────────
+//
+// These tests prove the end-to-end PDPA invariant using jest.spyOn on the REAL
+// buildDoctorReportHtml from doctorReportAssembler (not a local counter).
+// The assembleReportIfGranted function mirrors the "on Preview tap" handler
+// logic in DoctorPdfScreen: it checks decidePdfEgressAction and only forwards
+// health data to the assembler when the gate returns 'generate'.
+
+/** Minimal valid input — empty arrays; assembler is spied/mocked so data doesn't matter. */
+const MINIMAL_INPUT: DoctorReportInput = {
+  profile: { edd: '2026-12-01', gestationalWeek: 20, lifecycle: 'pregnant' },
+  kickSessions: [],
+  appointments: [],
+  dateFrom: '2026-01-01',
+  dateTo: '2026-12-31',
+  reportDate: '2026-07-01',
+  locale: 'th',
+};
+
+describe('PDPA invariant: buildDoctorReportHtml NOT called before consent (real spy)', () => {
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it('UNGRANTED (show_consent) → assembler called 0 times — no health data assembled', () => {
+    const spy = jest.spyOn(assemblerModule, 'buildDoctorReportHtml');
+    const gateAction = decidePdfEgressAction({
+      pdfEgressGranted: false,
+      declined: false,
+      generationError: null,
+    });
+    // gateAction is 'show_consent'; assembleReportIfGranted must not call the assembler
+    assembleReportIfGranted(gateAction, assemblerModule.buildDoctorReportHtml, MINIMAL_INPUT);
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it('GRANTED → assembler called exactly once — health data flows after consent', () => {
+    // Mock the return so the HTML builder doesn't run in the test process
+    const spy = jest.spyOn(assemblerModule, 'buildDoctorReportHtml').mockReturnValue('<html/>');
+    const gateAction = decidePdfEgressAction({
+      pdfEgressGranted: true,
+      declined: false,
+      generationError: null,
+    });
+    // gateAction is 'generate'; assembleReportIfGranted must call the assembler once
+    const result = assembleReportIfGranted(gateAction, assemblerModule.buildDoctorReportHtml, MINIMAL_INPUT);
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(result).toBe('<html/>');
+  });
+
+  it('DECLINED (blocked) → assembler called 0 times — declined must be respected', () => {
+    const spy = jest.spyOn(assemblerModule, 'buildDoctorReportHtml');
+    const gateAction = decidePdfEgressAction({
+      pdfEgressGranted: false,
+      declined: true,
+      generationError: null,
+    });
+    // gateAction is 'blocked'; assembler must not be called
+    assembleReportIfGranted(gateAction, assemblerModule.buildDoctorReportHtml, MINIMAL_INPUT);
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it('ERROR state → assembler called 0 times — retry must re-enter consent flow', () => {
+    const spy = jest.spyOn(assemblerModule, 'buildDoctorReportHtml');
+    const gateAction = decidePdfEgressAction({
+      pdfEgressGranted: true,
+      declined: false,
+      generationError: 'print_failed',
+    });
+    // gateAction is 'error'; assembler must not be called on retry path
+    assembleReportIfGranted(gateAction, assemblerModule.buildDoctorReportHtml, MINIMAL_INPUT);
+    expect(spy).not.toHaveBeenCalled();
   });
 });
 

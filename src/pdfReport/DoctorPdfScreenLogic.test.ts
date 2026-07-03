@@ -24,8 +24,10 @@ import {
   applyPreviewReady,
   applyPreviewError,
   applyBackToBuilder,
+  assembleReportIfGranted,
   type BuilderPhaseState,
 } from './DoctorPdfScreenLogic';
+import type { DoctorReportInput } from './doctorReportAssembler';
 
 // ─── Preset range tests ────────────────────────────────────────────────────────
 
@@ -71,6 +73,29 @@ describe('computePresetRange', () => {
   it('dateFrom is always <= dateTo for last_3_months', () => {
     const range = computePresetRange('last_3_months', today);
     expect(range.dateFrom <= range.dateTo).toBe(true);
+  });
+
+  // Date clamping: a 31-day month - 3 months can land on a short month
+  it('last_3_months: clamps day to last day of target month (31st → Feb)', () => {
+    // 2026-05-31 minus 3 months = 2026-02-?? → Feb has 28 days in 2026
+    const range = computePresetRange('last_3_months', '2026-05-31');
+    expect(range.dateFrom).toBe('2026-02-28');
+    expect(range.dateTo).toBe('2026-05-31');
+  });
+
+  it('last_3_months: clamps 31st to 30 when target month has 30 days', () => {
+    // 2026-08-31 minus 3 months = 2026-05-31 → May has 31 days, no clamp needed
+    // 2026-07-31 minus 3 months = 2026-04-31 → April has 30 days, clamp to 30
+    const range = computePresetRange('last_3_months', '2026-07-31');
+    expect(range.dateFrom).toBe('2026-04-30');
+    expect(range.dateTo).toBe('2026-07-31');
+  });
+
+  it('last_3_months: leap year Feb — clamps 31st to 29 in leap year', () => {
+    // 2024-05-31 minus 3 months = 2024-02-?? → 2024 is a leap year → 29 days
+    const range = computePresetRange('last_3_months', '2024-05-31');
+    expect(range.dateFrom).toBe('2024-02-29');
+    expect(range.dateTo).toBe('2024-05-31');
   });
 });
 
@@ -224,5 +249,48 @@ describe('applyBackToBuilder', () => {
     };
     const next = applyBackToBuilder(error);
     expect(next.generationError).toBeNull();
+  });
+});
+
+// ─── assembleReportIfGranted tests ────────────────────────────────────────────
+
+describe('assembleReportIfGranted', () => {
+  const minimalInput: DoctorReportInput = {
+    profile: { edd: '2026-12-01', gestationalWeek: 20, lifecycle: 'pregnant' },
+    kickSessions: [],
+    appointments: [],
+    dateFrom: '2026-01-01',
+    dateTo: '2026-12-31',
+    reportDate: '2026-07-01',
+    locale: 'th',
+  };
+
+  it('returns null when gateAction is show_consent (no health data forwarded)', () => {
+    const mockAssembler = jest.fn().mockReturnValue('<html/>');
+    const result = assembleReportIfGranted('show_consent', mockAssembler, minimalInput);
+    expect(result).toBeNull();
+    expect(mockAssembler).not.toHaveBeenCalled();
+  });
+
+  it('returns null when gateAction is blocked (declined)', () => {
+    const mockAssembler = jest.fn().mockReturnValue('<html/>');
+    const result = assembleReportIfGranted('blocked', mockAssembler, minimalInput);
+    expect(result).toBeNull();
+    expect(mockAssembler).not.toHaveBeenCalled();
+  });
+
+  it('returns null when gateAction is error (retry path — assembler not called)', () => {
+    const mockAssembler = jest.fn().mockReturnValue('<html/>');
+    const result = assembleReportIfGranted('error', mockAssembler, minimalInput);
+    expect(result).toBeNull();
+    expect(mockAssembler).not.toHaveBeenCalled();
+  });
+
+  it('calls assembler exactly once and returns HTML when gateAction is generate', () => {
+    const mockAssembler = jest.fn().mockReturnValue('<html>report</html>');
+    const result = assembleReportIfGranted('generate', mockAssembler, minimalInput);
+    expect(mockAssembler).toHaveBeenCalledTimes(1);
+    expect(mockAssembler).toHaveBeenCalledWith(minimalInput);
+    expect(result).toBe('<html>report</html>');
   });
 });

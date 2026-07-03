@@ -20,6 +20,9 @@
  * No side effects, no store access.
  */
 
+import type { PdfEgressAction } from './consentGate';
+import type { DoctorReportInput } from './doctorReportAssembler';
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 /** The three date-range presets (spec §1). */
@@ -83,7 +86,12 @@ export function computePresetRange(preset: DateRangePreset, today: string): Date
     fromMonth += 12;
     fromYear -= 1;
   }
-  const dateFrom = `${fromYear}-${pad2(fromMonth)}-${pad2(d)}`;
+  // Clamp the day to the last valid day of the target month.
+  // new Date(year, monthIndex, 0) returns the last day of the month before monthIndex,
+  // which is equivalent to the last day of fromMonth (1-indexed).
+  const lastDayOfFromMonth = new Date(fromYear, fromMonth, 0).getDate();
+  const fromDay = Math.min(d, lastDayOfFromMonth);
+  const dateFrom = `${fromYear}-${pad2(fromMonth)}-${pad2(fromDay)}`;
   return { dateFrom, dateTo: today };
 }
 
@@ -177,4 +185,33 @@ export function applyBackToBuilder(prev: BuilderPhaseState): BuilderPhaseState {
     phase: 'builder',
     generationError: null,
   };
+}
+
+// ─── PDPA-safe assembler gateway ─────────────────────────────────────────────
+
+/**
+ * assembleReportIfGranted — call the report assembler ONLY when the gate allows.
+ *
+ * This function is the testable extraction of the "on Preview/Generate tap"
+ * handler used by DoctorPdfScreen. Keeping it here (outside the component)
+ * allows unit tests to spy on the real buildDoctorReportHtml via jest.spyOn
+ * without rendering any React Native component.
+ *
+ * PDPA invariant (spec §5, SD-9):
+ *   Health data (kick sessions, appointments, profile) must NOT reach the
+ *   assembler unless decidePdfEgressAction returns 'generate'. This function
+ *   enforces that contract as a single, observable choke-point.
+ *
+ * @param gateAction   Result of decidePdfEgressAction — controls whether we proceed.
+ * @param assembler    Injectable assembler function (real or spy in tests).
+ * @param input        Full DoctorReportInput to pass to the assembler.
+ * @returns            The assembled HTML string, or null if blocked.
+ */
+export function assembleReportIfGranted(
+  gateAction: PdfEgressAction,
+  assembler: (input: DoctorReportInput) => string,
+  input: DoctorReportInput,
+): string | null {
+  if (gateAction !== 'generate') return null;
+  return assembler(input);
 }

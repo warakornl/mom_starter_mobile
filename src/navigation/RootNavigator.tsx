@@ -71,6 +71,7 @@ import { ConsentScreen } from '../screens/ConsentScreen';
 import { ManageConsentsScreen } from '../screens/ManageConsentsScreen';
 import { SuggestionFlowScreen } from '../suggestion/SuggestionFlowScreen';
 import { DoctorPdfScreen } from '../pdfReport/DoctorPdfScreen';
+import { CaptureScreen } from '../capture/CaptureScreen';
 import { useT } from '../i18n/LanguageContext';
 
 // ── Logout deps for the session-expiry / no-token auto-logout path ───────────
@@ -528,6 +529,25 @@ export function RootNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps):
               lifecycle: kickProps.lifecycle,
             }}
             onBack={() => navigation.goBack()}
+          />
+        )}
+      </Stack.Screen>
+
+      {/* Capture — Quick Capture / Self-log form (capture-ui.md).
+       *
+       * Entry: Day-Detail "Add" / Home shortcut / specific-context reminder.
+       * metricType param hides the type control (pre-set context).
+       * No health data in route params (PDPA SD-9).
+       * header: hidden (CaptureScreen renders its own header with Close + title).
+       */}
+      <Stack.Screen
+        name="Capture"
+        options={{ headerShown: false }}
+      >
+        {() => (
+          <CaptureScreen
+            tokenStorage={tokenStorage}
+            apiBaseUrl={apiBaseUrl}
           />
         )}
       </Stack.Screen>

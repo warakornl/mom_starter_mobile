@@ -67,7 +67,7 @@ import { localCivilToday } from '../pregnancy/gestationalAge';
 import { kickCountSyncStore } from '../kickCount/kickCountSyncStore';
 import { calendarSyncStore } from '../sync/calendarSyncStore';
 import { selfLogSyncStore } from '../selfLog/selfLogSyncStore';
-import { buildDoctorReportHtml, LABELS, isWithinRange, type ReportSelfLog } from './doctorReportAssembler';
+import { buildDoctorReportHtml, LABELS, isWithinRange, formatDateTime, type ReportSelfLog } from './doctorReportAssembler';
 import { kickCountChartSvg } from './reportCharts';
 import { createProductionPdfService } from './pdfService';
 import {
@@ -86,6 +86,7 @@ import {
   type BuilderPhaseState,
   type DateRangePreset,
 } from './DoctorPdfScreenLogic';
+import { decodeFieldFromBase64 } from '../capture/captureScreenLogic';
 import type { ReportProfile } from './doctorReportAssembler';
 
 // ─── Lazy production PDF service singleton ────────────────────────────────────
@@ -94,36 +95,6 @@ let _svc: ReturnType<typeof createProductionPdfService> | null = null;
 function getPdfService() {
   if (!_svc) _svc = createProductionPdfService();
   return _svc;
-}
-
-// ─── Base64 decode helper ────────────────────────────────────────────────────
-
-/**
- * Decode a base64 ciphertext field to UTF-8 plaintext (MVP posture — K-7 carry-forward).
- *
- * Mirrors encodeFieldToBase64 in captureScreenLogic.ts (reverse direction).
- * MVP: plaintext bytes base64-encoded; AES-GCM decryption is a carry-forward
- * to appsec-engineer.
- *
- * Security: NEVER log the return value — it contains MOTHER-health data (SD-5).
- */
-function decodeBase64Field(b64: string | null | undefined): string | null {
-  if (b64 == null || b64 === '') return null;
-  try {
-    if (typeof Buffer !== 'undefined') {
-      // Node.js / Jest test environment
-      return Buffer.from(b64, 'base64').toString('utf8');
-    }
-    // React Native / Hermes: atob handles base64; TextDecoder handles UTF-8
-    const binary = atob(b64);
-    const bytes = new Uint8Array(binary.length);
-    for (let i = 0; i < binary.length; i++) {
-      bytes[i] = binary.charCodeAt(i);
-    }
-    return new TextDecoder('utf-8').decode(bytes);
-  } catch {
-    return null;
-  }
 }
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -203,11 +174,11 @@ export function DoctorPdfScreen({
         id: s.id,
         loggedAt: s.loggedAt,
         metricType: s.metricType,
-        valueNumeric: decodeBase64Field(s.valueNumeric),
-        valueNumericSecondary: decodeBase64Field(s.valueNumericSecondary),
-        valueText: decodeBase64Field(s.valueText),
+        valueNumeric: decodeFieldFromBase64(s.valueNumeric),
+        valueNumericSecondary: decodeFieldFromBase64(s.valueNumericSecondary),
+        valueText: decodeFieldFromBase64(s.valueText),
         unit: s.unit ?? null,
-        note: decodeBase64Field(s.note),
+        note: decodeFieldFromBase64(s.note),
       }));
 
       const html = buildDoctorReportHtml({
@@ -759,16 +730,16 @@ function SelfLogPreviewSection({
   return (
     <>
       {inRange.map((s) => {
-        const dateStr = s.loggedAt.substring(0, 16).replace('T', ' ');
+        const dateStr = formatDateTime(s.loggedAt, locale);
 
         let line: string;
         if (s.metricType === 'weight') {
-          const val = decodeBase64Field(s.valueNumeric) ?? '';
-          const unit = locale === 'th' ? L.selfLogUnitKg : L.selfLogUnitKg;
+          const val = decodeFieldFromBase64(s.valueNumeric) ?? '';
+          const unit = L.selfLogUnitKg;
           line = `${L.selfLogWeight} ${val} ${unit}`;
         } else if (s.metricType === 'blood_pressure') {
-          const sys = decodeBase64Field(s.valueNumeric) ?? '';
-          const dia = decodeBase64Field(s.valueNumericSecondary) ?? '';
+          const sys = decodeFieldFromBase64(s.valueNumeric) ?? '';
+          const dia = decodeFieldFromBase64(s.valueNumericSecondary) ?? '';
           line = `${L.selfLogBP} ${sys}/${dia} ${L.selfLogUnitMmhg}`;
         } else {
           // swelling / lochia / symptom — valueText gated
@@ -777,14 +748,14 @@ function SelfLogPreviewSection({
               : s.metricType === 'lochia' ? L.selfLogLochia
                 : L.selfLogSymptom;
           if (includeSensitiveNotes) {
-            const val = decodeBase64Field(s.valueText) ?? '';
+            const val = decodeFieldFromBase64(s.valueText) ?? '';
             line = `${metricLabel} ${val}`;
           } else {
             line = `${metricLabel} · ${L.selfLogValueHidden}`;
           }
         }
 
-        const decodedNote = includeSensitiveNotes ? decodeBase64Field(s.note) : null;
+        const decodedNote = includeSensitiveNotes ? decodeFieldFromBase64(s.note) : null;
 
         return (
           <React.Fragment key={s.id}>

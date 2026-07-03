@@ -791,7 +791,11 @@ export function ExpensesScreen({ tokenStorage, apiBaseUrl }: ExpensesScreenProps
   const [formVisible, setFormVisible] = useState(false);
   const [form, setForm] = useState<FormState>(emptyForm());
   const [syncing, setSyncing] = useState(false);
+  // syncError: non-null only for genuine server/client errors (not offline).
+  // isOffline: true when the last pull or push failed with code='network_error'.
+  // Spec §4.5: offline shows a calm pill, real errors show the error banner.
   const [syncError, setSyncError] = useState<string | null>(null);
+  const [isOffline, setIsOffline] = useState(false);
   const [conflictCount, setConflictCount] = useState(0);
   const [rejectedItems, setRejectedItems] = useState<RejectedRecord[]>([]);
 
@@ -814,6 +818,7 @@ export function ExpensesScreen({ tokenStorage, apiBaseUrl }: ExpensesScreenProps
 
     setSyncing(true);
     setSyncError(null);
+    setIsOffline(false);
 
     const result = await clientRef.current.pull(
       tokens.accessToken,
@@ -824,7 +829,12 @@ export function ExpensesScreen({ tokenStorage, apiBaseUrl }: ExpensesScreenProps
     refreshFromStore();
 
     if (!result.ok) {
-      setSyncError(t('expenses.syncError'));
+      // 'network_error' = offline (fetch threw); all other codes are real errors.
+      if (result.code === 'network_error') {
+        setIsOffline(true);
+      } else {
+        setSyncError(t('expenses.syncError'));
+      }
     }
   }, [tokenStorage, refreshFromStore, t]);
 
@@ -838,6 +848,7 @@ export function ExpensesScreen({ tokenStorage, apiBaseUrl }: ExpensesScreenProps
 
     setSyncing(true);
     setSyncError(null);
+    setIsOffline(false);
 
     const result = await executePush(
       expensesSyncStore,
@@ -850,7 +861,12 @@ export function ExpensesScreen({ tokenStorage, apiBaseUrl }: ExpensesScreenProps
     refreshFromStore();
 
     if (!result.ok) {
-      setSyncError(t('expenses.syncError'));
+      // 'network_error' = offline (fetch threw); all other codes are real errors.
+      if (result.code === 'network_error') {
+        setIsOffline(true);
+      } else {
+        setSyncError(t('expenses.syncError'));
+      }
       setConflictCount(0);
       setRejectedItems([]);
     } else {
@@ -1040,9 +1056,18 @@ export function ExpensesScreen({ tokenStorage, apiBaseUrl }: ExpensesScreenProps
           <Text style={styles.syncBarText}>{t('expenses.loading')}</Text>
         </View>
       )}
+      {/* Offline pill (spec §4.5): calm warm-neutral; list stays interactive.
+          Shown for network_error only — NOT the error banner. */}
+      {isOffline && !syncing && (
+        <View testID="expenses-offline-pill" style={styles.offlinePill}>
+          <Text style={styles.offlinePillText}>{t('expenses.offlinePill')}</Text>
+        </View>
+      )}
+      {/* Error banner: genuine server/client errors only (not offline).
+          testID expenses-error matches screen anatomy + the documented testID list. */}
       {syncError && (
         <TouchableOpacity
-          testID="expenses-sync-error"
+          testID="expenses-error"
           style={styles.errorBar}
           onPress={() => void syncPull()}
         >
@@ -1224,6 +1249,19 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#4A7A56',
   },
+  // Offline pill (spec §4.5 — calm warm-neutral, list stays interactive)
+  offlinePill: {
+    backgroundColor: '#FFF8E8',
+    paddingVertical: 6,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+  },
+  offlinePillText: {
+    fontFamily: 'IBMPlexSans-Regular',
+    fontSize: 13,
+    color: '#7A5A10',
+  },
+  // Error banner (genuine server/client errors only — not offline)
   errorBar: {
     backgroundColor: '#FBEDEE',
     paddingVertical: 8,

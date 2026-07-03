@@ -813,6 +813,8 @@ const th = {
   'expenses.conflictNote': 'อัปเดตจากอุปกรณ์อื่น',
   'expenses.rejectedNote': 'บางรายการถูกปฏิเสธ',
   'expenses.refresh': 'รีเฟรช',
+  // Offline pill (spec §4.5 — calm warm-neutral; list stays interactive)
+  'expenses.offlinePill': 'ออฟไลน์ · บันทึกไว้ในเครื่องแล้ว',
   // Error state (§4.4)
   'expenses.errorHeadline': 'เปิดข้อมูลในเครื่องไม่สำเร็จ',
   'expenses.errorSubline': 'ข้อมูลของคุณยังอยู่',
@@ -1509,6 +1511,8 @@ const en: MsgShape = {
   'expenses.conflictNote': 'Updated from another device',
   'expenses.rejectedNote': 'Some items were rejected',
   'expenses.refresh': 'Refresh',
+  // Offline pill (spec §4.5 — calm warm-neutral; list stays interactive)
+  'expenses.offlinePill': 'Offline · Saved on this device',
   // Error state (§4.4)
   'expenses.errorHeadline': "Couldn't open your expenses",
   'expenses.errorSubline': 'Your data is still here',

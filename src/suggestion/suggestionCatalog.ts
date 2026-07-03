@@ -28,15 +28,18 @@ export const SUGGESTION_CATALOG: readonly SuggestionCatalogEntry[] = [
 
   /**
    * Kick counting — fetal movement tracking (HIGH evidence, [KICK]).
-   * Recommended from week 28 per กรมอนามัย; most actively relevant from wk 32.
-   * suggestion-flow-ui.md §1 wireframe references wk 34 example.
+   * startWeek aligned to 32 to match shouldShowModule (kickCountLogic.ts) and
+   * HomeScreen's wk≥32 gate (spec §4 / D6 / SC-K6a). Routing the suggestion to
+   * a module that the app treats as not-yet-available before wk 32 would produce
+   * a dead action. Note: กรมอนามัย recommends monitoring from wk 28 — if the spec
+   * is later updated to show the module from wk 28, lower this gate to match.
    */
   {
     key: 'kick_count_start',
     captureTarget: 'kick_count',
     applicableLifecycles: ['pregnant'],
     applicableStages: ['T3'],
-    startWeek: 28,
+    startWeek: 32,
     evidenceStrength: 'HIGH',
     source: 'กรมอนามัย',
   },

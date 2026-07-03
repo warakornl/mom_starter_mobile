@@ -94,31 +94,38 @@ describe('getOfferable — stage gate', () => {
     expect(keys).not.toContain('anc_t3_checkup');
   });
 
-  it('returns T3-specific suggestions when in T3 and week ≥ 28', () => {
+  it('returns T3-specific suggestions (anc + supplies) when in T3 and week ≥ 28', () => {
+    // kick_count_start requires wk≥32 (aligned with shouldShowModule gate)
     const result = getOfferable(mkCtx({ stage: 'T3', gestationalWeek: 30 }), {});
     const keys = result.map((s) => s.key);
     expect(keys).toContain('anc_t3_checkup');
-    expect(keys).toContain('kick_count_start');
     expect(keys).toContain('supplies_checklist');
+    expect(keys).not.toContain('kick_count_start'); // not yet — wk<32
     expect(keys).not.toContain('anc_t1_checkup');
     expect(keys).not.toContain('anc_t2_checkup');
+  });
+
+  it('returns kick_count_start when in T3 and week ≥ 32 (module gate alignment)', () => {
+    const result = getOfferable(mkCtx({ stage: 'T3', gestationalWeek: 32 }), {});
+    const keys = result.map((s) => s.key);
+    expect(keys).toContain('kick_count_start');
   });
 });
 
 // ─── week gate ────────────────────────────────────────────────────────────────
 
 describe('getOfferable — gestational week gate', () => {
-  it('does not return kick_count_start before week 28', () => {
+  it('does not return kick_count_start before week 32 (aligned with shouldShowModule gate)', () => {
     const result = getOfferable(
-      mkCtx({ stage: 'T3', gestationalWeek: 27 }),
+      mkCtx({ stage: 'T3', gestationalWeek: 31 }),
       {},
     );
     expect(result.map((s) => s.key)).not.toContain('kick_count_start');
   });
 
-  it('returns kick_count_start at exactly week 28', () => {
+  it('returns kick_count_start at exactly week 32', () => {
     const result = getOfferable(
-      mkCtx({ stage: 'T3', gestationalWeek: 28 }),
+      mkCtx({ stage: 'T3', gestationalWeek: 32 }),
       {},
     );
     expect(result.map((s) => s.key)).toContain('kick_count_start');
@@ -193,8 +200,8 @@ describe('getOfferable — user state gate', () => {
 // ─── ordering ─────────────────────────────────────────────────────────────────
 
 describe('getOfferable — evidence-strength ordering', () => {
-  it('orders HIGH before STRONG before MODERATE for T3 wk30', () => {
-    const result = getOfferable(mkCtx({ stage: 'T3', gestationalWeek: 30 }), {});
+  it('orders HIGH before STRONG before MODERATE for T3 wk32', () => {
+    const result = getOfferable(mkCtx({ stage: 'T3', gestationalWeek: 32 }), {});
     const keys = result.map((s) => s.key);
     const idxKickCount = keys.indexOf('kick_count_start'); // HIGH
     const idxAnc = keys.indexOf('anc_t3_checkup'); // STRONG

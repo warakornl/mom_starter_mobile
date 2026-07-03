@@ -904,7 +904,7 @@ export function HomeScreen({
               gestationalWeek: pp.postpartumWeek ?? 0,
               lifecycle: 'postpartum',
             }}
-            kickSessions={kickCountSyncStore.getActiveSessions().slice(0, 10).map((s) => ({
+            kickSessions={kickCountSyncStore.getActiveSessions().map((s) => ({
               id: s.id,
               startedAt: s.startedAt,
               endedAt: s.endedAt ?? null,
@@ -920,18 +920,6 @@ export function HomeScreen({
               done: c.done,
               category: c.category,
               note: c.note ?? null,
-            }))}
-            reminders={calendarSyncStore.getActiveReminders().map((r) => ({
-              id: r.id,
-              displayTitle: r.displayTitle,
-              type: r.type,
-              active: r.active,
-            }))}
-            supplies={supplySyncStore.getSupplyItems().map((s) => ({
-              id: s.id,
-              name: s.name,
-              onHandQty: s.onHandQty,
-              category: s.category,
             }))}
             reportDate={localCivilToday()}
           />
@@ -1072,7 +1060,7 @@ export function HomeScreen({
             gestationalWeek: ga.gestationalWeek,
             lifecycle: 'pregnant',
           }}
-          kickSessions={kickCountSyncStore.getActiveSessions().slice(0, 10).map((s) => ({
+          kickSessions={kickCountSyncStore.getActiveSessions().map((s) => ({
             id: s.id,
             startedAt: s.startedAt,
             endedAt: s.endedAt ?? null,
@@ -1088,18 +1076,6 @@ export function HomeScreen({
             done: c.done,
             category: c.category,
             note: c.note ?? null,
-          }))}
-          reminders={calendarSyncStore.getActiveReminders().map((r) => ({
-            id: r.id,
-            displayTitle: r.displayTitle,
-            type: r.type,
-            active: r.active,
-          }))}
-          supplies={supplySyncStore.getSupplyItems().map((s) => ({
-            id: s.id,
-            name: s.name,
-            onHandQty: s.onHandQty,
-            category: s.category,
           }))}
           reportDate={localCivilToday()}
         />

@@ -1,18 +1,22 @@
 /**
  * doctorReportAssembler.test.ts — TDD for on-device doctor-report assembly.
  *
- * Covers:
+ * Covers (spec: pdf-doctor-ui.md §3):
  *   - buildDoctorReportHtml returns a non-empty HTML string
  *   - Profile section included (EDD, gestational week, lifecycle)
- *   - Kick-count section present with sessions (or empty-section message)
- *   - Appointments/reminders section present
- *   - Supplies section present
+ *   - Medication & adherence section (first, always — placeholder when no data)
+ *   - Kick-count section (date-range filtered)
+ *   - Self-logs section (placeholder when no data source)
+ *   - Appointments section (date-range filtered)
+ *   - Lab results hidden line (when includeSensitiveNotes=false)
+ *   - Date range filtering: data outside range is NOT included
  *   - Thai (th) + English (en) locale labels both work
- *   - Empty inputs for all sections → no crash, empty-section placeholders
+ *   - Empty inputs for all sections → no crash, placeholder text (never "error")
  *   - Generated HTML contains no raw secrets (no tokens, no passwords)
- *   - Report date is present (BE calendar in th, CE in en)
+ *   - Report date and range are present (BE calendar in th, CE in en)
  *   - HTML is well-formed enough (has <html>, <body>)
- *   - No disclosure of sensitive personal data beyond what is provided
+ *   - Disclaimer copy matches spec §7 mandated wording
+ *   - Supplies section is NOT in the doctor report (spec §3 does not list it)
  *
  * Security invariants:
  *   - Function is pure — takes only explicitly provided data; never imports stores.
@@ -72,28 +76,14 @@ const appointments = [
   },
 ];
 
-const reminders = [
-  {
-    id: 'r1',
-    displayTitle: 'กินวิตามิน',
-    type: 'medication' as const,
-    active: true,
-  },
-];
-
-const supplies = [
-  { id: 'sup1', name: 'ผ้าอ้อม', onHandQty: 50, category: 'diapers' as const },
-  { id: 'sup2', name: 'นมผง', onHandQty: 2, category: 'feeding' as const },
-];
-
 const reportDate = '2026-07-03';
 
 const baseInput: DoctorReportInput = {
   profile: baseProfile,
   kickSessions,
   appointments,
-  reminders,
-  supplies,
+  dateFrom: '2026-07-01',
+  dateTo: '2026-07-31',
   reportDate,
   locale: 'th',
 };
@@ -169,6 +159,44 @@ describe('buildDoctorReportHtml', () => {
     expect(html).toContain('July 3, 2026');
   });
 
+  // ── Date range in report header ────────────────────────────────────────────
+
+  it('shows the date range in the report header (th)', () => {
+    const html = buildDoctorReportHtml({ ...baseInput, locale: 'th' });
+    // dateFrom=2026-07-01 → 1 กรกฎาคม พ.ศ. 2569
+    // dateTo=2026-07-31  → 31 กรกฎาคม พ.ศ. 2569
+    expect(html).toContain('กรกฎาคม');
+  });
+
+  it('shows the date range in the report header (en)', () => {
+    const html = buildDoctorReportHtml({ ...baseInput, locale: 'en' });
+    expect(html).toContain('July 1, 2026');
+    expect(html).toContain('July 31, 2026');
+  });
+
+  // ── Medication & adherence section (spec §3 — first, always) ───────────────
+
+  it('includes medication section header (th)', () => {
+    const html = buildDoctorReportHtml({ ...baseInput, locale: 'th' });
+    expect(html).toMatch(/ยา|การกินยา|ยาและการกินยา/i);
+  });
+
+  it('includes medication section header (en)', () => {
+    const html = buildDoctorReportHtml({ ...baseInput, locale: 'en' });
+    expect(html).toMatch(/medication|adherence/i);
+  });
+
+  it('renders medication placeholder when no medication data (th)', () => {
+    const html = buildDoctorReportHtml({ ...baseInput, locale: 'th' });
+    // Placeholder since no medication tracking feature exists yet
+    expect(html).toMatch(/ยังไม่มีข้อมูล|not tracked/i);
+  });
+
+  it('renders medication placeholder when no medication data (en)', () => {
+    const html = buildDoctorReportHtml({ ...baseInput, locale: 'en' });
+    expect(html).toMatch(/not tracked yet/i);
+  });
+
   // ── Kick-count section ─────────────────────────────────────────────────────
 
   it('includes kick-count section header (th)', () => {
@@ -178,10 +206,10 @@ describe('buildDoctorReportHtml', () => {
 
   it('includes kick-count section header (en)', () => {
     const html = buildDoctorReportHtml({ ...baseInput, locale: 'en' });
-    expect(html).toMatch(/kick count/i);
+    expect(html).toMatch(/kick.counts?/i);
   });
 
-  it('includes movement count for each session', () => {
+  it('includes movement count for sessions within range', () => {
     const html = buildDoctorReportHtml(baseInput);
     expect(html).toContain('8');
     expect(html).toContain('12');
@@ -195,6 +223,69 @@ describe('buildDoctorReportHtml', () => {
   it('shows empty-state for kick sessions when none provided (en)', () => {
     const html = buildDoctorReportHtml({ ...baseInput, kickSessions: [], locale: 'en' });
     expect(html).toMatch(/no data|none/i);
+  });
+
+  // ── Date range filtering — kick sessions ───────────────────────────────────
+
+  it('excludes kick sessions outside the date range', () => {
+    const outsideSession = {
+      id: 'outside',
+      startedAt: '2026-05-15T09:00',  // Before dateFrom 2026-07-01
+      endedAt: '2026-05-15T09:20',
+      movementCount: 99,
+      durationSeconds: 600,
+      gestationalWeekAtStart: 25,
+      note: null,
+    };
+    const html = buildDoctorReportHtml({
+      ...baseInput,
+      kickSessions: [...kickSessions, outsideSession],
+      dateFrom: '2026-07-01',
+      dateTo: '2026-07-31',
+    });
+    // movementCount 99 from the outside session must NOT appear
+    expect(html).not.toContain('>99<');
+  });
+
+  it('includes kick sessions exactly on the range boundary', () => {
+    const onBoundary = {
+      id: 'boundary',
+      startedAt: '2026-07-01T00:00',
+      endedAt: null,
+      movementCount: 77,
+      durationSeconds: null,
+      gestationalWeekAtStart: null,
+      note: null,
+    };
+    const html = buildDoctorReportHtml({
+      ...baseInput,
+      kickSessions: [onBoundary],
+      dateFrom: '2026-07-01',
+      dateTo: '2026-07-31',
+    });
+    expect(html).toContain('77');
+  });
+
+  // ── Self-logs section (spec §3 — placeholder since no data source) ──────────
+
+  it('includes self-logs section header (th)', () => {
+    const html = buildDoctorReportHtml({ ...baseInput, locale: 'th' });
+    expect(html).toMatch(/บันทึกตนเอง|น้ำหนัก|ความดัน/i);
+  });
+
+  it('includes self-logs section header (en)', () => {
+    const html = buildDoctorReportHtml({ ...baseInput, locale: 'en' });
+    expect(html).toMatch(/self-log|weight|blood pressure/i);
+  });
+
+  it('renders self-log placeholder when no data (th)', () => {
+    const html = buildDoctorReportHtml({ ...baseInput, locale: 'th' });
+    expect(html).toMatch(/ยังไม่มีข้อมูล|not tracked/i);
+  });
+
+  it('renders self-log placeholder when no data (en)', () => {
+    const html = buildDoctorReportHtml({ ...baseInput, locale: 'en' });
+    expect(html).toMatch(/not tracked yet/i);
   });
 
   // ── Appointments section ───────────────────────────────────────────────────
@@ -220,41 +311,86 @@ describe('buildDoctorReportHtml', () => {
     expect(html).toMatch(/ไม่มีข้อมูล|ยังไม่มี/i);
   });
 
-  // ── Reminders section ──────────────────────────────────────────────────────
+  // ── Date range filtering — appointments ────────────────────────────────────
 
-  it('includes reminder titles in the HTML', () => {
-    const html = buildDoctorReportHtml(baseInput);
-    expect(html).toContain('กินวิตามิน');
+  it('excludes appointments outside the date range', () => {
+    const outsideAppt = {
+      id: 'old',
+      title: 'นัดเก่า',
+      scheduledAt: '2026-05-01T09:00',  // Before dateFrom 2026-07-01
+      done: true,
+      category: 'anc_visit' as const,
+      note: null,
+    };
+    const html = buildDoctorReportHtml({
+      ...baseInput,
+      appointments: [...appointments, outsideAppt],
+      dateFrom: '2026-07-01',
+      dateTo: '2026-07-31',
+    });
+    expect(html).not.toContain('นัดเก่า');
   });
 
-  it('shows empty-state for reminders when none provided (th)', () => {
-    const html = buildDoctorReportHtml({ ...baseInput, reminders: [], locale: 'th' });
-    // Either reminders section is omitted or shows empty state
-    // At minimum should not crash
-    expect(typeof html).toBe('string');
+  it('includes undated appointments regardless of range (no scheduledAt)', () => {
+    const undated = {
+      id: 'undated',
+      title: 'นัดไม่มีวันที่',
+      scheduledAt: null,
+      done: false,
+      category: 'appointment' as const,
+      note: null,
+    };
+    const html = buildDoctorReportHtml({
+      ...baseInput,
+      appointments: [undated],
+      dateFrom: '2026-07-01',
+      dateTo: '2026-07-31',
+    });
+    expect(html).toContain('นัดไม่มีวันที่');
   });
 
-  // ── Supplies section ───────────────────────────────────────────────────────
+  // ── Lab results hidden line (spec §2.2/§3) ─────────────────────────────────
 
-  it('includes supplies section header (th)', () => {
+  it('includes "results hidden" line when includeSensitiveNotes is false (th)', () => {
+    const html = buildDoctorReportHtml({ ...baseInput, includeSensitiveNotes: false, locale: 'th' });
+    expect(html).toMatch(/ผลถูกซ่อน|results hidden/i);
+  });
+
+  it('includes "results hidden" line when includeSensitiveNotes is omitted (th)', () => {
     const html = buildDoctorReportHtml({ ...baseInput, locale: 'th' });
-    expect(html).toMatch(/เตรียมคลอด|ของใช้|รายการ/i);
+    expect(html).toMatch(/ผลถูกซ่อน|results hidden/i);
   });
 
-  it('includes supplies section header (en)', () => {
+  it('does NOT include "results hidden" line when includeSensitiveNotes is true', () => {
+    const html = buildDoctorReportHtml({ ...baseInput, includeSensitiveNotes: true, locale: 'th' });
+    // When notes are included, the "hidden" line should not appear
+    expect(html).not.toMatch(/ผลถูกซ่อน/);
+  });
+
+  // ── Disclaimer — spec §7 mandated copy ────────────────────────────────────
+
+  it('includes spec §7 Thai disclaimer copy', () => {
+    const html = buildDoctorReportHtml({ ...baseInput, locale: 'th' });
+    expect(html).toMatch(/แอปไม่วินิจฉัย.*ไม่ให้คำแนะนำทางการแพทย์/i);
+  });
+
+  it('includes spec §7 English disclaimer copy', () => {
     const html = buildDoctorReportHtml({ ...baseInput, locale: 'en' });
-    expect(html).toMatch(/suppl/i);
+    expect(html).toMatch(/This app does not diagnose or give medical advice/i);
   });
 
-  it('includes supply item names', () => {
-    const html = buildDoctorReportHtml(baseInput);
-    expect(html).toContain('ผ้าอ้อม');
-    expect(html).toContain('นมผง');
+  it('includes a note that the report is a personal record (th)', () => {
+    const html = buildDoctorReportHtml({ ...baseInput, locale: 'th' });
+    expect(html).toMatch(/บันทึกส่วนตัว|เพื่อแสดงต่อแพทย์/i);
   });
 
-  it('shows empty-state for supplies when none provided (th)', () => {
-    const html = buildDoctorReportHtml({ ...baseInput, supplies: [], locale: 'th' });
-    expect(html).toMatch(/ไม่มีข้อมูล|ยังไม่มี/i);
+  // ── Supplies are NOT in the doctor report (spec §3) ───────────────────────
+
+  it('does not include a supplies section (spec §3 does not list supplies)', () => {
+    const html = buildDoctorReportHtml({ ...baseInput, locale: 'th' });
+    // "รายการเตรียมคลอด" is the supplies nav title — must not appear in doctor report
+    expect(html).not.toMatch(/รายการเตรียมคลอด/i);
+    expect(html).not.toMatch(/supply checklist/i);
   });
 
   // ── Empty all sections — no crash ──────────────────────────────────────────
@@ -264,8 +400,6 @@ describe('buildDoctorReportHtml', () => {
       ...baseInput,
       kickSessions: [],
       appointments: [],
-      reminders: [],
-      supplies: [],
       locale: 'th',
     });
     expect(typeof html).toBe('string');
@@ -278,18 +412,27 @@ describe('buildDoctorReportHtml', () => {
       ...baseInput,
       kickSessions: [],
       appointments: [],
-      reminders: [],
-      supplies: [],
       locale: 'en',
     });
     expect(typeof html).toBe('string');
     expect(html.length).toBeGreaterThan(0);
   });
 
+  it('renders a "no data in range" style report for empty range (us-10 AC)', () => {
+    const html = buildDoctorReportHtml({
+      ...baseInput,
+      kickSessions: [],
+      appointments: [],
+      locale: 'th',
+    });
+    // Valid empty-range report — must still have structure (not an error)
+    expect(html).toMatch(/<html/i);
+    expect(html).toMatch(/ไม่มีข้อมูล|ยังไม่มี/i);
+  });
+
   // ── Security invariants ────────────────────────────────────────────────────
 
   it('does not include any auth tokens or credentials', () => {
-    // No token or password-like patterns should appear in the output
     const html = buildDoctorReportHtml(baseInput);
     expect(html).not.toMatch(/accessToken|Bearer |password|secret/i);
   });
@@ -305,37 +448,25 @@ describe('buildDoctorReportHtml', () => {
   it('caps kick sessions to 10 most recent', () => {
     const manySessions = Array.from({ length: 15 }, (_, i) => ({
       id: `s${i}`,
-      startedAt: `2026-06-${String(i + 1).padStart(2, '0')}T09:00`,
-      endedAt: `2026-06-${String(i + 1).padStart(2, '0')}T09:20`,
+      startedAt: `2026-07-${String(i + 1).padStart(2, '0')}T09:00`,
+      endedAt: `2026-07-${String(i + 1).padStart(2, '0')}T09:20`,
       movementCount: i + 1,
       durationSeconds: 600,
       gestationalWeekAtStart: 27,
       note: null,
     }));
-    const html = buildDoctorReportHtml({ ...baseInput, kickSessions: manySessions });
-    // The function should only include the 10 most recent
-    // movementCount 15 (most recent) should be in the output
+    const html = buildDoctorReportHtml({
+      ...baseInput,
+      kickSessions: manySessions,
+      dateFrom: '2026-07-01',
+      dateTo: '2026-07-31',
+    });
+    // The most recent sessions have movementCounts 15, 14, ... 6
     expect(html).toContain('15');
-    // The very first one (movementCount 1, the oldest of 15) should not appear
-    // since only 10 most recent are shown
-    // (first session has movementCount 1 — but 6,7,8,9,10,11,12,13,14,15 are the 10 most recent)
-    // Sessions 1-5 should NOT appear in count display (they're beyond the 10 most recent)
-    // We check the overall count of unique session IDs is limited to 10
+    // Session 1-5 (oldest 5) should NOT be in the capped 10
+    // Verify total unique session IDs is bounded
     const sessionIdMatches = [...html.matchAll(/s(\d+)/g)].map((m) => m[1]);
-    // ids shown should only be from the 10 most recent
     const uniqueIds = new Set(sessionIdMatches.map(Number));
     expect(uniqueIds.size).toBeLessThanOrEqual(10);
-  });
-
-  // ── Disclaimer / not-medical-advice ───────────────────────────────────────
-
-  it('includes a medical disclaimer (th)', () => {
-    const html = buildDoctorReportHtml({ ...baseInput, locale: 'th' });
-    expect(html).toMatch(/ไม่ใช่คำวินิจฉัย|ไม่ใช่คำแนะนำทางการแพทย์/i);
-  });
-
-  it('includes a medical disclaimer (en)', () => {
-    const html = buildDoctorReportHtml({ ...baseInput, locale: 'en' });
-    expect(html).toMatch(/not.*medical|medical.*advice/i);
   });
 });

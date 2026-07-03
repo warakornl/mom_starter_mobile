@@ -5,32 +5,44 @@
  * It is PURE: takes explicit input, returns HTML — no side effects,
  * no store imports, no native calls.
  *
- * Design:
+ * Design (spec: pdf-doctor-ui.md §3):
  *   - HTML → PDF via expo-print (Print.printToFileAsync) at the caller layer.
  *   - All sections are rendered from data the app already holds locally.
- *   - On-device only; NO health data is sent to a server (PDPA PDPA-friendly).
+ *   - On-device only; NO health data is sent to a server (PDPA-friendly).
  *   - Locale-aware: Thai (th) uses BE years + Thai month names;
  *     English (en) uses CE dates.
- *   - Capped to 10 most-recent kick sessions to keep PDF concise.
+ *   - Date-range filtering: only data within [dateFrom, dateTo] is included.
+ *   - Capped to 10 most-recent kick sessions (within range) to keep PDF concise.
  *   - Deterministic for identical inputs (pure function).
  *
- * Report layout (spec: pdf-doctor-ui.md — derived from task prompt):
- *   1. Header (report title, date, disclaimer)
- *   2. Pregnancy profile (EDD, gestational week, lifecycle)
- *   3. Recent kick-count sessions (capped to 10)
- *   4. Appointments & reminders
- *   5. Supplies checklist
+ * Report layout (spec §3 — ordered per spec):
+ *   Header (report title, range, report-date, disclaimer)
+ *   1. Pregnancy profile (lifecycle, EDD, gestational week)
+ *   2. Medication & adherence (placeholder — medication logging not yet built)
+ *   3. Kick-count sessions (date-range filtered, capped to 10)
+ *   4. Self-logs weight/BP/swelling (placeholder — self-log feature not yet built)
+ *   5. Appointments & checklist (date-range filtered)
+ *   6. Lab/notes line — "ผลถูกซ่อน" when includeSensitiveNotes=false (spec §2.2)
+ *   Footer: spec §7 mandatory disclaimer
+ *
+ * DATA-SOURCE GAPS (flagged for upstream):
+ *   - Medication & adherence: no medication-logging feature exists in the app yet.
+ *     Section renders with "ยังไม่มีข้อมูลในช่วงนี้ / not tracked yet" placeholder.
+ *     Fully populating this section requires building the medication-log store first.
+ *   - Self-logs (weight/BP/swelling): no self-logging feature exists yet.
+ *     Same placeholder. Requires a self-log store to be built.
  *
  * Security:
  *   - NEVER include auth tokens, passwords, or any credential.
  *   - No sensitive data is logged (this module has no log calls).
  *   - The output HTML is written to a temp file by expo-print and
  *     only shared by explicit user action via expo-sharing.
+ *   - includeSensitiveNotes=false (default): free-text notes are suppressed;
+ *     a "results hidden" line replaces them (spec §2.2/§3, PDPA SD-7).
  */
 
 import type { Locale } from '../auth/types';
 import type { ChecklistItemCategory } from '../sync/syncTypes';
-import type { SupplyCategory } from '../sync/syncTypes';
 
 // ─── Input types ──────────────────────────────────────────────────────────────
 
@@ -59,26 +71,20 @@ export interface ReportAppointment {
   note: string | null | undefined;
 }
 
-export interface ReportReminder {
-  id: string;
-  displayTitle: string;
-  type: string;
-  active: boolean;
-}
-
-export interface ReportSupply {
-  id: string;
-  name: string;
-  onHandQty: number;
-  category: SupplyCategory;
-}
-
 export interface DoctorReportInput {
   profile: ReportProfile;
   kickSessions: ReportKickSession[];
   appointments: ReportAppointment[];
-  reminders: ReportReminder[];
-  supplies: ReportSupply[];
+  /** Civil "YYYY-MM-DD" start of the report range (inclusive). */
+  dateFrom: string;
+  /** Civil "YYYY-MM-DD" end of the report range (inclusive). */
+  dateTo: string;
+  /**
+   * Whether to include sensitive notes (lab results, free-text notes) in the PDF.
+   * Defaults to false. When false, a "ผลถูกซ่อน / results hidden" line is printed.
+   * Requires `sensitive_lab_results` consent to be true (spec §2.2, PDPA SD-7).
+   */
+  includeSensitiveNotes?: boolean;
   /** Civil "YYYY-MM-DD" date to stamp the report. */
   reportDate: string;
   locale: Locale;
@@ -112,6 +118,25 @@ function formatDateTime(floatingCivil: string, locale: Locale): string {
   return timePart ? `${dateFormatted} ${timePart}` : dateFormatted;
 }
 
+// ─── Date range helpers ────────────────────────────────────────────────────────
+
+/**
+ * Returns the civil date part (YYYY-MM-DD) from a floating-civil datetime
+ * or civil date string.
+ */
+function civilDatePart(isoOrFloating: string): string {
+  return isoOrFloating.substring(0, 10);
+}
+
+/**
+ * Returns true if the given floating-civil datetime falls within [dateFrom, dateTo]
+ * (inclusive, based on the date part only).
+ */
+function isWithinRange(floatingCivil: string, dateFrom: string, dateTo: string): boolean {
+  const date = civilDatePart(floatingCivil);
+  return date >= dateFrom && date <= dateTo;
+}
+
 // ─── HTML escape ──────────────────────────────────────────────────────────────
 
 function esc(s: string): string {
@@ -126,9 +151,17 @@ function esc(s: string): string {
 
 const LABELS = {
   th: {
-    reportTitle: 'สรุปข้อมูลสุขภาพสำหรับแพทย์',
+    reportTitle: 'รายงานสุขภาพสำหรับแพทย์',
     reportDate: 'วันที่สร้างรายงาน',
-    disclaimer: 'รายงานนี้เป็นบันทึกส่วนตัว ไม่ใช่คำวินิจฉัยทางการแพทย์',
+    rangeLabel: 'ช่วงวันที่',
+    rangeSep: '–',
+    /**
+     * Spec §7 MANDATED disclaimer (Thai):
+     * "แอปไม่วินิจฉัย/ไม่ให้คำแนะนำทางการแพทย์"
+     * Full sentence per spec preview wireframe.
+     */
+    disclaimer:
+      'แอปไม่วินิจฉัย/ไม่ให้คำแนะนำทางการแพทย์ · เป็นบันทึกส่วนตัวเพื่อแสดงต่อแพทย์',
     profileTitle: 'ข้อมูลการตั้งครรภ์',
     edd: 'กำหนดคลอด (EDD)',
     gestationalWeek: 'อายุครรภ์',
@@ -137,31 +170,36 @@ const LABELS = {
     lifecyclePregnant: 'ตั้งครรภ์',
     lifecyclePostpartum: 'หลังคลอด',
     lifecycleEnded: 'สิ้นสุดการตั้งครรภ์',
-    kickTitle: 'บันทึกการนับลูกดิ้น (10 ครั้งล่าสุด)',
+    medTitle: 'ยาและการกินยา / Medication & adherence',
+    medPlaceholder: 'ยังไม่มีข้อมูลในช่วงนี้ · ฟีเจอร์บันทึกยายังไม่ถูกสร้าง',
+    kickTitle: 'นับลูกดิ้น / Kick-counts',
     kickDate: 'วันที่',
     kickCount: 'จำนวนครั้ง',
     kickDuration: 'เวลาที่ใช้',
     kickWeek: 'อายุครรภ์',
     kickMinutes: 'นาที',
-    apptTitle: 'นัดหมายและการแจ้งเตือน',
+    selfLogTitle: 'บันทึกตนเอง (น้ำหนัก/ความดัน/บวม) / Self-logs',
+    selfLogPlaceholder: 'ยังไม่มีข้อมูลในช่วงนี้ · ฟีเจอร์บันทึกตนเองยังไม่ถูกสร้าง',
+    apptTitle: 'นัดหมายและเช็กลิสต์ / Appointments',
     apptDate: 'วันที่',
     apptStatus: 'สถานะ',
     apptDone: 'เสร็จแล้ว',
     apptPending: 'รอดำเนินการ',
-    remindersTitle: 'การแจ้งเตือนที่ตั้งไว้',
-    reminderType: 'ประเภท',
-    reminderActive: 'เปิดใช้งาน',
-    reminderInactive: 'ปิดใช้งาน',
-    suppliesTitle: 'รายการเตรียมคลอด',
-    supplyQty: 'จำนวนที่มี',
-    noData: 'ไม่มีข้อมูล',
-    yes: 'ใช่',
-    no: 'ไม่ใช่',
+    labHiddenLine:
+      'ผลแล็บ/บันทึกข้อความ: ผลถูกซ่อน (ไม่ได้ยินยอมให้รวมผลที่ละเอียดอ่อน)',
+    noData: 'ไม่มีข้อมูลในช่วงนี้',
   },
   en: {
-    reportTitle: 'Health Summary for Doctor',
+    reportTitle: 'Health Report for Doctor',
     reportDate: 'Report date',
-    disclaimer: 'This report is a personal record. Not a substitute for medical advice.',
+    rangeLabel: 'Date range',
+    rangeSep: '–',
+    /**
+     * Spec §7 MANDATED disclaimer (English):
+     * "This app does not diagnose or give medical advice."
+     */
+    disclaimer:
+      'This app does not diagnose or give medical advice. This is a personal record for sharing with your doctor.',
     profileTitle: 'Pregnancy Profile',
     edd: 'Expected Due Date (EDD)',
     gestationalWeek: 'Gestational week',
@@ -170,26 +208,24 @@ const LABELS = {
     lifecyclePregnant: 'Pregnant',
     lifecyclePostpartum: 'Postpartum',
     lifecycleEnded: 'Ended',
-    kickTitle: 'Kick Count Log (last 10 sessions)',
+    medTitle: 'Medication & adherence',
+    medPlaceholder: 'Not tracked yet in this range · medication logging feature not yet built',
+    kickTitle: 'Kick-counts',
     kickDate: 'Date',
     kickCount: 'Movements',
     kickDuration: 'Duration',
     kickWeek: 'Week',
     kickMinutes: 'min',
-    apptTitle: 'Appointments & Reminders',
+    selfLogTitle: 'Self-logs (weight / blood pressure / swelling)',
+    selfLogPlaceholder: 'Not tracked yet in this range · self-log feature not yet built',
+    apptTitle: 'Appointments & checklist',
     apptDate: 'Date',
     apptStatus: 'Status',
     apptDone: 'Done',
     apptPending: 'Pending',
-    remindersTitle: 'Active Reminders',
-    reminderType: 'Type',
-    reminderActive: 'Active',
-    reminderInactive: 'Inactive',
-    suppliesTitle: 'Supply Checklist',
-    supplyQty: 'Qty on hand',
-    noData: 'No data',
-    yes: 'Yes',
-    no: 'No',
+    labHiddenLine:
+      'Lab results / text notes: results hidden (sensitive results not consented for inclusion)',
+    noData: 'No data in this range',
   },
 } as const;
 
@@ -215,10 +251,32 @@ function buildProfileSection(profile: ReportProfile, locale: Locale): string {
     </section>`;
 }
 
-function buildKickSection(sessions: ReportKickSession[], locale: Locale): string {
+/**
+ * Medication & adherence section (spec §3, first section, always rendered).
+ *
+ * DATA-SOURCE GAP: no medication-logging feature exists yet.
+ * Renders a placeholder until the medication store is built.
+ */
+function buildMedicationSection(locale: Locale): string {
   const L = LABELS[locale];
-  // Cap to 10 most recent (sessions already sorted descending by caller, but sort here too)
-  const recent = [...sessions]
+  return `
+    <section>
+      <h2>${esc(L.medTitle)}</h2>
+      <p class="placeholder">${esc(L.medPlaceholder)}</p>
+    </section>`;
+}
+
+function buildKickSection(
+  sessions: ReportKickSession[],
+  dateFrom: string,
+  dateTo: string,
+  locale: Locale,
+): string {
+  const L = LABELS[locale];
+
+  // Filter to range first, then cap to 10 most recent
+  const inRange = sessions.filter((s) => isWithinRange(s.startedAt, dateFrom, dateTo));
+  const recent = [...inRange]
     .sort((a, b) => b.startedAt.localeCompare(a.startedAt))
     .slice(0, 10);
 
@@ -231,13 +289,9 @@ function buildKickSection(sessions: ReportKickSession[], locale: Locale): string
   }
 
   const rows = recent.map((s) => {
-    const date = s.startedAt
-      ? formatDateTime(s.startedAt, locale)
-      : '';
+    const date = s.startedAt ? formatDateTime(s.startedAt, locale) : '';
     const durationMin =
-      s.durationSeconds != null
-        ? Math.round(s.durationSeconds / 60)
-        : '—';
+      s.durationSeconds != null ? Math.round(s.durationSeconds / 60) : '—';
     const wk = s.gestationalWeekAtStart != null ? s.gestationalWeekAtStart : '—';
     return `<tr>
       <td>${esc(date)}</td>
@@ -264,13 +318,36 @@ function buildKickSection(sessions: ReportKickSession[], locale: Locale): string
     </section>`;
 }
 
+/**
+ * Self-logs section (spec §3 — weight/BP/swelling).
+ *
+ * DATA-SOURCE GAP: no self-logging feature exists yet.
+ * Renders a placeholder until the self-log store is built.
+ */
+function buildSelfLogSection(locale: Locale): string {
+  const L = LABELS[locale];
+  return `
+    <section>
+      <h2>${esc(L.selfLogTitle)}</h2>
+      <p class="placeholder">${esc(L.selfLogPlaceholder)}</p>
+    </section>`;
+}
+
 function buildAppointmentsSection(
   appointments: ReportAppointment[],
+  dateFrom: string,
+  dateTo: string,
   locale: Locale,
 ): string {
   const L = LABELS[locale];
 
-  if (appointments.length === 0) {
+  // Include appointments within range + undated (null scheduledAt) appointments
+  const inRange = appointments.filter((a) => {
+    if (!a.scheduledAt) return true; // undated → always include
+    return isWithinRange(a.scheduledAt, dateFrom, dateTo);
+  });
+
+  if (inRange.length === 0) {
     return `
       <section>
         <h2>${esc(L.apptTitle)}</h2>
@@ -279,7 +356,7 @@ function buildAppointmentsSection(
   }
 
   // Sort by scheduledAt ascending; undated items last
-  const sorted = [...appointments].sort((a, b) => {
+  const sorted = [...inRange].sort((a, b) => {
     const sa = a.scheduledAt ?? '9999';
     const sb = b.scheduledAt ?? '9999';
     return sa.localeCompare(sb);
@@ -311,69 +388,15 @@ function buildAppointmentsSection(
     </section>`;
 }
 
-function buildRemindersSection(reminders: ReportReminder[], locale: Locale): string {
+/**
+ * Lab/notes hidden line (spec §2.2/§3).
+ * When includeSensitiveNotes=false (default), renders a "results hidden" line.
+ * When true, this line is omitted (notes would be included in a future implementation).
+ */
+function buildLabLine(includeSensitiveNotes: boolean, locale: Locale): string {
+  if (includeSensitiveNotes) return '';
   const L = LABELS[locale];
-
-  if (reminders.length === 0) {
-    return '';
-  }
-
-  const rows = reminders.map((r) => {
-    const activeLabel = r.active ? L.reminderActive : L.reminderInactive;
-    return `<tr>
-      <td>${esc(r.displayTitle)}</td>
-      <td>${esc(r.type)}</td>
-      <td>${esc(activeLabel)}</td>
-    </tr>`;
-  }).join('');
-
-  return `
-    <section>
-      <h2>${esc(L.remindersTitle)}</h2>
-      <table>
-        <thead>
-          <tr>
-            <th>—</th>
-            <th>${esc(L.reminderType)}</th>
-            <th>—</th>
-          </tr>
-        </thead>
-        <tbody>${rows}</tbody>
-      </table>
-    </section>`;
-}
-
-function buildSuppliesSection(supplies: ReportSupply[], locale: Locale): string {
-  const L = LABELS[locale];
-
-  if (supplies.length === 0) {
-    return `
-      <section>
-        <h2>${esc(L.suppliesTitle)}</h2>
-        <p>${esc(L.noData)}</p>
-      </section>`;
-  }
-
-  const rows = supplies.map((s) => `<tr>
-    <td>${esc(s.name)}</td>
-    <td>${s.onHandQty}</td>
-    <td>${esc(s.category)}</td>
-  </tr>`).join('');
-
-  return `
-    <section>
-      <h2>${esc(L.suppliesTitle)}</h2>
-      <table>
-        <thead>
-          <tr>
-            <th>—</th>
-            <th>${esc(L.supplyQty)}</th>
-            <th>—</th>
-          </tr>
-        </thead>
-        <tbody>${rows}</tbody>
-      </table>
-    </section>`;
+  return `<p class="lab-hidden">${esc(L.labHiddenLine)}</p>`;
 }
 
 // ─── Main assembler ───────────────────────────────────────────────────────────
@@ -384,20 +407,41 @@ function buildSuppliesSection(supplies: ReportSupply[], locale: Locale): string 
  * Pure function — deterministic, no side effects.
  * Caller passes all data; this module imports nothing from stores.
  *
+ * Section order (spec §3):
+ *   1. Profile header
+ *   2. Medication & adherence (placeholder)
+ *   3. Kick-counts (date-range filtered)
+ *   4. Self-logs (placeholder)
+ *   5. Appointments (date-range filtered)
+ *   6. Lab results hidden line (when !includeSensitiveNotes)
+ *   Footer: §7 disclaimer
+ *
  * Security: does NOT include tokens or credentials.
  * The output is safe to write to a temp PDF file via expo-print.
  */
 export function buildDoctorReportHtml(input: DoctorReportInput): string {
-  const { profile, kickSessions, appointments, reminders, supplies, reportDate, locale } = input;
+  const {
+    profile,
+    kickSessions,
+    appointments,
+    dateFrom,
+    dateTo,
+    reportDate,
+    locale,
+    includeSensitiveNotes = false,
+  } = input;
   const L = LABELS[locale];
 
   const reportDateFormatted = formatDate(reportDate, locale);
+  const dateFromFormatted = formatDate(dateFrom, locale);
+  const dateToFormatted = formatDate(dateTo, locale);
 
   const profileSection = buildProfileSection(profile, locale);
-  const kickSection = buildKickSection(kickSessions, locale);
-  const apptSection = buildAppointmentsSection(appointments, locale);
-  const remindersSection = buildRemindersSection(reminders, locale);
-  const suppliesSection = buildSuppliesSection(supplies, locale);
+  const medSection = buildMedicationSection(locale);
+  const kickSection = buildKickSection(kickSessions, dateFrom, dateTo, locale);
+  const selfLogSection = buildSelfLogSection(locale);
+  const apptSection = buildAppointmentsSection(appointments, dateFrom, dateTo, locale);
+  const labLine = buildLabLine(includeSensitiveNotes, locale);
 
   return `<!DOCTYPE html>
 <html lang="${locale === 'th' ? 'th' : 'en'}">
@@ -420,20 +464,25 @@ export function buildDoctorReportHtml(input: DoctorReportInput): string {
     th { background: #F5F0ED; font-weight: 600; }
     .header { margin-bottom: 16px; }
     .report-date { color: #94818A; font-size: 12px; }
+    .range { color: #5F4A52; font-size: 13px; margin-top: 4px; }
+    .placeholder { color: #94818A; font-size: 12px; font-style: italic; margin: 4px 0; }
+    .lab-hidden { color: #94818A; font-size: 12px; border-top: 1px solid #EBE1D9; padding-top: 8px; margin-top: 16px; }
     .disclaimer { color: #94818A; font-size: 11px; border-top: 1px solid #EBE1D9; margin-top: 24px; padding-top: 8px; }
   </style>
 </head>
 <body>
   <div class="header">
     <h1>${esc(L.reportTitle)}</h1>
+    <p class="range">${esc(L.rangeLabel)}: ${esc(dateFromFormatted)} ${esc(L.rangeSep)} ${esc(dateToFormatted)}</p>
     <p class="report-date">${esc(L.reportDate)}: ${esc(reportDateFormatted)}</p>
   </div>
 
   ${profileSection}
+  ${medSection}
   ${kickSection}
+  ${selfLogSection}
   ${apptSection}
-  ${remindersSection}
-  ${suppliesSection}
+  ${labLine}
 
   <p class="disclaimer">${esc(L.disclaimer)}</p>
 </body>

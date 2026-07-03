@@ -51,7 +51,7 @@ import { useT } from '../i18n/LanguageContext';
 import type { TokenStorage } from '../auth/tokenStorage';
 import { JitConsentSheet } from '../consent/JitConsentSheet';
 import { useJitConsent } from '../consent/useJitConsent';
-import type { ReportProfile, ReportKickSession, ReportAppointment, ReportReminder, ReportSupply } from './doctorReportAssembler';
+import type { ReportProfile, ReportKickSession, ReportAppointment } from './doctorReportAssembler';
 import { buildDoctorReportHtml } from './doctorReportAssembler';
 import { createProductionPdfService } from './pdfService';
 import {
@@ -104,10 +104,12 @@ export interface DoctorPdfButtonProps {
   profile: ReportProfile;
   kickSessions: ReportKickSession[];
   appointments: ReportAppointment[];
-  reminders: ReportReminder[];
-  supplies: ReportSupply[];
   /** Civil "YYYY-MM-DD" report date — passed in so it can be mocked in tests. */
   reportDate: string;
+  /** Civil "YYYY-MM-DD" start of report range. Defaults to epoch (all data). */
+  dateFrom?: string;
+  /** Civil "YYYY-MM-DD" end of report range. Defaults to far future (all data). */
+  dateTo?: string;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -118,9 +120,9 @@ export function DoctorPdfButton({
   profile,
   kickSessions,
   appointments,
-  reminders,
-  supplies,
   reportDate,
+  dateFrom = '1900-01-01',
+  dateTo = '9999-12-31',
 }: DoctorPdfButtonProps): React.JSX.Element {
   const { t, locale } = useT();
   const [pdfState, setPdfState] = useState(initialDoctorPdfState);
@@ -136,8 +138,8 @@ export function DoctorPdfButton({
         profile,
         kickSessions,
         appointments,
-        reminders,
-        supplies,
+        dateFrom,
+        dateTo,
         reportDate,
         locale,
       });
@@ -151,7 +153,7 @@ export function DoctorPdfButton({
       const msg = err instanceof Error ? err.message : 'unknown_error';
       setPdfState((prev) => applyGenerateError(prev, msg));
     }
-  }, [profile, kickSessions, appointments, reminders, supplies, reportDate, locale]);
+  }, [profile, kickSessions, appointments, dateFrom, dateTo, reportDate, locale]);
 
   // ── Handle CTA tap ──────────────────────────────────────────────────────────
   const handleCtaTap = useCallback(() => {

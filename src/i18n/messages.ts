@@ -660,6 +660,70 @@ const th = {
   'consent.history.title': 'ประวัติความยินยอม',
   'consent.history.item.granted': 'ให้ความยินยอม',
   'consent.history.item.withdrawn': 'ถอนความยินยอม',
+
+  // ── Suggestion system (suggestion-flow-ui.md) ─────────────────────────────
+  // Home banner — §5.3 suggestion banner (single, light, routes out)
+  'suggestion.banner.headline': 'มีสิ่งใหม่ให้ติดตามในช่วงนี้',
+  'suggestion.banner.view': 'ดูทั้งหมด',
+  'suggestion.banner.dismiss': 'ปิด',
+  'suggestion.banner.dismissA11y': 'ปิดข้อเสนอแนะนี้',
+  'suggestion.banner.notMedicalAdvice': 'ไม่ใช่คำแนะนำทางการแพทย์',
+
+  // Suggestion flow screen — suggestion-flow-ui.md §1 / §3
+  'suggestion.screen.title': 'สิ่งที่น่าติดตามช่วงนี้',
+  'suggestion.screen.offers': 'สิ่งเหล่านี้เป็นข้อเสนอ ไม่ใช่คำสั่ง',
+  'suggestion.screen.empty': 'ตอนนี้ไม่มีสิ่งใหม่ให้ติดตาม',
+  'suggestion.screen.viewHidden': 'ดูที่เคยซ่อน',
+  'suggestion.screen.notMedicalAdvice': 'ไม่ใช่คำแนะนำทางการแพทย์ · อ่านข้อจำกัด',
+
+  // Suggestion card actions — §2.2
+  'suggestion.action.start': 'เริ่ม',
+  'suggestion.action.snooze': 'เลื่อน',
+  'suggestion.action.dismiss': 'ไม่เอา',
+  'suggestion.action.reenable': 'เปิดใหม่',
+  'suggestion.action.snoozeTitle': 'ถามใหม่เมื่อไหร่?',
+  'suggestion.action.snooze3d': '3 วัน',
+  'suggestion.action.snooze7d': '7 วัน',
+  'suggestion.action.snooze14d': '14 วัน',
+  'suggestion.action.snoozeConfirm': 'ยืนยัน',
+  'suggestion.action.snoozeCancel': 'ยกเลิก',
+  'suggestion.hidden.toast': 'ซ่อนแล้ว',
+  'suggestion.hidden.undo': 'เลิกทำ',
+
+  // Dismissed list screen — §3.1
+  'suggestion.dismissed.title': 'รายการที่ซ่อนไว้',
+  'suggestion.dismissed.empty': 'ยังไม่มีรายการที่ซ่อนไว้',
+
+  // Evidence ribbons — §2.1 (provenance, not recommendation strength)
+  'suggestion.evidence.HIGH': 'อ้างอิงหลักฐาน (HIGH) · รอการรับรองทางคลินิก',
+  'suggestion.evidence.STRONG': 'มาตรฐานที่ยอมรับ (STRONG)',
+  'suggestion.evidence.MODERATE': 'แนวปฏิบัติทั่วไป (MODERATE)',
+  'suggestion.source.prefix': 'ที่มา: ',
+
+  // Capture-type glyphs — a11y labels (§6)
+  'suggestion.captureType.kick_count': 'นับลูกดิ้น',
+  'suggestion.captureType.medication': 'ยาและวิตามิน',
+  'suggestion.captureType.appointment': 'นัดหมาย',
+  'suggestion.captureType.supplies': 'ของใช้',
+  'suggestion.captureType.self_log': 'บันทึกส่วนตัว',
+
+  // Suggestion item titles and reason text — §2.1
+  'suggestion.kick_count_start.title': 'นับลูกดิ้น',
+  'suggestion.kick_count_start.reason': 'ช่วยให้คุณและคุณหมอติดตามการเคลื่อนไหวของลูกรายวัน ช่วงนี้แนะนำให้เริ่มนับหลังมื้ออาหาร',
+  'suggestion.triferdine_daily.title': 'Triferdine 150 (ไอรอน + กรดโฟลิก) ทุกวัน',
+  'suggestion.triferdine_daily.reason': 'ช่วยลดโอกาสโลหิตจางระหว่างตั้งครรภ์',
+  'suggestion.anc_t1_checkup.title': 'นัดฝากครรภ์ครั้งแรก',
+  'suggestion.anc_t1_checkup.reason': 'ไตรมาสแรกเป็นช่วงสำคัญที่ควรเริ่มดูแลครรภ์',
+  'suggestion.anc_t2_checkup.title': 'นัดตรวจครรภ์ไตรมาส 2',
+  'suggestion.anc_t2_checkup.reason': 'ตรวจพัฒนาการลูกและสุขภาพของคุณ',
+  'suggestion.anc_t3_checkup.title': 'นัดตรวจครรภ์ไตรมาส 3',
+  'suggestion.anc_t3_checkup.reason': 'เตรียมพร้อมสำหรับการคลอดและตรวจท่าลูก',
+  'suggestion.supplies_checklist.title': 'เตรียมของใช้ก่อนคลอด',
+  'suggestion.supplies_checklist.reason': 'ช่วยให้พร้อมก่อนวันคลอดจะมาถึง',
+  'suggestion.postnatal_checkup.title': 'นัดตรวจหลังคลอด',
+  'suggestion.postnatal_checkup.reason': 'ติดตามสุขภาพหลังคลอด — โดยทั่วไปนัดที่ 6 สัปดาห์',
+  'suggestion.baby_feeding_log.title': 'บันทึกการให้นม',
+  'suggestion.baby_feeding_log.reason': 'ช่วยติดตามตารางให้นมและปริมาณสำหรับลูกน้อย',
 };
 
 // ─── English catalog (must match th shape exactly) ────────────────────────────
@@ -1205,6 +1269,70 @@ const en: MsgShape = {
   'consent.history.title': 'Consent History',
   'consent.history.item.granted': 'Granted',
   'consent.history.item.withdrawn': 'Withdrawn',
+
+  // ── Suggestion system (suggestion-flow-ui.md) ─────────────────────────────
+  // Home banner — §5.3 suggestion banner
+  'suggestion.banner.headline': 'New things to track for this stage',
+  'suggestion.banner.view': 'View all',
+  'suggestion.banner.dismiss': 'Dismiss',
+  'suggestion.banner.dismissA11y': 'Dismiss this suggestion',
+  'suggestion.banner.notMedicalAdvice': 'Not medical advice',
+
+  // Suggestion flow screen — §1 / §3
+  'suggestion.screen.title': 'Worth tracking this stage',
+  'suggestion.screen.offers': 'These are offers, not instructions',
+  'suggestion.screen.empty': 'Nothing new to track right now',
+  'suggestion.screen.viewHidden': 'View hidden',
+  'suggestion.screen.notMedicalAdvice': 'Not medical advice · Read the limits',
+
+  // Card actions — §2.2
+  'suggestion.action.start': 'Start',
+  'suggestion.action.snooze': 'Snooze',
+  'suggestion.action.dismiss': 'Not for me',
+  'suggestion.action.reenable': 'Re-enable',
+  'suggestion.action.snoozeTitle': 'Ask again when?',
+  'suggestion.action.snooze3d': '3 days',
+  'suggestion.action.snooze7d': '7 days',
+  'suggestion.action.snooze14d': '14 days',
+  'suggestion.action.snoozeConfirm': 'Confirm',
+  'suggestion.action.snoozeCancel': 'Cancel',
+  'suggestion.hidden.toast': 'Hidden',
+  'suggestion.hidden.undo': 'Undo',
+
+  // Dismissed list — §3.1
+  'suggestion.dismissed.title': 'Hidden suggestions',
+  'suggestion.dismissed.empty': 'Nothing hidden yet',
+
+  // Evidence ribbons — §2.1
+  'suggestion.evidence.HIGH': 'Evidence-backed (HIGH) · pending clinical sign-off',
+  'suggestion.evidence.STRONG': 'Well-established (STRONG)',
+  'suggestion.evidence.MODERATE': 'Common practice (MODERATE)',
+  'suggestion.source.prefix': 'Source: ',
+
+  // Capture-type glyphs — a11y
+  'suggestion.captureType.kick_count': 'Kick count',
+  'suggestion.captureType.medication': 'Medication',
+  'suggestion.captureType.appointment': 'Appointment',
+  'suggestion.captureType.supplies': 'Supplies',
+  'suggestion.captureType.self_log': 'Self log',
+
+  // Suggestion item titles and reason text — §2.1
+  'suggestion.kick_count_start.title': 'Kick counting',
+  'suggestion.kick_count_start.reason': 'Helps you and your doctor track your baby\'s movements day to day. Try counting after each meal.',
+  'suggestion.triferdine_daily.title': 'Triferdine 150 (iron + folic acid) daily',
+  'suggestion.triferdine_daily.reason': 'Helps reduce the risk of iron-deficiency anaemia during pregnancy.',
+  'suggestion.anc_t1_checkup.title': 'First ANC visit',
+  'suggestion.anc_t1_checkup.reason': 'The first trimester is a key time to start prenatal care.',
+  'suggestion.anc_t2_checkup.title': 'Second-trimester check-up',
+  'suggestion.anc_t2_checkup.reason': 'Tracks your baby\'s development and your health.',
+  'suggestion.anc_t3_checkup.title': 'Third-trimester check-up',
+  'suggestion.anc_t3_checkup.reason': 'Prepares you for birth and checks your baby\'s position.',
+  'suggestion.supplies_checklist.title': 'Prepare birth supplies',
+  'suggestion.supplies_checklist.reason': 'Helps you get ready before your due date arrives.',
+  'suggestion.postnatal_checkup.title': 'Postnatal check-up',
+  'suggestion.postnatal_checkup.reason': 'Follow up after birth — typically scheduled at 6 weeks.',
+  'suggestion.baby_feeding_log.title': 'Log feeding sessions',
+  'suggestion.baby_feeding_log.reason': 'Track feeding times and amounts for your baby.',
 };
 
 // ─── Exports ──────────────────────────────────────────────────────────────────

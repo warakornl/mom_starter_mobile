@@ -372,6 +372,9 @@ export function RootNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps):
             onEditReminder={(reminderId: string) =>
               navigation.navigate('ReminderForm', { reminderId })
             }
+            onAddCapture={(loggedAtDate: string) =>
+              navigation.navigate('Capture', { loggedAtDate })
+            }
           />
         )}
       </Stack.Screen>

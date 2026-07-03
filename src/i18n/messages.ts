@@ -303,6 +303,7 @@ const th = {
   'calendar.viewAll': 'ดูทั้งหมด',
   'calendar.addAppointment': '+ นัดหมายใหม่',
   'calendar.addReminder': '+ เตือนความจำใหม่',
+  'calendar.addCapture': '+ บันทึกสุขภาพ',
   /** template: {date} = formatted date */
   'calendar.dayHeading': '{date}',
   'calendar.status.due': 'รอดำเนินการ',
@@ -1073,6 +1074,7 @@ const en: MsgShape = {
   'calendar.viewAll': 'View all',
   'calendar.addAppointment': '+ New appointment',
   'calendar.addReminder': '+ New reminder',
+  'calendar.addCapture': '+ Log health',
   'calendar.dayHeading': '{date}',
   'calendar.status.due': 'Pending',
   'calendar.status.done': 'Done',

@@ -278,6 +278,13 @@ export interface CalendarScreenProps {
   onEditAppointment?: (itemId: string) => void;
   onAddReminder?: () => void;
   onEditReminder?: (reminderId: string) => void;
+  /**
+   * Called when the user taps the Day-Detail "Add / บันทึกสุขภาพ" affordance.
+   * Receives the currently selected civil date (YYYY-MM-DD) so the Capture
+   * screen can default its date field to the day being viewed.
+   * Spec: capture-ui.md §2, calendar-home-screens §4.4.
+   */
+  onAddCapture?: (loggedAtDate: string) => void;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -289,6 +296,7 @@ export function CalendarScreen({
   onEditAppointment,
   onAddReminder,
   onEditReminder,
+  onAddCapture,
 }: CalendarScreenProps): React.JSX.Element {
   const { t, locale } = useT();
   const today = localCivilToday();
@@ -636,6 +644,19 @@ export function CalendarScreen({
                 {t('calendar.addReminder')}
               </Text>
             </TouchableOpacity>
+            {/* Day-Detail "Add / บันทึกสุขภาพ" — self-log capture entry point.
+                Spec: capture-ui.md §2 (generic Add, type control shown),
+                calendar-home-screens §4.4 (civil-day hand-off, no tz conversion).
+                testID matches Maestro flow 11-capture-self-log-happy.yaml. */}
+            <TouchableOpacity
+              testID="calendar-add-capture-btn"
+              style={[styles.addBtn, styles.addBtnCapture]}
+              onPress={() => onAddCapture?.(selectedDate)}
+            >
+              <Text style={[styles.addBtnText, styles.addBtnTextCapture]}>
+                {t('calendar.addCapture')}
+              </Text>
+            </TouchableOpacity>
           </View>
         </View>
 
@@ -830,8 +851,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#A8505A',
   },
   addBtnSecondary: { backgroundColor: '#3B8C8C' },
+  /** Capture / self-log add button — sage green to distinguish from appt (rose) and reminder (teal). */
+  addBtnCapture: { backgroundColor: '#4A7A56' },
   addBtnText: { fontSize: 12, color: '#FFFFFF', fontWeight: '600' },
   addBtnTextSecondary: { color: '#FFFFFF' },
+  addBtnTextCapture: { color: '#FFFFFF' },
 
   emptyState: {
     alignItems: 'center',

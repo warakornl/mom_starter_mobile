@@ -37,8 +37,8 @@ import type { OfferableSuggestion } from './types';
 import { useT } from '../i18n/LanguageContext';
 
 // ─── Capture-type glyph map ───────────────────────────────────────────────────
-// Text glyphs only — no literal emoji in production (design-system §4.1 note).
-// Using Unicode math/symbol characters as lightweight stand-ins.
+// Emoji glyphs — consistent with SuggestionFlowScreen.tsx CAPTURE_GLYPHS.
+// These are rendered inside a decorative disc (accessibilityElementsHidden).
 
 const CAPTURE_GLYPHS: Record<string, string> = {
   kick_count:  '🌀',

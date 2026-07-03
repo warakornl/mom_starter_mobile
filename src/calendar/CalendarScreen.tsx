@@ -632,6 +632,8 @@ export function CalendarScreen({
               testID="calendar-add-appointment-btn"
               style={styles.addBtn}
               onPress={onAddAppointment}
+              accessibilityRole="button"
+              accessibilityLabel={t('calendar.addAppointment.a11yLabel')}
             >
               <Text style={styles.addBtnText}>{t('calendar.addAppointment')}</Text>
             </TouchableOpacity>
@@ -639,6 +641,8 @@ export function CalendarScreen({
               testID="calendar-add-reminder-btn"
               style={[styles.addBtn, styles.addBtnSecondary]}
               onPress={onAddReminder}
+              accessibilityRole="button"
+              accessibilityLabel={t('calendar.addReminder.a11yLabel')}
             >
               <Text style={[styles.addBtnText, styles.addBtnTextSecondary]}>
                 {t('calendar.addReminder')}
@@ -652,6 +656,8 @@ export function CalendarScreen({
               testID="calendar-add-capture-btn"
               style={[styles.addBtn, styles.addBtnCapture]}
               onPress={() => onAddCapture?.(selectedDate)}
+              accessibilityRole="button"
+              accessibilityLabel={t('calendar.addCapture.a11yLabel')}
             >
               <Text style={[styles.addBtnText, styles.addBtnTextCapture]}>
                 {t('calendar.addCapture')}

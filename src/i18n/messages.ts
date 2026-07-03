@@ -304,6 +304,11 @@ const th = {
   'calendar.addAppointment': '+ นัดหมายใหม่',
   'calendar.addReminder': '+ เตือนความจำใหม่',
   'calendar.addCapture': '+ บันทึกสุขภาพ',
+  /** Accessibility labels (no leading "+") for the three Day-Detail add pills.
+   *  Used as accessibilityLabel so screen readers announce the action clearly. */
+  'calendar.addAppointment.a11yLabel': 'เพิ่มนัดหมาย',
+  'calendar.addReminder.a11yLabel': 'เพิ่มเตือนความจำ',
+  'calendar.addCapture.a11yLabel': 'บันทึกสุขภาพ',
   /** template: {date} = formatted date */
   'calendar.dayHeading': '{date}',
   'calendar.status.due': 'รอดำเนินการ',
@@ -1075,6 +1080,9 @@ const en: MsgShape = {
   'calendar.addAppointment': '+ New appointment',
   'calendar.addReminder': '+ New reminder',
   'calendar.addCapture': '+ Log health',
+  'calendar.addAppointment.a11yLabel': 'New appointment',
+  'calendar.addReminder.a11yLabel': 'New reminder',
+  'calendar.addCapture.a11yLabel': 'Log health',
   'calendar.dayHeading': '{date}',
   'calendar.status.due': 'Pending',
   'calendar.status.done': 'Done',

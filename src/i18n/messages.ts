@@ -737,6 +737,33 @@ const th = {
   'pdf.consentBlocked': 'ต้องให้ความยินยอมก่อนสร้าง PDF · ไปที่ จัดการความยินยอม ›',
   /** Re-arm affordance (spec §4 — decline is frictionless and re-armable). */
   'pdf.tryConsent': 'ลองอีกครั้ง / ยินยอม',
+
+  // ── Doctor PDF Screen (pdf-doctor-ui.md §1–§5) ────────────────────────────
+  'pdf.screen.navTitle': 'รายงานสำหรับแพทย์',
+  'pdf.screen.builderTitle': 'รายงานสำหรับแพทย์',
+  'pdf.screen.previewNavTitle': 'ตัวอย่างรายงาน',
+  'pdf.screen.dateRangeLabel': 'ช่วงวันที่',
+  'pdf.screen.presetThisMonth': 'เดือนนี้',
+  'pdf.screen.presetLast3Months': '3 เดือน',
+  'pdf.screen.presetAllTime': 'ตั้งแต่เริ่ม',
+  'pdf.screen.manifestTitle': 'จะรวมอะไรบ้าง',
+  'pdf.screen.manifestMedication': 'ยาและการกินยา (adherence)',
+  'pdf.screen.manifestKickCounts': 'การนับลูกดิ้น',
+  'pdf.screen.manifestSelfLogs': 'บันทึกตนเอง (น้ำหนัก/ความดัน/บวม)',
+  'pdf.screen.manifestAppointments': 'นัดหมายและเช็กลิสต์',
+  'pdf.screen.manifestLabNotes': 'ผลแล็บ/บันทึกข้อความ (HIV ฯลฯ)',
+  'pdf.screen.manifestLabDefault': 'ค่าเริ่มต้น: ซ่อนไว้',
+  'pdf.screen.whereTitle': 'ไฟล์นี้จะไปไหน',
+  'pdf.screen.whereLine1': 'สร้างบนเครื่องนี้ · แชร์เมื่อคุณสั่ง',
+  'pdf.screen.whereLine2': 'ไม่เก็บสำเนาบนคลาวด์โดยไม่ได้ขอ',
+  'pdf.screen.previewBtn': 'ดูตัวอย่าง / Preview',
+  'pdf.screen.shareBtn': 'แชร์',
+  'pdf.screen.printBtn': 'พิมพ์',
+  'pdf.screen.backToEdit': '‹ แก้ไข',
+  'pdf.screen.generating': 'กำลังสร้างรายงาน...',
+  'pdf.screen.errorTitle': 'สร้างรายงานไม่สำเร็จ ลองอีกครั้ง',
+  'pdf.screen.retryBtn': 'ลองอีกครั้ง',
+  'pdf.screen.sensitiveFileReminder': 'ไฟล์นี้มีข้อมูลละเอียดอ่อน',
 };
 
 // ─── English catalog (must match th shape exactly) ────────────────────────────
@@ -1358,6 +1385,33 @@ const en: MsgShape = {
   'pdf.consentBlocked': 'PDF creation needs your permission · Go to Manage Permissions ›',
   /** Re-arm affordance (spec §4 — decline is frictionless and re-armable). */
   'pdf.tryConsent': 'Try again / Give consent',
+
+  // ── Doctor PDF Screen (pdf-doctor-ui.md §1–§5) ────────────────────────────
+  'pdf.screen.navTitle': 'Doctor report',
+  'pdf.screen.builderTitle': 'Doctor report',
+  'pdf.screen.previewNavTitle': 'Report preview',
+  'pdf.screen.dateRangeLabel': 'Date range',
+  'pdf.screen.presetThisMonth': 'This month',
+  'pdf.screen.presetLast3Months': '3 months',
+  'pdf.screen.presetAllTime': 'All time',
+  'pdf.screen.manifestTitle': "What's included",
+  'pdf.screen.manifestMedication': 'Medication & adherence',
+  'pdf.screen.manifestKickCounts': 'Kick-counts',
+  'pdf.screen.manifestSelfLogs': 'Self-logs (weight / BP / swelling)',
+  'pdf.screen.manifestAppointments': 'Appointments & checklist',
+  'pdf.screen.manifestLabNotes': 'Lab results / text notes (HIV etc.)',
+  'pdf.screen.manifestLabDefault': 'Default: hidden',
+  'pdf.screen.whereTitle': 'Where this file goes',
+  'pdf.screen.whereLine1': 'Built on this device · shared only when you choose',
+  'pdf.screen.whereLine2': 'No cloud copy unless you ask',
+  'pdf.screen.previewBtn': 'Preview',
+  'pdf.screen.shareBtn': 'Share',
+  'pdf.screen.printBtn': 'Print',
+  'pdf.screen.backToEdit': '‹ Edit',
+  'pdf.screen.generating': 'Building report...',
+  'pdf.screen.errorTitle': "Couldn’t build the report — try again",
+  'pdf.screen.retryBtn': 'Try again',
+  'pdf.screen.sensitiveFileReminder': 'This file contains sensitive results',
 };
 
 // ─── Exports ──────────────────────────────────────────────────────────────────

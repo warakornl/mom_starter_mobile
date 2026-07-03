@@ -749,7 +749,9 @@ export function ExpensesScreen({ tokenStorage, apiBaseUrl }: ExpensesScreenProps
   function openEdit(item: ExpenseRecord): void {
     setForm({
       id: item.id,
-      amountBaht: String(Math.round(item.amount / 100)),
+      // satangToInputString gives "59.90" for 5990 satang, preserving sub-baht
+      // precision. The old Math.round(amount/100) turned 5990→60, losing 10 satang.
+      amountBaht: satangToInputString(item.amount),
       category: item.category,
       incurredOn: item.incurredOn,
       note: item.note ?? '',

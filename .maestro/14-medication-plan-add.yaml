@@ -1,0 +1,149 @@
+# 14-medication-plan-add.yaml
+# Flow: Medication Plan add — Home → MedicationPlans → add plan (daily, "บันทึกการกินยา") → save → plan appears in list.
+#
+# ON-DEVICE ARTIFACT — this file is authored by the qa-test agent for on-device
+# execution only. The sandbox cannot run Maestro flows. Execute with:
+#
+#   maestro test .maestro/14-medication-plan-add.yaml
+#
+# Full suite run (from mom_starter_mobile root):
+#   maestro test .maestro/
+#
+# Prerequisites:
+#   - iOS Simulator running with dev build (npx expo run:ios)
+#   - Backend running at localhost:8080
+#   - Account: mom@test.local / MomTest-Password-2026 (pre-seeded, pregnancy profile, week<40)
+#   - Account has general_health consent GRANTED (required for medication plan persistence).
+#     If absent, the nudge banner (consent-home-health-logging-nudge-banner) will appear.
+#   - MedicationPlans screen is wired in RootNavigator (name="MedicationPlans") and
+#     HomeScreen has onMedication={() => navigation.navigate('MedicationPlans')} passed
+#     to the `home-medication-shortcut` testID element.
+#   - MedicationPlanFormSheet appears as a bottom sheet over MedicationPlanListScreen
+#     when `med-add-top` (FAB) or `med-add-first` (empty-state button) is tapped.
+#
+# Spec refs:
+#   medication-plan-ui.md §2 (plan list screen), §3 (add form sheet),
+#   medication-behavior.md §B.2 (plan create → LWW queue), D1 (push-only write),
+#   INV-M4 (name verbatim, never parsed), RULING 7.1 (schedule_rule grammar).
+#
+# Traceability:
+#   Closes GAP-14 (Maestro — medication plan add) from medication-test-traceability.md.
+#   Logic chain covered by: medicationChain.integration.test.ts (jest, logic-level).
+#   Status: REACHABLE+LOGIC-COVERED (on-device pending).
+#
+# Selector strategy: id: (testID) everywhere; text: for button labels only when
+#   testID is dynamic (med-plan-log-btn-${id}) or absent.
+
+appId: com.momstarter.app
+
+---
+
+# ── 1. Launch fresh (clearState resets Keychain → login required) ─────────────
+- launchApp:
+    clearState: true
+
+- extendedWaitUntil:
+    visible:
+      id: welcome-login-btn
+    timeout: 8000
+
+# ── 2. Login ─────────────────────────────────────────────────────────────────
+- tapOn:
+    id: welcome-login-btn
+
+- tapOn:
+    id: login-email
+- clearText
+- inputText: mom@test.local
+
+- tapOn:
+    id: login-password
+- clearText
+- inputText: "MomTest-Password-2026"
+
+- tapOn:
+    id: login-submit
+
+- extendedWaitUntil:
+    visible:
+      id: home-week-hero
+    timeout: 10000
+
+# ── 3. Navigate to Medication Plans ──────────────────────────────────────────
+# home-medication-shortcut routes to the MedicationPlans stack (pregnant lifecycle).
+- tapOn:
+    id: home-medication-shortcut
+
+# MedicationPlanListScreen — either empty-state or plan list
+- extendedWaitUntil:
+    anyOf:
+      - visible:
+          id: med-empty-state
+      - visible:
+          id: med-plan-list
+    timeout: 8000
+
+# ── 4. Open add-plan form ─────────────────────────────────────────────────────
+# Two affordances: FAB (med-add-top) always visible; med-add-first in empty state.
+# Prefer FAB (med-add-top) — always visible regardless of list state.
+- tapOn:
+    id: med-add-top
+
+# MedicationPlanFormSheet slides up as a bottom sheet.
+# Wait for the name input to be visible before interacting.
+- extendedWaitUntil:
+    visible:
+      id: med-name-input
+    timeout: 5000
+
+# ── 5. Enter drug name (INV-M4: verbatim, never parsed) ──────────────────────
+# The form stores this as opaque base64 ciphertext (Option A MVP posture).
+# Maestro inputs plaintext — the app encodes before storing.
+- tapOn:
+    id: med-name-input
+- clearText
+- inputText: "แอมอกซิซิลลิน"
+
+# ── 6. Enter dose (optional, verbatim — INV-M4) ───────────────────────────────
+- tapOn:
+    id: med-dose-input
+- clearText
+- inputText: "1 แคปซูล"
+
+# ── 7. Select daily frequency (RULING 7.1 freq ∈ {one_off, daily, every_n_days, null}) ─
+# Tapping med-freq-chip-daily sets scheduleRule.freq = "daily".
+- tapOn:
+    id: med-freq-chip-daily
+
+# ── 8. Start date / time — use defaults ───────────────────────────────────────
+# Note: med-start-date and med-start-time use iOS date/time pickers.
+# Maestro cannot scroll iOS wheel pickers reliably (see README §7 note).
+# This flow accepts default start = today. For a specific date, use manual TC-MED-01.
+
+# ── 9. Echo line updates — assert it is visible (INV-M4 verbatim preview) ─────
+# med-echo shows the first occurrence time — only structural visibility is verified.
+# Actual text content ("08:00 · แอมอกซิซิลลิน · 1 แคปซูล") is a manual check.
+- assertVisible:
+    id: med-echo
+
+# ── 10. Save ─────────────────────────────────────────────────────────────────
+- tapOn:
+    id: med-save-btn
+
+# ── 11. Sheet dismisses — plan appears in list ────────────────────────────────
+# After save, the form sheet closes and MedicationPlanListScreen shows med-plan-list.
+- extendedWaitUntil:
+    visible:
+      id: med-plan-list
+    timeout: 8000
+
+# ── 12. Verify plan card visible ─────────────────────────────────────────────
+# The list should now contain at least one plan.
+# med-plan-card-${plan.id} is dynamic; assert the list itself is non-empty.
+- assertVisible:
+    id: med-plan-list
+
+# Note: full server round-trip (sync/push applied → pull → plan re-appears after refresh)
+# can be verified by navigating away and back — outside scope of this flow.
+
+# End of flow 14 — medication plan added and visible in list.

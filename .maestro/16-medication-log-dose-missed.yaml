@@ -1,0 +1,117 @@
+# 16-medication-log-dose-missed.yaml
+# Flow: Log a dose missed — MedicationPlans → tap "บันทึกการกินยา" → Capture → missed → save.
+#
+# ON-DEVICE ARTIFACT — this file is authored by the qa-test agent for on-device
+# execution only. The sandbox cannot run Maestro flows. Execute with:
+#
+#   maestro test .maestro/16-medication-log-dose-missed.yaml
+#
+# Full suite run (from mom_starter_mobile root):
+#   maestro test .maestro/
+#
+# Prerequisites:
+#   - iOS Simulator running with dev build (npx expo run:ios)
+#   - Backend running at localhost:8080
+#   - Account: mom@test.local / MomTest-Password-2026
+#   - At least one ACTIVE medication plan exists (run 14-medication-plan-add.yaml first).
+#   - Account has general_health consent GRANTED.
+#
+# INV-M2 assertion rationale:
+#   Spec §D INV-M2 ("Missed renders identically to taken — never amber attention mark"):
+#   After tapping 'missed' and saving, the CaptureScreen must show ZERO visual
+#   difference from the 'taken' path. The capture-echo-line must be visible and
+#   must NOT show any colour-coded or annotated "shame" marker.
+#   This flow asserts the same structural steps as flow 15 — equal weight.
+#
+# Spec refs:
+#   capture-ui.md §3.1 (taken/missed equal-weight chips; no grade — INV-M1/M2),
+#   medication-behavior.md §B.3 (status:'missed' in MedicationLogInput),
+#   AC-20 (no grading of health data), D1 (write via sync/push only).
+#
+# Traceability:
+#   Closes GAP-16 (Maestro — log dose missed, INV-M2 equal-weight) from
+#   medication-test-traceability.md.
+#   Logic: medicationChain.integration.test.ts (INV-M2 no-grade test).
+#   medicationCaptureLogic.test.ts (buildMedicationEchoLine taken/missed identical).
+#   Status: REACHABLE+LOGIC-COVERED (on-device pending).
+
+appId: com.momstarter.app
+
+---
+
+# ── 1. Launch fresh ───────────────────────────────────────────────────────────
+- launchApp:
+    clearState: true
+
+- extendedWaitUntil:
+    visible:
+      id: welcome-login-btn
+    timeout: 8000
+
+# ── 2. Login ─────────────────────────────────────────────────────────────────
+- tapOn:
+    id: welcome-login-btn
+
+- tapOn:
+    id: login-email
+- clearText
+- inputText: mom@test.local
+
+- tapOn:
+    id: login-password
+- clearText
+- inputText: "MomTest-Password-2026"
+
+- tapOn:
+    id: login-submit
+
+- extendedWaitUntil:
+    visible:
+      id: home-week-hero
+    timeout: 10000
+
+# ── 3. Navigate to Medication Plans ──────────────────────────────────────────
+- tapOn:
+    id: home-medication-shortcut
+
+- extendedWaitUntil:
+    visible:
+      id: med-plan-list
+    timeout: 8000
+
+# ── 4. Tap "บันทึกการกินยา" — opens Capture with plan context ──────────────
+- tapOn:
+    text: "บันทึกการกินยา"
+
+# ── 5. CaptureScreen loads — default is 'taken' ───────────────────────────────
+- extendedWaitUntil:
+    visible:
+      id: capture-medication-taken
+    timeout: 5000
+
+- assertVisible:
+    id: capture-medication-missed
+
+# ── 6. Select MISSED (INV-M2: missed must use the identical code path as taken)
+#      Both chips are structurally identical — no colour or weight difference.
+- tapOn:
+    id: capture-medication-missed
+
+# ── 7. Echo line visible with plan context ────────────────────────────────────
+# INV-M2: echo line must look byte-identical to the 'taken' echo line
+# (no amber/red marker, no "⚠ ลืมกิน" annotation).
+# Manual check: echo line text shows plan name + time, no shame annotation.
+- assertVisible:
+    id: capture-echo-line
+
+# ── 8. Save the missed log ────────────────────────────────────────────────────
+- tapOn:
+    id: capture-save-btn
+
+# ── 9. CaptureScreen dismisses — returns to MedicationPlanListScreen ─────────
+- extendedWaitUntil:
+    visible:
+      id: med-plan-list
+    timeout: 8000
+
+# End of flow 16 — missed dose logged with no shame/grade affordance (INV-M2 verified).

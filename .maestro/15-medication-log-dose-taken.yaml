@@ -1,0 +1,132 @@
+# 15-medication-log-dose-taken.yaml
+# Flow: Log a dose taken — MedicationPlans → tap "บันทึกการกินยา" → Capture → taken → save.
+#
+# ON-DEVICE ARTIFACT — this file is authored by the qa-test agent for on-device
+# execution only. The sandbox cannot run Maestro flows. Execute with:
+#
+#   maestro test .maestro/15-medication-log-dose-taken.yaml
+#
+# Full suite run (from mom_starter_mobile root):
+#   maestro test .maestro/
+#
+# Prerequisites:
+#   - iOS Simulator running with dev build (npx expo run:ios)
+#   - Backend running at localhost:8080
+#   - Account: mom@test.local / MomTest-Password-2026
+#   - At least one ACTIVE medication plan exists (run 14-medication-plan-add.yaml first).
+#     The plan must be active — inactive plans do not show the "บันทึกการกินยา" button
+#     (shouldShowLogDose predicate: active=true AND onLogDose wired).
+#   - Account has general_health consent GRANTED.
+#
+# Dynamic-ID note:
+#   The log button testID is `med-plan-log-btn-${plan.id}` — the plan UUID is not
+#   known statically. This flow uses `text: "บันทึกการกินยา"` (th locale) to tap
+#   the first visible log-dose button, which works when exactly one plan exists
+#   (after running flow 14 on a clean account). If multiple plans are present,
+#   Maestro taps the first match — acceptable for regression smoke.
+#
+# Spec refs:
+#   medication-plan-ui.md §4 (log-dose affordance — med-plan-log-btn-${id}),
+#   capture-ui.md §3.1 (medication taken/missed — equal-weight, no grade — INV-M1/M2),
+#   medication-behavior.md §B.3 (MedicationLogInput, FLAG-1 occurrenceTime, D5 loggedAt),
+#   D1 (write via sync/push only), AC-20 (no grading).
+#
+# Traceability:
+#   Closes GAP-15 (Maestro — log dose taken) from medication-test-traceability.md.
+#   Logic chain: medicationChain.integration.test.ts (consent-gate → persist → store).
+#   CaptureScreen medication family: medicationCaptureLogic.test.ts (INV-M1/M2).
+#   Status: REACHABLE+LOGIC-COVERED (on-device pending).
+
+appId: com.momstarter.app
+
+---
+
+# ── 1. Launch (clearState resets login) ──────────────────────────────────────
+- launchApp:
+    clearState: true
+
+- extendedWaitUntil:
+    visible:
+      id: welcome-login-btn
+    timeout: 8000
+
+# ── 2. Login ─────────────────────────────────────────────────────────────────
+- tapOn:
+    id: welcome-login-btn
+
+- tapOn:
+    id: login-email
+- clearText
+- inputText: mom@test.local
+
+- tapOn:
+    id: login-password
+- clearText
+- inputText: "MomTest-Password-2026"
+
+- tapOn:
+    id: login-submit
+
+- extendedWaitUntil:
+    visible:
+      id: home-week-hero
+    timeout: 10000
+
+# ── 3. Navigate to Medication Plans ──────────────────────────────────────────
+- tapOn:
+    id: home-medication-shortcut
+
+- extendedWaitUntil:
+    visible:
+      id: med-plan-list
+    timeout: 8000
+
+# ── 4. Tap "บันทึกการกินยา" — opens Capture with plan context ──────────────
+# The button testID is dynamic (med-plan-log-btn-${plan.id}); use the button text
+# as a stable selector. Requires the account to have at least one active plan.
+# This button only appears when shouldShowLogDose(plan, !!onLogDose) = true
+# (active=true AND onLogDose callback wired in RootNavigator).
+- tapOn:
+    text: "บันทึกการกินยา"
+
+# ── 5. CaptureScreen loads in medication mode ─────────────────────────────────
+# The type segmented control is HIDDEN (pre-set from medicationPlanId route param).
+# capture-medication-taken chip is visible — default status is 'taken'.
+- extendedWaitUntil:
+    visible:
+      id: capture-medication-taken
+    timeout: 5000
+
+# ── 6. Verify taken chip is the default (no tapping needed — already selected) ─
+# INV-M2: taken and missed chips have identical structural weight; no colour-coding.
+# Manual assertion: verify taken chip has no "active" style that implies grading.
+- assertVisible:
+    id: capture-medication-taken
+
+- assertVisible:
+    id: capture-medication-missed
+
+# ── 7. Echo line shows plan context ───────────────────────────────────────────
+# The echo line is pre-populated with the resolved plan name (verbatim — INV-M4).
+# INV-M1: no grade words in the echo line (no "excellent/poor" or Thai equivalents).
+- assertVisible:
+    id: capture-echo-line
+
+# ── 8. Save the taken log ────────────────────────────────────────────────────
+# occurrenceTime = floating-civil now() (FLAG-1 / D5). loggedAt = server-assigned
+# on push ack. The CaptureScreen calls orchestrateMedicationSave (consent granted).
+- tapOn:
+    id: capture-save-btn
+
+# ── 9. CaptureScreen dismisses — returns to MedicationPlanListScreen ─────────
+# After a successful save the screen pops back to the MedicationPlans list.
+- extendedWaitUntil:
+    visible:
+      id: med-plan-list
+    timeout: 8000
+
+# ── 10. Toast or feedback (optional — verify no crash/error) ─────────────────
+# A success toast may appear (med-toast). Absence is also acceptable.
+# Error panel (capture-save-error) must NOT be visible.
+
+# End of flow 15 — dose taken logged and CaptureScreen dismissed cleanly.

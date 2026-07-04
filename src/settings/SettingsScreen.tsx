@@ -138,10 +138,10 @@ export function SettingsScreen({
   const [stepUpDegraded, setStepUpDegraded] = useState(false);
   const [deleteInFlight, setDeleteInFlight] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
-  // Floor text — PRESERVED across nudge export and step-up returns (M-4, AR-AC-28)
+  // Floor text — PRESERVED across nudge export and step-up returns (AR-AC-28)
   const [confirmInput, setConfirmInput] = useState('');
-  // Whether the current export is from the nudge (determines CONFIRM_OPEN restore)
-  const nudgeExportRef = useRef(false);
+  // nudgeExportRef REMOVED (M-4): the fromNudge flag flows as a parameter to
+  // runExportFlow(fromNudge) directly — the ref was written but never read.
 
   // E-13 synchronous double-tap guard — ref so mutations are visible before re-render
   const deleteLockRef = useRef(false);
@@ -236,11 +236,10 @@ export function SettingsScreen({
 
         case 'restore_confirm':
           // Nudge export ended (any outcome) → re-open delete confirm sheet (AR-AC-19)
-          // Floor text (confirmInput) is preserved in state — no reset (M-4)
+          // Floor text (confirmInput) is preserved in state — no reset (AR-AC-28)
           setExportPhase('EXPORT_IDLE');
           setExportErrorMsg(null);
           setDeleteSheetVisible(true);
-          nudgeExportRef.current = false;
           break;
 
         case 'show_error':
@@ -267,12 +266,10 @@ export function SettingsScreen({
   const handleExportRowTap = useCallback(() => {
     // Guard: double-tap suppressed by the EXPORT_IN_PROGRESS state (row disabled)
     if (exportPhase !== 'EXPORT_IDLE') return;
-    nudgeExportRef.current = false;
     void runExportFlow(false);
   }, [exportPhase, runExportFlow]);
 
   const handleExportRetry = useCallback(() => {
-    nudgeExportRef.current = false;
     void runExportFlow(false);
   }, [runExportFlow]);
 
@@ -312,10 +309,9 @@ export function SettingsScreen({
 
   // "Download my data first" from the nudge
   const handleNudgeDownloadTap = useCallback(() => {
-    // Dismiss sheet temporarily; run export; re-open on any outcome (FLAG-D1)
+    // Dismiss sheet temporarily; run export with fromNudge=true; re-open on any outcome (FLAG-D1)
     setDeleteSheetVisible(false);
-    nudgeExportRef.current = true;
-    // confirmInput is NOT reset — preserved for when the sheet re-opens (M-4, AR-AC-28)
+    // confirmInput is NOT reset — preserved for when the sheet re-opens (AR-AC-28)
     void runExportFlow(true);
   }, [runExportFlow]);
 

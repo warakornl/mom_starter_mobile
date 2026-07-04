@@ -874,8 +874,14 @@ const th = {
   // Used by SnoozeChooserSheet and the CalendarScreen snooze path.
   // Thai copy is DRAFT pending licensed lawyer review before launch.
   'reminder.snooze.title': 'เลื่อนเตือน',
-  /** template: {time} = computed re-alert time "HH:mm" */
+  /** template: {time} = computed re-alert time "HH:mm" — visible sub-label */
   'reminder.snooze.alertsAt': 'จะแจ้งเตือนเวลา {time}',
+  /**
+   * SR-only a11y label for the re-alert time — screens-spec §5.3/§5.6.
+   * Includes "อีกครั้ง" (again) to match spec. NOT used for visible text.
+   * template: {time} = "HH:mm"
+   */
+  'reminder.snooze.alertsAt.sr': 'จะแจ้งเตือนอีกครั้งเวลา {time}',
   'reminder.snooze.opt.10': '10 นาที',
   'reminder.snooze.opt.30': '30 นาที',
   'reminder.snooze.opt.60': '60 นาที',
@@ -1735,8 +1741,10 @@ const en: MsgShape = {
 
   // ── Snooze chooser (Task 5 — medication-only 10/30/60 picker) ────────────────
   'reminder.snooze.title': 'Snooze reminder',
-  /** template: {time} = computed re-alert time "HH:mm" */
+  /** template: {time} = computed re-alert time "HH:mm" — visible sub-label */
   'reminder.snooze.alertsAt': 'Alerts again at {time}',
+  /** SR-only a11y label for the re-alert time — screens-spec §5.3/§5.6. NOT used for visible text. */
+  'reminder.snooze.alertsAt.sr': 'Will alert again at {time}',
   'reminder.snooze.opt.10': '10 minutes',
   'reminder.snooze.opt.30': '30 minutes',
   'reminder.snooze.opt.60': '60 minutes',

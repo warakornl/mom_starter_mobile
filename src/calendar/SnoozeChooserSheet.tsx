@@ -15,8 +15,18 @@
  * Accessibility (screens-spec §5.6):
  *   - Option rows min-height 56dp (≥48dp spec, larger for medication snooze)
  *   - Cancel button min-height 44dp
- *   - SR label: "เลื่อนเตือน N นาที — จะแจ้งเตือนอีกครั้งเวลา HH:mm"
+ *   - SR label: "เลื่อนเตือน N นาที — จะแจ้งเตือนอีกครั้งเวลา HH:mm" (reminder.snooze.alertsAt.sr)
  *   - Sheet role="dialog", aria-modal, focus trap (React Native Modal provides this)
+ *   - Focus order: title → opt10 → opt30 → opt60 → Cancel (screens-spec §5.6)
+ *   - Fix A: plain <View> for sheet body (not TouchableOpacity) so VoiceOver
+ *     traverses children individually. Sibling Pressable scrim for tap-to-dismiss.
+ *
+ * Layout (Fix A + Minor 2):
+ *   Modal
+ *     View (overlay: flex:1, justifyContent:flex-end, bg semi-transparent)
+ *       Pressable (scrim: absoluteFill, tap=dismiss, accessible=false)
+ *       ScrollView (sheet: maxHeight 85%, NOT a TouchableOpacity wrapper)
+ *         ... drag handle, title, divider, options, divider, cancel ...
  *
  * SD-11: no drug name is passed to or rendered by this component; the sheet
  * displays only the generic snooze title and duration options.
@@ -29,7 +39,9 @@ import {
   View,
   Text,
   TouchableOpacity,
+  Pressable,
   Modal,
+  ScrollView,
   StyleSheet,
 } from 'react-native';
 import { useT } from '../i18n/LanguageContext';
@@ -43,8 +55,9 @@ export interface SnoozeChooserSheetProps {
   /** Whether the sheet is visible. */
   visible: boolean;
   /**
-   * Current wall-clock time — injected so the alertsAt sub-label is computed
-   * at open time (not import time). Pass `new Date()` in production.
+   * Snapshot of wall-clock time taken when the chooser was opened.
+   * Stable across renders so the "alerts at" times don't drift.
+   * Set in pendingSnoozeRef.openedAt by CalendarScreen when opening the sheet.
    */
   now: Date;
   /**
@@ -79,20 +92,51 @@ export function SnoozeChooserSheet({
       onRequestClose={onDismiss}
       accessibilityViewIsModal
     >
-      <TouchableOpacity
+      {/*
+        Overlay: layout container + background color.
+        NOT itself focusable — VoiceOver traverses only the sheet children.
+        Fix A: plain View (not TouchableOpacity) so the accessible tree is NOT
+        collapsed. justifyContent:flex-end positions the sheet at the bottom.
+      */}
+      <View
         style={styles.overlay}
-        activeOpacity={1}
-        onPress={onDismiss}
-        accessibilityLabel={t('reminder.snooze.cancel')}
+        importantForAccessibility="no"
+        accessible={false}
       >
-        {/* Sheet — stopPropagation so tapping inside the sheet does not dismiss */}
-        <TouchableOpacity
-          activeOpacity={1}
+        {/*
+          Scrim: absolutely-filled Pressable behind the sheet.
+          Catches taps on the overlay area (above/beside the sheet) → dismiss.
+          accessible={false}: VoiceOver does not focus the scrim; users dismiss
+          via the Cancel button in the sheet. importantForAccessibility="no"
+          hides it from the Android a11y tree as well.
+          Fix A (sibling pattern): rendered BEFORE the sheet so the sheet
+          (later sibling) is painted on top — taps on the sheet area reach
+          sheet children first, not this Pressable.
+        */}
+        <Pressable
+          style={StyleSheet.absoluteFill}
+          onPress={onDismiss}
+          accessible={false}
+          importantForAccessibility="no"
+        />
+
+        {/*
+          Sheet body: plain View (not TouchableOpacity) so VoiceOver can
+          individually focus the title, each option row, and the Cancel button
+          (screens-spec §5.6 focus order: title → opt10 → opt30 → opt60 → Cancel).
+          Fix A: removing the TouchableOpacity wrapper prevents VoiceOver from
+          collapsing children into a single grouped accessible node.
+          Minor 2: wrapped in ScrollView with maxHeight:85% so rows don't
+          overflow at ≥200% Dynamic Type (screens-spec §5.6).
+        */}
+        <ScrollView
           style={styles.sheet}
-          accessibilityRole="none"
+          contentContainerStyle={styles.sheetContent}
+          showsVerticalScrollIndicator={false}
+          testID="snooze-chooser-sheet"
         >
-          {/* Drag handle bar */}
-          <View style={styles.dragHandle} accessibilityElementsHidden />
+          {/* Drag handle bar — decorative, hidden from a11y */}
+          <View style={styles.dragHandle} accessibilityElementsHidden importantForAccessibility="no-hide-descendants" />
 
           {/* Sheet title */}
           <Text
@@ -103,7 +147,7 @@ export function SnoozeChooserSheet({
             {t('reminder.snooze.title')}
           </Text>
 
-          <View style={styles.divider} />
+          <View style={styles.divider} accessibilityElementsHidden />
 
           {/* Option rows */}
           {options.map((opt) => {
@@ -111,8 +155,11 @@ export function SnoozeChooserSheet({
               opt.minutes === 10 ? 'reminder.snooze.opt.10'
               : opt.minutes === 30 ? 'reminder.snooze.opt.30'
               : 'reminder.snooze.opt.60';
+            // Visible sub-label uses alertsAt (without "อีกครั้ง") — screens-spec §5.3
             const alertsAtLabel = interpolate(t('reminder.snooze.alertsAt'), { time: opt.alertsAtStr });
-            const a11yLabel = `${t('reminder.snooze.title')} ${t(optKey)} — ${alertsAtLabel}`;
+            // SR-only a11y label uses alertsAt.sr ("อีกครั้ง") — screens-spec §5.6 Minor-1
+            const alertsAtSrLabel = interpolate(t('reminder.snooze.alertsAt.sr'), { time: opt.alertsAtStr });
+            const a11yLabel = `${t('reminder.snooze.title')} ${t(optKey)} — ${alertsAtSrLabel}`;
 
             return (
               <TouchableOpacity
@@ -130,12 +177,12 @@ export function SnoozeChooserSheet({
                   <Text style={styles.optionLabel}>{t(optKey)}</Text>
                   <Text style={styles.optionSublabel}>{alertsAtLabel}</Text>
                 </View>
-                <Text style={styles.chevron} accessibilityElementsHidden>{'›'}</Text>
+                <Text style={styles.chevron} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">{'›'}</Text>
               </TouchableOpacity>
             );
           })}
 
-          <View style={styles.divider} />
+          <View style={styles.divider} accessibilityElementsHidden />
 
           {/* Cancel row */}
           <TouchableOpacity
@@ -147,8 +194,8 @@ export function SnoozeChooserSheet({
           >
             <Text style={styles.cancelLabel}>{t('reminder.snooze.cancel')}</Text>
           </TouchableOpacity>
-        </TouchableOpacity>
-      </TouchableOpacity>
+        </ScrollView>
+      </View>
     </Modal>
   );
 }
@@ -161,10 +208,15 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(58, 42, 48, 0.4)',
     justifyContent: 'flex-end',
   },
+  // Minor 2: maxHeight 85% mirrors JitConsentSheet to prevent overflow at
+  // ≥200% Dynamic Type (screens-spec §5.6).
   sheet: {
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
+    maxHeight: '85%',
+  },
+  sheetContent: {
     paddingBottom: 40,
   },
   dragHandle: {

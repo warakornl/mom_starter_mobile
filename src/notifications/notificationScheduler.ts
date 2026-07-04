@@ -137,12 +137,22 @@ function addCivilDays(isoDate: string, n: number): string {
  * Pure function — no side effects, no native calls. Accepts all reminders
  * (any type); budget is shared across all types (soonest-first).
  *
- * @param reminders     All ReminderRecords (active + inactive; function filters)
- * @param excludedIds   Set of occurrence ids already done/snoozed (not to re-schedule)
- * @param now           Current local wall-clock time
- * @param windowDays    Rolling-window horizon in civil days (default: WINDOW_DAYS)
- * @param budget        Max pending notifications across all types (default: PENDING_BUDGET)
- * @returns             ScheduleEntry[], sorted soonest-first, capped at budget
+ * Task 5 update — snoozedUntilMap:
+ *   For snoozed occurrences (approach A), the caller passes a map of
+ *   occurrenceId → snoozedUntil Date (built via buildSnoozedUntilMap).
+ *   When an occurrence id appears in the map:
+ *     - If snoozedUntil > now: schedule at snoozedUntil (not the original civil time)
+ *     - If snoozedUntil ≤ now: skip (alarm already fired/missed)
+ *   This ensures reanchor() keeps the snooze alarm alive across foreground
+ *   transitions without ever scheduling two alarms for the same occurrence.
+ *
+ * @param reminders       All ReminderRecords (active + inactive; function filters)
+ * @param excludedIds     Set of occurrence ids done (not to re-schedule)
+ * @param now             Current local wall-clock time
+ * @param windowDays      Rolling-window horizon in civil days (default: WINDOW_DAYS)
+ * @param budget          Max pending notifications across all types (default: PENDING_BUDGET)
+ * @param snoozedUntilMap Map of occurrenceId → future snoozedUntil Date (Task 5)
+ * @returns               ScheduleEntry[], sorted soonest-first, capped at budget
  */
 export function buildScheduleSet(
   reminders: ReminderRecord[],
@@ -150,6 +160,7 @@ export function buildScheduleSet(
   now: Date,
   windowDays: number = WINDOW_DAYS,
   budget: number = PENDING_BUDGET,
+  snoozedUntilMap: ReadonlyMap<string, Date> = new Map(),
 ): ScheduleEntry[] {
   const windowStart = toCivilDate(now);
   const windowEnd = addCivilDays(windowStart, windowDays);
@@ -186,16 +197,36 @@ export function buildScheduleSet(
       reminder.type === 'medication' ? MEDICATION_TITLE_TH : reminder.displayTitle;
 
     for (const scheduledLocalTime of civilTimes) {
+      // Compute the deterministic occurrence id first (needed for snoozedUntilMap lookup)
+      const occurrenceId = computeOccurrenceId(reminder.id, scheduledLocalTime);
+
+      // Skip done occurrences (terminal; MR-AC-11)
+      if (excludedIds.has(occurrenceId)) continue;
+
+      // Task 5 — snoozed occurrence: schedule at snoozedUntil instead of original civil time.
+      // The original scheduledLocalTime is in the past for a snoozed occurrence, so we must
+      // check the snooze map BEFORE applying the fireAtMs <= nowMs filter.
+      if (snoozedUntilMap.has(occurrenceId)) {
+        const snoozedFireAt = snoozedUntilMap.get(occurrenceId)!;
+        if (snoozedFireAt.getTime() > nowMs) {
+          // Snooze alarm is in the future — schedule at snoozedUntil
+          all.push({
+            occurrenceId,
+            reminderId: reminder.id,
+            scheduledLocalTime,
+            fireAt: snoozedFireAt,
+            title,
+          });
+        }
+        // Past snoozedUntil → skip (alarm already fired/missed)
+        continue;
+      }
+
+      // Normal case: use original scheduled civil time
       const fireAtMs = civilToFireAtMs(scheduledLocalTime);
 
       // Only schedule future occurrences (strictly after now)
       if (fireAtMs <= nowMs) continue;
-
-      // Compute the deterministic occurrence id
-      const occurrenceId = computeOccurrenceId(reminder.id, scheduledLocalTime);
-
-      // Skip done/snoozed occurrences
-      if (excludedIds.has(occurrenceId)) continue;
 
       all.push({
         occurrenceId,
@@ -212,6 +243,56 @@ export function buildScheduleSet(
 
   // Cap at the shared pending budget
   return all.slice(0, budget);
+}
+
+// ─── scheduleSnooze ───────────────────────────────────────────────────────────
+
+/**
+ * Schedule exactly one OS notification for a snoozed occurrence at snoozedUntil.
+ *
+ * Called immediately when the user picks a snooze duration (10/30/60 min) so the
+ * alarm is set right away (no waiting for the next reanchor). Scheduling the same
+ * occurrence id at a new time is an OS-level idempotent replace — re-snooze calls
+ * this function a second time with a new snoozedUntil, which replaces the first
+ * pending alarm (never two alarms per occurrence — MR-E11 / INV-MR-5).
+ *
+ * SD-11 compliance: the title parameter MUST be the generic constant
+ * MEDICATION_TITLE_TH for medication occurrences (never the drug name).
+ * For non-medication, pass the reminder's displayTitle.
+ *
+ * Permission-declined is NON-FATAL (spec §1.5 / §2.4): the snoozed status and
+ * snoozedUntil are already written to the store by the caller; if permission is
+ * absent, the snooze is a calendar/data fact only — no OS alarm fires.
+ *
+ * @param occurrenceId  Deterministic uuidv5 occurrence id (OS notification id)
+ * @param snoozedUntil  Absolute Date at which the snooze alarm should fire
+ * @param title         Lock-screen/banner title (SD-11: generic constant for medication)
+ * @param adapter       NotificationsAdapter (real or mock)
+ */
+export async function scheduleSnooze(
+  occurrenceId: string,
+  snoozedUntil: Date,
+  title: string,
+  adapter: NotificationsAdapter,
+): Promise<void> {
+  // 1. Request permission — non-fatal if declined
+  let granted = false;
+  try {
+    const result = await adapter.requestPermissionsAsync();
+    granted = result.granted;
+  } catch {
+    // Permission check failed — treat as declined (non-fatal)
+    granted = false;
+  }
+
+  if (!granted) return;
+
+  // 2. Schedule the snooze alarm (same id replaces any existing pending alarm)
+  try {
+    await adapter.scheduleAsync(occurrenceId, title, '', snoozedUntil);
+  } catch {
+    // Individual scheduling failure is non-fatal — snoozedUntil is still in the store
+  }
 }
 
 // ─── scheduleUpcoming ─────────────────────────────────────────────────────────

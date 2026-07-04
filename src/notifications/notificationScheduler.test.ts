@@ -33,6 +33,7 @@ import {
   scheduleUpcoming,
   cancelForOccurrence,
   reanchor,
+  scheduleSnooze,
 } from './notificationScheduler';
 import type { ReminderRecord } from '../sync/syncTypes';
 import { computeOccurrenceId } from '../occurrence/occurrenceId';
@@ -499,5 +500,153 @@ describe('iOS 64-cap / ≤60 budget — BID plan coverage window', () => {
     // Total = 23
     expect(entries.length).toBe(23);
     expect(entries.length).toBeLessThanOrEqual(PENDING_BUDGET);
+  });
+});
+
+// ─── Task 5: buildScheduleSet — snoozedUntilMap ───────────────────────────────
+
+describe('buildScheduleSet — snoozedUntilMap (Task 5)', () => {
+  it('schedules a snoozed occurrence at its future snoozedUntil, not original scheduledLocalTime', () => {
+    // Occurrence id for 2026-07-04T08:00 — which is in the past (before noon)
+    const reminder = makeReminder({ id: 'rem-snooze-1', startAt: '2026-07-04T08:00' });
+    const oid = computeOccurrenceId('rem-snooze-1', '2026-07-04T08:00');
+    const snoozedUntil = new Date(NOW_LOCAL.getTime() + 30 * 60 * 1000); // 12:30 local
+
+    const snoozedUntilMap = new Map([[oid, snoozedUntil]]);
+    const entries = buildScheduleSet([reminder], new Set(), NOW_LOCAL, WINDOW_DAYS, PENDING_BUDGET, snoozedUntilMap);
+
+    const snoozedEntry = entries.find(e => e.occurrenceId === oid);
+    expect(snoozedEntry).toBeDefined();
+    // fireAt must be snoozedUntil, not the original past civil time
+    expect(snoozedEntry!.fireAt.getTime()).toBe(snoozedUntil.getTime());
+  });
+
+  it('does NOT schedule a snoozed occurrence whose snoozedUntil is in the past', () => {
+    const reminder = makeReminder({ id: 'rem-snooze-past', startAt: '2026-07-04T08:00' });
+    const oid = computeOccurrenceId('rem-snooze-past', '2026-07-04T08:00');
+    const pastSnoozedUntil = new Date(NOW_LOCAL.getTime() - 5 * 60 * 1000); // 5 min before now
+
+    const snoozedUntilMap = new Map([[oid, pastSnoozedUntil]]);
+    const entries = buildScheduleSet([reminder], new Set(), NOW_LOCAL, WINDOW_DAYS, PENDING_BUDGET, snoozedUntilMap);
+
+    const snoozedEntry = entries.find(e => e.occurrenceId === oid);
+    expect(snoozedEntry).toBeUndefined();
+  });
+
+  it('does not schedule a done occurrence even if (hypothetically) in snoozedUntilMap', () => {
+    // excludedIds (done) takes priority over snoozedUntilMap
+    const reminder = makeReminder({ id: 'rem-snooze-done', startAt: '2026-07-04T08:00' });
+    const oid = computeOccurrenceId('rem-snooze-done', '2026-07-04T08:00');
+    const futureTime = new Date(NOW_LOCAL.getTime() + 30 * 60 * 1000);
+
+    const excludedIds = new Set([oid]); // done
+    const snoozedUntilMap = new Map([[oid, futureTime]]);
+    const entries = buildScheduleSet([reminder], excludedIds, NOW_LOCAL, WINDOW_DAYS, PENDING_BUDGET, snoozedUntilMap);
+
+    const snoozedEntry = entries.find(e => e.occurrenceId === oid);
+    expect(snoozedEntry).toBeUndefined();
+  });
+
+  it('continues to schedule due occurrences normally when snoozedUntilMap is empty', () => {
+    const reminder = makeReminder({ id: 'rem-normal' });
+    const entries = buildScheduleSet([reminder], new Set(), NOW_LOCAL, WINDOW_DAYS, PENDING_BUDGET, new Map());
+    // same as without snoozedUntilMap — at least 6 future occurrences this week
+    expect(entries.length).toBeGreaterThanOrEqual(6);
+  });
+
+  it('uses snoozedUntil as fireAt in sorted order (snoozed alarms are included in shared budget)', () => {
+    const reminder = makeReminder({ id: 'rem-sort-snooze', startAt: '2026-07-04T08:00' });
+    const oid = computeOccurrenceId('rem-sort-snooze', '2026-07-04T08:00');
+    // snoozedUntil = now + 10 min → should appear early in sorted output
+    const earlySnooze = new Date(NOW_LOCAL.getTime() + 10 * 60 * 1000);
+    const snoozedUntilMap = new Map([[oid, earlySnooze]]);
+    const entries = buildScheduleSet([reminder], new Set(), NOW_LOCAL, WINDOW_DAYS, PENDING_BUDGET, snoozedUntilMap);
+
+    // Snooze entry should be first (earliest fireAt)
+    expect(entries[0].occurrenceId).toBe(oid);
+    expect(entries[0].fireAt.getTime()).toBe(earlySnooze.getTime());
+  });
+
+  it('re-snooze replaces the pending alarm (same oid, new snoozedUntil — no duplicates)', () => {
+    const reminder = makeReminder({ id: 'rem-resnooze', startAt: '2026-07-04T08:00' });
+    const oid = computeOccurrenceId('rem-resnooze', '2026-07-04T08:00');
+    // First snooze: 10 min from now
+    const firstSnooze = new Map([[oid, new Date(NOW_LOCAL.getTime() + 10 * 60 * 1000)]]);
+    const entries1 = buildScheduleSet([reminder], new Set(), NOW_LOCAL, WINDOW_DAYS, PENDING_BUDGET, firstSnooze);
+    const count1 = entries1.filter(e => e.occurrenceId === oid).length;
+    expect(count1).toBe(1); // exactly one alarm for this oid
+
+    // Re-snooze: 30 min from now — only entry in new snoozedUntilMap
+    const secondSnooze = new Map([[oid, new Date(NOW_LOCAL.getTime() + 30 * 60 * 1000)]]);
+    const entries2 = buildScheduleSet([reminder], new Set(), NOW_LOCAL, WINDOW_DAYS, PENDING_BUDGET, secondSnooze);
+    const count2 = entries2.filter(e => e.occurrenceId === oid).length;
+    expect(count2).toBe(1); // still exactly one alarm — replaced, never two
+    expect(entries2.find(e => e.occurrenceId === oid)!.fireAt.getTime())
+      .toBe(NOW_LOCAL.getTime() + 30 * 60 * 1000);
+  });
+});
+
+// ─── Task 5: scheduleSnooze ────────────────────────────────────────────────────
+
+describe('scheduleSnooze (Task 5)', () => {
+  it('schedules the snooze alarm at snoozedUntil when permission is granted', async () => {
+    const adapter = makeMockAdapter();
+    const oid = 'test-occ-id-snooze';
+    const snoozedUntil = new Date(NOW_LOCAL.getTime() + 10 * 60 * 1000);
+    const title = MEDICATION_TITLE_TH;
+
+    await scheduleSnooze(oid, snoozedUntil, title, adapter);
+
+    expect(adapter.requestPermissionsAsync).toHaveBeenCalledTimes(1);
+    expect(adapter.scheduleAsync).toHaveBeenCalledTimes(1);
+    expect(adapter.scheduleAsync).toHaveBeenCalledWith(oid, title, '', snoozedUntil);
+  });
+
+  it('does NOT schedule when permission is declined (non-fatal)', async () => {
+    const adapter = makeMockAdapter({
+      requestPermissionsAsync: jest.fn().mockResolvedValue({ granted: false }),
+    });
+    const oid = 'test-occ-id-declined';
+    const snoozedUntil = new Date(NOW_LOCAL.getTime() + 30 * 60 * 1000);
+
+    await scheduleSnooze(oid, snoozedUntil, MEDICATION_TITLE_TH, adapter);
+
+    expect(adapter.scheduleAsync).not.toHaveBeenCalled();
+  });
+
+  it('is non-fatal when permission check throws', async () => {
+    const adapter = makeMockAdapter({
+      requestPermissionsAsync: jest.fn().mockRejectedValue(new Error('permission error')),
+    });
+
+    await expect(
+      scheduleSnooze('occ-err', new Date(), MEDICATION_TITLE_TH, adapter),
+    ).resolves.toBeUndefined();
+    expect(adapter.scheduleAsync).not.toHaveBeenCalled();
+  });
+
+  it('is non-fatal when scheduleAsync throws', async () => {
+    const adapter = makeMockAdapter({
+      scheduleAsync: jest.fn().mockRejectedValue(new Error('schedule failed')),
+    });
+
+    await expect(
+      scheduleSnooze('occ-err2', new Date(Date.now() + 60000), MEDICATION_TITLE_TH, adapter),
+    ).resolves.toBeUndefined();
+  });
+
+  it('replacing a pending alarm — calling scheduleSnooze twice with same oid schedules the second time', async () => {
+    // OS replaces same-id alarms; scheduling same oid twice = idempotent replace
+    const adapter = makeMockAdapter();
+    const oid = 'occ-replace';
+    const first  = new Date(NOW_LOCAL.getTime() + 10 * 60 * 1000);
+    const second = new Date(NOW_LOCAL.getTime() + 30 * 60 * 1000);
+
+    await scheduleSnooze(oid, first,  MEDICATION_TITLE_TH, adapter);
+    await scheduleSnooze(oid, second, MEDICATION_TITLE_TH, adapter);
+
+    expect(adapter.scheduleAsync).toHaveBeenCalledTimes(2);
+    // Second call uses the new time
+    expect(adapter.scheduleAsync).toHaveBeenNthCalledWith(2, oid, MEDICATION_TITLE_TH, '', second);
   });
 });

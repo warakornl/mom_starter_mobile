@@ -119,7 +119,7 @@ export function ConsentNudgeModal({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(58, 42, 48, 0.5)',
+    backgroundColor: 'rgba(58,42,48,0.4)',
     justifyContent: 'flex-end',
   },
   sheet: {
@@ -131,20 +131,27 @@ const styles = StyleSheet.create({
   content: {
     padding: 24,
     paddingBottom: 40,
+    gap: 12,
   },
   title: {
     fontFamily: 'IBMPlexSans-SemiBold',
     fontSize: 18,
     lineHeight: 28,
     color: '#3A2A30',
-    marginBottom: 12,
   },
   body: {
     fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: 16,
+    lineHeight: 25,
     color: '#5F4A52',
-    marginBottom: 24,
+  },
+  error: {
+    fontFamily: 'IBMPlexSans-Regular',
+    fontSize: 14,
+    color: '#8E3A44',
+    backgroundColor: '#FBEDEE',
+    borderRadius: 8,
+    padding: 12,
   },
   grantBtn: {
     height: 52,
@@ -152,7 +159,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+    marginTop: 8,
   },
   grantBtnLoading: {
     backgroundColor: '#DDA0A6',
@@ -163,25 +170,21 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
   },
   notNowBtn: {
+    height: 48,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 48,
-    marginBottom: 8,
   },
   notNowText: {
     fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 15,
+    fontSize: 16,
     color: '#8E3A44',
-    fontWeight: '700',
   },
-  notNowDisabled: {
-    opacity: 0.5,
-  },
+  notNowDisabled: { opacity: 0.5 },
   changeLaterNote: {
     fontFamily: 'IBMPlexSans-Regular',
     fontSize: 12,
+    lineHeight: 18,
     color: '#94818A',
     textAlign: 'center',
-    marginTop: 4,
   },
 });

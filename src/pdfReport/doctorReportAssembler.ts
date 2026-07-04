@@ -44,6 +44,14 @@
 import type { Locale } from '../auth/types';
 import type { ChecklistItemCategory, SelfLogMetricType } from '../sync/syncTypes';
 import { kickCountChartSvg } from './reportCharts';
+import {
+  computeAdherence,
+  type ReportMedicationPlan,
+  type ReportMedicationLog,
+} from './medicationAdherence';
+
+// Re-export medication types so callers (DoctorPdfScreen, tests) import from one place.
+export type { ReportMedicationPlan, ReportMedicationLog } from './medicationAdherence';
 
 // ─── Input types ──────────────────────────────────────────────────────────────
 
@@ -115,6 +123,20 @@ export interface DoctorReportInput {
    * interpretation, no grading, no colour (spec §A.4, AC-20, INV-S1).
    */
   selfLogs?: ReportSelfLog[];
+  /**
+   * Decoded medication plan records. name/dose must already be decoded from base64
+   * by the caller (DoctorPdfScreen). The assembler renders verbatim — no
+   * interpretation, no grading (§A.5, AC-20, INV-M1).
+   * Adherence (N/M) computed on-device via computeAdherence (RULING 7.3).
+   * Security: NEVER log name or dose — SD-2/SD-5.
+   */
+  medicationPlans?: ReportMedicationPlan[];
+  /**
+   * Live medication log records. note must already be decoded from base64.
+   * Gated on includeSensitiveNotes for PDF inclusion (§A.6).
+   * Security: NEVER log occurrenceTime, note, or medicationPlanId — SD-5.
+   */
+  medicationLogs?: ReportMedicationLog[];
   /** Civil "YYYY-MM-DD" start of the report range (inclusive). */
   dateFrom: string;
   /** Civil "YYYY-MM-DD" end of the report range (inclusive). */
@@ -222,6 +244,19 @@ export const LABELS = {
     lifecycleEnded: 'สิ้นสุดการตั้งครรภ์',
     medTitle: 'ยาและการกินยา / Medication & adherence',
     medPlaceholder: 'ยังไม่มีข้อมูลในช่วงนี้ · ฟีเจอร์บันทึกยายังไม่ถูกสร้าง',
+    /** Empty-range wording for medication section (spec §A.6). */
+    medNoData: 'ไม่มีข้อมูลในช่วงนี้',
+    /** Prefix for adherence count lines: "กินแล้ว N/M วัน" or "กินแล้ว N ครั้ง". */
+    medTakenPrefix: 'กินแล้ว',
+    /** Unit for scheduled adherence: "N/M วัน". */
+    medDays: 'วัน',
+    /** Unit for PRN count: "N ครั้ง". */
+    medTimes: 'ครั้ง',
+    /** Label for self-recorded dose section (ad-hoc + deleted-plan logs). */
+    medAdHocLabel: 'ยาที่บันทึกเอง',
+    /** Status labels for per-dose log rows. */
+    medTakenStatus: 'กินแล้ว',
+    medMissedStatus: 'ไม่ได้กิน',
     kickTitle: 'นับลูกดิ้น / Kick-counts',
     kickDate: 'วันที่',
     kickCount: 'จำนวนครั้ง',
@@ -282,6 +317,19 @@ export const LABELS = {
     lifecycleEnded: 'Ended',
     medTitle: 'Medication & adherence',
     medPlaceholder: 'Not tracked yet in this range · medication logging feature not yet built',
+    /** Empty-range wording for medication section (spec §A.6). */
+    medNoData: 'No data in this range',
+    /** Prefix for adherence count lines: "Taken N/M days" or "Taken N times". */
+    medTakenPrefix: 'Taken',
+    /** Unit for scheduled adherence: "N/M days". */
+    medDays: 'days',
+    /** Unit for PRN count: "N times". */
+    medTimes: 'times',
+    /** Label for self-recorded dose section (ad-hoc + deleted-plan logs). */
+    medAdHocLabel: 'Self-recorded dose',
+    /** Status labels for per-dose log rows. */
+    medTakenStatus: 'taken',
+    medMissedStatus: 'missed',
     kickTitle: 'Kick-counts',
     kickDate: 'Date',
     kickCount: 'Movements',
@@ -341,15 +389,117 @@ function buildProfileSection(profile: ReportProfile, locale: Locale): string {
 /**
  * Medication & adherence section (spec §3, first section, always rendered).
  *
- * DATA-SOURCE GAP: no medication-logging feature exists yet.
- * Renders a placeholder until the medication store is built.
+ * Data-driven: renders real plan/log data once shipped (RULING 7.3).
+ * Adherence computed on-device via computeAdherence (FLAG-4 expansion for M).
+ *
+ * Invariants (AC-20 / INV-M1):
+ *   - "กินแล้ว N/M วัน" and "กินแล้ว N ครั้ง" are plain counts — NEVER graded,
+ *     coloured, or thresholded. 3/31 and 27/31 render with identical surrounding HTML.
+ *   - note is gated on includeSensitiveNotes (§A.6); when false it is omitted.
+ *   - Empty range (no live plans + no logs in range) → medNoData wording, never
+ *     the old "feature not built" placeholder (spec §A.6 empty-range rule).
+ *
+ * Security: no health-data fields are logged here (pure HTML builder).
  */
-function buildMedicationSection(locale: Locale): string {
+function buildMedicationSection(
+  plans: ReportMedicationPlan[],
+  logs: ReportMedicationLog[],
+  dateFrom: string,
+  dateTo: string,
+  locale: Locale,
+  includeSensitiveNotes: boolean,
+): string {
   const L = LABELS[locale];
-  return `
+
+  const { planAdherences, selfRecordedLogs } = computeAdherence(
+    plans,
+    logs,
+    dateFrom,
+    dateTo,
+  );
+
+  // Determine whether there is any medication data to render.
+  // A live plan (even with M=0, N=0) constitutes data — the plan exists.
+  // Self-recorded logs in range also constitute data.
+  const hasData = planAdherences.length > 0 || selfRecordedLogs.length > 0;
+
+  if (!hasData) {
+    // Empty-range wording (spec §A.6) — replaces the old "feature not built" placeholder.
+    return `
     <section>
       <h2>${esc(L.medTitle)}</h2>
-      <p class="placeholder">${esc(L.medPlaceholder)}</p>
+      <p>${esc(L.medNoData)}</p>
+    </section>`;
+  }
+
+  // Filter logs in range per plan (for per-dose row rendering)
+  const logsInRange = logs.filter((log) => {
+    const d = log.occurrenceTime.substring(0, 10);
+    return d >= dateFrom && d <= dateTo;
+  });
+
+  // ── Plan sections ──────────────────────────────────────────────────────────
+  const planSections = planAdherences.map((pa) => {
+    // Plan header: name + dose (verbatim, never parsed)
+    const nameStr = esc(pa.name);
+    const doseStr = pa.dose ? ` ${esc(pa.dose)}` : '';
+
+    // Adherence count line — plain count, never graded (AC-20 / INV-M1)
+    const adherenceLine = pa.isPrn
+      ? `${esc(L.medTakenPrefix)} ${pa.N} ${esc(L.medTimes)}`
+      : `${esc(L.medTakenPrefix)} ${pa.N}/${pa.M} ${esc(L.medDays)}`;
+
+    // Per-dose logs for this plan in range (taken and missed — both neutral facts)
+    const planLogsInRange = logsInRange
+      .filter((log) => log.medicationPlanId === pa.planId)
+      .sort((a, b) => a.occurrenceTime.localeCompare(b.occurrenceTime));
+
+    const logRows = planLogsInRange.map((log) => {
+      const dateStr = esc(formatDateTime(log.occurrenceTime, locale));
+      const statusStr = esc(log.status === 'taken' ? L.medTakenStatus : L.medMissedStatus);
+      const noteRow =
+        includeSensitiveNotes && log.note
+          ? `\n      <tr><td class="med-note-label">${esc(L.selfLogNoteLabel)}</td><td>${esc(log.note)}</td></tr>`
+          : '';
+      return `<tr><td>${dateStr}</td><td>${statusStr}</td></tr>${noteRow}`;
+    }).join('');
+
+    const logsTable = logRows
+      ? `\n    <table><tbody>${logRows}</tbody></table>`
+      : '';
+
+    return `
+    <div class="med-plan">
+      <p class="med-plan-header"><strong>${nameStr}</strong>${doseStr}</p>
+      <p class="med-adherence">${adherenceLine}</p>${logsTable}
+    </div>`;
+  }).join('');
+
+  // ── Self-recorded doses section (ad-hoc + deleted-plan logs) ─────────────
+  let selfRecordedSection = '';
+  if (selfRecordedLogs.length > 0) {
+    const sorted = [...selfRecordedLogs].sort((a, b) =>
+      a.occurrenceTime.localeCompare(b.occurrenceTime),
+    );
+    const selfRows = sorted.map((log) => {
+      const dateStr = esc(formatDateTime(log.occurrenceTime, locale));
+      const statusStr = esc(log.status === 'taken' ? L.medTakenStatus : L.medMissedStatus);
+      const noteRow =
+        includeSensitiveNotes && log.note
+          ? `\n      <tr><td class="med-note-label">${esc(L.selfLogNoteLabel)}</td><td>${esc(log.note)}</td></tr>`
+          : '';
+      return `<tr><td>${dateStr}</td><td>${statusStr}</td></tr>${noteRow}`;
+    }).join('');
+    selfRecordedSection = `
+    <div class="med-adhoc">
+      <p class="med-adhoc-label">${esc(L.medAdHocLabel)}</p>
+      <table><tbody>${selfRows}</tbody></table>
+    </div>`;
+  }
+
+  return `
+    <section>
+      <h2>${esc(L.medTitle)}</h2>${planSections}${selfRecordedSection}
     </section>`;
 }
 
@@ -618,7 +768,7 @@ function buildLabLine(includeSensitiveNotes: boolean, locale: Locale): string {
  *
  * Section order (spec §3):
  *   1. Profile header
- *   2. Medication & adherence (placeholder)
+ *   2. Medication & adherence (data-driven: adherence computed on-device, RULING 7.3)
  *   3. Kick-counts (date-range filtered)
  *   4. Self-logs (data-driven: weight/BP/swelling from decoded base64 values)
  *   5. Appointments (date-range filtered)
@@ -634,6 +784,8 @@ export function buildDoctorReportHtml(input: DoctorReportInput): string {
     kickSessions,
     appointments,
     selfLogs = [],
+    medicationPlans = [],
+    medicationLogs = [],
     dateFrom,
     dateTo,
     reportDate,
@@ -647,7 +799,14 @@ export function buildDoctorReportHtml(input: DoctorReportInput): string {
   const dateToFormatted = formatDate(dateTo, locale);
 
   const profileSection = buildProfileSection(profile, locale);
-  const medSection = buildMedicationSection(locale);
+  const medSection = buildMedicationSection(
+    medicationPlans,
+    medicationLogs,
+    dateFrom,
+    dateTo,
+    locale,
+    includeSensitiveNotes,
+  );
   const kickSection = buildKickSection(kickSessions, dateFrom, dateTo, locale);
   const selfLogSection = buildSelfLogSection(selfLogs, dateFrom, dateTo, locale, includeSensitiveNotes);
   const apptSection = buildAppointmentsSection(appointments, dateFrom, dateTo, locale);

@@ -27,6 +27,8 @@ import {
   buildDoctorReportHtml,
   type DoctorReportInput,
   type ReportSelfLog,
+  type ReportMedicationPlan,
+  type ReportMedicationLog,
 } from './doctorReportAssembler';
 
 // ─── Fixtures ─────────────────────────────────────────────────────────────────
@@ -279,15 +281,20 @@ describe('buildDoctorReportHtml', () => {
     expect(html).toMatch(/medication|adherence/i);
   });
 
-  it('renders medication placeholder when no medication data (th)', () => {
+  it('renders empty-range wording when no medication data in range (th)', () => {
+    // Once the medication section is data-driven, empty plans+logs → "ไม่มีข้อมูลในช่วงนี้"
     const html = buildDoctorReportHtml({ ...baseInput, locale: 'th' });
-    // Placeholder since no medication tracking feature exists yet
-    expect(html).toMatch(/ยังไม่มีข้อมูล|not tracked/i);
+    expect(html).toMatch(/ไม่มีข้อมูลในช่วงนี้/);
+    // Must NOT render the old "feature not yet built" placeholder
+    expect(html).not.toMatch(/ฟีเจอร์บันทึกยายังไม่ถูกสร้าง/);
   });
 
-  it('renders medication placeholder when no medication data (en)', () => {
+  it('renders empty-range wording when no medication data in range (en)', () => {
+    // Once the medication section is data-driven, empty plans+logs → "No data in this range"
     const html = buildDoctorReportHtml({ ...baseInput, locale: 'en' });
-    expect(html).toMatch(/not tracked yet/i);
+    expect(html).toMatch(/No data in this range/i);
+    // Must NOT render the old placeholder
+    expect(html).not.toMatch(/medication logging feature not yet built/i);
   });
 
   // ── Kick-count section ─────────────────────────────────────────────────────
@@ -769,5 +776,276 @@ describe('buildDoctorReportHtml', () => {
     });
     expect(html).toContain('ความดัน 120/78 mmHg');
     expect(html).toContain('น้ำหนัก 64.2 กก.');
+  });
+
+  // ── Medication & adherence section — data-driven (§A.5 / RULING 7.2) ─────
+
+  // Medication plan fixtures for assembler tests (decoded plaintext — no base64)
+  const medPlanDaily: ReportMedicationPlan = {
+    id: 'mp-1',
+    name: 'Triferdine',
+    dose: '150 mg',
+    scheduleRule: {
+      freq: 'daily',
+      startAt: '2026-07-01T08:00',
+      timesOfDay: ['08:00'],
+    },
+    active: true,
+    deletedAt: null,
+  };
+
+  const medPlanPrn: ReportMedicationPlan = {
+    id: 'mp-prn',
+    name: 'Paracetamol',
+    dose: '500 mg',
+    scheduleRule: null,
+    active: true,
+    deletedAt: null,
+  };
+
+  const medPlanDeleted: ReportMedicationPlan = {
+    id: 'mp-del',
+    name: 'Old Iron',
+    dose: null,
+    scheduleRule: {
+      freq: 'daily',
+      startAt: '2026-07-01T08:00',
+      timesOfDay: ['08:00'],
+    },
+    active: true,
+    deletedAt: '2026-07-10T00:00:00Z',
+  };
+
+  it('renders plan name and N/M วัน adherence count for scheduled plan (th)', () => {
+    // 27 taken logs out of 31 scheduled days in July
+    const takenLogs: ReportMedicationLog[] = Array.from({ length: 27 }, (_, i) => ({
+      id: `ml-${i}`,
+      medicationPlanId: 'mp-1',
+      occurrenceTime: `2026-07-${String(i + 1).padStart(2, '0')}T08:00`,
+      status: 'taken' as const,
+      note: null,
+    }));
+    const html = buildDoctorReportHtml({
+      ...baseInput,
+      locale: 'th',
+      medicationPlans: [medPlanDaily],
+      medicationLogs: takenLogs,
+    });
+    expect(html).toContain('Triferdine');
+    expect(html).toContain('150 mg');
+    // Adherence: 27 taken days out of 31 scheduled days in July
+    expect(html).toContain('กินแล้ว 27/31 วัน');
+    // Must not contain grade words (AC-20 / INV-M1)
+    expect(html).not.toMatch(/poor|good|low|high|ดีมาก|แย่|ผิดปกติ/i);
+  });
+
+  it('renders N/M days adherence for en locale', () => {
+    const takenLogs: ReportMedicationLog[] = [
+      { id: 'ml-e1', medicationPlanId: 'mp-1', occurrenceTime: '2026-07-01T08:00', status: 'taken', note: null },
+    ];
+    const html = buildDoctorReportHtml({
+      ...baseInput,
+      locale: 'en',
+      medicationPlans: [medPlanDaily],
+      medicationLogs: takenLogs,
+    });
+    expect(html).toContain('Triferdine');
+    // en adherence line: "Taken 1/31 days"
+    expect(html).toContain('Taken 1/31 days');
+  });
+
+  it('renders N ครั้ง (PRN count) for PRN plan (th)', () => {
+    const prnLogs: ReportMedicationLog[] = [
+      { id: 'prn-1', medicationPlanId: 'mp-prn', occurrenceTime: '2026-07-05T10:00', status: 'taken', note: null },
+      { id: 'prn-2', medicationPlanId: 'mp-prn', occurrenceTime: '2026-07-10T10:00', status: 'taken', note: null },
+    ];
+    const html = buildDoctorReportHtml({
+      ...baseInput,
+      locale: 'th',
+      medicationPlans: [medPlanPrn],
+      medicationLogs: prnLogs,
+    });
+    expect(html).toContain('Paracetamol');
+    expect(html).toContain('กินแล้ว 2 ครั้ง');
+    // Must NOT render a ratio (no M denominator for PRN)
+    expect(html).not.toMatch(/กินแล้ว \d+\/\d+ วัน/);
+  });
+
+  it('renders N times (PRN count) for en locale', () => {
+    const prnLog: ReportMedicationLog = {
+      id: 'prn-en', medicationPlanId: 'mp-prn', occurrenceTime: '2026-07-05T10:00', status: 'taken', note: null,
+    };
+    const html = buildDoctorReportHtml({
+      ...baseInput,
+      locale: 'en',
+      medicationPlans: [medPlanPrn],
+      medicationLogs: [prnLog],
+    });
+    expect(html).toContain('Taken 1 times');
+  });
+
+  it('deleted plan is NOT in the scored set — no N/M ratio rendered for it', () => {
+    const deletedLog: ReportMedicationLog = {
+      id: 'del-l', medicationPlanId: 'mp-del', occurrenceTime: '2026-07-05T08:00', status: 'taken', note: null,
+    };
+    const html = buildDoctorReportHtml({
+      ...baseInput,
+      locale: 'th',
+      medicationPlans: [medPlanDeleted],
+      medicationLogs: [deletedLog],
+    });
+    // Deleted plan must not produce a N/M ratio line
+    expect(html).not.toMatch(/กินแล้ว \d+\/\d+ วัน/);
+  });
+
+  it('missed logs are NOT counted toward N (missed day lowers fraction)', () => {
+    const missedLog: ReportMedicationLog = {
+      id: 'miss-1', medicationPlanId: 'mp-1', occurrenceTime: '2026-07-01T08:00', status: 'missed', note: null,
+    };
+    const takenLog: ReportMedicationLog = {
+      id: 'take-1', medicationPlanId: 'mp-1', occurrenceTime: '2026-07-02T08:00', status: 'taken', note: null,
+    };
+    const html = buildDoctorReportHtml({
+      ...baseInput,
+      locale: 'th',
+      medicationPlans: [medPlanDaily],
+      medicationLogs: [missedLog, takenLog],
+    });
+    // N=1 (only Jul 2 taken), M=31
+    expect(html).toContain('กินแล้ว 1/31 วัน');
+  });
+
+  it('ad-hoc logs (null medicationPlanId) are listed separately, not in any plan ratio', () => {
+    const adHoc: ReportMedicationLog = {
+      id: 'ah-1', medicationPlanId: null, occurrenceTime: '2026-07-08T10:00', status: 'taken', note: null,
+    };
+    const html = buildDoctorReportHtml({
+      ...baseInput,
+      locale: 'th',
+      medicationPlans: [medPlanDaily],
+      medicationLogs: [adHoc],
+    });
+    // dailyPlan N=0 (adHoc not counted toward it)
+    expect(html).toContain('กินแล้ว 0/31 วัน');
+  });
+
+  it('medication log note is hidden when includeSensitiveNotes=false', () => {
+    const logWithNote: ReportMedicationLog = {
+      id: 'note-1', medicationPlanId: 'mp-1',
+      occurrenceTime: '2026-07-01T08:00', status: 'taken', note: 'Take with food',
+    };
+    const html = buildDoctorReportHtml({
+      ...baseInput,
+      medicationPlans: [medPlanDaily],
+      medicationLogs: [logWithNote],
+      includeSensitiveNotes: false,
+    });
+    expect(html).not.toContain('Take with food');
+  });
+
+  it('medication log note is shown when includeSensitiveNotes=true', () => {
+    const logWithNote: ReportMedicationLog = {
+      id: 'note-2', medicationPlanId: 'mp-1',
+      occurrenceTime: '2026-07-01T08:00', status: 'taken', note: 'Take with food',
+    };
+    const html = buildDoctorReportHtml({
+      ...baseInput,
+      medicationPlans: [medPlanDaily],
+      medicationLogs: [logWithNote],
+      includeSensitiveNotes: true,
+    });
+    expect(html).toContain('Take with food');
+  });
+
+  it('INV-M1: 1/31 and 1/10 render with identical surrounding HTML structure (no grading)', () => {
+    // Analogous to INV-S1: identical log content + dates; only M denominator differs.
+    // A high-adherence fraction and a low-adherence fraction must have identical HTML structure.
+    const planFull: ReportMedicationPlan = {
+      id: 'mp-full',
+      name: 'Triferdine',
+      dose: '150 mg',
+      scheduleRule: { freq: 'daily', startAt: '2026-07-01T08:00', timesOfDay: ['08:00'] },
+      active: true,
+      deletedAt: null,
+    };
+    const planShort: ReportMedicationPlan = {
+      id: 'mp-short',
+      name: 'Triferdine',
+      dose: '150 mg',
+      scheduleRule: { freq: 'daily', startAt: '2026-07-01T08:00', timesOfDay: ['08:00'], until: '2026-07-10' },
+      active: true,
+      deletedAt: null,
+    };
+
+    const logFull: ReportMedicationLog = {
+      id: 'l-full', medicationPlanId: 'mp-full',
+      occurrenceTime: '2026-07-01T08:00', status: 'taken', note: null,
+    };
+    const logShort: ReportMedicationLog = {
+      id: 'l-short', medicationPlanId: 'mp-short',
+      occurrenceTime: '2026-07-01T08:00', status: 'taken', note: null,
+    };
+
+    const htmlFull  = buildDoctorReportHtml({ ...baseInput, locale: 'th', medicationPlans: [planFull],  medicationLogs: [logFull]  });
+    const htmlShort = buildDoctorReportHtml({ ...baseInput, locale: 'th', medicationPlans: [planShort], medicationLogs: [logShort] });
+
+    // After replacing only the M denominator, the entire HTML is byte-identical (no conditional styling)
+    const normFull  = htmlFull.replace('กินแล้ว 1/31 วัน',  'กินแล้ว 1/M วัน');
+    const normShort = htmlShort.replace('กินแล้ว 1/10 วัน', 'กินแล้ว 1/M วัน');
+
+    expect(normFull).toBe(normShort);
+  });
+
+  it('no grade words in medication section for any adherence fraction (AC-20)', () => {
+    const logs: ReportMedicationLog[] = [
+      { id: 'gl-1', medicationPlanId: 'mp-1', occurrenceTime: '2026-07-01T08:00', status: 'taken', note: null },
+    ];
+    const html = buildDoctorReportHtml({
+      ...baseInput,
+      medicationPlans: [medPlanDaily],
+      medicationLogs: logs,
+    });
+    // These words must never appear in the medication section (or anywhere else)
+    expect(html).not.toMatch(/good adherence|poor adherence|high adherence|low adherence/i);
+    expect(html).not.toMatch(/สูง|ต่ำ|ดี|แย่|ผิดปกติ|สม่ำเสมอ/i);
+  });
+
+  it('medication section has section header even with real data', () => {
+    const html = buildDoctorReportHtml({
+      ...baseInput,
+      locale: 'th',
+      medicationPlans: [medPlanDaily],
+      medicationLogs: [],
+    });
+    expect(html).toMatch(/ยา|การกินยา|Medication/i);
+  });
+
+  it('empty plans+logs renders section header + empty-range wording (NOT old placeholder)', () => {
+    const html = buildDoctorReportHtml({
+      ...baseInput,
+      locale: 'th',
+      medicationPlans: [],
+      medicationLogs: [],
+    });
+    expect(html).toMatch(/ไม่มีข้อมูลในช่วงนี้/);
+    expect(html).not.toMatch(/ฟีเจอร์บันทึกยายังไม่ถูกสร้าง/);
+    expect(html).not.toMatch(/not tracked yet/i);
+  });
+
+  it('dose omitted from plan header when plan has no dose', () => {
+    const noDosePlan: ReportMedicationPlan = {
+      ...medPlanDaily,
+      id: 'mp-nodose',
+      dose: null,
+    };
+    const html = buildDoctorReportHtml({
+      ...baseInput,
+      medicationPlans: [noDosePlan],
+      medicationLogs: [],
+    });
+    expect(html).toContain('Triferdine');
+    // No stray "null" or "undefined" in the output
+    expect(html).not.toContain('null');
+    expect(html).not.toContain('undefined');
   });
 });

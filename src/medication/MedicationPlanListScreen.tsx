@@ -38,7 +38,9 @@ import {
   TouchableOpacity,
   StyleSheet,
   SafeAreaView,
-  Alert,
+  Switch,
+  ActivityIndicator,
+  AccessibilityInfo,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 
@@ -53,8 +55,10 @@ import { consentStore } from '../consent/consentStore';
 import { decodeFieldFromBase64 } from '../capture/captureScreenLogic';
 import {
   orchestrateMedSave,
+  resolvePendingSave,
   buildScheduleRuleFromPicker,
   type SchedulePickerState,
+  type ToastVariant,
 } from './medicationPlanFormLogic';
 import { MedicationPlanFormSheet } from './MedicationPlanFormSheet';
 
@@ -66,9 +70,90 @@ interface MedicationPlanListScreenProps {
   onManageConsents: () => void;
 }
 
-// ─── Toast helper (minimal — no native deps needed) ──────────────────────────
+// ToastVariant is re-exported from medicationPlanFormLogic
 
-type ToastVariant = 'saved' | 'savedLocalOnly' | 'deactivated' | 'deleted' | 'error';
+// ─── Inline Toast component (replaces Alert — §5.6/§4.4 polite live region) ──
+
+interface ToastProps {
+  message: string;
+  onDismiss: () => void;
+}
+
+function InlineToast({ message, onDismiss }: ToastProps): React.JSX.Element {
+  useEffect(() => {
+    const timer = setTimeout(onDismiss, 3000);
+    return () => clearTimeout(timer);
+  }, [message, onDismiss]);
+
+  return (
+    <View
+      style={toastStyles.container}
+      accessibilityLiveRegion="polite"
+      accessibilityRole="alert"
+      importantForAccessibility="yes"
+      testID="med-toast"
+    >
+      <Text style={toastStyles.text}>{message}</Text>
+    </View>
+  );
+}
+
+const toastStyles = StyleSheet.create({
+  container: {
+    position: 'absolute',
+    bottom: 80,
+    left: 16,
+    right: 16,
+    backgroundColor: '#3A2A30',
+    borderRadius: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    zIndex: 100,
+    elevation: 8,
+  },
+  text: {
+    fontFamily: 'IBMPlexSans-Regular',
+    fontSize: 14,
+    color: '#FFFFFF',
+    textAlign: 'center',
+  },
+});
+
+// ─── Loading skeleton row ─────────────────────────────────────────────────────
+
+function SkeletonRow(): React.JSX.Element {
+  return (
+    <View style={skeletonStyles.row} accessibilityElementsHidden>
+      <View style={skeletonStyles.textBlock} />
+      <View style={skeletonStyles.toggleBone} />
+    </View>
+  );
+}
+
+const skeletonStyles = StyleSheet.create({
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#F0E9E4',
+    borderRadius: 12,
+    marginBottom: 10,
+    height: 72,
+    paddingHorizontal: 16,
+  },
+  textBlock: {
+    width: 160,
+    height: 16,
+    backgroundColor: '#E0D7D0',
+    borderRadius: 6,
+  },
+  toggleBone: {
+    width: 48,
+    height: 28,
+    backgroundColor: '#E0D7D0',
+    borderRadius: 14,
+  },
+});
 
 // ─── Display-safe plan name decoder ──────────────────────────────────────────
 // Security: result is display-only. DO NOT log the decoded value (SD-2/SD-5).
@@ -76,17 +161,36 @@ function displayName(plan: MedicationPlan): string {
   return decodeFieldFromBase64(plan.name) ?? '—';
 }
 
-// ─── Build echo preview text for list item ────────────────────────────────────
-function buildSchedulePreview(plan: MedicationPlan): string {
+// Security: dose is display-only. DO NOT log (SD-2/SD-5).
+function displayDose(plan: MedicationPlan): string | null {
+  if (!plan.dose) return null;
+  return decodeFieldFromBase64(plan.dose) ?? null;
+}
+
+// ─── Build schedule preview text for list item — localized (F3) ──────────────
+function buildSchedulePreview(
+  plan: MedicationPlan,
+  t: (key: import('../i18n/messages').MessageKey) => string,
+): string {
   const rule = plan.scheduleRule;
   if (!rule) return 'PRN';
+
+  let preview: string;
   if (rule.freq === 'daily') {
-    return `ทุกวัน · ${(rule.timesOfDay ?? []).sort().join(', ')}`;
+    preview = `${t('medication.scheduleChip.daily')} · ${(rule.timesOfDay ?? []).sort().join(', ')}`;
+  } else if (rule.freq === 'every_n_days') {
+    const chip = t('medication.scheduleChip.every_n_days').replace('N', String(rule.interval));
+    preview = `${chip} · ${(rule.timesOfDay ?? []).sort().join(', ')}`;
+  } else {
+    // one_off
+    preview = `${t('medication.scheduleChip.one_off')} · ${rule.startAt.slice(11, 16)}`;
   }
-  if (rule.freq === 'every_n_days') {
-    return `ทุก ${rule.interval} วัน · ${(rule.timesOfDay ?? []).sort().join(', ')}`;
+
+  // F3: append inactive marker
+  if (!plan.active) {
+    preview += ` · ${t('medication.inactiveTag')}`;
   }
-  return `ครั้งเดียว · ${rule.startAt.slice(11, 16)}`;
+  return preview;
 }
 
 // ─── Screen ───────────────────────────────────────────────────────────────────
@@ -99,6 +203,15 @@ export function MedicationPlanListScreen({
   // ── Plans state ───────────────────────────────────────────────────────────
   const [plans, setPlans] = useState<MedicationPlan[]>([]);
   const [screenState, setScreenState] = useState<'loading' | 'list' | 'error'>('loading');
+
+  // ── Connectivity — B3 (wire to NetInfo post-MVP; false = assume online) ───
+  // MVP: isOffline is always false here; navigator/parent can set via prop or hook.
+  const [isOffline] = useState(false);
+
+  // ── general_health consent state — B4 ─────────────────────────────────────
+  const [healthConsentGranted, setHealthConsentGranted] = useState(
+    () => consentStore.isGranted('general_health'),
+  );
 
   // ── Form sheet state ──────────────────────────────────────────────────────
   const [showForm, setShowForm] = useState(false);
@@ -135,42 +248,53 @@ export function MedicationPlanListScreen({
   }, []);
 
   // ── useFocusEffect: execute pending consent-gated save on return ──────────
-  // When user returns from ManageConsents with consent granted, auto-complete save.
+  // Uses resolvePendingSave (pure, unit-tested — mobile Blocker 2).
+  // Mobile Blocker 1: toast now uses cloudGranted ? 'saved' : 'savedLocalOnly'.
   useFocusEffect(
     useCallback(() => {
-      const pending = pendingPayloadRef.current;
-      if (!pending) return;
+      // Re-read consent on every focus (may have changed in ManageConsents)
+      const consentNow = consentStore.isGranted('general_health');
+      setHealthConsentGranted(consentNow);
 
-      if (consentStore.isGranted('general_health')) {
-        // Consent now granted — execute the pending save
-        pendingPayloadRef.current = null;
-        setShowConsentNudge(false);
-        setIsSaving(true);
-        try {
-          const editId = pendingEditIdRef.current;
-          pendingEditIdRef.current = null;
-          if (editId) {
-            medicationPlanSyncStore.updatePlan(editId, pending);
-          } else {
-            medicationPlanSyncStore.addPlan(pending);
-          }
-          refreshPlans();
-          setShowForm(false);
-          showToast('saved');
-        } catch {
-          showToast('error');
-        } finally {
-          setIsSaving(false);
+      const resolution = resolvePendingSave(
+        pendingPayloadRef.current,
+        pendingEditIdRef.current,
+        consentNow,
+        consentStore.isGranted('cloud_storage'),
+      );
+
+      if (resolution.action === 'hold') return;
+
+      // Consent granted — execute the pending save
+      const payload = pendingPayloadRef.current!;
+      const editId = pendingEditIdRef.current;
+      pendingPayloadRef.current = null;
+      pendingEditIdRef.current = null;
+      setShowConsentNudge(false);
+      setIsSaving(true);
+      try {
+        if (resolution.action === 'persist-edit' && editId) {
+          medicationPlanSyncStore.updatePlan(editId, payload);
+        } else {
+          medicationPlanSyncStore.addPlan(payload);
         }
+        refreshPlans();
+        setShowForm(false);
+        showToast(resolution.toast ?? 'saved');
+      } catch {
+        showToast('error');
+      } finally {
+        setIsSaving(false);
       }
     }, []),
   );
 
-  // ── Toast helpers ─────────────────────────────────────────────────────────
+  // ── Toast state ── (inline polite live-region toast, B6) ─────────────────
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
+  // ── Toast helpers — B6 replaces Alert.alert with polite live region ───────
   function showToast(variant: ToastVariant) {
     setToastKey(variant);
-    // Auto-dismiss after 3 s (using Alert for MVP — replace with a toast lib post-MVP)
     const messages: Record<ToastVariant, string> = {
       saved: t('medication.saveToast'),
       savedLocalOnly: t('medication.savedLocalOnly'),
@@ -178,7 +302,12 @@ export function MedicationPlanListScreen({
       deleted: t('medication.deleteToast'),
       error: t('medication.saveError'),
     };
-    Alert.alert('', messages[variant], [{ text: 'OK', onPress: () => setToastKey(null) }]);
+    setToastMessage(messages[variant]);
+  }
+
+  function dismissToast() {
+    setToastKey(null);
+    setToastMessage(null);
   }
 
   // ── Form open / close ─────────────────────────────────────────────────────
@@ -199,7 +328,9 @@ export function MedicationPlanListScreen({
     setShowForm(false);
     setEditPlan(undefined);
     setShowConsentNudge(false);
-    // Keep pendingPayloadRef; it may still be resolved when user returns from ManageConsents
+    // GROUP E: clear pending refs on explicit form close (not consent-flow close)
+    pendingPayloadRef.current = null;
+    pendingEditIdRef.current = null;
   }
 
   // ── Save handler (consent-gated orchestration) ────────────────────────────
@@ -310,24 +441,74 @@ export function MedicationPlanListScreen({
   return (
     <SafeAreaView style={styles.container}>
 
-      {/* Top action row */}
+      {/* ── Top bar: title + connectivity pill + Add (M4 + B3) ───────────── */}
       <View style={styles.topBar}>
-        <TouchableOpacity
-          testID="med-add-top"
-          style={styles.topAddBtn}
-          onPress={openAddForm}
-          accessibilityRole="button"
-          accessibilityLabel={t('medication.add')}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-        >
-          <Text style={styles.topAddBtnText}>{t('medication.add')}</Text>
-        </TouchableOpacity>
+        <Text style={styles.topBarTitle} accessibilityRole="header">
+          {t('medication.navTitle')}
+        </Text>
+        <View style={styles.topBarRight}>
+          {/* B3: offline pill — renders when isOffline=true */}
+          {isOffline && (
+            <View style={styles.offlinePill} accessibilityLiveRegion="polite">
+              <Text style={styles.offlinePillText}>{t('medication.offlinePill')}</Text>
+            </View>
+          )}
+          <TouchableOpacity
+            testID="med-add-top"
+            style={styles.topAddBtn}
+            onPress={openAddForm}
+            accessibilityRole="button"
+            accessibilityLabel={t('medication.add')}
+          >
+            <Text style={styles.topAddBtnText}>+</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
-      {/* Error state */}
+      {/* B4: general_health consent nudge banner (§7.1) */}
+      {!healthConsentGranted && (
+        <TouchableOpacity
+          testID="consent-home-health-logging-nudge-banner"
+          style={styles.consentBanner}
+          onPress={handleManageConsents}
+          accessibilityRole="button"
+          accessibilityLabel={t('medication.consentBannerAction')}
+        >
+          <Text style={styles.consentBannerText}>{t('medication.consentBannerAction')}</Text>
+        </TouchableOpacity>
+      )}
+
+      {/* B2: Loading skeleton (§8.1) */}
+      {screenState === 'loading' && (
+        <View
+          style={styles.listContent}
+          accessibilityLabel={t('medication.loadingSkeleton')}
+          accessibilityLiveRegion="polite"
+        >
+          <SkeletonRow />
+          <SkeletonRow />
+          <SkeletonRow />
+        </View>
+      )}
+
+      {/* B5: Error state — calm panel + data-still-here + Retry (Primary) (§8.9) */}
       {screenState === 'error' && (
-        <View style={styles.errorState}>
-          <Text style={styles.errorText}>{t('medication.loadError')}</Text>
+        <View
+          style={styles.errorPanel}
+          accessibilityLiveRegion="assertive"
+          importantForAccessibility="yes"
+        >
+          <Text style={styles.errorHeadline}>{t('medication.loadError')}</Text>
+          <Text style={styles.errorSubtitle}>{t('medication.dataStillHere')}</Text>
+          <TouchableOpacity
+            testID="med-error-retry"
+            style={styles.retryBtn}
+            onPress={refreshPlans}
+            accessibilityRole="button"
+            accessibilityLabel={t('general.retry')}
+          >
+            <Text style={styles.retryBtnText}>{t('general.retry')}</Text>
+          </TouchableOpacity>
         </View>
       )}
 
@@ -350,7 +531,7 @@ export function MedicationPlanListScreen({
         </View>
       )}
 
-      {/* List state */}
+      {/* List state (§8.3) */}
       {screenState === 'list' && plans.length > 0 && (
         <FlatList
           testID="med-plan-list"
@@ -379,28 +560,81 @@ export function MedicationPlanListScreen({
 
             const plan = item as MedicationPlan & { _band: 'active' | 'inactive' };
             const planName = displayName(plan);
-            const preview = buildSchedulePreview(plan);
+            const planDose = displayDose(plan);
+            const preview = buildSchedulePreview(plan, t);
+
+            // B9: Composed SR label (§10.4)
+            const doseSegment = planDose ? ` ${t('medication.fieldDose').split(' ')[0]}: ${planDose}.` : '';
+            const rowSrLabel = `${t('medication.navTitle')}: ${planName}.${doseSegment} ${t('medication.fieldSchedule')}: ${preview}. ${plan.active ? t('medication.fieldActive') : t('medication.inactiveTag')}. ${t('medication.encryptionNotice')}.`;
+            const toggleSrLabel = plan.active
+              ? `${t('medication.fieldActive')} · ${t('medication.deactivate')}`
+              : `${t('medication.inactiveTag')} · ${t('medication.reactivate')}`;
 
             return (
-              <TouchableOpacity
-                testID={`med-plan-card-${plan.id}`}
+              <View
                 style={[styles.planCard, !plan.active ? styles.planCardInactive : null]}
-                onPress={() => openEditForm(plan)}
-                accessibilityRole="button"
-                accessibilityLabel={`${planName}${!plan.active ? ` · ${t('medication.inactiveTag')}` : ''}`}
               >
-                <View style={styles.planCardContent}>
+                {/* Row body — opens Edit sheet */}
+                <TouchableOpacity
+                  testID={`med-plan-card-${plan.id}`}
+                  style={styles.planCardContent}
+                  onPress={() => openEditForm(plan)}
+                  accessibilityRole="button"
+                  accessibilityLabel={rowSrLabel}
+                  accessibilityHint={undefined}
+                >
+                  {/* F2: Leading pill glyph */}
+                  <Text
+                    style={[styles.pillGlyph, !plan.active && styles.pillGlyphInactive]}
+                    accessibilityElementsHidden
+                  >
+                    💊
+                  </Text>
+
                   <View style={styles.planCardMain}>
-                    <Text style={styles.planName} numberOfLines={1}>{planName}</Text>
+                    {/* Name */}
+                    <Text
+                      style={[styles.planName, !plan.active ? styles.planNameInactive : null]}
+                      numberOfLines={1}
+                    >
+                      {planName}
+                    </Text>
+                    {/* F2: dose segment */}
+                    {planDose ? (
+                      <Text style={styles.planDose} numberOfLines={1}>{planDose}</Text>
+                    ) : null}
+                    {/* F3: schedule preview (localized, inactive appended) */}
                     <Text style={styles.planPreview} numberOfLines={1}>{preview}</Text>
+                    {/* F2: encryption notice (§3) */}
+                    <Text
+                      style={styles.encryptionNotice}
+                      accessibilityElementsHidden
+                    >
+                      🔒 {t('medication.encryptionNotice')}
+                    </Text>
                   </View>
-                  {!plan.active && (
-                    <View style={styles.inactiveTag}>
-                      <Text style={styles.inactiveTagText}>{t('medication.inactiveTag')}</Text>
-                    </View>
-                  )}
+                </TouchableOpacity>
+
+                {/* B1: trailing Switch — 1-tap deactivate/reactivate (§3/§6.1/§8.3) */}
+                <View style={styles.rowToggleZone}>
+                  <Switch
+                    testID={`med-plan-toggle-${plan.id}`}
+                    value={plan.active}
+                    onValueChange={(val) => {
+                      if (val) {
+                        handleReactivate(plan.id);
+                      } else {
+                        handleDeactivate(plan.id);
+                      }
+                    }}
+                    trackColor={{ false: '#EBE1D9', true: '#A8505A' }}
+                    thumbColor={plan.active ? '#FFFFFF' : '#94818A'}
+                    accessibilityRole="switch"
+                    accessibilityLabel={toggleSrLabel}
+                    accessibilityState={{ checked: plan.active }}
+                  />
                 </View>
-              </TouchableOpacity>
+              </View>
             );
           }}
           contentContainerStyle={styles.listContent}
@@ -421,6 +655,11 @@ export function MedicationPlanListScreen({
         onClose={closeForm}
       />
 
+      {/* B6: Inline toast (polite live region — replaces Alert.alert) */}
+      {toastMessage !== null && (
+        <InlineToast message={toastMessage} onDismiss={dismissToast} />
+      )}
+
     </SafeAreaView>
   );
 }
@@ -433,36 +672,102 @@ const styles = StyleSheet.create({
     backgroundColor: '#FBF6F1',
   },
 
-  // ── Top bar ────────────────────────────────────────────────────────────────
+  // ── Top bar (M4: title + connectivity pill + Add) ─────────────────────────
   topBar: {
     flexDirection: 'row',
-    justifyContent: 'flex-end',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 10,
   },
+  topBarTitle: {
+    fontFamily: 'IBMPlexSans-SemiBold',
+    fontSize: 20,
+    color: '#3A2A30',
+    fontWeight: '700',
+  },
+  topBarRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  offlinePill: {
+    backgroundColor: '#EBE1D9',
+    borderRadius: 100,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  offlinePillText: {
+    fontFamily: 'IBMPlexSans-Regular',
+    fontSize: 12,
+    color: '#5F4A52',
+  },
   topAddBtn: {
+    minWidth: 48,
     minHeight: 48,
+    alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 8,
   },
   topAddBtnText: {
     fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 15,
+    fontSize: 22,
     color: '#A8505A',
   },
 
-  // ── Error state ────────────────────────────────────────────────────────────
-  errorState: {
+  // ── Consent nudge banner (B4 — §7.1) ──────────────────────────────────────
+  consentBanner: {
+    backgroundColor: '#FBEDEE',
+    marginHorizontal: 16,
+    marginBottom: 8,
+    borderRadius: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    minHeight: 48,
+    justifyContent: 'center',
+    borderLeftWidth: 3,
+    borderLeftColor: '#A8505A',
+  },
+  consentBannerText: {
+    fontFamily: 'IBMPlexSans-Medium',
+    fontSize: 14,
+    color: '#A8505A',
+  },
+
+  // ── Error panel (B5 — §8.9: calm + data-still-here + Retry Primary) ───────
+  errorPanel: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
     padding: 32,
+    gap: 12,
   },
-  errorText: {
+  errorHeadline: {
+    fontFamily: 'IBMPlexSans-SemiBold',
+    fontSize: 17,
+    color: '#3A2A30',
+    textAlign: 'center',
+    fontWeight: '600',
+  },
+  errorSubtitle: {
     fontFamily: 'IBMPlexSans-Regular',
     fontSize: 15,
     color: '#5F4A52',
     textAlign: 'center',
+  },
+  retryBtn: {
+    backgroundColor: '#A8505A',
+    borderRadius: 100,
+    minHeight: 52,
+    paddingHorizontal: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 8,
+  },
+  retryBtnText: {
+    fontFamily: 'IBMPlexSans-SemiBold',
+    fontSize: 16,
+    color: '#FFFFFF',
+    fontWeight: '700',
   },
 
   // ── Empty state ────────────────────────────────────────────────────────────
@@ -537,26 +842,38 @@ const styles = StyleSheet.create({
     letterSpacing: 0.8,
   },
 
-  // ── Plan card ──────────────────────────────────────────────────────────────
+  // ── Plan card (F2: leading glyph + dose + encryption notice; B1: Switch) ───
   planCard: {
     backgroundColor: '#FFFFFF',
     borderRadius: 12,
     marginBottom: 10,
     borderWidth: 1,
     borderColor: '#EBE1D9',
-    minHeight: 64,
-    justifyContent: 'center',
+    minHeight: 72,
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   planCardInactive: {
     backgroundColor: '#FBF6F1',
     opacity: 0.75,
   },
+  // Row body: occupies flex-1, opens Edit sheet
   planCardContent: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
     paddingVertical: 14,
     gap: 10,
+    minHeight: 72,
+  },
+  // F2: leading medication glyph
+  pillGlyph: {
+    fontSize: 20,
+    color: '#A8505A', // rose/500 when active
+  },
+  pillGlyphInactive: {
+    opacity: 0.4,
   },
   planCardMain: {
     flex: 1,
@@ -567,23 +884,36 @@ const styles = StyleSheet.create({
     color: '#3A2A30',
     fontWeight: '600',
   },
+  planNameInactive: {
+    color: '#5F4A52',
+  },
+  // F2: dose segment
+  planDose: {
+    fontFamily: 'IBMPlexSans-Regular',
+    fontSize: 13,
+    color: '#5F4A52',
+    marginTop: 1,
+  },
   planPreview: {
     fontFamily: 'IBMPlexSans-Regular',
     fontSize: 13,
     color: '#5F4A52',
+    marginTop: 2,
+  },
+  // F2: encryption notice
+  encryptionNotice: {
+    fontFamily: 'IBMPlexSans-Regular',
+    fontSize: 12,
+    color: '#94818A',
     marginTop: 3,
   },
 
-  // ── Inactive tag ───────────────────────────────────────────────────────────
-  inactiveTag: {
-    backgroundColor: '#EBE1D9',
-    borderRadius: 6,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-  },
-  inactiveTagText: {
-    fontFamily: 'IBMPlexSans-Medium',
-    fontSize: 11,
-    color: '#5F4A52',
+  // B1: trailing Switch zone — ≥48×48dp, ≥12dp clear of row body
+  rowToggleZone: {
+    paddingHorizontal: 12,
+    minWidth: 72,
+    minHeight: 72,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

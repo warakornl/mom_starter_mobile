@@ -32,10 +32,10 @@ import {
   cancelForOccurrence as cancelForOccurrenceImpl,
   reanchor as reanchorImpl,
   MEDICATION_TITLE_TH,
-  MEDICATION_TITLE_EN,
   WINDOW_DAYS,
   PENDING_BUDGET,
 } from './notificationScheduler';
+import { buildExcludedIds } from './excludedIds';
 import type { ReminderRecord, ReminderOccurrenceRecord } from '../sync/syncTypes';
 
 // ─── Adapter singleton ────────────────────────────────────────────────────────
@@ -53,45 +53,12 @@ export function getAdapter(): NotificationsAdapter {
   return _adapter;
 }
 
-// ─── Excluded ids builder ─────────────────────────────────────────────────────
-
-/**
- * Build the set of occurrence ids that should NOT be (re-)scheduled.
- *
- * Excludes:
- *   - done occurrences (terminal, never re-schedule)
- *   - snoozed occurrences with snoozedUntil in the future (their snooze alarm is
- *     already scheduled by the snooze action; re-anchor must not overwrite it with
- *     the original fire time)
- *
- * @param occurrences All materialized ReminderOccurrenceRecords from the store
- * @param now         Current wall-clock time (for snoozed-future check)
- */
-export function buildExcludedIds(
-  occurrences: ReminderOccurrenceRecord[],
-  now: Date = new Date(),
-): Set<string> {
-  const excluded = new Set<string>();
-  const nowMs = now.getTime();
-  for (const occ of occurrences) {
-    if (occ.deletedAt) continue; // tombstoned occurrence — ignore
-    if (occ.status === 'done') {
-      excluded.add(occ.id);
-    } else if (occ.status === 'snoozed') {
-      // Exclude if snoozedUntil is still in the future (alarm already scheduled)
-      const snoozedUntilMs = occ.snoozedUntil ? new Date(occ.snoozedUntil).getTime() : 0;
-      if (snoozedUntilMs > nowMs) {
-        excluded.add(occ.id);
-      }
-      // If snoozedUntil is in the past, the snooze alarm has already fired/missed —
-      // exclude it from the main window too (it's effectively missed)
-      else {
-        excluded.add(occ.id);
-      }
-    }
-  }
-  return excluded;
-}
+// ─── Excluded ids builder — re-exported from native-free excludedIds.ts ───────
+//
+// buildExcludedIds is implemented in src/notifications/excludedIds.ts which has
+// NO native imports and can be unit-tested directly in Node.js / Jest.
+// Re-exported here so callers can import from the single public API entry point.
+export { buildExcludedIds };
 
 // ─── Public API (wired to real adapter) ──────────────────────────────────────
 
@@ -144,7 +111,6 @@ export async function reanchor(
 export type { NotificationsAdapter };
 export {
   MEDICATION_TITLE_TH,
-  MEDICATION_TITLE_EN,
   WINDOW_DAYS,
   PENDING_BUDGET,
 };

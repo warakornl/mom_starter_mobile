@@ -479,6 +479,43 @@ describe('applyPlanUpdateLinkage', () => {
 
     expect(store.updated[0].updatedAt).toBe(laterNow);
   });
+
+  test('name/dose-only edit → NO reminder update when recurrenceRule/startAt/active unchanged (Fix 4)', () => {
+    // Verifies the short-circuit: if the edit only touched fields that are not
+    // tracked by the reminder (name, dose), no enqueue must occur.
+    //
+    // The existing reminder uses the correct post-Fix-2 wire form (no startAt
+    // inside recurrenceRule) so the field comparison can stabilise cleanly.
+    const plan = makeScheduledPlan({
+      id: 'plan-name-only',
+      scheduleRule: { freq: 'daily', startAt: '2026-07-04T08:00', timesOfDay: ['08:00'] },
+      active: true,
+    });
+    const existingReminder: ReminderRecord = {
+      id: 'rem-name-only',
+      type: 'medication',
+      displayTitle: MEDICATION_REMINDER_DISPLAY_TITLE,
+      hideOnLockScreen: true,
+      sourceRefType: 'medication_plan',
+      sourceRefId: 'plan-name-only',
+      // Correct wire form — no startAt inside recurrenceRule (post-Fix-2)
+      recurrenceRule: { freq: 'daily', timesOfDay: ['08:00'] },
+      startAt: '2026-07-04T08:00',
+      active: true,
+      version: 1,
+      createdAt: NOW,
+      updatedAt: NOW,
+      deletedAt: null,
+    };
+    const store = makeCalendarStoreStub([existingReminder]);
+
+    // recurrenceRule, startAt, active are all unchanged — only name/dose changed
+    applyPlanUpdateLinkage(plan, store, NOW);
+
+    expect(store.updated).toHaveLength(0);
+    expect(store.created).toHaveLength(0);
+    expect(store.deleted).toHaveLength(0);
+  });
 });
 
 // ─── 5. applyPlanTombstoneLinkage ─────────────────────────────────────────────

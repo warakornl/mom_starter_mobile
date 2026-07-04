@@ -242,14 +242,31 @@ export function applyPlanUpdateLinkage(
     return;
   }
 
+  // Build the new recurrenceRule explicitly — no `as` cast (Fix 2 pattern).
+  const newRecurrenceRule: RecurrenceRuleWire = {
+    freq: plan.scheduleRule.freq,
+    timesOfDay: plan.scheduleRule.timesOfDay,
+    interval: plan.scheduleRule.interval,
+    until: plan.scheduleRule.until,
+  };
+  const newStartAt = plan.scheduleRule.startAt;
+  const newActive = plan.active;
+
+  // Short-circuit (Fix 4): skip the enqueue when nothing reminder-relevant
+  // changed.  Name/dose edits must NOT trigger a spurious reminder update.
+  const nothingChanged =
+    JSON.stringify(existing.recurrenceRule) === JSON.stringify(newRecurrenceRule) &&
+    existing.startAt === newStartAt &&
+    existing.active === newActive;
+  if (nothingChanged) return;
+
   // Update the existing reminder to follow the plan's current state
   const updated: ReminderRecord = {
     ...existing,
-    // Verbatim copy of the (possibly changed) recurrenceRule
-    recurrenceRule: plan.scheduleRule as RecurrenceRuleWire,
-    startAt: plan.scheduleRule.startAt,
+    recurrenceRule: newRecurrenceRule,
+    startAt: newStartAt,
     // Active mirrors the plan (handles deactivate: MR-E6)
-    active: plan.active,
+    active: newActive,
     // PRIVACY: always keep the generic title — never copy plan.name (SD-2)
     displayTitle: MEDICATION_REMINDER_DISPLAY_TITLE,
     updatedAt: now,

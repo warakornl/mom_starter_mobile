@@ -1,24 +1,32 @@
 /**
- * CaptureScreen — Quick Capture / Self-log form (capture-ui.md §2/§3/§4/§5).
+ * CaptureScreen — Quick Capture form (capture-ui.md §2/§3/§4/§5).
  *
- * The ONE reusable form for self-log entries (weight · blood_pressure · swelling
- * · lochia · symptom). Medication and checklist are separate families (spec §1).
+ * Supports two families in one form:
+ *   Self-log  (weight · blood_pressure · swelling · lochia · symptom) — §3.2/§3.3
+ *   Medication (taken/missed two-state toggle + plan resolution) — §3.1 + Task 9
  *
- * Implements:
- *  - Type segmented control (shown on generic "Add"; hidden when pre-set from params)
- *  - Value region that swaps by metricType (§3.2/§3.3):
- *      weight           → one numeric field + กก. unit label
- *      blood_pressure   → systolic / diastolic numeric fields + mmHg
- *      swelling/lochia/symptom → descriptive text input (valueText)
- *  - Live echo line (§0 signature): verbatim preview of the Day-Detail row
- *  - Typo-guard validation (§4): ⓘ hint for out-of-range; blocks Save for non-number
- *  - Date/time defaults: now on today / 12:00 on non-today (§2)
- *  - Save → selfLogSyncStore.addSelfLog(SelfLogInput) with base64-encoded fields
- *  - general_health consent gate (self-log-behavior §B.4):
- *      granted → save proceeds; absent/declined → inline nudge modal
- *  - Screen states: empty/filling/invalid/saving/saved/error (§5)
- *  - Writes are local-first (selfLogSyncStore) — no offline state on the form
- *  - All a11y contracts from accessibility-notes.md §2/§4/§8
+ * Medication family rules (capture-ui §3.1 + medication-behavior §B):
+ *  - Plan name and dose shown VERBATIM — never translated (INV-M4).
+ *  - taken and missed use IDENTICAL visual weight; missed is NEVER amber (INV-M2).
+ *  - No grade/verdict word anywhere (INV-M1 / AC-20).
+ *  - Opened with medicationPlanId → type pre-set + plan resolved + "taken" default.
+ *  - Ad-hoc (no medicationPlanId) → planId=null in MedicationLogInput.
+ *  - AC-22: server does NOT dedup (medicationPlanId, civil-day); client render collapses.
+ *  - Save → medicationLogSyncStore.addLog(MedicationLogInput).
+ *
+ * Self-log family rules:
+ *  - Value region swaps by captureType (weight/BP/swelling/lochia/symptom).
+ *  - Typo-guard validation (§4): ⓘ hint for out-of-range; blocks Save for non-number.
+ *  - Save → selfLogSyncStore.addSelfLog(SelfLogInput).
+ *
+ * Shared:
+ *  - Type segmented control: hidden when pre-set from params (metricType or medicationPlanId).
+ *  - Live echo line (§0 signature): verbatim preview of the Day-Detail row.
+ *  - Date/time defaults: now on today / 12:00 on non-today (§2).
+ *  - general_health consent gate (§B.4): absent → JIT nudge modal; browsing unblocked.
+ *  - Screen states: empty/filling/invalid/saving/saved/error (§5).
+ *  - Local-first writes — no offline state on the form.
+ *  - All a11y contracts from accessibility-notes.md §2/§4/§8.
  *
  * INV-S1 (AC-20): BP 150/95 and 110/70 render with IDENTICAL visual weight —
  * no colour, no grade, no arrow ever appears on a self-log value.
@@ -27,25 +35,28 @@
  * clinical action — only "double-check this number" (input plausibility guard).
  *
  * Security:
- *  - Value/note fields base64-encoded before passing to selfLogSyncStore (SD-5).
+ *  - Value/note/medication fields base64-encoded before passing to stores (SD-5).
  *  - NEVER log any health value (SD-5 MOTHER-health).
- *  - Call selfLogSyncStore.reset() on logout (PDPA cross-account-leak guard).
+ *  - NEVER log note, occurrenceTime, or medicationPlanId (SD-5).
+ *  - Call store reset() on logout (PDPA cross-account-leak guard).
  *
  * testIDs:
- *  capture-type-control     — type segmented control (when visible)
- *  capture-type-{type}      — individual type segment button
- *  capture-weight-input     — weight numeric field
- *  capture-systolic-input   — BP systolic field
- *  capture-diastolic-input  — BP diastolic field
- *  capture-text-input       — swelling/lochia/symptom text field
- *  capture-time-display     — time display/picker button
- *  capture-note-input       — optional note field
- *  capture-echo-line        — live preview row
- *  capture-save-btn         — primary Save button
- *  capture-consent-modal    — consent nudge modal
- *  capture-consent-grant    — grant button in modal
- *  capture-consent-not-now  — not-now button in modal
- *  capture-save-error       — error panel
+ *  capture-type-control          — type segmented control (when visible)
+ *  capture-type-{type}           — individual type segment button
+ *  capture-weight-input          — weight numeric field
+ *  capture-systolic-input        — BP systolic field
+ *  capture-diastolic-input       — BP diastolic field
+ *  capture-text-input            — swelling/lochia/symptom text field
+ *  capture-medication-taken      — taken chip (medication family)
+ *  capture-medication-missed     — missed chip (medication family)
+ *  capture-time-display          — time display/picker button
+ *  capture-note-input            — optional note field
+ *  capture-echo-line             — live preview row
+ *  capture-save-btn              — primary Save button
+ *  capture-consent-modal         — consent nudge modal
+ *  capture-consent-grant         — grant button in modal
+ *  capture-consent-not-now       — not-now button in modal
+ *  capture-save-error            — error panel
  */
 
 import React, { useState, useCallback, useRef } from 'react';
@@ -66,9 +77,11 @@ import { useRoute, useNavigation, type RouteProp } from '@react-navigation/nativ
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import type { RootStackParamList } from '../navigation/types';
-import type { SelfLogMetricType } from '../sync/syncTypes';
+import type { SelfLogMetricType, MedicationLogInput } from '../sync/syncTypes';
 import type { TokenStorage } from '../auth/tokenStorage';
 import { selfLogSyncStore } from '../selfLog/selfLogSyncStore';
+import { medicationLogSyncStore } from '../medication/medicationLogSyncStore';
+import { medicationPlanSyncStore } from '../medication/medicationPlanSyncStore';
 import { consentStore } from '../consent/consentStore';
 import { createConsentApiClient } from '../consent/consentApiClient';
 import { consentQueue } from '../consent/consentSync';
@@ -90,7 +103,12 @@ import {
   getDefaultTime,
   isSaveEnabled,
   orchestrateSave,
+  decodeFieldFromBase64,
 } from './captureScreenLogic';
+import {
+  buildMedicationEchoLine,
+  orchestrateMedicationSave,
+} from './medicationCaptureLogic';
 import type { SelfLogInput } from '../sync/syncTypes';
 
 // ─── Navigation types ─────────────────────────────────────────────────────────
@@ -105,9 +123,31 @@ export interface CaptureScreenProps {
   apiBaseUrl: string;
 }
 
+// ─── Types ────────────────────────────────────────────────────────────────────
+
+/**
+ * CaptureType extends SelfLogMetricType with the medication family.
+ * medication is first so it appears as the leading chip in the type control.
+ */
+export type CaptureType = SelfLogMetricType | 'medication';
+
 // ─── Constants ────────────────────────────────────────────────────────────────
 
-const METRIC_TYPES: SelfLogMetricType[] = [
+/**
+ * Ordered list of all capture types shown in the type control.
+ * medication leads — it is the most frequently accessed via reminder shortcut.
+ */
+const ALL_CAPTURE_TYPES: CaptureType[] = [
+  'medication',
+  'weight',
+  'blood_pressure',
+  'swelling',
+  'lochia',
+  'symptom',
+];
+
+/** Self-log subset (used for self-log-specific logic). */
+const SELF_LOG_TYPES: SelfLogMetricType[] = [
   'weight',
   'blood_pressure',
   'swelling',
@@ -282,18 +322,121 @@ function TextRegion({ metricLabel, value, onChangeText, placeholder }: TextRegio
   );
 }
 
+// ─── Sub-component: Medication region ────────────────────────────────────────
+
+interface MedicationRegionProps {
+  /** Decoded (UTF-8) plan name — shown VERBATIM (INV-M4). Empty → ad-hoc (no plan). */
+  planName: string;
+  /** Decoded (UTF-8) dose — shown VERBATIM (INV-M4). Null → no dose line. */
+  planDose: string | null;
+  /** i18n label: "จากแผนยา" / "From plan" — shown below the plan name. */
+  planFromLabel: string;
+  /** i18n label: "ขนาด" / "Dose" — prefix for the dose line. */
+  doseLabel: string;
+  status: 'taken' | 'missed';
+  onStatusChange: (s: 'taken' | 'missed') => void;
+  /** i18n label for taken, e.g. "กินแล้ว" / "Taken". */
+  takenLabel: string;
+  /** i18n label for missed, e.g. "ไม่ได้กิน" / "Not taken". */
+  missedLabel: string;
+  /** i18n section label for the status row, e.g. "สถานะ" / "Status". */
+  statusSectionLabel: string;
+}
+
+/**
+ * Medication value region.
+ *
+ * Renders:
+ *   - Plan name (VERBATIM — INV-M4) with "จากแผนยา" secondary label
+ *   - Dose (VERBATIM — INV-M4) when present
+ *   - Two-state taken / missed toggle (EQUAL visual weight — INV-M2)
+ *
+ * INV-M2: Both chips use IDENTICAL styling (chipSelected rose/50 background).
+ * The only difference is which label is shown — never amber, never shaming.
+ * AC-20: No grade/verdict word anywhere in this component.
+ */
+function MedicationRegion({
+  planName,
+  planDose,
+  planFromLabel,
+  doseLabel,
+  status,
+  onStatusChange,
+  takenLabel,
+  missedLabel,
+  statusSectionLabel,
+}: MedicationRegionProps): React.JSX.Element {
+  return (
+    <View style={fieldStyles.regionContainer}>
+      {/* Plan info — only shown when a plan is linked (INV-M4: verbatim) */}
+      {planName.trim() ? (
+        <View style={fieldStyles.medPlanBlock}>
+          <Text
+            style={fieldStyles.medPlanName}
+            accessibilityLabel={planName}
+          >
+            {planName}
+          </Text>
+          <Text style={fieldStyles.medPlanFrom}>{planFromLabel}</Text>
+          {planDose?.trim() ? (
+            <Text style={fieldStyles.medDose}>
+              {doseLabel} {planDose}
+            </Text>
+          ) : null}
+        </View>
+      ) : null}
+
+      {/* Status toggle — INV-M2: taken and missed have EQUAL visual weight */}
+      <View style={fieldStyles.medStatusSection}>
+        <Text style={fieldStyles.medStatusLabel}>{statusSectionLabel}</Text>
+        <View style={fieldStyles.medStatusChips} accessibilityRole="radiogroup">
+          {/*
+            INV-M2: Both chips use chipSelected (rose/50 bg) when active.
+            "missed" chip NEVER uses amber/attention styling — no shaming.
+          */}
+          <TouchableOpacity
+            testID="capture-medication-taken"
+            style={[segStyles.chip, status === 'taken' && segStyles.chipSelected]}
+            onPress={() => onStatusChange('taken')}
+            accessibilityRole="radio"
+            accessibilityState={{ checked: status === 'taken' }}
+            accessibilityLabel={takenLabel}
+          >
+            <Text style={[segStyles.chipText, status === 'taken' && segStyles.chipTextSelected]}>
+              {takenLabel}
+            </Text>
+          </TouchableOpacity>
+          {/* INV-M2: same chip style — no distinction in status treatment */}
+          <TouchableOpacity
+            testID="capture-medication-missed"
+            style={[segStyles.chip, status === 'missed' && segStyles.chipSelected]}
+            onPress={() => onStatusChange('missed')}
+            accessibilityRole="radio"
+            accessibilityState={{ checked: status === 'missed' }}
+            accessibilityLabel={missedLabel}
+          >
+            <Text style={[segStyles.chipText, status === 'missed' && segStyles.chipTextSelected]}>
+              {missedLabel}
+            </Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </View>
+  );
+}
+
 // ─── Sub-component: Type segmented control ────────────────────────────────────
 
 interface TypeControlProps {
-  selected: SelfLogMetricType;
-  onSelect: (t: SelfLogMetricType) => void;
-  typeLabel: (t: SelfLogMetricType) => string;
+  selected: CaptureType;
+  onSelect: (t: CaptureType) => void;
+  typeLabel: (t: CaptureType) => string;
 }
 
 function TypeSegmentedControl({ selected, onSelect, typeLabel }: TypeControlProps): React.JSX.Element {
   return (
     <View testID="capture-type-control" style={segStyles.row} accessibilityRole="tablist">
-      {METRIC_TYPES.map((t) => (
+      {ALL_CAPTURE_TYPES.map((t) => (
         <TouchableOpacity
           key={t}
           testID={`capture-type-${t}`}
@@ -397,13 +540,43 @@ export function CaptureScreen({ tokenStorage, apiBaseUrl }: CaptureScreenProps):
   const presetType = route.params?.metricType;
   const paramDate = route.params?.loggedAtDate;
   const paramTime = route.params?.defaultTime;
+  /**
+   * medicationPlanId from route params (UUID only — no health data in params SD-9).
+   * When present: pre-set type to 'medication', resolve plan, default to 'taken'.
+   */
+  const presetMedicationPlanId: string | null = route.params?.medicationPlanId ?? null;
 
   const todayCivil = localCivilToday();
   const initialDate = paramDate ?? todayCivil;
   const initialTime = paramTime ?? getDefaultTime(initialDate, todayCivil);
 
+  /**
+   * Initial CaptureType:
+   *   medicationPlanId set → 'medication'
+   *   presetType set       → that SelfLogMetricType
+   *   neither              → 'weight' (default first self-log type)
+   */
+  const initialCaptureType: CaptureType =
+    presetMedicationPlanId != null
+      ? 'medication'
+      : (presetType ?? 'weight');
+
+  // ── Plan resolution (sync, no async — INV-M4: verbatim, never translated) ─
+  // Resolved once from the in-memory store; presetMedicationPlanId never changes.
+  // Security: NEVER log resolvedPlanName or resolvedPlanDose (SD-5).
+  const resolvedPlan =
+    presetMedicationPlanId != null
+      ? medicationPlanSyncStore.getPlan(presetMedicationPlanId)
+      : undefined;
+  const resolvedPlanName: string = resolvedPlan
+    ? (decodeFieldFromBase64(resolvedPlan.name) ?? '')
+    : '';
+  const resolvedPlanDose: string | null = resolvedPlan
+    ? decodeFieldFromBase64(resolvedPlan.dose ?? null)
+    : null;
+
   // ── Form state ────────────────────────────────────────────────────────────
-  const [metricType, setMetricType] = useState<SelfLogMetricType>(presetType ?? 'weight');
+  const [captureType, setCaptureType] = useState<CaptureType>(initialCaptureType);
 
   // Weight
   const [weightValue, setWeightValue] = useState('');
@@ -412,6 +585,8 @@ export function CaptureScreen({ tokenStorage, apiBaseUrl }: CaptureScreenProps):
   const [diastolicValue, setDiastolicValue] = useState('');
   // Text value (swelling/lochia/symptom)
   const [textValue, setTextValue] = useState('');
+  // Medication status (§B.1: default = 'taken' — INV-M2: both states equal weight)
+  const [medicationStatus, setMedicationStatus] = useState<'taken' | 'missed'>('taken');
   // Date/time
   const [dateCivil, setDateCivil] = useState(initialDate);
   const [timeStr, setTimeStr] = useState(initialTime);
@@ -440,6 +615,11 @@ export function CaptureScreen({ tokenStorage, apiBaseUrl }: CaptureScreenProps):
   // pendingPayloadRef: holds the freshly-built SelfLogInput captured at the
   // moment Save was gated (§B.4). Grant path persists this — no stale closure.
   const pendingPayloadRef = useRef<SelfLogInput | null>(null);
+  // pendingMedicationPayloadRef: holds the MedicationLogInput captured at the
+  // moment a medication Save was gated. Only one of the two ref is ever non-null
+  // at a time (consent modal is shared between self-log and medication paths).
+  // Security: NEVER log this ref's contents (SD-5 MOTHER-health).
+  const pendingMedicationPayloadRef = useRef<MedicationLogInput | null>(null);
 
   // ── Validation ────────────────────────────────────────────────────────────
   const weightValidation = validateWeight(weightValue);
@@ -450,18 +630,36 @@ export function CaptureScreen({ tokenStorage, apiBaseUrl }: CaptureScreenProps):
   // Text/note don't show inline validation (length cap only — silent counter)
   const textStorable = textValue.trim().length > 0;
 
-  const saveEnabled = isSaveEnabled({
-    metricType,
-    weightStorable: weightValidation.storable && weightValue.trim().length > 0,
-    systolicStorable: systolicValidation.storable && systolicValue.trim().length > 0,
-    diastolicStorable: diastolicValidation.storable && diastolicValue.trim().length > 0,
-    textStorable,
-    timeStorable: timeValidation.storable,
-  });
+  const saveEnabled: boolean =
+    captureType === 'medication'
+      // Medication: always enabled when time is valid (status has a default — §B.1)
+      ? timeValidation.storable
+      // Self-log: requires a valid non-empty value for the active metricType
+      : isSaveEnabled({
+          metricType: captureType as SelfLogMetricType,
+          weightStorable: weightValidation.storable && weightValue.trim().length > 0,
+          systolicStorable: systolicValidation.storable && systolicValue.trim().length > 0,
+          diastolicStorable: diastolicValidation.storable && diastolicValue.trim().length > 0,
+          textStorable,
+          timeStorable: timeValidation.storable,
+        });
 
-  // ── Echo line (locale-aware labels from i18n — blocker #6) ─────────────────
+  // ── Echo line (locale-aware labels from i18n) ───────────────────────────────
   const echoLine = (() => {
-    switch (metricType) {
+    if (captureType === 'medication') {
+      // INV-M4: pass decoded plan name/dose verbatim.
+      // INV-M2: buildMedicationEchoLine returns { type:'text' } for BOTH
+      //         taken and missed — identical structural output, no shaming.
+      return buildMedicationEchoLine(
+        resolvedPlanName,
+        resolvedPlanDose,
+        medicationStatus,
+        timeStr,
+        t('capture.medication.takenLabel'),
+        t('capture.medication.missedLabel'),
+      );
+    }
+    switch (captureType as SelfLogMetricType) {
       case 'weight':
         return buildWeightEchoLine(
           weightValue,
@@ -481,7 +679,7 @@ export function CaptureScreen({ tokenStorage, apiBaseUrl }: CaptureScreenProps):
       case 'lochia':
       case 'symptom':
         return buildTextEchoLine(
-          t(`capture.type.${metricType}` as Parameters<typeof t>[0]),
+          t(`capture.type.${captureType}` as Parameters<typeof t>[0]),
           textValue,
           timeStr,
         );
@@ -489,12 +687,15 @@ export function CaptureScreen({ tokenStorage, apiBaseUrl }: CaptureScreenProps):
   })();
 
   // ── Type change resets value fields ───────────────────────────────────────
-  function handleTypeChange(t: SelfLogMetricType): void {
-    setMetricType(t);
+  function handleTypeChange(newType: CaptureType): void {
+    setCaptureType(newType);
+    // Reset all value fields when switching type
     setWeightValue('');
     setSystolicValue('');
     setDiastolicValue('');
     setTextValue('');
+    // Reset medication status to default 'taken' on type change (§B.1)
+    setMedicationStatus('taken');
   }
 
   // ── Consent grant ─────────────────────────────────────────────────────────
@@ -527,45 +728,93 @@ export function CaptureScreen({ tokenStorage, apiBaseUrl }: CaptureScreenProps):
       } finally {
         setConsentLoading(false);
         setShowConsentModal(false);
-        // Persist the payload captured at gate time — no stale handleSave call
-        const pending = pendingPayloadRef.current;
-        if (pending) {
-          pendingPayloadRef.current = null;
-          try {
-            selfLogSyncStore.addSelfLog(pending);
+        // Drain whichever pending payload was captured at gate time.
+        // Only one of the two refs is ever non-null (modal is shared between
+        // self-log and medication paths — never both active simultaneously).
+        // Security: NEVER log pendingMed contents (SD-5 MOTHER-health).
+        const pendingMed = pendingMedicationPayloadRef.current;
+        const pendingSelf = pendingPayloadRef.current;
+        pendingMedicationPayloadRef.current = null;
+        pendingPayloadRef.current = null;
+        try {
+          if (pendingMed) {
+            // Medication grant path — persist the medication log (§B.4).
+            medicationLogSyncStore.addLog(pendingMed);
             setScreenState('saved');
-          } catch {
-            setScreenState('error');
+          } else if (pendingSelf) {
+            // Self-log grant path — persist the self-log entry (§B.4).
+            selfLogSyncStore.addSelfLog(pendingSelf);
+            setScreenState('saved');
           }
+        } catch {
+          setScreenState('error');
         }
       }
     })();
   }, [locale, tokenStorage, apiBaseUrl]);
 
   // ── Save ──────────────────────────────────────────────────────────────────
-  // Uses orchestrateSave (pure function) so payload is always built from LIVE
-  // form state. When gated, payload is stored in pendingPayloadRef for the
+  // Uses orchestrate* pure functions so payload is always built from LIVE form
+  // state. When gated, payload is stored in the relevant pending ref for the
   // grant path — no stale useCallback closure can drop the entered value.
   const handleSave = useCallback((): void => {
-    const result = orchestrateSave({
+    if (captureType === 'medication') {
+      // ── Medication save path ─────────────────────────────────────────────
+      const medResult = orchestrateMedicationSave({
+        saveEnabled,
+        consentGranted: consentStore.isGranted('general_health'),
+        planId: presetMedicationPlanId,
+        status: medicationStatus,
+        dateCivil,
+        timeStr,
+        noteText,
+      });
+
+      if (medResult.action === 'skip') return;
+
+      if (medResult.action === 'gate') {
+        // §B.4: hold in ref; grant handler dispatches to medicationLogSyncStore.
+        // Security: NEVER log medResult.payload contents (SD-5).
+        pendingMedicationPayloadRef.current = medResult.payload;
+        setShowConsentModal(true);
+        return;
+      }
+
+      // action === 'persist'
+      setScreenState('saving');
+      try {
+        medicationLogSyncStore.addLog(medResult.payload);
+        setScreenState('saved');
+      } catch {
+        setScreenState('error');
+      }
+      return;
+    }
+
+    // ── Self-log save path ─────────────────────────────────────────────────
+    const selfMetricType = captureType as SelfLogMetricType;
+    const selfResult = orchestrateSave({
       saveEnabled,
       consentGranted: consentStore.isGranted('general_health'),
-      metricType,
+      metricType: selfMetricType,
       dateCivil,
       timeStr,
-      weightValue: metricType === 'weight' ? weightValue : undefined,
-      systolicValue: metricType === 'blood_pressure' ? systolicValue : undefined,
-      diastolicValue: metricType === 'blood_pressure' ? diastolicValue : undefined,
-      textValue: ['swelling', 'lochia', 'symptom'].includes(metricType) ? textValue : undefined,
+      weightValue: selfMetricType === 'weight' ? weightValue : undefined,
+      systolicValue: selfMetricType === 'blood_pressure' ? systolicValue : undefined,
+      diastolicValue: selfMetricType === 'blood_pressure' ? diastolicValue : undefined,
+      textValue: SELF_LOG_TYPES.includes(selfMetricType) &&
+        selfMetricType !== 'weight' && selfMetricType !== 'blood_pressure'
+        ? textValue
+        : undefined,
       noteText,
     });
 
-    if (result.action === 'skip') return;
+    if (selfResult.action === 'skip') return;
 
-    if (result.action === 'gate') {
+    if (selfResult.action === 'gate') {
       // §B.4: hold the fresh payload in a ref; show consent nudge.
       // handleConsentGrant will persist pendingPayloadRef.current after grant.
-      pendingPayloadRef.current = result.payload;
+      pendingPayloadRef.current = selfResult.payload;
       setShowConsentModal(true);
       return;
     }
@@ -574,13 +823,14 @@ export function CaptureScreen({ tokenStorage, apiBaseUrl }: CaptureScreenProps):
     setScreenState('saving');
     try {
       // Local write — sub-100ms; never waits on network (capture-ui §9)
-      selfLogSyncStore.addSelfLog(result.payload);
+      selfLogSyncStore.addSelfLog(selfResult.payload);
       setScreenState('saved');
     } catch {
       setScreenState('error');
     }
   }, [
-    saveEnabled, metricType, weightValue, systolicValue, diastolicValue,
+    captureType, saveEnabled, presetMedicationPlanId, medicationStatus,
+    weightValue, systolicValue, diastolicValue,
     textValue, dateCivil, timeStr, noteText,
   ]);
 
@@ -634,8 +884,9 @@ export function CaptureScreen({ tokenStorage, apiBaseUrl }: CaptureScreenProps):
     setShowTimePicker(false);
   }
 
-  // ── Type labels for segmented control ─────────────────────────────────────
-  function typeLabel(type: SelfLogMetricType): string {
+  // ── Type labels for segmented control and section header ─────────────────
+  function typeLabel(type: CaptureType): string {
+    if (type === 'medication') return t('capture.type.medication');
     const keyMap: Record<SelfLogMetricType, string> = {
       weight: 'capture.type.weight',
       blood_pressure: 'capture.type.blood_pressure',
@@ -656,8 +907,12 @@ export function CaptureScreen({ tokenStorage, apiBaseUrl }: CaptureScreenProps):
     const shortDate = locale === 'th'
       ? `${day} ${TH_M_SHORT[mon - 1]}`
       : `${day} ${EN_M_SHORT[mon - 1]}`;
+    // For self-logs: echo ends with ` · HH:mm` so replace that pattern.
+    // For medication: echo ends with ` · {statusLabel} HH:mm` — the ` · HH:mm`
+    // pattern doesn't match. Use a simpler `timeStr` replacement that works for
+    // both: replaces the first (and typically only) occurrence of the time.
     const echoForSaved = echoLine.type === 'text'
-      ? echoLine.value.replace(` · ${timeStr}`, ` · ${shortDate} ${timeStr}`)
+      ? echoLine.value.replace(timeStr, `${shortDate} ${timeStr}`)
       : '';
     return (
       <SafeAreaView style={styles.container}>
@@ -712,22 +967,43 @@ export function CaptureScreen({ tokenStorage, apiBaseUrl }: CaptureScreenProps):
         contentContainerStyle={styles.bodyContent}
         keyboardShouldPersistTaps="handled"
       >
-        {/* Type segmented control — hidden when pre-set from a specific context */}
-        {!presetType && (
+        {/*
+          Type segmented control — hidden when pre-set from a specific context.
+          Hidden when: presetType (self-log family) OR medicationPlanId (medication family).
+          capture-ui §2: "type control shown on generic Add, hidden on specific-context open".
+        */}
+        {!presetType && !presetMedicationPlanId && (
           <View style={styles.section}>
             <Text style={styles.sectionLabel}>{t('capture.typeLabel')}</Text>
             <TypeSegmentedControl
-              selected={metricType}
+              selected={captureType}
               onSelect={handleTypeChange}
               typeLabel={typeLabel}
             />
           </View>
         )}
 
-        {/* Value region — swaps by metricType */}
+        {/* Value region — swaps by captureType */}
         <View style={styles.section}>
-          <Text style={styles.sectionLabel}>{typeLabel(metricType)}</Text>
-          {metricType === 'weight' && (
+          <Text style={styles.sectionLabel}>{typeLabel(captureType)}</Text>
+
+          {/* Medication family (capture-ui §3.1 + medication-behavior §B) */}
+          {captureType === 'medication' && (
+            <MedicationRegion
+              planName={resolvedPlanName}
+              planDose={resolvedPlanDose}
+              planFromLabel={t('capture.medication.planFromLabel')}
+              doseLabel={t('capture.medication.doseLabel')}
+              status={medicationStatus}
+              onStatusChange={setMedicationStatus}
+              takenLabel={t('capture.medication.takenLabel')}
+              missedLabel={t('capture.medication.missedLabel')}
+              statusSectionLabel={t('capture.medication.statusLabel')}
+            />
+          )}
+
+          {/* Self-log families */}
+          {captureType === 'weight' && (
             <WeightRegion
               value={weightValue}
               onChangeText={setWeightValue}
@@ -735,7 +1011,7 @@ export function CaptureScreen({ tokenStorage, apiBaseUrl }: CaptureScreenProps):
               unit={t('capture.unit.kg')}
             />
           )}
-          {metricType === 'blood_pressure' && (
+          {captureType === 'blood_pressure' && (
             <BpRegion
               systolic={systolicValue}
               diastolic={diastolicValue}
@@ -746,10 +1022,10 @@ export function CaptureScreen({ tokenStorage, apiBaseUrl }: CaptureScreenProps):
               unit={t('capture.unit.mmHg')}
             />
           )}
-          {(metricType === 'swelling' || metricType === 'lochia' || metricType === 'symptom') && (
+          {(captureType === 'swelling' || captureType === 'lochia' || captureType === 'symptom') && (
             <TextRegion
-              metricType={metricType}
-              metricLabel={t(`capture.type.${metricType}` as Parameters<typeof t>[0])}
+              metricType={captureType as 'swelling' | 'lochia' | 'symptom'}
+              metricLabel={t(`capture.type.${captureType}` as Parameters<typeof t>[0])}
               value={textValue}
               onChangeText={setTextValue}
               placeholder={t('capture.field.textPlaceholder')}
@@ -870,7 +1146,9 @@ export function CaptureScreen({ tokenStorage, apiBaseUrl }: CaptureScreenProps):
         isLoading={consentLoading}
         onGrant={handleConsentGrant}
         onNotNow={() => {
+          // Clear both pending refs — user dismissed without granting (§B.4).
           pendingPayloadRef.current = null;
+          pendingMedicationPayloadRef.current = null;
           setShowConsentModal(false);
         }}
         title={t('capture.consent.title')}
@@ -1323,6 +1601,60 @@ const fieldStyles = StyleSheet.create({
     lineHeight: 19,
     color: '#5F4A52', // ink/soft (capture-ui §4: never amber)
     flex: 1,
+  },
+
+  // ── Medication region styles ───────────────────────────────────────────────
+  // INV-M4: name/dose VERBATIM; INV-M2: neutral styling for taken AND missed.
+
+  /** Wrapper block for plan name + from-label + dose line. */
+  medPlanBlock: {
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#EBE1D9',
+    borderRadius: 14,
+    padding: 14,
+    gap: 2,
+  },
+  /** Plan name line — verbatim, semi-bold (INV-M4). */
+  medPlanName: {
+    fontFamily: 'IBMPlexSans-SemiBold',
+    fontSize: 16,
+    lineHeight: 24,
+    color: '#3A2A30', // ink — verbatim, never coloured (INV-M4)
+  },
+  /** "จากแผนยา" / "From plan" secondary label below the plan name. */
+  medPlanFrom: {
+    fontFamily: 'IBMPlexSans-Regular',
+    fontSize: 13,
+    lineHeight: 19,
+    color: '#94818A', // ink/faint
+  },
+  /** "ขนาด 1 เม็ด" dose line — verbatim (INV-M4). */
+  medDose: {
+    fontFamily: 'IBMPlexSans-Regular',
+    fontSize: 14,
+    lineHeight: 21,
+    color: '#5F4A52', // ink/soft — neutral, never coloured (INV-M4)
+  },
+  /**
+   * Status section: label + chip row for taken / missed.
+   * INV-M2: both chips use IDENTICAL chipSelected styling (rose/50 bg).
+   * Missed is NEVER amber/attention — no shaming. (INV-M2 / AC-20)
+   */
+  medStatusSection: {
+    gap: 6,
+  },
+  medStatusLabel: {
+    fontFamily: 'IBMPlexSans-SemiBold',
+    fontSize: 13,
+    lineHeight: 19,
+    color: '#5F4A52', // ink/soft — section label
+  },
+  /** Row containing the taken and missed chips (equal-weight flex row). */
+  medStatusChips: {
+    flexDirection: 'row',
+    gap: 8,
+    flexWrap: 'wrap',
   },
 });
 

@@ -243,9 +243,14 @@ export const LABELS = {
     lifecyclePostpartum: 'หลังคลอด',
     lifecycleEnded: 'สิ้นสุดการตั้งครรภ์',
     medTitle: 'ยาและการกินยา / Medication & adherence',
-    medPlaceholder: 'ยังไม่มีข้อมูลในช่วงนี้ · ฟีเจอร์บันทึกยายังไม่ถูกสร้าง',
     /** Empty-range wording for medication section (spec §A.6). */
     medNoData: 'ไม่มีข้อมูลในช่วงนี้',
+    /**
+     * Neutral line for a scheduled plan whose FLAG-4 rule does NOT fire in the
+     * report range (M=0). Replaces the "0/0 วัน" ratio which reads oddly to doctors.
+     * Never graded or coloured (AC-20).
+     */
+    medNoScheduleInRange: 'ไม่มีกำหนดในช่วงนี้ / No doses scheduled in this range',
     /** Prefix for adherence count lines: "กินแล้ว N/M วัน" or "กินแล้ว N ครั้ง". */
     medTakenPrefix: 'กินแล้ว',
     /** Unit for scheduled adherence: "N/M วัน". */
@@ -316,9 +321,13 @@ export const LABELS = {
     lifecyclePostpartum: 'Postpartum',
     lifecycleEnded: 'Ended',
     medTitle: 'Medication & adherence',
-    medPlaceholder: 'Not tracked yet in this range · medication logging feature not yet built',
     /** Empty-range wording for medication section (spec §A.6). */
     medNoData: 'No data in this range',
+    /**
+     * Neutral line for a scheduled plan whose FLAG-4 rule does NOT fire in the
+     * report range (M=0). Never graded or coloured (AC-20).
+     */
+    medNoScheduleInRange: 'No doses scheduled in this range',
     /** Prefix for adherence count lines: "Taken N/M days" or "Taken N times". */
     medTakenPrefix: 'Taken',
     /** Unit for scheduled adherence: "N/M days". */
@@ -395,6 +404,9 @@ function buildProfileSection(profile: ReportProfile, locale: Locale): string {
  * Invariants (AC-20 / INV-M1):
  *   - "กินแล้ว N/M วัน" and "กินแล้ว N ครั้ง" are plain counts — NEVER graded,
  *     coloured, or thresholded. 3/31 and 27/31 render with identical surrounding HTML.
+ *   - Scheduled plan with M=0 (FLAG-4 rule fires no days in range): renders name+dose
+ *     with medNoScheduleInRange neutral wording — never "0/0 วัน" (AC-20).
+ *     PRN plans always have M=0 by definition; they render "N ครั้ง" unchanged.
  *   - note is gated on includeSensitiveNotes (§A.6); when false it is omitted.
  *   - Empty range (no live plans + no logs in range) → medNoData wording, never
  *     the old "feature not built" placeholder (spec §A.6 empty-range rule).
@@ -444,10 +456,15 @@ function buildMedicationSection(
     const nameStr = esc(pa.name);
     const doseStr = pa.dose ? ` ${esc(pa.dose)}` : '';
 
-    // Adherence count line — plain count, never graded (AC-20 / INV-M1)
+    // Adherence count line — plain count, never graded (AC-20 / INV-M1).
+    // Scheduled plan with M=0: the FLAG-4 rule did not fire in this range — show
+    // neutral wording instead of the meaningless "0/0 วัน" ratio (never graded).
+    // PRN always has M=0 by definition and is handled by the isPrn branch.
     const adherenceLine = pa.isPrn
       ? `${esc(L.medTakenPrefix)} ${pa.N} ${esc(L.medTimes)}`
-      : `${esc(L.medTakenPrefix)} ${pa.N}/${pa.M} ${esc(L.medDays)}`;
+      : pa.M === 0
+        ? esc(L.medNoScheduleInRange)
+        : `${esc(L.medTakenPrefix)} ${pa.N}/${pa.M} ${esc(L.medDays)}`;
 
     // Per-dose logs for this plan in range (taken and missed — both neutral facts)
     const planLogsInRange = logsInRange

@@ -1048,4 +1048,78 @@ describe('buildDoctorReportHtml', () => {
     expect(html).not.toContain('null');
     expect(html).not.toContain('undefined');
   });
+
+  // ── M=0 edge case: scheduled plan whose FLAG-4 rule does NOT fire in the range ─
+
+  it('scheduled plan with M=0 shows neutral line, not "0/0 วัน" (th)', () => {
+    // Plan whose until ends before the July report range — expand() yields M=0
+    const planOutOfRange: ReportMedicationPlan = {
+      id: 'mp-oor-th',
+      name: 'Folic Acid',
+      dose: '5 mg',
+      scheduleRule: {
+        freq: 'daily',
+        startAt: '2026-06-01T08:00',
+        timesOfDay: ['08:00'],
+        until: '2026-06-30',
+      },
+      active: true,
+      deletedAt: null,
+    };
+    const html = buildDoctorReportHtml({
+      ...baseInput,
+      locale: 'th',
+      medicationPlans: [planOutOfRange],
+      medicationLogs: [],
+    });
+    // Neutral line must appear
+    expect(html).toMatch(/ไม่มีกำหนดในช่วงนี้/);
+    // The "0/0 วัน" ratio must NOT appear
+    expect(html).not.toMatch(/0\/0 วัน/);
+    // Plan name and dose must still be shown
+    expect(html).toContain('Folic Acid');
+    expect(html).toContain('5 mg');
+  });
+
+  it('scheduled plan with M=0 shows neutral line, not "0/0 days" (en)', () => {
+    const planOutOfRange: ReportMedicationPlan = {
+      id: 'mp-oor-en',
+      name: 'Folic Acid',
+      dose: '5 mg',
+      scheduleRule: {
+        freq: 'daily',
+        startAt: '2026-06-01T08:00',
+        timesOfDay: ['08:00'],
+        until: '2026-06-30',
+      },
+      active: true,
+      deletedAt: null,
+    };
+    const html = buildDoctorReportHtml({
+      ...baseInput,
+      locale: 'en',
+      medicationPlans: [planOutOfRange],
+      medicationLogs: [],
+    });
+    expect(html).toMatch(/No doses scheduled in this range/);
+    expect(html).not.toMatch(/0\/0 days/);
+    expect(html).toContain('Folic Acid');
+    expect(html).toContain('5 mg');
+  });
+
+  it('PRN plan (M=0 by definition) still renders "N ครั้ง" unchanged', () => {
+    // PRN plans always have M=0 — the M=0 fix must NOT affect them
+    const prnLog: ReportMedicationLog = {
+      id: 'prn-inv', medicationPlanId: 'mp-prn',
+      occurrenceTime: '2026-07-05T10:00', status: 'taken', note: null,
+    };
+    const html = buildDoctorReportHtml({
+      ...baseInput,
+      locale: 'th',
+      medicationPlans: [medPlanPrn],
+      medicationLogs: [prnLog],
+    });
+    expect(html).toContain('กินแล้ว 1 ครั้ง');
+    expect(html).not.toMatch(/ไม่มีกำหนดในช่วงนี้/);
+  });
 });

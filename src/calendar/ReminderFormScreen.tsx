@@ -12,9 +12,12 @@
  *
  * Write path (B1): mutations via calendarSyncStore → drainQueue() → sync/push.
  *
+ * Notification firing (Task 2 — implemented):
+ *   After save/delete, reanchor() from src/notifications/ re-materializes the
+ *   rolling-window OS notification schedule (expo-notifications). Fire-and-forget;
+ *   non-fatal. Exact-alarm behavior is a device-only launch-gate (Task 6).
+ *
  * TODO carry-forward:
- *   - OS notification firing (expo-notifications not added; store local alarms
- *     after save using Expo.Notifications.scheduleNotificationAsync)
  *   - sourceRefType/sourceRefId for linking to ChecklistItem/SupplyItem
  *   - hideOnLockScreen toggle (SD-11)
  *
@@ -49,6 +52,7 @@ import { formatCivilDate } from '../i18n/messages';
 import type { Locale } from '../auth/types';
 import { toCivilDate, toCivilTime, parseCivilDate, parseCivilTime } from './dateTimePickerFormat';
 import { setPendingCalendarFocusDate } from './pendingCalendarFocusDate';
+import { reanchor } from '../notifications';
 
 // ─── FLAG-4 grammar validation — imported from pure-TS module (testable) ──────
 //
@@ -260,7 +264,16 @@ export function ReminderFormScreen({
       calendarSyncStore.enqueueCreateReminder(created);
     }
 
-    // TODO carry-forward: schedule OS local notification (expo-notifications)
+    // Trigger notification re-anchor after save (replaces TODO carry-forward).
+    // Fire-and-forget — non-fatal, never blocks navigation. Schedules the newly
+    // saved reminder's occurrences within the 7-day rolling window.
+    {
+      const reminders = calendarSyncStore.getActiveReminders();
+      const occurrences = reminders.flatMap((r) =>
+        calendarSyncStore.getOccurrencesForReminder(r.id),
+      );
+      void reanchor(reminders, occurrences);
+    }
 
     // Signal CalendarScreen to auto-select the reminder's start date on focus.
     // Must be set before onSave() / navigation.goBack() so useFocusEffect picks it up.
@@ -284,7 +297,16 @@ export function ReminderFormScreen({
           style: 'destructive',
           onPress: () => {
             calendarSyncStore.enqueueDeleteReminder(existingReminder.id);
-            // TODO carry-forward: cancel OS alarms for this reminder
+            // Re-anchor after delete — stale alarms for this reminder will be
+            // cancelled by reanchor() because they are no longer in the active
+            // reminder set (replaces TODO carry-forward: cancel OS alarms).
+            {
+              const reminders = calendarSyncStore.getActiveReminders();
+              const occurrences = reminders.flatMap((r) =>
+                calendarSyncStore.getOccurrencesForReminder(r.id),
+              );
+              void reanchor(reminders, occurrences);
+            }
             onSave?.();
             triggerPush();
           },

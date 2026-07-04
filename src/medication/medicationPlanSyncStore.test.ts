@@ -21,7 +21,11 @@
  */
 
 import { createMedicationPlanSyncStore } from './medicationPlanSyncStore';
-import type { MedicationPlan, MedicationPlanInput } from '../sync/syncTypes';
+import {
+  MEDICATION_REMINDER_DISPLAY_TITLE,
+  type CalendarReminderStore,
+} from './medicationPlanReminderLinkage';
+import type { MedicationPlan, MedicationPlanInput, ReminderRecord } from '../sync/syncTypes';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -462,5 +466,153 @@ describe('medicationPlanSyncStore — reset() PDPA logout isolation', () => {
     const userBPlan = store.addPlan(makeInput({ name: 'dXNlckI=' }));
     expect(store.getPlans()).toHaveLength(1);
     expect(store.getPlans()[0].id).toBe(userBPlan.id);
+  });
+});
+
+// ─── Wiring-seam helpers ──────────────────────────────────────────────────────
+
+/**
+ * A "live" CalendarReminderStore stub: enqueueCreateReminder also inserts into
+ * the activeReminders list so that subsequent findLinkedReminder calls succeed
+ * (mirrors real calendarSyncStore behaviour in tests).
+ *
+ * Required by wiring-seam tests (Fix 1) so that updatePlan / tombstonePlan can
+ * find the reminder that addPlan created.
+ */
+function makeLiveCalendarStoreStub(): CalendarReminderStore & {
+  created: ReminderRecord[];
+  updated: ReminderRecord[];
+  deleted: string[];
+  activeReminders: ReminderRecord[];
+} {
+  const activeReminders: ReminderRecord[] = [];
+  const created: ReminderRecord[] = [];
+  const updated: ReminderRecord[] = [];
+  const deleted: string[] = [];
+
+  return {
+    getActiveReminders: () => activeReminders,
+    enqueueCreateReminder(item) {
+      const copy = { ...item };
+      created.push(copy);
+      activeReminders.push(copy);
+    },
+    enqueueUpdateReminder(item) {
+      const copy = { ...item };
+      updated.push(copy);
+      const idx = activeReminders.findIndex((r) => r.id === item.id);
+      if (idx >= 0) activeReminders[idx] = copy;
+    },
+    enqueueDeleteReminder(id) {
+      deleted.push(id);
+      const idx = activeReminders.findIndex((r) => r.id === id);
+      if (idx >= 0) activeReminders.splice(idx, 1);
+    },
+    created,
+    updated,
+    deleted,
+    activeReminders,
+  };
+}
+
+// ─── Wiring-seam (calendarStore integration) — Fix 1 ─────────────────────────
+//
+// These tests exercise the SHIPPED wiring in addPlan / updatePlan / tombstonePlan
+// by passing a real CalendarReminderStore stub.  Deleting the three linkage calls
+// (applyPlanCreateLinkage / applyPlanUpdateLinkage / applyPlanTombstoneLinkage)
+// in medicationPlanSyncStore.ts must cause ALL of these tests to fail.
+
+describe('medicationPlanSyncStore — wiring seam (calendarStore integration)', () => {
+  // ── addPlan ────────────────────────────────────────────────────────────────
+
+  it('addPlan(scheduled) → exactly 1 linked reminder created with correct fields', () => {
+    const cal = makeLiveCalendarStoreStub();
+    const store = createMedicationPlanSyncStore(cal);
+
+    const added = store.addPlan(makeInput());
+
+    expect(cal.created).toHaveLength(1);
+    expect(cal.updated).toHaveLength(0);
+    expect(cal.deleted).toHaveLength(0);
+
+    const reminder = cal.created[0];
+    expect(reminder.type).toBe('medication');
+    expect(reminder.sourceRefType).toBe('medication_plan');
+    expect(reminder.sourceRefId).toBe(added.id);
+    expect(reminder.displayTitle).toBe(MEDICATION_REMINDER_DISPLAY_TITLE);
+  });
+
+  it('addPlan(PRN / null scheduleRule) → 0 reminders created', () => {
+    const cal = makeLiveCalendarStoreStub();
+    const store = createMedicationPlanSyncStore(cal);
+
+    store.addPlan(makeInput({ scheduleRule: null }));
+
+    expect(cal.created).toHaveLength(0);
+    expect(cal.updated).toHaveLength(0);
+    expect(cal.deleted).toHaveLength(0);
+  });
+
+  // ── updatePlan ────────────────────────────────────────────────────────────
+
+  it('updatePlan(scheduled → PRN) → linked reminder deleted', () => {
+    const cal = makeLiveCalendarStoreStub();
+    const store = createMedicationPlanSyncStore(cal);
+
+    const added = store.addPlan(makeInput()); // creates linked reminder
+    const linkedId = cal.created[0].id;
+
+    store.updatePlan(added.id, { scheduleRule: null });
+
+    expect(cal.deleted).toContain(linkedId);
+    expect(cal.updated).toHaveLength(0);
+  });
+
+  it('updatePlan(schedule change) → linked reminder updated with new recurrenceRule', () => {
+    const cal = makeLiveCalendarStoreStub();
+    const store = createMedicationPlanSyncStore(cal);
+
+    const added = store.addPlan(makeInput()); // daily plan
+
+    store.updatePlan(added.id, {
+      scheduleRule: {
+        freq: 'every_n_days',
+        startAt: '2026-07-04T08:00',
+        timesOfDay: ['08:00'],
+        interval: 3,
+      },
+    });
+
+    expect(cal.updated).toHaveLength(1);
+    expect(cal.updated[0].recurrenceRule.freq).toBe('every_n_days');
+    expect(cal.updated[0].recurrenceRule.interval).toBe(3);
+    expect(cal.deleted).toHaveLength(0);
+  });
+
+  // ── tombstonePlan ─────────────────────────────────────────────────────────
+
+  it('tombstonePlan(scheduled plan) → linked reminder deleted', () => {
+    const cal = makeLiveCalendarStoreStub();
+    const store = createMedicationPlanSyncStore(cal);
+
+    const added = store.addPlan(makeInput()); // creates linked reminder
+    const linkedId = cal.created[0].id;
+
+    store.tombstonePlan(added.id);
+
+    expect(cal.deleted).toContain(linkedId);
+  });
+
+  it('tombstonePlan(PRN plan) → no reminder enqueue (nothing to clean up)', () => {
+    const cal = makeLiveCalendarStoreStub();
+    const store = createMedicationPlanSyncStore(cal);
+
+    const added = store.addPlan(makeInput({ scheduleRule: null })); // PRN
+
+    store.tombstonePlan(added.id);
+
+    expect(cal.deleted).toHaveLength(0);
+    expect(cal.updated).toHaveLength(0);
+    expect(cal.created).toHaveLength(0);
   });
 });

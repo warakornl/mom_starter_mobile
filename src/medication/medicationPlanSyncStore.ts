@@ -19,6 +19,13 @@
 
 import { v4 as uuidv4 } from 'uuid';
 import type { MedicationPlan, MedicationPlanInput, SyncChangeSet } from '../sync/syncTypes';
+import {
+  applyPlanCreateLinkage,
+  applyPlanUpdateLinkage,
+  applyPlanTombstoneLinkage,
+  type CalendarReminderStore,
+} from './medicationPlanReminderLinkage';
+import { calendarSyncStore } from '../sync/calendarSyncStore';
 
 // ─── Interface ────────────────────────────────────────────────────────────────
 
@@ -157,8 +164,15 @@ function makeUpsert<T extends { id: string; version: number }>(
 /**
  * Creates a fresh in-memory MedicationPlanSyncStore.
  * Call once per app session; share the instance across syncClient and screens.
+ *
+ * @param calendarStore  Optional CalendarReminderStore.  When provided, the store
+ *   automatically emits linked reminders on addPlan / updatePlan / tombstonePlan
+ *   (Slice-3 Task 1: Plan → Reminder linkage).  When absent (e.g. unit tests),
+ *   plan mutations are still queued but no reminder linkage is emitted.
  */
-export function createMedicationPlanSyncStore(): MedicationPlanSyncStore {
+export function createMedicationPlanSyncStore(
+  calendarStore?: CalendarReminderStore,
+): MedicationPlanSyncStore {
   // id → MedicationPlan (including tombstones)
   const planMap = new Map<string, MedicationPlan>();
 
@@ -206,6 +220,12 @@ export function createMedicationPlanSyncStore(): MedicationPlanSyncStore {
         });
       }
       pendingDeleted.push(id);
+
+      // Slice-3 Task 1: tombstone the linked reminder (two-tombstone pattern,
+      // ADR Decision 3 — mirrors supply_restock↔supply_item pattern; MR-E7).
+      if (calendarStore) {
+        applyPlanTombstoneLinkage(id, calendarStore);
+      }
     },
 
     stampApplied(id: string, version: number, updatedAt: string): void {
@@ -240,6 +260,12 @@ export function createMedicationPlanSyncStore(): MedicationPlanSyncStore {
       // Fresh UUID will not exist in the map; guards against theoretical UUID reuse
       upsertBase(record);
       pendingCreated.push({ ...record });
+
+      // Slice-3 Task 1: emit a linked reminder when the plan has a schedule
+      if (calendarStore) {
+        applyPlanCreateLinkage(record, calendarStore, now);
+      }
+
       return { ...record };
     },
 
@@ -254,6 +280,11 @@ export function createMedicationPlanSyncStore(): MedicationPlanSyncStore {
       };
       planMap.set(id, updated);
       pendingUpdated.push({ ...updated });
+
+      // Slice-3 Task 1: sync the linked reminder with the plan's updated state
+      if (calendarStore) {
+        applyPlanUpdateLinkage(updated, calendarStore, now);
+      }
     },
 
     // ── Queue ─────────────────────────────────────────────────────────────────
@@ -318,7 +349,11 @@ export function createMedicationPlanSyncStore(): MedicationPlanSyncStore {
  *   - MedicationScreen  — reads/writes records and mutation queue
  *   - performLogout     — calls reset() on every logout path (PDPA §1.1)
  *
+ * Wired with calendarSyncStore (Slice-3 Task 1) so that addPlan / updatePlan /
+ * tombstonePlan automatically emit / update / delete the linked Reminder row.
+ * No drug name ever flows into the reminder's displayTitle (ADR Decision 4).
+ *
  * Security: name/dose are opaque base64 ciphertext (SD-2 / ruling 4).
  * MOTHER-health: gated cloud_storage (whole-batch) + general_health (per-collection).
  */
-export const medicationPlanSyncStore = createMedicationPlanSyncStore();
+export const medicationPlanSyncStore = createMedicationPlanSyncStore(calendarSyncStore);

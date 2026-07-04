@@ -286,6 +286,33 @@ describe('buildScheduleSet — SD-11 generic title', () => {
     });
   });
 
+  // Minor (b) — US-20 exact wording: "no drug name AND no dose"
+  // The existing check above uses DRUG_NAME='Paracetamol 500mg' and asserts not.toContain(DRUG_NAME).
+  // That catches the full string but NOT a standalone dose substring if only the dose leaked.
+  // This test adds explicit dose-substring guards: '500mg' and '1 เม็ด' must never appear.
+  it('SD-11 dose-leak guard: scheduled notification title contains no dose-like substring (US-20 — no drug name OR dose)', () => {
+    const DOSE_ONLY = '500mg';
+    const DOSE_THAI = '1 เม็ด';
+    const r = makeReminder({
+      id: 'rem-sd11-dose',
+      type: 'medication',
+      // displayTitle embeds a realistic dose substring — must be scrubbed by the generic override
+      displayTitle: `Amoxicillin ${DOSE_ONLY}`,
+    });
+    const entries = buildScheduleSet([r], new Set(), NOW_LOCAL, WINDOW_DAYS, PENDING_BUDGET);
+    expect(entries.length).toBeGreaterThan(0);
+    entries.forEach(e => {
+      // Title must be the generic constant; dose substrings must never appear.
+      // These would FAIL if the medication title override were removed and dose leaked.
+      expect(e.title).not.toContain(DOSE_ONLY);
+      expect(e.title).not.toContain(DOSE_THAI);
+      // body is always '' (empty string) per scheduleAsync call — no dose surface there
+    });
+    // Sanity: MEDICATION_TITLE_TH itself contains neither dose string
+    expect(MEDICATION_TITLE_TH).not.toContain(DOSE_ONLY);
+    expect(MEDICATION_TITLE_TH).not.toContain(DOSE_THAI);
+  });
+
   it('non-medication reminders use displayTitle as notification title', () => {
     const r = makeReminder({
       id: 'rem-appt',

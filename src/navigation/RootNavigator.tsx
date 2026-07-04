@@ -74,6 +74,7 @@ import { DoctorPdfScreen } from '../pdfReport/DoctorPdfScreen';
 import { CaptureScreen } from '../capture/CaptureScreen';
 import { buildAddCaptureParams } from '../calendar/calendarAddCaptureHandler';
 import { MedicationPlanListScreen } from '../medication/MedicationPlanListScreen';
+import { buildLogDoseParams } from '../medication/logDoseParams';
 import { useT } from '../i18n/LanguageContext';
 
 // ── Logout deps for the session-expiry / no-token auto-logout path ───────────
@@ -580,6 +581,9 @@ export function RootNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps):
             tokenStorage={tokenStorage}
             apiBaseUrl={apiBaseUrl}
             onManageConsents={() => navigation.navigate('ManageConsents')}
+            onLogDose={(planId) =>
+              navigation.navigate('Capture', buildLogDoseParams(planId))
+            }
           />
         )}
       </Stack.Screen>

@@ -58,6 +58,8 @@ import {
   resolveExportOutcome,
   acquireDeleteLock,
   releaseDeleteLock,
+  mapExport401,
+  mapDelete401,
 } from '../accountRights/accountRightsController';
 import type { SupportedLocale } from '../accountRights/confirmWordMatch';
 
@@ -199,21 +201,15 @@ export function SettingsScreen({
         return;
       }
 
-      // Session-aware export client: wraps 401 → SESSION_EXPIRED_CODE sentinel.
-      // The sentinel is recognized by resolveExportOutcome and routes to onSessionExpired.
+      // Session-aware export client: wraps 401 → SESSION_EXPIRED_CODE sentinel via
+      // the extracted pure mapper (I-2). mapExport401 drops `message` so downstream
+      // `message ?? code` resolves to session_expired, not a stale server message.
       const rawApiClient = createAccountApiClient(apiBaseUrl);
       const sessionAwareApiClient = {
         exportAccount: async (
           accessToken: string,
           signal?: AbortSignal,
-        ) => {
-          const result = await rawApiClient.exportAccount(accessToken, signal);
-          if (!result.ok && result.status === 401) {
-            // Surface session-expired discriminant (Task-1 carry-forward resolution)
-            return { ok: false as const, status: 401, code: SESSION_EXPIRED_CODE };
-          }
-          return result;
-        },
+        ) => mapExport401(await rawApiClient.exportAccount(accessToken, signal)),
       };
 
       const fileService = createProductionAccountExportFileService();
@@ -351,15 +347,10 @@ export function SettingsScreen({
 
     const rawApiClient = createAccountApiClient(apiBaseUrl);
 
-    // Session-aware delete wrapper: maps 401 → SESSION_EXPIRED_CODE sentinel
-    const sessionAwareDeleteApi = async (token: string) => {
-      const result = await rawApiClient.deleteAccount(token);
-      if (!result.ok && result.status === 401) {
-        return { ok: false as const, code: SESSION_EXPIRED_CODE };
-      }
-      if (result.ok) return { ok: true as const };
-      return { ok: false as const, code: result.code };
-    };
+    // Session-aware delete wrapper: uses the extracted pure mapper (I-2).
+    // mapDelete401 drops `message` on 401 so `message ?? code` → session_expired.
+    const sessionAwareDeleteApi = async (token: string) =>
+      mapDelete401(await rawApiClient.deleteAccount(token));
 
     const logoutForDelete = buildPerformLogout(tokenStorage, onLogout);
 

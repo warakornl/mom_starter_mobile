@@ -15,6 +15,7 @@
  */
 
 import type { ExportOutcome } from './exportOrchestration';
+import type { ExportAccountResult, DeleteAccountResult } from './accountApiClient';
 
 // ─── Session-expired sentinel ──────────────────────────────────────────────────
 
@@ -136,4 +137,54 @@ export function acquireDeleteLock(ref: { current: boolean }): LockResult {
  */
 export function releaseDeleteLock(ref: { current: boolean }): void {
   ref.current = false;
+}
+
+// ─── 401 mappers — pure functions extracted for testability (I-2) ─────────────
+
+/**
+ * Pure 401 mapper for the export endpoint.
+ *
+ * Maps a raw ExportAccountResult: if the HTTP status is 401 the result is replaced
+ * by the session-expired sentinel WITHOUT a `message` field, so that downstream
+ * `message ?? code` always resolves to SESSION_EXPIRED_CODE (not a stale server
+ * message from the raw response).
+ *
+ * Every other result (200 ok, 404, 5xx, timeout, network, aborted) passes through
+ * UNCHANGED — the mapper must not alter non-401 results.
+ *
+ * @see account-rights-behavior.md §2.3 E-20
+ */
+export function mapExport401(result: ExportAccountResult): ExportAccountResult {
+  if (!result.ok && result.status === 401) {
+    // Return without a message field so `message ?? code` resolves to session_expired.
+    return { ok: false, status: 401, code: SESSION_EXPIRED_CODE };
+  }
+  return result;
+}
+
+/**
+ * The simplified shape that `runDeleteGate.deleteAccountApi` accepts.
+ * Message is intentionally absent: callers key on `code` alone for routing.
+ */
+export type MappedDeleteResult = { ok: true } | { ok: false; code: string };
+
+/**
+ * Pure 401 mapper for the delete endpoint.
+ *
+ * Normalises a raw DeleteAccountResult to the simpler shape that `runDeleteGate`
+ * expects (`{ ok: true } | { ok: false; code: string }`):
+ *   - 401          → `{ ok: false, code: SESSION_EXPIRED_CODE }` (no message — prevents
+ *                     stale message leaking to the downstream `message ?? code` resolver)
+ *   - ok: true     → `{ ok: true }`
+ *   - any other err → `{ ok: false, code: result.code }` (status + message stripped)
+ *
+ * @see account-rights-behavior.md §3.2 E-21
+ */
+export function mapDelete401(result: DeleteAccountResult): MappedDeleteResult {
+  if (result.ok) return { ok: true };
+  if (result.status === 401) {
+    // Return without message so `message ?? code` resolves to SESSION_EXPIRED_CODE.
+    return { ok: false, code: SESSION_EXPIRED_CODE };
+  }
+  return { ok: false, code: result.code };
 }

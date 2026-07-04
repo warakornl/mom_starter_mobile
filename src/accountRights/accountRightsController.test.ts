@@ -5,6 +5,7 @@
  *   1. 401-routing decision — export/delete session-expired discriminant
  *   2. nudge-return-to-confirm — any export outcome from nudge → CONFIRM_OPEN
  *   3. synchronous-disable guard (E-13) — second tap is suppressed before re-render
+ *   4. mapExport401 / mapDelete401 — inline 401 mappers extracted as pure functions
  */
 
 import {
@@ -13,8 +14,11 @@ import {
   resolveExportOutcome,
   acquireDeleteLock,
   releaseDeleteLock,
+  mapExport401,
+  mapDelete401,
 } from './accountRightsController';
 import type { ExportOutcome } from './exportOrchestration';
+import type { ExportAccountResult, DeleteAccountResult } from './accountApiClient';
 
 // ─── 1. Session-expired discriminant ──────────────────────────────────────────
 
@@ -134,5 +138,168 @@ describe('acquireDeleteLock / releaseDeleteLock (E-13 double-tap guard)', () => 
     expect(acquireDeleteLock(ref)).toBe('already_locked'); // rapid second tap (E-13)
     releaseDeleteLock(ref);                                // gate result returned
     expect(acquireDeleteLock(ref)).toBe('acquired');       // user can tap again
+  });
+});
+
+// ─── 5. mapExport401 — pure 401 mapper for the export endpoint ────────────────
+
+describe('mapExport401', () => {
+  it('maps a raw 401 result to the session-expired sentinel', () => {
+    const raw401: ExportAccountResult = {
+      ok: false,
+      status: 401,
+      code: 'token_expired',
+      message: 'Unauthorized',
+    };
+    const mapped = mapExport401(raw401);
+    expect(mapped.ok).toBe(false);
+    if (!mapped.ok) {
+      expect(mapped.status).toBe(401);
+      expect(mapped.code).toBe(SESSION_EXPIRED_CODE);
+    }
+  });
+
+  it('drops the message field on 401 so message??code resolves to session_expired', () => {
+    const raw401: ExportAccountResult = {
+      ok: false,
+      status: 401,
+      code: 'token_expired',
+      message: 'Stale message from server',
+    };
+    const mapped = mapExport401(raw401);
+    // The mapped result must NOT carry a message — downstream `message ?? code` must
+    // resolve to SESSION_EXPIRED_CODE, not the stale server message.
+    expect(mapped.ok).toBe(false);
+    if (!mapped.ok) {
+      expect(mapped.message).toBeUndefined();
+      // Verify the ?? chain: message ?? code === session_expired
+      const resolved = mapped.message ?? mapped.code;
+      expect(resolved).toBe(SESSION_EXPIRED_CODE);
+    }
+  });
+
+  it('passes through a 404 result unchanged', () => {
+    const raw404: ExportAccountResult = {
+      ok: false,
+      status: 404,
+      code: 'account_deleted',
+      message: 'Not found',
+    };
+    const mapped = mapExport401(raw404);
+    expect(mapped).toEqual(raw404);
+  });
+
+  it('passes through a 5xx result unchanged', () => {
+    const raw5xx: ExportAccountResult = {
+      ok: false,
+      status: 503,
+      code: 'server_error',
+      message: 'Service unavailable',
+    };
+    const mapped = mapExport401(raw5xx);
+    expect(mapped).toEqual(raw5xx);
+  });
+
+  it('passes through a timeout/network result (status 0) unchanged', () => {
+    const rawTimeout: ExportAccountResult = {
+      ok: false,
+      status: 0,
+      code: 'timeout',
+    };
+    const mapped = mapExport401(rawTimeout);
+    expect(mapped).toEqual(rawTimeout);
+  });
+
+  it('passes through a network_error result (status 0) unchanged', () => {
+    const rawNetwork: ExportAccountResult = {
+      ok: false,
+      status: 0,
+      code: 'network_error',
+    };
+    const mapped = mapExport401(rawNetwork);
+    expect(mapped).toEqual(rawNetwork);
+  });
+
+  it('passes through a successful result unchanged', () => {
+    const rawOk: ExportAccountResult = { ok: true, bodyText: '{"data":"..."}' };
+    const mapped = mapExport401(rawOk);
+    expect(mapped).toEqual(rawOk);
+  });
+});
+
+// ─── 6. mapDelete401 — pure 401 mapper for the delete endpoint ────────────────
+
+describe('mapDelete401', () => {
+  it('maps a raw 401 result to the session-expired sentinel', () => {
+    const raw401: DeleteAccountResult = {
+      ok: false,
+      status: 401,
+      code: 'token_expired',
+      message: 'Unauthorized',
+    };
+    const mapped = mapDelete401(raw401);
+    expect(mapped.ok).toBe(false);
+    if (!mapped.ok) {
+      expect(mapped.code).toBe(SESSION_EXPIRED_CODE);
+    }
+  });
+
+  it('drops the message field on 401 so message??code resolves to session_expired', () => {
+    const raw401: DeleteAccountResult = {
+      ok: false,
+      status: 401,
+      code: 'token_expired',
+      message: 'Stale server message',
+    };
+    const mapped = mapDelete401(raw401);
+    expect(mapped.ok).toBe(false);
+    if (!mapped.ok) {
+      // Must have no message — downstream `message ?? code` must resolve to session_expired
+      expect((mapped as { message?: string }).message).toBeUndefined();
+      const resolved = (mapped as { message?: string; code: string }).message ?? mapped.code;
+      expect(resolved).toBe(SESSION_EXPIRED_CODE);
+    }
+  });
+
+  it('passes through a 5xx result as { ok: false, code } (normalised shape, no stale message)', () => {
+    const raw5xx: DeleteAccountResult = {
+      ok: false,
+      status: 503,
+      code: 'server_error',
+      message: 'Service unavailable',
+    };
+    const mapped = mapDelete401(raw5xx);
+    expect(mapped.ok).toBe(false);
+    if (!mapped.ok) {
+      expect(mapped.code).toBe('server_error');
+    }
+  });
+
+  it('passes through a network_error (status 0) as { ok: false, code }', () => {
+    const rawNetwork: DeleteAccountResult = {
+      ok: false,
+      status: 0,
+      code: 'network_error',
+      message: 'Network request failed',
+    };
+    const mapped = mapDelete401(rawNetwork);
+    expect(mapped.ok).toBe(false);
+    if (!mapped.ok) {
+      expect(mapped.code).toBe('network_error');
+    }
+  });
+
+  it('maps a successful result to { ok: true }', () => {
+    const rawOk: DeleteAccountResult = { ok: true };
+    const mapped = mapDelete401(rawOk);
+    expect(mapped).toEqual({ ok: true });
+  });
+
+  it('nudge-context 401 still routes to session_expired via resolveExportOutcome', () => {
+    // Regression guard: a 401 in nudge context must NOT produce restore_confirm.
+    // This is already covered by resolveExportOutcome tests, but asserted here to
+    // confirm the contract that mappers + resolver together route 401→session_expired.
+    const outcome: ExportOutcome = { phase: 'EXPORT_ERROR', error: SESSION_EXPIRED_CODE };
+    expect(resolveExportOutcome(outcome, true)).toBe('session_expired');
   });
 });

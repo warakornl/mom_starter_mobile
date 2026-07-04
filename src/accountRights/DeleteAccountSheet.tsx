@@ -41,7 +41,7 @@ import {
   StyleSheet,
   Platform,
 } from 'react-native';
-import { matchesConfirmWord } from './confirmWordMatch';
+import { matchesConfirmWord, CONFIRM_WORDS } from './confirmWordMatch';
 import type { SupportedLocale } from './confirmWordMatch';
 import { useT } from '../i18n/LanguageContext';
 
@@ -236,15 +236,19 @@ export function DeleteAccountSheet({
               ]}
               value={confirmInput}
               onChangeText={onConfirmInputChange}
-              placeholder={t('accountRights.delete.confirmPlaceholder')}
+              // #9: single source — CONFIRM_WORDS[locale] is the only truth for the
+              // confirm word. Removing the dead confirmPlaceholder i18n key prevents
+              // matcher and UI from ever drifting out of sync.
+              placeholder={CONFIRM_WORDS[locale]}
               placeholderTextColor="#94818A"
               autoCapitalize="none"
               autoCorrect={false}
               editable={!deleteInFlight}
+              // #9: accessibilityLabel also derived from CONFIRM_WORDS[locale].
               accessibilityLabel={
                 locale === 'th'
-                  ? 'พิมพ์คำว่า ลบ เพื่อยืนยัน'
-                  : 'Type the word DELETE to confirm'
+                  ? `พิมพ์คำว่า ${CONFIRM_WORDS[locale]} เพื่อยืนยัน`
+                  : `Type the word ${CONFIRM_WORDS[locale]} to confirm`
               }
               // Hint for SR (supplemental; the label above is primary):
               accessibilityHint={t('accountRights.delete.confirmLabel')}

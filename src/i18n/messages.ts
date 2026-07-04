@@ -1022,9 +1022,9 @@ const th = {
   'accountRights.delete.nudgeSkipBtn': 'ข้ามไป ลบต่อ',
   // Type-to-confirm (§4.3, §3.7)
   'accountRights.delete.confirmLabel': 'พิมพ์ "ลบ" เพื่อยืนยัน',
-  // CONFIRM_WORD — matched by confirmWordMatch.ts CONFIRM_WORDS.th ('ลบ'). DO NOT CHANGE.
-  'accountRights.delete.confirmWord': 'ลบ',
-  'accountRights.delete.confirmPlaceholder': 'ลบ',
+  // confirmWord key REMOVED (was dead — never read by code). Single source of truth
+  // for the confirm word is CONFIRM_WORDS in confirmWordMatch.ts. (#9)
+  // confirmPlaceholder key REMOVED — placeholder is now derived from CONFIRM_WORDS[locale].
   // Buttons (§4.3)
   'accountRights.delete.confirmBtn': 'ยืนยันลบบัญชี',
   'accountRights.delete.cancelBtn': 'ยกเลิก',
@@ -1902,9 +1902,9 @@ const en: MsgShape = {
   'accountRights.delete.nudgeSkipBtn': 'Skip and continue',
   // Type-to-confirm (§4.3, §3.7)
   'accountRights.delete.confirmLabel': 'Type "DELETE" to confirm',
-  // CONFIRM_WORD — matched by confirmWordMatch.ts CONFIRM_WORDS.en ('DELETE'). DO NOT CHANGE.
-  'accountRights.delete.confirmWord': 'DELETE',
-  'accountRights.delete.confirmPlaceholder': 'DELETE',
+  // confirmWord key REMOVED (was dead — never read by code). Single source of truth
+  // for the confirm word is CONFIRM_WORDS in confirmWordMatch.ts. (#9)
+  // confirmPlaceholder key REMOVED — placeholder is now derived from CONFIRM_WORDS[locale].
   // Buttons (§4.3)
   'accountRights.delete.confirmBtn': 'Delete my account',
   'accountRights.delete.cancelBtn': 'Cancel',

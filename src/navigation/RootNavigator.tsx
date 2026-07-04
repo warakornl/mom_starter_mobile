@@ -453,6 +453,11 @@ export function RootNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps):
 
       {/* Settings — account/settings menu; home for logout (two levels deep).
        * Entry: gear ⚙ in the Home header. Stock header provides the back button.
+       *
+       * Account Rights (Task 3):
+       *   apiBaseUrl — enables "Download my data" + "Delete my account" rows.
+       *   onSessionExpired — routes to Welcome when export/delete returns 401
+       *     (global session-expired handling — §2.3 E-20, §3.2 E-21).
        */}
       <Stack.Screen
         name="Settings"
@@ -465,6 +470,10 @@ export function RootNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps):
               navigation.reset({ index: 0, routes: [{ name: 'Welcome' }] })
             }
             onManageConsent={() => navigation.navigate('ManageConsents')}
+            apiBaseUrl={apiBaseUrl}
+            onSessionExpired={() =>
+              navigation.reset({ index: 0, routes: [{ name: 'Welcome' }] })
+            }
           />
         )}
       </Stack.Screen>

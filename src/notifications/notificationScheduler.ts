@@ -308,16 +308,18 @@ export async function scheduleSnooze(
  *
  * Idempotency: scheduling the same occurrence id twice is an OS-level no-op replace.
  *
- * @param reminders   All active ReminderRecords
- * @param excludedIds Occurrence ids to skip (done/snoozed)
- * @param now         Current wall-clock time
- * @param adapter     NotificationsAdapter (real or mock)
+ * @param reminders       All active ReminderRecords
+ * @param excludedIds     Occurrence ids to skip (done)
+ * @param now             Current wall-clock time
+ * @param adapter         NotificationsAdapter (real or mock)
+ * @param snoozedUntilMap occurrenceId → snoozedUntil Date for active snoozed occurrences (Task 5)
  */
 export async function scheduleUpcoming(
   reminders: ReminderRecord[],
   excludedIds: ReadonlySet<string>,
   now: Date,
   adapter: NotificationsAdapter,
+  snoozedUntilMap: ReadonlyMap<string, Date> = new Map(),
 ): Promise<void> {
   // 1. Request permission (non-fatal if declined)
   let granted = false;
@@ -331,8 +333,8 @@ export async function scheduleUpcoming(
 
   if (!granted) return;
 
-  // 2. Build the schedule set
-  const entries = buildScheduleSet(reminders, excludedIds, now, WINDOW_DAYS, PENDING_BUDGET);
+  // 2. Build the schedule set (includes snoozed at their snoozedUntil)
+  const entries = buildScheduleSet(reminders, excludedIds, now, WINDOW_DAYS, PENDING_BUDGET, snoozedUntilMap);
 
   // 3. Schedule each entry (non-fatal per-entry errors)
   for (const entry of entries) {
@@ -385,26 +387,33 @@ export async function cancelForOccurrence(
  *
  * Algorithm:
  *   1. Get all currently scheduled OS notification ids
- *   2. Build the new target schedule set
+ *   2. Build the new target schedule set (includes snoozed at snoozedUntil)
  *   3. Cancel any ids in the current OS set that are NOT in the new target (stale)
  *   4. Schedule all ids in the new target (idempotent replace — same id = replace)
  *
  * The cancel-then-schedule pattern is safe because scheduling the same id
  * replaces the existing alarm (ADR Decision 2 "Idempotency").
  *
+ * Task 5: snoozedUntilMap is now threaded through so snoozed occurrences are
+ * rescheduled at their snoozedUntil on every re-anchor pass (not cancelled as
+ * stale). This implements approach A: the scheduler is the single source of
+ * truth for both normal and snoozed OS alarms.
+ *
  * Permission: re-requested on each reanchor (user may have changed it in Settings).
  * Stale cancellation happens regardless of permission (cleanup is always safe).
  *
- * @param reminders   All ReminderRecords (active + tombstoned; function filters)
- * @param excludedIds Occurrence ids to skip (done/snoozed occurrences)
- * @param now         Current wall-clock time (device local)
- * @param adapter     NotificationsAdapter
+ * @param reminders       All ReminderRecords (active + tombstoned; function filters)
+ * @param excludedIds     Occurrence ids to skip (done occurrences)
+ * @param now             Current wall-clock time (device local)
+ * @param adapter         NotificationsAdapter
+ * @param snoozedUntilMap occurrenceId → snoozedUntil Date for active snoozed occurrences (Task 5)
  */
 export async function reanchor(
   reminders: ReminderRecord[],
   excludedIds: ReadonlySet<string>,
   now: Date,
   adapter: NotificationsAdapter,
+  snoozedUntilMap: ReadonlyMap<string, Date> = new Map(),
 ): Promise<void> {
   // 1. Get currently scheduled OS notification ids
   let currentIds: string[] = [];
@@ -415,8 +424,8 @@ export async function reanchor(
     currentIds = [];
   }
 
-  // 2. Build the new target schedule set
-  const entries = buildScheduleSet(reminders, excludedIds, now, WINDOW_DAYS, PENDING_BUDGET);
+  // 2. Build the new target schedule set (snoozed occurrences at snoozedUntil)
+  const entries = buildScheduleSet(reminders, excludedIds, now, WINDOW_DAYS, PENDING_BUDGET, snoozedUntilMap);
   const targetIdSet = new Set(entries.map((e) => e.occurrenceId));
 
   // 3. Cancel stale notifications (in OS but not in the new target)
@@ -431,5 +440,5 @@ export async function reanchor(
   }
 
   // 4. Schedule new set (permission check inside scheduleUpcoming)
-  await scheduleUpcoming(reminders, excludedIds, now, adapter);
+  await scheduleUpcoming(reminders, excludedIds, now, adapter, snoozedUntilMap);
 }

@@ -869,6 +869,20 @@ const th = {
   'capture.medication.doseLabel': 'ขนาด',
   'capture.medication.statusLabel': 'สถานะ',
 
+  // ── Snooze chooser (Task 5 — medication-only 10/30/60 picker) ────────────────
+  // Keys per functional-spec §2.4 + screens-spec §5.4 (design Task 0d finalized).
+  // Used by SnoozeChooserSheet and the CalendarScreen snooze path.
+  // Thai copy is DRAFT pending licensed lawyer review before launch.
+  'reminder.snooze.title': 'เลื่อนเตือน',
+  /** template: {time} = computed re-alert time "HH:mm" */
+  'reminder.snooze.alertsAt': 'จะแจ้งเตือนเวลา {time}',
+  'reminder.snooze.opt.10': '10 นาที',
+  'reminder.snooze.opt.30': '30 นาที',
+  'reminder.snooze.opt.60': '60 นาที',
+  'reminder.snooze.cancel': 'ยกเลิก',
+  /** template: {time} = snoozedUntil "HH:mm" shown in occurrence row sub-label */
+  'reminder.snoozedUntil': 'เลื่อนไปเวลา {time}',
+
   // ── Notification strings — medication reminder (design §5.4, SD-11) ──────────
   // These keys are the single source of truth for the generic lock-screen copy
   // (screens-spec §5.4 / ADR Decision 4). NEVER include drug name/dose here.
@@ -1718,6 +1732,17 @@ const en: MsgShape = {
   'capture.medication.planFromLabel': 'From plan',
   'capture.medication.doseLabel': 'Dose',
   'capture.medication.statusLabel': 'Status',
+
+  // ── Snooze chooser (Task 5 — medication-only 10/30/60 picker) ────────────────
+  'reminder.snooze.title': 'Snooze reminder',
+  /** template: {time} = computed re-alert time "HH:mm" */
+  'reminder.snooze.alertsAt': 'Alerts again at {time}',
+  'reminder.snooze.opt.10': '10 minutes',
+  'reminder.snooze.opt.30': '30 minutes',
+  'reminder.snooze.opt.60': '60 minutes',
+  'reminder.snooze.cancel': 'Cancel',
+  /** template: {time} = snoozedUntil "HH:mm" shown in occurrence row sub-label */
+  'reminder.snoozedUntil': 'Snoozed until {time}',
 
   // ── Notification strings — medication reminder (design §5.4, SD-11) ──────────
   'notification.medication.title': 'Time for your medication',

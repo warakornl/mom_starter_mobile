@@ -249,3 +249,46 @@ describe('interpolate', () => {
     expect(interpolate('Week {n}', { n: 20 })).toBe('Week 20');
   });
 });
+
+// ─── Task 5: reminder.snooze.* i18n keys ─────────────────────────────────────
+
+describe('reminder.snooze.* keys (Task 5 — medication snooze chooser)', () => {
+  it('has reminder.snooze.title in both th and en', () => {
+    expect(catalog.th['reminder.snooze.title']).toBeTruthy();
+    expect(catalog.en['reminder.snooze.title']).toBeTruthy();
+  });
+
+  it('has reminder.snooze.opt.10 in both th and en', () => {
+    expect(catalog.th['reminder.snooze.opt.10']).toBeTruthy();
+    expect(catalog.en['reminder.snooze.opt.10']).toBeTruthy();
+  });
+
+  it('has reminder.snooze.opt.30 in both th and en', () => {
+    expect(catalog.th['reminder.snooze.opt.30']).toBeTruthy();
+    expect(catalog.en['reminder.snooze.opt.30']).toBeTruthy();
+  });
+
+  it('has reminder.snooze.opt.60 in both th and en', () => {
+    expect(catalog.th['reminder.snooze.opt.60']).toBeTruthy();
+    expect(catalog.en['reminder.snooze.opt.60']).toBeTruthy();
+  });
+
+  it('has reminder.snooze.cancel in both th and en', () => {
+    expect(catalog.th['reminder.snooze.cancel']).toBeTruthy();
+    expect(catalog.en['reminder.snooze.cancel']).toBeTruthy();
+  });
+
+  it('has reminder.snooze.alertsAt in both th and en (contains {time} placeholder)', () => {
+    expect(catalog.th['reminder.snooze.alertsAt']).toContain('{time}');
+    expect(catalog.en['reminder.snooze.alertsAt']).toContain('{time}');
+  });
+
+  it('has reminder.snoozedUntil in both th and en (contains {time} placeholder)', () => {
+    expect(catalog.th['reminder.snoozedUntil']).toContain('{time}');
+    expect(catalog.en['reminder.snoozedUntil']).toContain('{time}');
+  });
+
+  it('th snooze title matches "เลื่อนเตือน" (spec §2.4)', () => {
+    expect(catalog.th['reminder.snooze.title']).toBe('เลื่อนเตือน');
+  });
+});

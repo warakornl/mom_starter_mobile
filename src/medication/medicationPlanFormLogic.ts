@@ -26,6 +26,9 @@
  */
 
 import type { MedicationPlanInput, MedicationScheduleRule } from '../sync/syncTypes';
+
+// ─── Toast variant (shared across list screen and this module) ────────────────
+export type ToastVariant = 'saved' | 'savedLocalOnly' | 'deactivated' | 'deleted' | 'error';
 import { encodeFieldToBase64 } from '../capture/captureScreenLogic';
 import { validateRecurrenceRule } from '../calendar/reminderFormValidator';
 
@@ -309,6 +312,55 @@ export function isMedSaveEnabled(
  * @param params.pickerState     Schedule picker state; null = PRN
  * @param params.active          Active toggle state
  */
+// ─── resolvePendingSave ───────────────────────────────────────────────────────
+
+/**
+ * Pure orchestration for the useFocusEffect pending-save path.
+ *
+ * Extracted so it can be unit-tested without React hooks or store state.
+ * The caller (MedicationPlanListScreen) holds pendingPayloadRef and
+ * pendingEditIdRef; this function decides whether to consume them.
+ *
+ * Returns:
+ *  hold         — nothing to do (no payload, or consent not yet granted).
+ *                 Caller must NOT clear refs (payload is still pending).
+ *  persist-add  — call store.addPlan(payload) then show toast.
+ *  persist-edit — call store.updatePlan(editId, payload) then show toast.
+ *
+ * The correct toast variant is driven by cloudGranted:
+ *  true  → 'saved'          (cloud_storage granted — will sync)
+ *  false → 'savedLocalOnly' (local-only save; matches direct save path §7.2)
+ *
+ * Security: NEVER log any argument (SD-2/SD-5 — health data).
+ */
+export interface ResolvePendingSaveResult {
+  action: 'persist-add' | 'persist-edit' | 'hold';
+  toast?: ToastVariant;
+}
+
+export function resolvePendingSave(
+  pendingPayload: MedicationPlanInput | null,
+  pendingEditId: string | null,
+  consentGranted: boolean,
+  cloudGranted: boolean,
+): ResolvePendingSaveResult {
+  // No pending payload — nothing to resolve
+  if (!pendingPayload) return { action: 'hold' };
+
+  // Consent not yet granted — keep holding (user may still grant)
+  if (!consentGranted) return { action: 'hold' };
+
+  // Consent granted — determine add vs edit path and the correct toast
+  const toast: ToastVariant = cloudGranted ? 'saved' : 'savedLocalOnly';
+
+  if (pendingEditId) {
+    return { action: 'persist-edit', toast };
+  }
+  return { action: 'persist-add', toast };
+}
+
+// ─── orchestrateMedSave ───────────────────────────────────────────────────────
+
 export function orchestrateMedSave(params: {
   saveEnabled: boolean;
   consentGranted: boolean;

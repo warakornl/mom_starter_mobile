@@ -21,8 +21,10 @@ import {
   validateMedSchedule,
   isMedSaveEnabled,
   orchestrateMedSave,
+  resolvePendingSave,
   type SchedulePickerState,
 } from './medicationPlanFormLogic';
+import type { MedicationPlanInput } from '../sync/syncTypes';
 
 // Helper to decode base64 → UTF-8 (Node Buffer available in Jest)
 function b64Decode(b64: string): string {
@@ -484,6 +486,114 @@ describe('orchestrateMedSave — consent gate + stale-callback safety', () => {
       const r = orchestrateMedSave({ ...BASE_PARAMS, active: false, consentGranted: true });
       if (r.action !== 'persist') throw new Error('expected persist');
       expect(r.payload.active).toBe(false);
+    });
+  });
+});
+
+// ─── 6. resolvePendingSave — useFocusEffect persist orchestration ─────────────
+
+/**
+ * RED phase — tests written BEFORE resolvePendingSave is exported.
+ *
+ * resolvePendingSave is a pure function extracted from the useFocusEffect
+ * callback so it can be unit-tested without React hooks or store state.
+ *
+ * Contract:
+ *   pendingPayload=null          → hold (nothing pending)
+ *   consentGranted=false         → hold (still waiting for consent)
+ *   consentGranted=true, no id  → persist-add + correct toast
+ *   consentGranted=true, id set → persist-edit + correct toast
+ *   cloudGranted=true            → toast='saved'
+ *   cloudGranted=false           → toast='savedLocalOnly'
+ */
+
+const OPAQUE_PAYLOAD: MedicationPlanInput = {
+  name: 'Rm9saWMgQWNpZA==', // base64 opaque — SD-2 / never logged
+  dose: 'NTAwbWc=',
+  scheduleRule: { freq: 'daily', startAt: '2026-07-04T08:00', timesOfDay: ['08:00'] },
+  active: true,
+};
+
+describe('resolvePendingSave — pure focus-return orchestration (mobile Blocker 2)', () => {
+  describe('hold path — no pending payload', () => {
+    it('returns action=hold when pendingPayload is null', () => {
+      const result = resolvePendingSave(null, null, true, true);
+      expect(result.action).toBe('hold');
+    });
+
+    it('hold result has no toast property', () => {
+      const result = resolvePendingSave(null, null, true, true);
+      expect(result.toast).toBeUndefined();
+    });
+  });
+
+  describe('hold path — consent not yet granted (declined-on-return)', () => {
+    it('returns action=hold when consent not granted even with payload present', () => {
+      // User returned from ManageConsents but did NOT grant
+      const result = resolvePendingSave(OPAQUE_PAYLOAD, null, false, true);
+      expect(result.action).toBe('hold');
+    });
+
+    it('declined-on-return hold has no toast (ref is retained externally)', () => {
+      const result = resolvePendingSave(OPAQUE_PAYLOAD, null, false, true);
+      expect(result.toast).toBeUndefined();
+    });
+
+    it('returns hold regardless of cloudGranted when consent absent', () => {
+      expect(resolvePendingSave(OPAQUE_PAYLOAD, null, false, false).action).toBe('hold');
+      expect(resolvePendingSave(OPAQUE_PAYLOAD, null, false, true).action).toBe('hold');
+    });
+  });
+
+  describe('persist-add path — ADD (no editId) with consent granted', () => {
+    it('returns action=persist-add when payload present, editId=null, consent granted', () => {
+      const result = resolvePendingSave(OPAQUE_PAYLOAD, null, true, true);
+      expect(result.action).toBe('persist-add');
+    });
+
+    it('returns toast=saved when cloudGranted=true (ADD path)', () => {
+      const result = resolvePendingSave(OPAQUE_PAYLOAD, null, true, true);
+      expect(result.toast).toBe('saved');
+    });
+
+    it('returns toast=savedLocalOnly when cloudGranted=false (ADD path)', () => {
+      const result = resolvePendingSave(OPAQUE_PAYLOAD, null, true, false);
+      expect(result.toast).toBe('savedLocalOnly');
+    });
+  });
+
+  describe('persist-edit path — EDIT (editId set) with consent granted', () => {
+    it('returns action=persist-edit when payload present, editId set, consent granted', () => {
+      const result = resolvePendingSave(OPAQUE_PAYLOAD, 'plan-abc-123', true, true);
+      expect(result.action).toBe('persist-edit');
+    });
+
+    it('returns toast=saved when cloudGranted=true (EDIT path)', () => {
+      const result = resolvePendingSave(OPAQUE_PAYLOAD, 'plan-abc-123', true, true);
+      expect(result.toast).toBe('saved');
+    });
+
+    it('returns toast=savedLocalOnly when cloudGranted=false (EDIT path)', () => {
+      const result = resolvePendingSave(OPAQUE_PAYLOAD, 'plan-abc-123', true, false);
+      expect(result.toast).toBe('savedLocalOnly');
+    });
+  });
+
+  describe('correct toast is driven by cloudGranted only', () => {
+    it('cloud granted → saved for ADD', () => {
+      expect(resolvePendingSave(OPAQUE_PAYLOAD, null, true, true).toast).toBe('saved');
+    });
+
+    it('cloud absent → savedLocalOnly for ADD', () => {
+      expect(resolvePendingSave(OPAQUE_PAYLOAD, null, true, false).toast).toBe('savedLocalOnly');
+    });
+
+    it('cloud granted → saved for EDIT', () => {
+      expect(resolvePendingSave(OPAQUE_PAYLOAD, 'id-1', true, true).toast).toBe('saved');
+    });
+
+    it('cloud absent → savedLocalOnly for EDIT', () => {
+      expect(resolvePendingSave(OPAQUE_PAYLOAD, 'id-1', true, false).toast).toBe('savedLocalOnly');
     });
   });
 });

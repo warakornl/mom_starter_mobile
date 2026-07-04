@@ -21,10 +21,12 @@
 
 import { v5 as uuidv5 } from 'uuid';
 import { buildLoggedAt } from '../capture/captureScreenLogic';
+import type { MedicationLogInput } from '../sync/syncTypes';
 import {
   computeMarkDoneLogId,
   splitScheduledLocalTime,
   buildMarkDoneMedicationPayload,
+  executeMarkDoneHandler,
 } from './markDoneLogic';
 
 // ─── Shared fixtures ──────────────────────────────────────────────────────────
@@ -83,6 +85,15 @@ describe('computeMarkDoneLogId (spec §3.2 — MR-AC-8)', () => {
     const correctId = computeMarkDoneLogId(OID_AM);
     // Either it throws (wrongOrderId===null) or it produces a different id
     expect(correctId).not.toBe(wrongOrderId);
+  });
+
+  // MINOR 1 (MR-E1 fix): pin the §3.2 "reverse throws" rationale — the wrong arg order
+  // MUST throw, not silently produce a wrong id.  If the uuid library changes and the
+  // reversed call stops throwing this test will catch the regression.
+  it('MINOR-1: reversed uuidv5(OID_AM, "medication_taken") throws because "medication_taken" is not a valid UUID namespace (§3.2)', () => {
+    // Security of the deterministic id depends on the namespace being a valid UUID.
+    // "medication_taken" is NOT a valid UUID; uuid v5 MUST throw when used as namespace.
+    expect(() => uuidv5(OID_AM, 'medication_taken')).toThrow();
   });
 });
 
@@ -197,5 +208,150 @@ describe('buildMarkDoneMedicationPayload (spec §3.1 / §3.2 / §3.6 — MR-AC-7
     if (pm.orchestrationResult.action !== 'persist') throw new Error('expected persist');
     expect(am.orchestrationResult.payload.occurrenceTime).toBe(SCHED_AM);
     expect(pm.orchestrationResult.payload.occurrenceTime).toBe(SCHED_PM);
+  });
+});
+
+// ─── executeMarkDoneHandler (IMPORTANT — testable handler, MR-E1 / AC-17b) ────
+//
+// These tests cover the four observable states of the extracted handler:
+//   persist  — medication + consent → addLog called once with deterministic id
+//   noop     — non-medication → addLog never called (AC-17b)
+//   gate     — medication + no consent → addLog NOT called; showNudge=true returned
+//   flush    — simulated grant: caller uses returned heldPayload+heldLogId to call addLog
+//
+// The handler is pure (no React, no RN) and accepts addLog as an injectable callback
+// so these tests have no mocking infra overhead.
+
+describe('executeMarkDoneHandler (IMPORTANT — testable handler, MR-E1/AC-17b)', () => {
+  const baseHandler = {
+    oid: OID_AM,
+    scheduledLocalTime: SCHED_AM,
+    sourceRefId: PLAN_ID,
+  };
+
+  it('RED: medication + consent granted → showNudge=false AND addLog called once with deterministic id (persist path)', () => {
+    const addLog = jest.fn<void, [MedicationLogInput, string]>();
+    const result = executeMarkDoneHandler({
+      reminderType: 'medication',
+      sourceRefId: PLAN_ID,
+      oid: OID_AM,
+      scheduledLocalTime: SCHED_AM,
+      consentGranted: true,
+      addLog,
+    });
+    expect(result.showNudge).toBe(false);
+    expect(addLog).toHaveBeenCalledTimes(1);
+    const [calledPayload, calledId] = addLog.mock.calls[0];
+    expect(calledId).toBe(computeMarkDoneLogId(OID_AM));
+    expect(calledPayload.status).toBe('taken');
+    expect(calledPayload.medicationPlanId).toBe(PLAN_ID);
+    // MR-AC-7: occurrenceTime byte-identical to scheduledLocalTime
+    expect(calledPayload.occurrenceTime).toBe(SCHED_AM);
+  });
+
+  it('RED: non-medication → showNudge=false AND addLog never called (AC-17b zero-log)', () => {
+    const addLog = jest.fn<void, [MedicationLogInput, string]>();
+    const result = executeMarkDoneHandler({
+      reminderType: 'custom',
+      sourceRefId: undefined,
+      oid: OID_AM,
+      scheduledLocalTime: SCHED_AM,
+      consentGranted: true,
+      addLog,
+    });
+    expect(result.showNudge).toBe(false);
+    expect(addLog).not.toHaveBeenCalled();
+  });
+
+  it('RED: appointment type → showNudge=false AND addLog never called (AC-17b)', () => {
+    const addLog = jest.fn<void, [MedicationLogInput, string]>();
+    const result = executeMarkDoneHandler({
+      reminderType: 'appointment',
+      sourceRefId: undefined,
+      oid: OID_AM,
+      scheduledLocalTime: SCHED_AM,
+      consentGranted: true,
+      addLog,
+    });
+    expect(result.showNudge).toBe(false);
+    expect(addLog).not.toHaveBeenCalled();
+  });
+
+  it('RED: medication without sourceRefId → showNudge=false AND addLog never called (no plan id guard)', () => {
+    const addLog = jest.fn<void, [MedicationLogInput, string]>();
+    const result = executeMarkDoneHandler({
+      reminderType: 'medication',
+      sourceRefId: undefined,
+      oid: OID_AM,
+      scheduledLocalTime: SCHED_AM,
+      consentGranted: true,
+      addLog,
+    });
+    expect(result.showNudge).toBe(false);
+    expect(addLog).not.toHaveBeenCalled();
+  });
+
+  it('RED: gate branch — consent declined → showNudge=true, heldPayload+heldLogId returned, addLog NOT called (MR-E1/AC-12)', () => {
+    const addLog = jest.fn<void, [MedicationLogInput, string]>();
+    const result = executeMarkDoneHandler({
+      reminderType: 'medication',
+      sourceRefId: PLAN_ID,
+      oid: OID_AM,
+      scheduledLocalTime: SCHED_AM,
+      consentGranted: false,
+      addLog,
+    });
+    expect(result.showNudge).toBe(true);
+    expect(addLog).not.toHaveBeenCalled();
+    if (!result.showNudge) throw new Error('expected showNudge=true');
+    // Held id is the deterministic mark-done log id (MR-AC-8)
+    expect(result.heldLogId).toBe(computeMarkDoneLogId(OID_AM));
+    expect(result.heldPayload.status).toBe('taken');
+    expect(result.heldPayload.medicationPlanId).toBe(PLAN_ID);
+    // MR-AC-7: held occurrenceTime must be byte-identical to scheduledLocalTime
+    expect(result.heldPayload.occurrenceTime).toBe(SCHED_AM);
+  });
+
+  it('RED: grant-flush — caller uses heldPayload+heldLogId to call addLog exactly once (MR-E1, no double-write)', () => {
+    // Simulate the grant handler: get held payload from gate, then flush it.
+    const addLog = jest.fn<void, [MedicationLogInput, string]>();
+    const gateResult = executeMarkDoneHandler({
+      reminderType: 'medication',
+      sourceRefId: PLAN_ID,
+      oid: OID_AM,
+      scheduledLocalTime: SCHED_AM,
+      consentGranted: false,
+      addLog,
+    });
+    if (!gateResult.showNudge) throw new Error('expected gate result');
+    // Grant: flush held payload with deterministic id (dedup guard)
+    addLog(gateResult.heldPayload, gateResult.heldLogId);
+    expect(addLog).toHaveBeenCalledTimes(1);
+    const [flushedPayload, flushedId] = addLog.mock.calls[0];
+    expect(flushedId).toBe(computeMarkDoneLogId(OID_AM));
+    expect(flushedPayload.status).toBe('taken');
+    expect(flushedPayload.medicationPlanId).toBe(PLAN_ID);
+  });
+
+  it('RED: BID plan — AM and PM gates return DISTINCT heldLogIds (never collapse, MR-AC-9)', () => {
+    const addLog = jest.fn<void, [MedicationLogInput, string]>();
+    const gateAm = executeMarkDoneHandler({
+      reminderType: 'medication',
+      sourceRefId: PLAN_ID,
+      oid: OID_AM,
+      scheduledLocalTime: SCHED_AM,
+      consentGranted: false,
+      addLog,
+    });
+    const gatePm = executeMarkDoneHandler({
+      reminderType: 'medication',
+      sourceRefId: PLAN_ID,
+      oid: OID_PM,
+      scheduledLocalTime: SCHED_PM,
+      consentGranted: false,
+      addLog,
+    });
+    if (!gateAm.showNudge || !gatePm.showNudge) throw new Error('expected gate results');
+    expect(gateAm.heldLogId).not.toBe(gatePm.heldLogId);
   });
 });

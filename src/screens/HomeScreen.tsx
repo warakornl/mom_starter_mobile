@@ -939,7 +939,7 @@ export function HomeScreen({
           {/* Medication Plans — postpartum entry (medication-plan-ui.md §1) */}
           {onMedication && (
             <TouchableOpacity
-              testID="home-medication-shortcut"
+              testID="home-medication-shortcut-postpartum"
               style={styles.medicationBtn}
               onPress={onMedication}
               accessibilityRole="button"

@@ -9,9 +9,10 @@
  *   exclusion tests are updated to reflect the new expected behavior.
  *
  * buildSnoozedUntilMap (new in Task 5):
- *   Returns a Map<occurrenceId, Date> for active (non-tombstoned) snoozed
- *   occurrences where snoozedUntil is in the future. Past-snoozed occurrences
- *   are omitted (the alarm already fired/was missed).
+ *   Returns a Map<occurrenceId, SnoozedOccurrenceEntry> for active (non-tombstoned)
+ *   snoozed occurrences where snoozedUntil is in the future. Past-snoozed occurrences
+ *   are omitted (the alarm already fired/was missed). Fix B: the entry also carries
+ *   reminderId and scheduledLocalTime for cross-midnight orphan handling.
  *
  * Covers:
  *   - done occurrence → excluded (MR-AC-11: a done dose is never re-scheduled)
@@ -140,8 +141,11 @@ describe('buildSnoozedUntilMap', () => {
     });
     const result = buildSnoozedUntilMap([occ], NOW);
     expect(result.has('occ-snoozed-future')).toBe(true);
-    // Value is a Date matching snoozedUntil
-    expect(result.get('occ-snoozed-future')!.getTime()).toBe(new Date(snoozedUntil).getTime());
+    // Value is a SnoozedOccurrenceEntry — snoozedUntil matches the ISO string
+    expect(result.get('occ-snoozed-future')!.snoozedUntil.getTime()).toBe(new Date(snoozedUntil).getTime());
+    // Also carries reminderId and scheduledLocalTime (Fix B fields)
+    expect(result.get('occ-snoozed-future')!.reminderId).toBe('rem-001');
+    expect(result.get('occ-snoozed-future')!.scheduledLocalTime).toBe('2026-07-05T08:00');
   });
 
   it('does NOT include a snoozed occurrence whose snoozedUntil is in the past (alarm already fired)', () => {

@@ -77,6 +77,23 @@ export const MEDICATION_TITLE_TH = 'ถึงเวลากินยา';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
+/**
+ * Richer value in the snoozedUntilMap — carries the occurrence metadata needed
+ * to emit a ScheduleEntry for snoozed occurrences that are NOT re-emitted by
+ * the recurrence expander (cross-midnight / off-day case, Fix B).
+ *
+ * Fields:
+ *   snoozedUntil        — absolute fire time for the snooze alarm
+ *   reminderId          — parent Reminder.id (to look up title + active status)
+ *   scheduledLocalTime  — original floating civil "YYYY-MM-DDTHH:mm" of the
+ *                         snoozed occurrence (used as ScheduleEntry.scheduledLocalTime)
+ */
+export interface SnoozedOccurrenceEntry {
+  snoozedUntil: Date;
+  reminderId: string;
+  scheduledLocalTime: string;
+}
+
 /** A single occurrence entry ready for OS scheduling. */
 export interface ScheduleEntry {
   /** Deterministic uuidv5 occurrence id (used as the OS notification identifier). */
@@ -137,21 +154,31 @@ function addCivilDays(isoDate: string, n: number): string {
  * Pure function — no side effects, no native calls. Accepts all reminders
  * (any type); budget is shared across all types (soonest-first).
  *
- * Task 5 update — snoozedUntilMap:
+ * Task 5 update — snoozedUntilMap (SnoozedOccurrenceEntry):
  *   For snoozed occurrences (approach A), the caller passes a map of
- *   occurrenceId → snoozedUntil Date (built via buildSnoozedUntilMap).
+ *   occurrenceId → SnoozedOccurrenceEntry (built via buildSnoozedUntilMap).
  *   When an occurrence id appears in the map:
  *     - If snoozedUntil > now: schedule at snoozedUntil (not the original civil time)
  *     - If snoozedUntil ≤ now: skip (alarm already fired/missed)
  *   This ensures reanchor() keeps the snooze alarm alive across foreground
  *   transitions without ever scheduling two alarms for the same occurrence.
  *
+ * Fix B — cross-midnight / off-day orphaned snoozed occurrences:
+ *   A 23:50 dose snoozed 60 min → snoozedUntil 00:50 next day. After midnight,
+ *   the 23:50 occurrence is before windowStart and NOT emitted by the expander.
+ *   The oid is never encountered in the expansion loop, so the snoozedUntilMap
+ *   entry would be ignored — and reanchor() would cancel the snooze alarm.
+ *   Fix: after the expansion loop, a second pass emits any snoozedUntilMap entries
+ *   whose oid was NOT encountered during expansion (orphaned cross-midnight entries)
+ *   as FIRST-CLASS schedulable ScheduleEntries. These still respect the ≤budget
+ *   soonest-first allocation and dedup by oid.
+ *
  * @param reminders       All ReminderRecords (active + inactive; function filters)
  * @param excludedIds     Set of occurrence ids done (not to re-schedule)
  * @param now             Current local wall-clock time
  * @param windowDays      Rolling-window horizon in civil days (default: WINDOW_DAYS)
  * @param budget          Max pending notifications across all types (default: PENDING_BUDGET)
- * @param snoozedUntilMap Map of occurrenceId → future snoozedUntil Date (Task 5)
+ * @param snoozedUntilMap Map of occurrenceId → SnoozedOccurrenceEntry (Task 5 / Fix B)
  * @returns               ScheduleEntry[], sorted soonest-first, capped at budget
  */
 export function buildScheduleSet(
@@ -160,13 +187,31 @@ export function buildScheduleSet(
   now: Date,
   windowDays: number = WINDOW_DAYS,
   budget: number = PENDING_BUDGET,
-  snoozedUntilMap: ReadonlyMap<string, Date> = new Map(),
+  snoozedUntilMap: ReadonlyMap<string, SnoozedOccurrenceEntry> = new Map(),
 ): ScheduleEntry[] {
   const windowStart = toCivilDate(now);
   const windowEnd = addCivilDays(windowStart, windowDays);
   const nowMs = now.getTime();
 
   const all: ScheduleEntry[] = [];
+
+  // Fix B: track which snoozed oids are encountered during expansion so the
+  // second pass can emit only the orphaned (cross-midnight) ones.
+  const processedSnoozedOids = new Set<string>();
+
+  // Fix B: pre-build a title + active lookup by reminderId for the orphaned-entry pass.
+  const reminderInfoById = new Map<string, {
+    active: boolean;
+    deletedAt: string | null | undefined;
+    title: string;
+  }>();
+  for (const reminder of reminders) {
+    reminderInfoById.set(reminder.id, {
+      active: reminder.active,
+      deletedAt: reminder.deletedAt,
+      title: reminder.type === 'medication' ? MEDICATION_TITLE_TH : reminder.displayTitle,
+    });
+  }
 
   for (const reminder of reminders) {
     // Skip inactive or tombstoned reminders
@@ -207,14 +252,15 @@ export function buildScheduleSet(
       // The original scheduledLocalTime is in the past for a snoozed occurrence, so we must
       // check the snooze map BEFORE applying the fireAtMs <= nowMs filter.
       if (snoozedUntilMap.has(occurrenceId)) {
-        const snoozedFireAt = snoozedUntilMap.get(occurrenceId)!;
-        if (snoozedFireAt.getTime() > nowMs) {
+        processedSnoozedOids.add(occurrenceId); // Fix B: mark as handled by expansion
+        const snoozeEntry = snoozedUntilMap.get(occurrenceId)!;
+        if (snoozeEntry.snoozedUntil.getTime() > nowMs) {
           // Snooze alarm is in the future — schedule at snoozedUntil
           all.push({
             occurrenceId,
             reminderId: reminder.id,
             scheduledLocalTime,
-            fireAt: snoozedFireAt,
+            fireAt: snoozeEntry.snoozedUntil,
             title,
           });
         }
@@ -236,6 +282,29 @@ export function buildScheduleSet(
         title,
       });
     }
+  }
+
+  // Fix B: second pass — emit orphaned snoozed occurrences NOT encountered during
+  // expansion. These have their original civil time before windowStart (cross-midnight
+  // case: 23:50 on day N, snoozed to 00:50 on day N+1 → after midnight the 23:50
+  // civil time is no longer expanded). Without this pass, reanchor() would cancel
+  // the snooze alarm as stale, silencing the dose (firing gap).
+  for (const [occurrenceId, snoozeEntry] of snoozedUntilMap) {
+    if (processedSnoozedOids.has(occurrenceId)) continue; // already handled above
+    if (excludedIds.has(occurrenceId)) continue;          // done — never reschedule
+    if (snoozeEntry.snoozedUntil.getTime() <= nowMs) continue; // past alarm — skip
+
+    // Verify the parent reminder is still active (not deleted or deactivated)
+    const info = reminderInfoById.get(snoozeEntry.reminderId);
+    if (!info || !info.active || info.deletedAt) continue;
+
+    all.push({
+      occurrenceId,
+      reminderId: snoozeEntry.reminderId,
+      scheduledLocalTime: snoozeEntry.scheduledLocalTime,
+      fireAt: snoozeEntry.snoozedUntil,
+      title: info.title,
+    });
   }
 
   // Sort soonest-fire-first across ALL reminder types (shared budget allocation)
@@ -312,14 +381,14 @@ export async function scheduleSnooze(
  * @param excludedIds     Occurrence ids to skip (done)
  * @param now             Current wall-clock time
  * @param adapter         NotificationsAdapter (real or mock)
- * @param snoozedUntilMap occurrenceId → snoozedUntil Date for active snoozed occurrences (Task 5)
+ * @param snoozedUntilMap occurrenceId → SnoozedOccurrenceEntry for active snoozed occurrences (Task 5 / Fix B)
  */
 export async function scheduleUpcoming(
   reminders: ReminderRecord[],
   excludedIds: ReadonlySet<string>,
   now: Date,
   adapter: NotificationsAdapter,
-  snoozedUntilMap: ReadonlyMap<string, Date> = new Map(),
+  snoozedUntilMap: ReadonlyMap<string, SnoozedOccurrenceEntry> = new Map(),
 ): Promise<void> {
   // 1. Request permission (non-fatal if declined)
   let granted = false;
@@ -406,14 +475,14 @@ export async function cancelForOccurrence(
  * @param excludedIds     Occurrence ids to skip (done occurrences)
  * @param now             Current wall-clock time (device local)
  * @param adapter         NotificationsAdapter
- * @param snoozedUntilMap occurrenceId → snoozedUntil Date for active snoozed occurrences (Task 5)
+ * @param snoozedUntilMap occurrenceId → SnoozedOccurrenceEntry for active snoozed occurrences (Task 5 / Fix B)
  */
 export async function reanchor(
   reminders: ReminderRecord[],
   excludedIds: ReadonlySet<string>,
   now: Date,
   adapter: NotificationsAdapter,
-  snoozedUntilMap: ReadonlyMap<string, Date> = new Map(),
+  snoozedUntilMap: ReadonlyMap<string, SnoozedOccurrenceEntry> = new Map(),
 ): Promise<void> {
   // 1. Get currently scheduled OS notification ids
   let currentIds: string[] = [];

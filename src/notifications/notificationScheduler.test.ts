@@ -27,6 +27,7 @@ import {
   WINDOW_DAYS,
   PENDING_BUDGET,
   MEDICATION_TITLE_TH,
+  type SnoozedOccurrenceEntry,
 } from './notificationScheduler';
 import type { NotificationsAdapter } from './notificationsAdapter';
 import {
@@ -512,7 +513,9 @@ describe('buildScheduleSet — snoozedUntilMap (Task 5)', () => {
     const oid = computeOccurrenceId('rem-snooze-1', '2026-07-04T08:00');
     const snoozedUntil = new Date(NOW_LOCAL.getTime() + 30 * 60 * 1000); // 12:30 local
 
-    const snoozedUntilMap = new Map([[oid, snoozedUntil]]);
+    const snoozedUntilMap = new Map<string, SnoozedOccurrenceEntry>([
+      [oid, { snoozedUntil, reminderId: 'rem-snooze-1', scheduledLocalTime: '2026-07-04T08:00' }],
+    ]);
     const entries = buildScheduleSet([reminder], new Set(), NOW_LOCAL, WINDOW_DAYS, PENDING_BUDGET, snoozedUntilMap);
 
     const snoozedEntry = entries.find(e => e.occurrenceId === oid);
@@ -526,7 +529,9 @@ describe('buildScheduleSet — snoozedUntilMap (Task 5)', () => {
     const oid = computeOccurrenceId('rem-snooze-past', '2026-07-04T08:00');
     const pastSnoozedUntil = new Date(NOW_LOCAL.getTime() - 5 * 60 * 1000); // 5 min before now
 
-    const snoozedUntilMap = new Map([[oid, pastSnoozedUntil]]);
+    const snoozedUntilMap = new Map<string, SnoozedOccurrenceEntry>([
+      [oid, { snoozedUntil: pastSnoozedUntil, reminderId: 'rem-snooze-past', scheduledLocalTime: '2026-07-04T08:00' }],
+    ]);
     const entries = buildScheduleSet([reminder], new Set(), NOW_LOCAL, WINDOW_DAYS, PENDING_BUDGET, snoozedUntilMap);
 
     const snoozedEntry = entries.find(e => e.occurrenceId === oid);
@@ -540,7 +545,9 @@ describe('buildScheduleSet — snoozedUntilMap (Task 5)', () => {
     const futureTime = new Date(NOW_LOCAL.getTime() + 30 * 60 * 1000);
 
     const excludedIds = new Set([oid]); // done
-    const snoozedUntilMap = new Map([[oid, futureTime]]);
+    const snoozedUntilMap = new Map<string, SnoozedOccurrenceEntry>([
+      [oid, { snoozedUntil: futureTime, reminderId: 'rem-snooze-done', scheduledLocalTime: '2026-07-04T08:00' }],
+    ]);
     const entries = buildScheduleSet([reminder], excludedIds, NOW_LOCAL, WINDOW_DAYS, PENDING_BUDGET, snoozedUntilMap);
 
     const snoozedEntry = entries.find(e => e.occurrenceId === oid);
@@ -559,7 +566,9 @@ describe('buildScheduleSet — snoozedUntilMap (Task 5)', () => {
     const oid = computeOccurrenceId('rem-sort-snooze', '2026-07-04T08:00');
     // snoozedUntil = now + 10 min → should appear early in sorted output
     const earlySnooze = new Date(NOW_LOCAL.getTime() + 10 * 60 * 1000);
-    const snoozedUntilMap = new Map([[oid, earlySnooze]]);
+    const snoozedUntilMap = new Map<string, SnoozedOccurrenceEntry>([
+      [oid, { snoozedUntil: earlySnooze, reminderId: 'rem-sort-snooze', scheduledLocalTime: '2026-07-04T08:00' }],
+    ]);
     const entries = buildScheduleSet([reminder], new Set(), NOW_LOCAL, WINDOW_DAYS, PENDING_BUDGET, snoozedUntilMap);
 
     // Snooze entry should be first (earliest fireAt)
@@ -571,18 +580,103 @@ describe('buildScheduleSet — snoozedUntilMap (Task 5)', () => {
     const reminder = makeReminder({ id: 'rem-resnooze', startAt: '2026-07-04T08:00' });
     const oid = computeOccurrenceId('rem-resnooze', '2026-07-04T08:00');
     // First snooze: 10 min from now
-    const firstSnooze = new Map([[oid, new Date(NOW_LOCAL.getTime() + 10 * 60 * 1000)]]);
+    const firstSnooze = new Map<string, SnoozedOccurrenceEntry>([
+      [oid, { snoozedUntil: new Date(NOW_LOCAL.getTime() + 10 * 60 * 1000), reminderId: 'rem-resnooze', scheduledLocalTime: '2026-07-04T08:00' }],
+    ]);
     const entries1 = buildScheduleSet([reminder], new Set(), NOW_LOCAL, WINDOW_DAYS, PENDING_BUDGET, firstSnooze);
     const count1 = entries1.filter(e => e.occurrenceId === oid).length;
     expect(count1).toBe(1); // exactly one alarm for this oid
 
     // Re-snooze: 30 min from now — only entry in new snoozedUntilMap
-    const secondSnooze = new Map([[oid, new Date(NOW_LOCAL.getTime() + 30 * 60 * 1000)]]);
+    const secondSnooze = new Map<string, SnoozedOccurrenceEntry>([
+      [oid, { snoozedUntil: new Date(NOW_LOCAL.getTime() + 30 * 60 * 1000), reminderId: 'rem-resnooze', scheduledLocalTime: '2026-07-04T08:00' }],
+    ]);
     const entries2 = buildScheduleSet([reminder], new Set(), NOW_LOCAL, WINDOW_DAYS, PENDING_BUDGET, secondSnooze);
     const count2 = entries2.filter(e => e.occurrenceId === oid).length;
     expect(count2).toBe(1); // still exactly one alarm — replaced, never two
     expect(entries2.find(e => e.occurrenceId === oid)!.fireAt.getTime())
       .toBe(NOW_LOCAL.getTime() + 30 * 60 * 1000);
+  });
+});
+
+// ─── Fix B: cross-midnight snoozed occurrence ──────────────────────────────────
+
+describe('buildScheduleSet — cross-midnight snoozed occurrence (Fix B)', () => {
+  it('23:50 dose snoozed 60 min → alarm still scheduled at 00:50 after midnight (not cancelled as stale)', () => {
+    // A daily 23:50 occurrence was snoozed 60 min on 2026-07-04 → snoozedUntil = 2026-07-05T00:50.
+    // After midnight, now = 2026-07-05T00:30. The 2026-07-04T23:50 civil time is BEFORE
+    // windowStart='2026-07-05' and is NOT re-emitted by the recurrence expander.
+    // Without Fix B the snoozedUntilMap entry is never consulted → snooze alarm dropped.
+    // With Fix B the orphan pass emits it as a first-class ScheduleEntry.
+    const reminder = makeReminder({
+      id: 'rem-crossmidnight',
+      recurrenceRule: { freq: 'daily', timesOfDay: ['23:50'] },
+      startAt: '2026-07-04T23:50',
+    });
+
+    const scheduledLocalTime = '2026-07-04T23:50'; // the snoozed civil occurrence
+    const oid = computeOccurrenceId('rem-crossmidnight', scheduledLocalTime);
+
+    // After midnight — 00:30 on 2026-07-05 (before the 00:50 snooze alarm)
+    const afterMidnightNow = new Date(2026, 6, 5, 0, 30, 0, 0); // local 00:30
+    const snoozedUntil     = new Date(2026, 6, 5, 0, 50, 0, 0); // local 00:50 (20 min in future)
+
+    const snoozedUntilMap = new Map<string, SnoozedOccurrenceEntry>([
+      [oid, { snoozedUntil, reminderId: 'rem-crossmidnight', scheduledLocalTime }],
+    ]);
+
+    const entries = buildScheduleSet(
+      [reminder],
+      new Set(),
+      afterMidnightNow,
+      WINDOW_DAYS,
+      PENDING_BUDGET,
+      snoozedUntilMap,
+    );
+
+    // The 2026-07-04T23:50 oid is NOT expanded (it's before windowStart=2026-07-05).
+    // The orphan pass must emit it as a schedulable entry at 00:50.
+    const snoozedEntry = entries.find(e => e.occurrenceId === oid);
+    expect(snoozedEntry).toBeDefined();
+    expect(snoozedEntry!.fireAt.getTime()).toBe(snoozedUntil.getTime());
+    expect(snoozedEntry!.reminderId).toBe('rem-crossmidnight');
+    expect(snoozedEntry!.scheduledLocalTime).toBe(scheduledLocalTime);
+  });
+
+  it('cross-midnight snooze: oid is NOT double-emitted if expansion also re-emits it (same-day snooze in window)', () => {
+    // A 13:00 dose snoozed to 13:30 — same day, occurrence IS in the expansion window.
+    // The expansion loop should handle it (processedSnoozedOids) and the orphan pass
+    // must NOT add it again → exactly 1 entry for this oid.
+    const reminder = makeReminder({
+      id: 'rem-same-day-snooze',
+      recurrenceRule: { freq: 'daily', timesOfDay: ['13:00'] },
+      startAt: '2026-07-04T13:00',
+    });
+    const scheduledLocalTime = '2026-07-04T13:00';
+    const oid = computeOccurrenceId('rem-same-day-snooze', scheduledLocalTime);
+    const snoozedUntil = new Date(NOW_LOCAL.getTime() + 30 * 60 * 1000); // 12:30 (now=12:00)
+
+    // now=12:00 → windowStart='2026-07-04' → 13:00 IS expanded (it's in today's window)
+    // but 13:00 fireAt > now (12:00)... wait: 13:00 fireAt > now → it's a future occurrence.
+    // But the occurrence is SNOOZED, so it's in snoozedUntilMap.
+    // The expansion encounters 2026-07-04T13:00 → oid → snoozedUntilMap.has(oid) → handled.
+    // processedSnoozedOids.add(oid). Orphan pass: processedSnoozedOids.has(oid) → skip. ✓
+    const snoozedUntilMap = new Map<string, SnoozedOccurrenceEntry>([
+      [oid, { snoozedUntil, reminderId: 'rem-same-day-snooze', scheduledLocalTime }],
+    ]);
+
+    const entries = buildScheduleSet(
+      [reminder],
+      new Set(),
+      NOW_LOCAL,
+      WINDOW_DAYS,
+      PENDING_BUDGET,
+      snoozedUntilMap,
+    );
+
+    const oidEntries = entries.filter(e => e.occurrenceId === oid);
+    expect(oidEntries).toHaveLength(1); // exactly one — no double-emit
+    expect(oidEntries[0].fireAt.getTime()).toBe(snoozedUntil.getTime());
   });
 });
 

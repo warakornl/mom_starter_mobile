@@ -19,6 +19,7 @@
  */
 
 import type { ReminderOccurrenceRecord } from '../sync/syncTypes';
+import type { SnoozedOccurrenceEntry } from './notificationScheduler';
 
 /**
  * Build the set of occurrence IDs that should NOT be (re-)scheduled as OS
@@ -82,14 +83,20 @@ export function buildExcludedIds(
  *   id at a new time replaces the existing alarm (ADR Decision 2 "Idempotency").
  *   buildSnoozedUntilMap + buildScheduleSet ensure at most ONE alarm per oid.
  *
+ * Fix B (cross-midnight): the SnoozedOccurrenceEntry carries reminderId and
+ *   scheduledLocalTime so buildScheduleSet can emit an orphaned snoozed alarm
+ *   even when the original civil time is no longer re-emitted by the expander
+ *   (e.g. a 23:50 dose snoozed to 00:50 next day — after midnight the 23:50
+ *   slot is before windowStart and not expanded).
+ *
  * @param occurrences  All materialized ReminderOccurrenceRecords from the store.
  * @param now          Current wall-clock time (used to filter out past snoozedUntil).
  */
 export function buildSnoozedUntilMap(
   occurrences: ReminderOccurrenceRecord[],
   now: Date,
-): Map<string, Date> {
-  const map = new Map<string, Date>();
+): Map<string, SnoozedOccurrenceEntry> {
+  const map = new Map<string, SnoozedOccurrenceEntry>();
   const nowMs = now.getTime();
   for (const occ of occurrences) {
     if (occ.deletedAt) continue; // tombstoned
@@ -97,7 +104,11 @@ export function buildSnoozedUntilMap(
     if (!occ.snoozedUntil) continue;
     const snoozedUntilMs = new Date(occ.snoozedUntil).getTime();
     if (snoozedUntilMs <= nowMs) continue; // alarm already fired/missed
-    map.set(occ.id, new Date(occ.snoozedUntil));
+    map.set(occ.id, {
+      snoozedUntil: new Date(occ.snoozedUntil),
+      reminderId: occ.reminderId,
+      scheduledLocalTime: occ.scheduledLocalTime,
+    });
   }
   return map;
 }

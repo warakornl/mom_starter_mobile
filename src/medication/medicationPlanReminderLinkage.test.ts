@@ -198,6 +198,17 @@ describe('buildLinkedReminder', () => {
 
   // ── recurrenceRule: verbatim copy, no transform ────────────────────────────
 
+  test('recurrenceRule has NO startAt key (RecurrenceRuleWire excludes startAt — Fix 2)', () => {
+    // MedicationScheduleRule folds startAt inside the rule; RecurrenceRuleWire
+    // does NOT have startAt (it is a separate top-level field on ReminderRecord).
+    // The emitted recurrenceRule jsonb MUST NOT carry a duplicate startAt.
+    const plan = makeScheduledPlan({
+      scheduleRule: { freq: 'daily', startAt: '2026-07-04T08:00', timesOfDay: ['08:00'] },
+    });
+    const result = buildLinkedReminder(plan, 'rid', NOW)!;
+    expect('startAt' in result.recurrenceRule).toBe(false);
+  });
+
   test('recurrenceRule copies schedule_rule verbatim (freq, timesOfDay)', () => {
     const plan = makeScheduledPlan({
       scheduleRule: {

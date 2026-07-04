@@ -110,11 +110,17 @@ export function buildLinkedReminder(
 
   const { scheduleRule } = plan;
 
-  // Copy the MedicationScheduleRule verbatim as the RecurrenceRuleWire.
-  // MedicationScheduleRule is a structural subset of RecurrenceRuleWire
-  // (same required `freq`; no `byDay`; extra `startAt` property is harmless
-  // and retained for the expander's benefit).  Do NOT transform.
-  const recurrenceRule: RecurrenceRuleWire = scheduleRule as RecurrenceRuleWire;
+  // Build the wire rule EXPLICITLY — only RecurrenceRuleWire fields (Fix 2).
+  // MedicationScheduleRule folds `startAt` INSIDE the rule; RecurrenceRuleWire
+  // does NOT have `startAt` (the reminder carries it as a separate top-level
+  // field).  Using `as RecurrenceRuleWire` would silently leak `startAt` into
+  // the synced jsonb — the compiler now enforces no extra fields.
+  const recurrenceRule: RecurrenceRuleWire = {
+    freq: scheduleRule.freq,
+    timesOfDay: scheduleRule.timesOfDay,
+    interval: scheduleRule.interval,
+    until: scheduleRule.until,
+  };
 
   return {
     id: reminderId,

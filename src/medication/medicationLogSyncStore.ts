@@ -46,6 +46,18 @@ export interface MedicationLogSyncStore {
    */
   getLog(id: string): MedicationLog | undefined;
 
+  /**
+   * All live (non-tombstoned) records sorted by occurrenceTime descending
+   * (most-recent first) — use this in history/detail views so that display
+   * order is deterministic regardless of insertion order.
+   *
+   * Equivalent to `getLogs().sort(...)` but avoids per-call boilerplate.
+   * Does NOT mutate the internal map.
+   *
+   * Security: NEVER log any element of the returned array (SD-5).
+   */
+  getLogsSortedDesc(): MedicationLog[];
+
   // ── Mutations (create + tombstone — NO update path) ───────────────────────
 
   /**
@@ -193,6 +205,14 @@ export function createMedicationLogSyncStore(): MedicationLogSyncStore {
 
     getLog(id: string): MedicationLog | undefined {
       return logMap.get(id);
+    },
+
+    getLogsSortedDesc(): MedicationLog[] {
+      // occurrenceTime is floating-civil YYYY-MM-DDTHH:mm (FLAG-1) — lexicographic
+      // comparison is correct because the format is sortable as-is.
+      return Array.from(logMap.values())
+        .filter((r) => !r.deletedAt)
+        .sort((a, b) => b.occurrenceTime.localeCompare(a.occurrenceTime));
     },
 
     // ── Create ─────────────────────────────────────────────────────────────────

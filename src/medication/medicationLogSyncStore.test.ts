@@ -400,3 +400,52 @@ describe('medicationLogSyncStore — reset() PDPA logout isolation', () => {
     expect(store.getLogs()[0].id).toBe(userBLog.id);
   });
 });
+
+// ─── getLogsSortedDesc — Task 7 reviewer follow-up ───────────────────────────
+
+describe('medicationLogSyncStore — getLogsSortedDesc', () => {
+  it('returns empty array on fresh store', () => {
+    const store = createMedicationLogSyncStore();
+    expect(store.getLogsSortedDesc()).toEqual([]);
+  });
+
+  it('returns a single record unchanged', () => {
+    const store = createMedicationLogSyncStore();
+    const log = store.addLog(makeInput({ occurrenceTime: '2026-07-04T08:00' }));
+    const result = store.getLogsSortedDesc();
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe(log.id);
+  });
+
+  it('sorts multiple records desc by occurrenceTime (most-recent first)', () => {
+    const store = createMedicationLogSyncStore();
+    const a = store.addLog(makeInput({ occurrenceTime: '2026-07-01T08:00' }));
+    const b = store.addLog(makeInput({ occurrenceTime: '2026-07-03T20:00' }));
+    const c = store.addLog(makeInput({ occurrenceTime: '2026-07-02T12:00' }));
+
+    const result = store.getLogsSortedDesc();
+    expect(result.map((r) => r.id)).toEqual([b.id, c.id, a.id]);
+  });
+
+  it('excludes tombstoned records', () => {
+    const store = createMedicationLogSyncStore();
+    const live = store.addLog(makeInput({ occurrenceTime: '2026-07-04T09:00' }));
+    const dead = store.addLog(makeInput({ occurrenceTime: '2026-07-04T10:00' }));
+    store.tombstoneLog(dead.id);
+
+    const result = store.getLogsSortedDesc();
+    expect(result).toHaveLength(1);
+    expect(result[0].id).toBe(live.id);
+  });
+
+  it('does not mutate the internal map (getLogs still returns unsorted array)', () => {
+    const store = createMedicationLogSyncStore();
+    store.addLog(makeInput({ occurrenceTime: '2026-07-01T08:00' }));
+    store.addLog(makeInput({ occurrenceTime: '2026-07-03T08:00' }));
+
+    // Calling getLogsSortedDesc must not alter getLogs iteration order
+    store.getLogsSortedDesc();
+    // getLogs should still return both records (no side-effects on the map)
+    expect(store.getLogs()).toHaveLength(2);
+  });
+});

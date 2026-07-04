@@ -89,7 +89,6 @@ function InlineToast({ message, onDismiss }: ToastProps): React.JSX.Element {
     <View
       style={toastStyles.container}
       accessibilityLiveRegion="polite"
-      accessibilityRole="alert"
       importantForAccessibility="yes"
       testID="med-toast"
     >
@@ -173,7 +172,7 @@ function buildSchedulePreview(
   t: (key: import('../i18n/messages').MessageKey) => string,
 ): string {
   const rule = plan.scheduleRule;
-  if (!rule) return 'PRN';
+  if (!rule) return t('medication.prnLabel');
 
   let preview: string;
   if (rule.freq === 'daily') {

@@ -588,11 +588,10 @@ export function MedicationPlanFormSheet({
               </Text>
               <Text
                 style={[styles.echoOccurrenceText, !active && styles.echoOccurrenceTextInactive]}
-                numberOfLines={2}
               >
                 {name.trim()
                   ? `${name.trim()}${dose.trim() ? ` · ${dose.trim()}` : ''}    ${echoFirstTime}${echoMultiTime ? `  ${t('medication.echoAndMore')}` : ''}`
-                  : `${'ชื่อยา... · เวลา...'}`
+                  : t('medication.echoPlaceholder')
                 }
               </Text>
             </View>

@@ -136,10 +136,15 @@ export function buildScheduleRuleFromPicker(state: SchedulePickerState): Medicat
   }
 
   // every_n_days — interval >= 2 (validated by stepper; included unconditionally)
+  // OQ-MP4 MVP cap: at most 1 time per day for every_n_days. The UI hides "+ Add a time"
+  // once a time exists, but a user can add times while on daily and then switch freq.
+  // Enforce the cap here in the pure function so the rule is always canonical.
+  const cappedTimes = sortedTimes.slice(0, 1);
+  const cappedStartAt = `${startDate}T${cappedTimes[0] ?? '08:00'}`;
   return {
     freq: 'every_n_days',
-    startAt,
-    timesOfDay: sortedTimes,
+    startAt: cappedStartAt,
+    timesOfDay: cappedTimes,
     interval,
   };
 }

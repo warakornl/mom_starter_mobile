@@ -943,6 +943,10 @@ const th = {
   'medication.deleteSubCopy2': 'ประวัติการกินยา (ที่บันทึกไว้แล้ว) ยังคงอยู่',
   // Save button disabled (F6)
   'medication.saveDisabledConsentLabel': 'เปิดสิทธิ์บันทึกสุขภาพเพื่อบันทึก',
+  // Echo placeholder — shown when name is empty (§5.5 design #1)
+  'medication.echoPlaceholder': 'ชื่อยา... · เวลา...',
+  // PRN label — schedule-preview when plan has no schedule (§design #2)
+  'medication.prnLabel': 'PRN',
 };
 
 // ─── English catalog (must match th shape exactly) ────────────────────────────
@@ -1747,6 +1751,10 @@ const en: MsgShape = {
   'medication.deleteSubCopy2': 'Logged history is kept.',
   // Save button disabled (F6)
   'medication.saveDisabledConsentLabel': 'Enable health logging to save',
+  // Echo placeholder — shown when name is empty (§5.5 design #1)
+  'medication.echoPlaceholder': 'Med name... · Time...',
+  // PRN label — schedule-preview when plan has no schedule (§design #2)
+  'medication.prnLabel': 'PRN',
 };
 
 // ─── Exports ──────────────────────────────────────────────────────────────────

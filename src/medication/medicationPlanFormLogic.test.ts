@@ -132,6 +132,35 @@ describe('buildScheduleRuleFromPicker — FLAG-4 MedicationScheduleRule', () => 
     });
   });
 
+  describe('every_n_days MVP ≤1-time cap (OQ-MP4)', () => {
+    /**
+     * RED: user adds 2 times on daily then switches to every_n_days.
+     * The pure function must enforce the cap — not just the UI.
+     * After fixing buildScheduleRuleFromPicker, exactly 1 time (the earliest) survives.
+     */
+    it('daily with 2 times → switch to every_n_days → build → exactly 1 time (earliest)', () => {
+      const state: SchedulePickerState = {
+        ...EVERY_N_PICKER,
+        timesOfDay: ['14:00', '08:00'], // 2 times (unsorted) simulating the daily→every_n_days switch
+        interval: 2,
+      };
+      const rule = buildScheduleRuleFromPicker(state);
+      expect(rule.timesOfDay).toHaveLength(1);
+      expect(rule.timesOfDay![0]).toBe('08:00'); // earliest time only
+    });
+
+    it('every_n_days with 3 times → build → exactly 1 time', () => {
+      const state: SchedulePickerState = {
+        ...EVERY_N_PICKER,
+        timesOfDay: ['20:00', '12:00', '08:00'],
+        interval: 3,
+      };
+      const rule = buildScheduleRuleFromPicker(state);
+      expect(rule.timesOfDay).toHaveLength(1);
+      expect(rule.timesOfDay![0]).toBe('08:00');
+    });
+  });
+
   describe('one_off', () => {
     const rule = buildScheduleRuleFromPicker(ONE_OFF_PICKER);
 

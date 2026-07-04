@@ -993,6 +993,49 @@ const th = {
   'medication.prnLabel': 'PRN',
   // Log a dose — quiet affordance on each active plan row (Task 11)
   'medication.logDose': 'บันทึกการกินยา',
+
+  // ── Account Rights (account-rights-ui.md §4) ──────────────────────────────────
+  // S7 Settings rows (§4.1)
+  'accountRights.downloadLabel': 'ดาวน์โหลดข้อมูลของฉัน',
+  'accountRights.downloadSubtitle': 'PDPA ม.30/31',
+  'accountRights.deleteLabel': 'ลบบัญชีของฉัน',
+  'accountRights.deleteSubtitle': 'การลบเป็นการถาวร',
+  // Export states (§4.2)
+  'accountRights.export.inProgress': 'กำลังเตรียมไฟล์ข้อมูล...',
+  'accountRights.export.errorTitle': 'ดาวน์โหลดไม่สำเร็จ',
+  'accountRights.export.errorBody': 'ตรวจสอบการเชื่อมต่ออินเทอร์เน็ตแล้วลองใหม่',
+  'accountRights.export.retry': 'ลองใหม่',
+  'accountRights.export.dismiss': 'ปิด',
+  'accountRights.export.notAvailableTitle': 'ข้อมูลนี้ไม่สามารถเข้าถึงได้อีกต่อไป',
+  'accountRights.export.backToSettings': 'กลับ',
+  // Delete confirm sheet — title (§4.3)
+  'accountRights.delete.sheetTitle': 'ลบบัญชีของคุณ',
+  // Disclosure bullets — VERBATIM from 0e §5d item 3; NO retention number (D7/M-1)
+  // CANONICAL STRING — identical across all sheet states (AR-5..9). See UI spec §4.3 note M-1.
+  'accountRights.delete.disclosure1': 'เมื่อคุณยืนยัน บัญชีจะถูกปิดใช้งานทันที — คุณจะออกจากระบบบนเครื่องนี้ และจะเข้าสู่ระบบอีกไม่ได้ทุกอุปกรณ์',
+  'accountRights.delete.disclosure2': 'ข้อมูลของคุณจะถูกลบออกจากระบบอย่างถาวรหลังจากช่วงดำเนินการหนึ่ง ตามนโยบายการเก็บรักษาข้อมูลของเรา',
+  'accountRights.delete.disclosure3': 'การลบนี้ยกเลิกในแอปไม่ได้ และไม่มีการกู้คืนบัญชี',
+  // Export-before-delete nudge (verbatim from 0e §5d item 3)
+  'accountRights.delete.nudgeTitle': 'อยากเก็บสำเนาข้อมูลไว้ก่อนไหม?',
+  'accountRights.delete.nudgeBody': 'หลังจากลบบัญชีแล้ว คุณจะดาวน์โหลดข้อมูลไม่ได้อีก ถ้าต้องการเก็บไว้ ดาวน์โหลดก่อนได้เลย',
+  'accountRights.delete.nudgeDownloadBtn': 'ดาวน์โหลดข้อมูลก่อน',
+  'accountRights.delete.nudgeSkipBtn': 'ข้ามไป ลบต่อ',
+  // Type-to-confirm (§4.3, §3.7)
+  'accountRights.delete.confirmLabel': 'พิมพ์ "ลบ" เพื่อยืนยัน',
+  // CONFIRM_WORD — matched by confirmWordMatch.ts CONFIRM_WORDS.th ('ลบ'). DO NOT CHANGE.
+  'accountRights.delete.confirmWord': 'ลบ',
+  'accountRights.delete.confirmPlaceholder': 'ลบ',
+  // Buttons (§4.3)
+  'accountRights.delete.confirmBtn': 'ยืนยันลบบัญชี',
+  'accountRights.delete.cancelBtn': 'ยกเลิก',
+  'accountRights.delete.retryBtn': 'ลองใหม่',
+  'accountRights.delete.biometricPrompt': 'ยืนยันตัวตนเพื่อลบบัญชี',
+  'accountRights.delete.biometricCancel': 'ยกเลิก',
+  // Biometric degrade notice (§4.3 — warm amber, NOT alarming red)
+  'accountRights.delete.degradeNotice': 'ยืนยันด้วยลายนิ้วมือ/ใบหน้าใช้ไม่ได้ชั่วคราว — จะใช้การพิมพ์คำยืนยันแทน แตะยกเลิกแล้วลองใหม่เพื่อยืนยันด้วยลายนิ้วมือ/ใบหน้า',
+  // Delete error (§4.3 — reassurance first; stays signed in)
+  'accountRights.delete.errorTitle': 'ลบบัญชีไม่สำเร็จ',
+  'accountRights.delete.errorBody': 'ตรวจสอบการเชื่อมต่อแล้วลองใหม่ บัญชีของคุณยังคงอยู่',
 };
 
 // ─── English catalog (must match th shape exactly) ────────────────────────────
@@ -1831,6 +1874,48 @@ const en: MsgShape = {
   'medication.prnLabel': 'PRN',
   // Log a dose — quiet affordance on each active plan row (Task 11)
   'medication.logDose': 'Log a dose',
+
+  // ── Account Rights (account-rights-ui.md §4) ──────────────────────────────────
+  // S7 Settings rows (§4.1)
+  'accountRights.downloadLabel': 'Download my data',
+  'accountRights.downloadSubtitle': 'PDPA Art. 30/31',
+  'accountRights.deleteLabel': 'Delete my account',
+  'accountRights.deleteSubtitle': 'Permanently removes your account',
+  // Export states (§4.2)
+  'accountRights.export.inProgress': 'Preparing your data file...',
+  'accountRights.export.errorTitle': "Download didn't complete",
+  'accountRights.export.errorBody': 'Check your connection and try again.',
+  'accountRights.export.retry': 'Retry',
+  'accountRights.export.dismiss': 'Dismiss',
+  'accountRights.export.notAvailableTitle': 'This data is no longer available.',
+  'accountRights.export.backToSettings': 'Back to Settings',
+  // Delete confirm sheet — title (§4.3)
+  'accountRights.delete.sheetTitle': 'Delete your account',
+  // Disclosure bullets — VERBATIM from 0e §5d item 3; NO retention number (D7/M-1)
+  'accountRights.delete.disclosure1': "When you confirm, your account is deactivated right away — you'll be signed out on this device and won't be able to sign in again on any device.",
+  'accountRights.delete.disclosure2': 'Your data is then permanently erased after a processing period, in line with our data-retention policy.',
+  'accountRights.delete.disclosure3': "This can't be undone in the app, and there's no account recovery.",
+  // Export-before-delete nudge (verbatim from 0e §5d item 3)
+  'accountRights.delete.nudgeTitle': 'Want to keep a copy of your data first?',
+  'accountRights.delete.nudgeBody': "After your account is deleted, you won't be able to download your data anymore. If you'd like to keep it, download it first.",
+  'accountRights.delete.nudgeDownloadBtn': 'Download my data first',
+  'accountRights.delete.nudgeSkipBtn': 'Skip and continue',
+  // Type-to-confirm (§4.3, §3.7)
+  'accountRights.delete.confirmLabel': 'Type "DELETE" to confirm',
+  // CONFIRM_WORD — matched by confirmWordMatch.ts CONFIRM_WORDS.en ('DELETE'). DO NOT CHANGE.
+  'accountRights.delete.confirmWord': 'DELETE',
+  'accountRights.delete.confirmPlaceholder': 'DELETE',
+  // Buttons (§4.3)
+  'accountRights.delete.confirmBtn': 'Delete my account',
+  'accountRights.delete.cancelBtn': 'Cancel',
+  'accountRights.delete.retryBtn': 'Retry',
+  'accountRights.delete.biometricPrompt': 'Confirm to delete account',
+  'accountRights.delete.biometricCancel': 'Cancel',
+  // Biometric degrade notice (§4.3 — warm amber, NOT alarming red)
+  'accountRights.delete.degradeNotice': 'Face/fingerprint authentication is temporarily unavailable — your typed confirmation will be used instead. Cancel and try again to use biometric authentication.',
+  // Delete error (§4.3 — reassurance first; stays signed in)
+  'accountRights.delete.errorTitle': 'Account deletion failed',
+  'accountRights.delete.errorBody': 'Check your connection and try again. Your account is still intact.',
 };
 
 // ─── Exports ──────────────────────────────────────────────────────────────────

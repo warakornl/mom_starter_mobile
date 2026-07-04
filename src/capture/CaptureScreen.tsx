@@ -72,6 +72,7 @@ import {
   ActivityIndicator,
   Platform,
 } from 'react-native';
+import { ConsentNudgeModal } from '../consent/ConsentNudgeModal';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useRoute, useNavigation, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -452,80 +453,6 @@ function TypeSegmentedControl({ selected, onSelect, typeLabel }: TypeControlProp
         </TouchableOpacity>
       ))}
     </View>
-  );
-}
-
-// ─── Sub-component: Consent nudge modal ──────────────────────────────────────
-
-interface ConsentNudgeProps {
-  visible: boolean;
-  isLoading: boolean;
-  onGrant: () => void;
-  onNotNow: () => void;
-  title: string;
-  body: string;
-  grantLabel: string;
-  notNowLabel: string;
-  changeLaterNote: string;
-}
-
-function ConsentNudgeModal({
-  visible,
-  isLoading,
-  onGrant,
-  onNotNow,
-  title,
-  body,
-  grantLabel,
-  notNowLabel,
-  changeLaterNote,
-}: ConsentNudgeProps): React.JSX.Element {
-  return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="slide"
-      onRequestClose={onNotNow}
-      accessibilityViewIsModal
-    >
-      <View style={consentStyles.overlay}>
-        <View
-          testID="capture-consent-modal"
-          style={consentStyles.sheet}
-        >
-          <ScrollView contentContainerStyle={consentStyles.content} showsVerticalScrollIndicator={false}>
-            <Text style={consentStyles.title}>{title}</Text>
-            <Text style={consentStyles.body}>{body}</Text>
-            <TouchableOpacity
-              testID="capture-consent-grant"
-              style={[consentStyles.grantBtn, isLoading && consentStyles.grantBtnLoading]}
-              onPress={isLoading ? undefined : onGrant}
-              disabled={isLoading}
-              accessibilityRole="button"
-              accessibilityLabel={grantLabel}
-              accessibilityState={{ disabled: isLoading }}
-            >
-              {isLoading
-                ? <ActivityIndicator color="#FFFFFF" />
-                : <Text style={consentStyles.grantBtnText}>{grantLabel}</Text>}
-            </TouchableOpacity>
-            <TouchableOpacity
-              testID="capture-consent-not-now"
-              style={consentStyles.notNowBtn}
-              onPress={onNotNow}
-              disabled={isLoading}
-              accessibilityRole="button"
-              accessibilityLabel={notNowLabel}
-            >
-              <Text style={[consentStyles.notNowText, isLoading && consentStyles.notNowDisabled]}>
-                {notNowLabel}
-              </Text>
-            </TouchableOpacity>
-            <Text style={consentStyles.changeLaterNote}>{changeLaterNote}</Text>
-          </ScrollView>
-        </View>
-      </View>
-    </Modal>
   );
 }
 
@@ -1690,81 +1617,6 @@ const segStyles = StyleSheet.create({
   chipTextSelected: {
     fontFamily: 'IBMPlexSans-SemiBold',
     color: '#8E3A44', // rose/700
-  },
-});
-
-// ─── Consent nudge modal styles ───────────────────────────────────────────────
-
-const consentStyles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(58,42,48,0.4)',
-    justifyContent: 'flex-end',
-  },
-  sheet: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: '80%',
-  },
-  content: {
-    padding: 24,
-    paddingBottom: 40,
-    gap: 12,
-  },
-  title: {
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 18,
-    lineHeight: 28,
-    color: '#3A2A30',
-  },
-  body: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 16,
-    lineHeight: 25,
-    color: '#5F4A52',
-  },
-  error: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 14,
-    color: '#8E3A44',
-    backgroundColor: '#FBEDEE',
-    borderRadius: 8,
-    padding: 12,
-  },
-  grantBtn: {
-    height: 52,
-    backgroundColor: '#A8505A',
-    borderRadius: 999,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 8,
-  },
-  grantBtnLoading: {
-    backgroundColor: '#DDA0A6',
-  },
-  grantBtnText: {
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 16,
-    color: '#FFFFFF',
-  },
-  notNowBtn: {
-    height: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  notNowText: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 16,
-    color: '#8E3A44',
-  },
-  notNowDisabled: { opacity: 0.5 },
-  changeLaterNote: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 12,
-    lineHeight: 18,
-    color: '#94818A',
-    textAlign: 'center',
   },
 });
 

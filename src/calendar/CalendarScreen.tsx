@@ -70,6 +70,7 @@ import { expand } from '../recurrence/recurrenceExpander';
 import { computeOccurrenceId } from '../occurrence/occurrenceId';
 import { bucketCivilDay } from './civilDayBucketer';
 import type { TokenStorage } from '../auth/tokenStorage';
+import type { Locale } from '../auth/types';
 import type { ChecklistItemRecord, ReminderOccurrenceRecord, OccurrenceStatus, ReminderType, MedicationLogInput } from '../sync/syncTypes';
 import { consumePendingCalendarFocusDate } from './pendingCalendarFocusDate';
 import { reanchor, cancelForOccurrence } from '../notifications';
@@ -77,8 +78,11 @@ import { medicationPlanSyncStore } from '../medication/medicationPlanSyncStore';
 import { resolveMedicationOccurrenceTitle } from './medicationOccurrenceResolver';
 import type { MedicationPlan } from '../sync/syncTypes';
 import { medicationLogSyncStore } from '../medication/medicationLogSyncStore';
-import { buildMarkDoneMedicationPayload } from './markDoneLogic';
+import { executeMarkDoneHandler } from './markDoneLogic';
 import { consentStore } from '../consent/consentStore';
+import { createConsentApiClient } from '../consent/consentApiClient';
+import { consentQueue } from '../consent/consentSync';
+import { ConsentNudgeModal } from '../consent/ConsentNudgeModal';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -373,14 +377,22 @@ export function CalendarScreen({
   const clientRef = useRef(createCalendarSyncClient(apiBaseUrl, calendarSyncStore));
 
   // Task 4 (AC-17 / MR-E1): held medication log for the consent-gate path.
-  // When orchestrateMedicationSave returns action='gate' (general_health absent),
+  // When executeMarkDoneHandler returns showNudge=true (general_health absent),
   // the occurrence is already done but the taken log must NOT be written yet.
-  // We store the payload + deterministic id here; a future grant-handler persists it.
+  // heldMedicationLogRef stores the held payload + deterministic id so the grant
+  // handler can flush it via medicationLogSyncStore.addLog(payload, logId).
+  // Same-session lifetime: cleared on both grant AND not-now dismiss (matching
+  // CaptureScreen's shipped posture — §B.4 / MR-E1).
   // Security: NEVER log this ref's contents (SD-5 MOTHER-health).
   const heldMedicationLogRef = useRef<{
     payload: MedicationLogInput;
     logId: string;
   } | null>(null);
+
+  // Consent modal state — shown when executeMarkDoneHandler returns showNudge=true.
+  // Mirrors CaptureScreen's showConsentModal / consentLoading pattern (§B.4).
+  const [showConsentModal, setShowConsentModal] = useState(false);
+  const [consentLoading, setConsentLoading] = useState(false);
 
   // Refresh display maps from store (triggers useMemo re-run via refreshKey)
   const refreshFromStore = useCallback(() => {
@@ -557,6 +569,56 @@ export function CalendarScreen({
     );
   }
 
+  // ── Consent grant handler (mark-done gate path) ───────────────────────────
+  // Mirrors CaptureScreen's handleConsentGrant (§B.4):
+  //   1. Optimistic store update (consentStore.setGranted).
+  //   2. POST consent; queue for retry on failure.
+  //   3. In finally: flush held medication log using deterministic markDoneLogId
+  //      (dedup guard — same id from any device → server union-merge, D3/E7).
+  // Security: NEVER log heldMedicationLogRef contents (SD-5 MOTHER-health).
+  const handleMarkDoneConsentGrant = useCallback((): void => {
+    const version = (locale as Locale) === 'en' ? 'v1.0-en' : 'v1.0-th';
+    consentStore.setGranted('general_health', true, version);
+    setConsentLoading(true);
+
+    void (async () => {
+      try {
+        const tokens = await tokenStorage.load();
+        if (!tokens) throw new Error('no_tokens');
+        const client = createConsentApiClient(apiBaseUrl);
+        const result = await client.postConsent('general_health', true, version, tokens.accessToken);
+        if (!result.ok) {
+          if (!consentQueue.hasPendingEntry('general_health', true)) {
+            consentQueue.enqueue('general_health', true, version);
+            void consentQueue.persist();
+          }
+        }
+      } catch {
+        if (!consentQueue.hasPendingEntry('general_health', true)) {
+          consentQueue.enqueue('general_health', true, version);
+          void consentQueue.persist();
+        }
+      } finally {
+        setConsentLoading(false);
+        setShowConsentModal(false);
+        // Flush held taken-log with the deterministic id (dedup guard, spec §3.2).
+        // addLog is idempotent for the same id — double-tap or double-grant is safe.
+        // Security: NEVER log held contents (SD-5).
+        const held = heldMedicationLogRef.current;
+        heldMedicationLogRef.current = null;
+        if (held) {
+          try {
+            medicationLogSyncStore.addLog(held.payload, held.logId);
+          } catch {
+            // Local write failure is non-fatal here; the payload is permanently lost
+            // if we drop it — but this path requires the in-memory store to throw,
+            // which it does not under normal operation.
+          }
+        }
+      }
+    })();
+  }, [locale, tokenStorage, apiBaseUrl]);
+
   // Mark done / snooze / edit for a reminder occurrence (FLAG-7/W-A + Feature B)
   const handleOccurrenceAction = useCallback(
     (
@@ -593,32 +655,34 @@ export function CalendarScreen({
               // identifier (ADR Decision 2 / functional spec §3.4).
               void cancelForOccurrence(id);
 
-              // 2. For medication occurrences only: create exactly ONE taken log
-              //    via the consent-gated orchestrateMedicationSave path (spec §3.1).
+              // 2. For medication occurrences only: create exactly ONE taken log via
+              //    executeMarkDoneHandler (spec §3.1 / AC-17b / MR-E1).
               //    Non-medication → AC-17b: zero logs.
-              if (reminderType === 'medication' && sourceRefId) {
-                const { markDoneLogId, orchestrationResult } = buildMarkDoneMedicationPayload({
-                  oid: id,
-                  scheduledLocalTime,
-                  sourceRefId,
-                  consentGranted: consentStore.isGranted('general_health'),
-                });
+              //    Consent absent → showNudge=true: show JIT nudge, hold payload.
+              //    Consent present → addLog called internally with deterministic id.
+              const handlerResult = executeMarkDoneHandler({
+                reminderType,
+                sourceRefId,
+                oid: id,
+                scheduledLocalTime,
+                consentGranted: consentStore.isGranted('general_health'),
+                addLog: (payload, logId) => {
+                  // Security: NEVER log payload contents (SD-5 MOTHER-health).
+                  medicationLogSyncStore.addLog(payload, logId);
+                },
+              });
 
-                if (orchestrationResult.action === 'persist') {
-                  // Consent present → write immediately with deterministic id (dedup guard).
-                  // Same markDoneLogId from any device → idempotent server union-merge (D3/E7).
-                  medicationLogSyncStore.addLog(orchestrationResult.payload, markDoneLogId);
-                } else if (orchestrationResult.action === 'gate') {
-                  // Consent absent (MR-E1): occurrence is already done (step 1 above);
-                  // hold the payload for when general_health is granted.
-                  // Security: NEVER log payload contents (SD-5).
-                  heldMedicationLogRef.current = {
-                    payload: orchestrationResult.payload,
-                    logId: markDoneLogId,
-                  };
-                }
-                // action === 'skip' cannot happen here (saveEnabled is always true
-                // in buildMarkDoneMedicationPayload — the function sets saveEnabled=true).
+              if (handlerResult.showNudge) {
+                // Consent absent (MR-E1): occurrence is already done (step 1 above).
+                // Hold the payload + deterministic id; show JIT consent nudge.
+                // Grant handler (handleMarkDoneConsentGrant) will flush on grant.
+                // Not-now handler clears the ref (same-session lifetime — §B.4).
+                // Security: NEVER log heldPayload contents (SD-5).
+                heldMedicationLogRef.current = {
+                  payload: handlerResult.heldPayload,
+                  logId: handlerResult.heldLogId,
+                };
+                setShowConsentModal(true);
               }
             },
           },
@@ -661,7 +725,7 @@ export function CalendarScreen({
         ],
       );
     },
-    [t, refreshFromStore, syncPush, onEditReminder],
+    [t, refreshFromStore, syncPush, onEditReminder, handleMarkDoneConsentGrant],
   );
 
   // ── Render ──────────────────────────────────────────────────────────────────
@@ -889,6 +953,32 @@ export function CalendarScreen({
           })
         )}
       </ScrollView>
+
+      {/* JIT consent nudge — shown when mark-done is gated by absent general_health (MR-E1/AC-12).
+          Reuses the shipped ConsentNudgeModal from the capture flow (same grant posture §B.4):
+          Grant  → flush held medication log via handleMarkDoneConsentGrant + deterministic id.
+          Not-now → clear held ref (same-session lifetime; data NOT permanently lost per spec).
+          Security: heldMedicationLogRef contents are MOTHER-health — NEVER logged (SD-5). */}
+      <ConsentNudgeModal
+        testIDPrefix="calendar"
+        visible={showConsentModal}
+        isLoading={consentLoading}
+        onGrant={handleMarkDoneConsentGrant}
+        onNotNow={() => {
+          // Clear held ref — user dismissed without granting (§B.4 same-session posture).
+          // Matches CaptureScreen: pendingMedicationPayloadRef.current = null on not-now.
+          // The occurrence is already done; the taken log will not be flushed this session.
+          // If user later grants general_health (from Consent screen), no auto-retry occurs
+          // in this MVP — this matches the shipped CaptureScreen posture exactly.
+          heldMedicationLogRef.current = null;
+          setShowConsentModal(false);
+        }}
+        title={t('capture.consent.title')}
+        body={t('capture.consent.body')}
+        grantLabel={t('capture.consent.grant')}
+        notNowLabel={t('capture.consent.notNow')}
+        changeLaterNote={t('capture.consent.changeLater')}
+      />
     </SafeAreaView>
   );
 }

@@ -730,6 +730,55 @@ describe('Invariant 8 — THROW ≠ NONE ≠ non-success — clear boundary (C-2
   });
 });
 
+// ─── AR-AC-17: composed retry-after-ambiguous-timeout ────────────────────────
+//
+// Spec: after a delete_error (non-202, e.g. timeout), the user may tap Retry.
+// The second runDeleteGate invocation is a fresh, independent call. This test
+// verifies that:
+//   (a) the FIRST call returns delete_error and does NOT call performLogout;
+//   (b) the SECOND call (simulating the user's Retry) returns delete_success;
+//   (c) performLogout is called exactly once — on the 202 from the second call,
+//       and NOT on the first (non-202) call.
+//
+// runDeleteGate is pure (no shared mutable state between calls); the "retry"
+// is modelled as two independent invocations with separate dep instances.
+
+describe('AR-AC-17 — composed retry after ambiguous timeout', () => {
+  it('first call (timeout → delete_error) does not logout; second call (202) → delete_success + logout once', async () => {
+    const deviceAuth = createMockDeviceAuthAdapter({ enrolledLevel: SECURITY_LEVEL_NONE });
+
+    // ── First invocation: DELETE returns non-202 (timeout) ──
+    const firstLogout = makeLogoutSpy();
+    const firstDelete = makeDeleteApi({ ok: false, code: 'timeout' });
+
+    const firstResult = await runDeleteGate(baseDeps({
+      deviceAuth,
+      deleteAccountApi: firstDelete.fn,
+      performLogout: firstLogout.fn,
+    }));
+
+    expect(firstResult.outcome).toBe('delete_error');
+    expect((firstResult as { outcome: string; code?: string }).code).toBe('timeout');
+    expect(firstLogout.wasCalled()).toBe(false); // no teardown on non-202
+    expect(firstDelete.calls).toHaveLength(1);   // DELETE was called exactly once
+
+    // ── Second invocation: user taps Retry; DELETE returns 202 ──
+    const secondLogout = makeLogoutSpy();
+    const secondDelete = makeDeleteApi({ ok: true });
+
+    const secondResult = await runDeleteGate(baseDeps({
+      deviceAuth,
+      deleteAccountApi: secondDelete.fn,
+      performLogout: secondLogout.fn,
+    }));
+
+    expect(secondResult.outcome).toBe('delete_success');
+    expect(secondLogout.wasCalled()).toBe(true);  // logout fires on 202
+    expect(secondDelete.calls).toHaveLength(1);   // DELETE called once in second invocation
+    expect(firstLogout.wasCalled()).toBe(false);   // first-call logout still NOT called
+  });
+});
+
 // ─── E-18: performLogout throws mid-teardown → still delete_success ───────────
 
 describe('E-18 — performLogout throws mid-teardown → still delete_success', () => {

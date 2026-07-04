@@ -222,7 +222,12 @@ describe('runExport — error paths', () => {
 // ─── Nav-away abort (§2.7) ────────────────────────────────────────────────────
 
 describe('runExport — nav-away abort (§2.7)', () => {
-  it('returns {phase:EXPORT_IDLE} silently when signal fires (nav-away during fetch)', async () => {
+  it('returns {phase:EXPORT_IDLE} when apiClient returns request_aborted code (code→phase mapping)', async () => {
+    // This test asserts the code→phase mapping: request_aborted → EXPORT_IDLE.
+    // NOTE: ctrl.abort() below is dead code — runExport already resolved before it fires;
+    // it does NOT exercise the live signal-wired abort path (signal fires while fetch is
+    // in-flight). Real signal-wired abort is covered in accountApiClient.test.ts via
+    // makeHangingApiClient + ctrl.abort() mid-fetch.
     const ctrl = new AbortController();
     const outcome = await runExport({
       accessToken: TOKEN,
@@ -230,8 +235,7 @@ describe('runExport — nav-away abort (§2.7)', () => {
       fileService: makeFileService({ ok: true, fileUri: FAKE_URI }),
       signal: ctrl.signal,
     });
-    // When apiClient returns request_aborted AND signal is aborted, return IDLE silently
-    ctrl.abort();
+    ctrl.abort(); // dead code — runExport already resolved; kept to show the code mapping only
     expect(outcome.phase).toBe('EXPORT_IDLE');
   });
 

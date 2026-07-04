@@ -2,8 +2,28 @@
 # Flow: Settings → Delete account → type-to-confirm floor → (biometric — DEVICE-ONLY) →
 #       real DELETE /v1/account → (S1 navigation — DEVICE-ONLY).
 #
-# ON-DEVICE ARTIFACT — execute with:
-#   maestro test .maestro/23-account-rights-delete-confirm.yaml
+# ══════════════════════════════════════════════════════════════════════════════
+# !! DISPOSABLE ACCOUNT REQUIRED — NEVER RUN WITH mom@test.local !!
+#
+# This flow PERMANENTLY DELETES the account it logs in with.
+# It MUST be pointed at a freshly-seeded throwaway account.
+# Pointing it at mom@test.local (the shared account used by flows 22, 24, 25)
+# will destroy those flows' prerequisites.
+#
+# Credentials are injected via Maestro env vars (never hardcoded here):
+#   DISPOSABLE_EMAIL     — email of the one-off account (e.g. delete-test@local)
+#   DISPOSABLE_PASSWORD  — password for that account
+#
+# Run with:
+#   maestro test \
+#     --env DISPOSABLE_EMAIL=<email> \
+#     --env DISPOSABLE_PASSWORD=<password> \
+#     .maestro/23-account-rights-delete-confirm.yaml
+#
+# Seed a fresh account before each run; it is gone after the flow completes.
+# ══════════════════════════════════════════════════════════════════════════════
+#
+# ON-DEVICE ARTIFACT — execute with the --env flags above.
 #
 # IMPORTANT: This flow is DESTRUCTIVE. It permanently deletes the test account.
 # Run it only against a disposable test account. Re-create the account before
@@ -12,8 +32,9 @@
 # Prerequisites:
 #   - iOS Simulator or Android Emulator with dev build
 #   - Backend running at localhost:8080
-#   - A FRESH disposable account (not mom@test.local if it is used by other flows).
-#     Suggested: create a one-off account for this flow only.
+#   - A FRESH disposable account seeded and credentials exported as env vars
+#     (DISPOSABLE_EMAIL / DISPOSABLE_PASSWORD). See header above.
+#     MUST NOT be mom@test.local — flows 22/24/25 depend on that account.
 #   - Device enrolled with biometric or passcode (to exercise the step-up branch).
 #     For NONE-device testing (skip step-up) see the prerequisites note below.
 #
@@ -54,19 +75,22 @@ appId: com.momstarter.app
       id: welcome-login-btn
     timeout: 8000
 
-# ── 2. Login (use a DISPOSABLE test account — this flow deletes it) ───────────
+# ── 2. Login ─────────────────────────────────────────────────────────────────
+# !! MUST use ${DISPOSABLE_EMAIL} / ${DISPOSABLE_PASSWORD} (env vars required) !!
+# !! This flow PERMANENTLY DELETES the account — NEVER use mom@test.local     !!
+# !! Pass: --env DISPOSABLE_EMAIL=<email> --env DISPOSABLE_PASSWORD=<pw>      !!
 - tapOn:
     id: welcome-login-btn
 
 - tapOn:
     id: login-email
 - clearText
-- inputText: mom@test.local
+- inputText: ${DISPOSABLE_EMAIL}
 
 - tapOn:
     id: login-password
 - clearText
-- inputText: "MomTest-Password-2026"
+- inputText: ${DISPOSABLE_PASSWORD}
 
 - tapOn:
     id: login-submit

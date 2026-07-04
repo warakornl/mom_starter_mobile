@@ -185,9 +185,8 @@ export function applyPlanCreateLinkage(
   calendarStore: CalendarReminderStore,
   now: string,
 ): void {
-  // PRN — no reminder (US-17)
-  if (!plan.scheduleRule) return;
-
+  // buildLinkedReminder returns null for PRN plans (scheduleRule === null)
+  // and the if-guard below covers that — the early PRN return was redundant (Fix 3).
   const reminder = buildLinkedReminder(plan, uuidv4(), now);
   if (reminder) {
     calendarStore.enqueueCreateReminder(reminder);

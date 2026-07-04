@@ -29,7 +29,7 @@
  * the parent (useAccountRights hook / SettingsScreen).
  */
 
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -40,6 +40,7 @@ import {
   ActivityIndicator,
   StyleSheet,
   Platform,
+  AccessibilityInfo,
 } from 'react-native';
 import { matchesConfirmWord, CONFIRM_WORDS } from './confirmWordMatch';
 import type { SupportedLocale } from './confirmWordMatch';
@@ -127,7 +128,10 @@ export function DeleteAccountSheet({
 }: DeleteAccountSheetProps): React.JSX.Element | null {
   const { t } = useT();
 
-  // Compute floor satisfaction live on every render (M-1, §3.7):
+  // M-3: track input focus for the honey/700 2px focus ring (§3.5).
+  const [confirmInputFocused, setConfirmInputFocused] = useState(false);
+
+  // Compute floor satisfaction live on every render (§3.7):
   //   trimmed + case-insensitive equal to active-locale confirm word.
   const floorSatisfied = matchesConfirmWord(confirmInput, locale);
 
@@ -136,6 +140,20 @@ export function DeleteAccountSheet({
 
   // In DELETE_IN_FLIGHT the cancel button is also disabled (state would be ambiguous).
   const cancelEnabled = !deleteInFlight;
+
+  // M-2: announce politely when the confirm button transitions disabled → enabled.
+  // Fires on the first render where floorSatisfied becomes true (§5.3).
+  const prevConfirmEnabledRef = useRef(false);
+  useEffect(() => {
+    if (confirmEnabled && !prevConfirmEnabledRef.current) {
+      const announcement =
+        locale === 'th'
+          ? 'พร้อมยืนยัน — แตะ ยืนยันลบบัญชี เพื่อดำเนินการต่อ'
+          : 'Ready — tap Delete my account to confirm';
+      AccessibilityInfo.announceForAccessibility(announcement);
+    }
+    prevConfirmEnabledRef.current = confirmEnabled;
+  }, [confirmEnabled, locale]);
 
   if (!visible) return null;
 
@@ -231,11 +249,15 @@ export function DeleteAccountSheet({
               testID="delete-sheet-confirm-input"
               style={[
                 styles.confirmInput,
+                // M-3: honey/700 2px focus ring when input has focus (§3.5)
+                confirmInputFocused && styles.confirmInputFocused,
                 floorSatisfied && styles.confirmInputMatched,
                 deleteInFlight && styles.confirmInputDisabled,
               ]}
               value={confirmInput}
               onChangeText={onConfirmInputChange}
+              onFocus={() => setConfirmInputFocused(true)}
+              onBlur={() => setConfirmInputFocused(false)}
               // #9: single source — CONFIRM_WORDS[locale] is the only truth for the
               // confirm word. Removing the dead confirmPlaceholder i18n key prevents
               // matcher and UI from ever drifting out of sync.
@@ -517,6 +539,11 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     fontSize: 16,
     color: INK,
+  },
+  confirmInputFocused: {
+    // M-3: honey/700 2px focus ring — warm, non-destructive focus signal (§3.5)
+    borderColor: HONEY_700,
+    borderWidth: 2,
   },
   confirmInputMatched: {
     // Subtle positive signal when floor is satisfied (§3.5)

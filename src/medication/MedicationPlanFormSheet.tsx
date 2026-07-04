@@ -33,6 +33,7 @@ import {
   Switch,
   Platform,
   StyleSheet,
+  ActivityIndicator,
 } from 'react-native';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 
@@ -311,9 +312,21 @@ export function MedicationPlanFormSheet({
     }));
   }
 
-  // ── Echo preview ──────────────────────────────────────────────────────────
+  // ── Echo preview (F1 — open-ring mark + verbatim + "and more" + inactive) ─
 
   const echoText = buildEchoText(picker, t, locale);
+
+  // F1: Build the full echo line content
+  // - open-ring due mark ◯
+  // - verbatim name (or placeholder)
+  // - verbatim dose if present
+  // - first time
+  // - "and more" when multiple times
+  // - "Planned" tag when active=false
+  const echoFirstTime = picker.freq === 'one_off'
+    ? picker.startTime
+    : ([...picker.timesOfDay].sort()[0] ?? '–');
+  const echoMultiTime = picker.freq !== 'one_off' && picker.timesOfDay.length > 1;
 
   // ─── Render ───────────────────────────────────────────────────────────────
 
@@ -348,20 +361,7 @@ export function MedicationPlanFormSheet({
             </TouchableOpacity>
           </View>
 
-          {/* ── Consent nudge (general_health gate — warm, non-shaming) ──────── */}
-          {showConsentNudge && (
-            <View style={styles.consentNudge} accessibilityLiveRegion="polite">
-              <Text style={styles.consentNudgeTitle}>{t('medication.consentNudgeTitle')}</Text>
-              <TouchableOpacity
-                style={styles.consentNudgeBtn}
-                onPress={onManageConsents}
-                accessibilityRole="button"
-                accessibilityLabel={t('medication.consentNudgeAction')}
-              >
-                <Text style={styles.consentNudgeBtnText}>{t('medication.consentNudgeAction')}</Text>
-              </TouchableOpacity>
-            </View>
-          )}
+          {/* Consent nudge moved to near Save button (F6) */}
 
           {/* ── Name ───────────────────────────────────────────────────────── */}
           <Text style={styles.fieldLabel}>{t('medication.fieldName')}</Text>
@@ -383,6 +383,11 @@ export function MedicationPlanFormSheet({
               {t(errors.nameError as Parameters<typeof t>[0])}
             </Text>
           ) : null}
+          {/* F7: name field privacy line with icon/lock glyph (§5.1/§10.3) */}
+          <View style={styles.privacyRow} accessibilityElementsHidden>
+            <Text style={styles.privacyIcon}>🔒</Text>
+            <Text style={styles.privacyLine}>{t('medication.privacyLine')}</Text>
+          </View>
 
           {/* ── Dose ───────────────────────────────────────────────────────── */}
           <Text style={styles.fieldLabel}>{t('medication.fieldDose')}</Text>
@@ -398,80 +403,45 @@ export function MedicationPlanFormSheet({
             textContentType="none"
             accessibilityLabel={t('medication.fieldDose')}
           />
-
-          {/* ── Privacy notice ─────────────────────────────────────────────── */}
-          <Text style={styles.privacyLine}>{t('medication.privacyLine')}</Text>
+          {/* F7: dose field privacy line with icon/lock glyph (§5.2/§10.3) */}
+          <View style={styles.privacyRow} accessibilityElementsHidden>
+            <Text style={styles.privacyIcon}>🔒</Text>
+            <Text style={styles.privacyLine}>{t('medication.privacyLine')}</Text>
+          </View>
 
           {/* ── Schedule picker ────────────────────────────────────────────── */}
           <Text style={styles.fieldLabel}>{t('medication.fieldSchedule')}</Text>
 
-          {/* Freq chips (3 options) */}
+          {/* Freq chips (3 options) — B7: leading check glyph for selected; B8: minHeight ≥48 */}
           <View style={styles.chipRow}>
-            {(['daily', 'every_n_days', 'one_off'] as const).map((f) => (
-              <TouchableOpacity
-                key={f}
-                testID={`med-freq-chip-${f}`}
-                style={[styles.chip, picker.freq === f ? styles.chipActive : null]}
-                onPress={() => selectFreq(f)}
-                accessibilityRole="radio"
-                accessibilityState={{ checked: picker.freq === f }}
-                accessibilityLabel={t(`medication.scheduleChip.${f}` as Parameters<typeof t>[0])}
-              >
-                <Text style={[styles.chipText, picker.freq === f ? styles.chipTextActive : null]}>
-                  {t(`medication.scheduleChip.${f}` as Parameters<typeof t>[0])}
-                </Text>
-              </TouchableOpacity>
-            ))}
+            {(['daily', 'every_n_days', 'one_off'] as const).map((f) => {
+              const isSelected = picker.freq === f;
+              return (
+                <TouchableOpacity
+                  key={f}
+                  testID={`med-freq-chip-${f}`}
+                  style={[styles.chip, isSelected ? styles.chipActive : null]}
+                  onPress={() => selectFreq(f)}
+                  accessibilityRole="radio"
+                  accessibilityState={{ checked: isSelected }}
+                  accessibilityLabel={t(`medication.scheduleChip.${f}` as Parameters<typeof t>[0])}
+                >
+                  {/* B7: icon/check glyph (non-color-only selection cue — §10.3/§5.3) */}
+                  {isSelected && (
+                    <Text style={styles.chipCheck} accessibilityElementsHidden>✓</Text>
+                  )}
+                  <Text style={[styles.chipText, isSelected ? styles.chipTextActive : null]}>
+                    {t(`medication.scheduleChip.${f}` as Parameters<typeof t>[0])}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
           </View>
 
-          {/* Sub-fields: daily / every_n_days — times of day */}
+          {/* Sub-fields: daily / every_n_days */}
           {(picker.freq === 'daily' || picker.freq === 'every_n_days') && (
             <>
-              <Text style={styles.fieldLabel}>{t('medication.fieldTimesOfDay')}</Text>
-              {picker.timesOfDay.map((time, idx) => (
-                <View key={idx} style={styles.timeChipRow}>
-                  <TouchableOpacity
-                    testID={`med-tod-${idx}`}
-                    style={styles.timeChip}
-                    onPress={() =>
-                      openPicker(`tod-${idx}`, parseCivilTime(time))
-                    }
-                    accessibilityRole="button"
-                    accessibilityLabel={`${t('medication.fieldTimesOfDay')} ${time}`}
-                    hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
-                  >
-                    <Text style={styles.timeChipText}>{time}</Text>
-                  </TouchableOpacity>
-                  {picker.timesOfDay.length > 1 && (
-                    <TouchableOpacity
-                      testID={`med-tod-remove-${idx}`}
-                      style={styles.timeChipRemove}
-                      onPress={() => removeTimeOfDay(idx)}
-                      accessibilityRole="button"
-                      accessibilityLabel="ลบ"
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                    >
-                      <Text style={styles.timeChipRemoveText}>✕</Text>
-                    </TouchableOpacity>
-                  )}
-                </View>
-              ))}
-              {hasSubmitted && errors.timeError ? (
-                <Text style={styles.errorText} accessibilityLiveRegion="polite">
-                  {t(errors.timeError as Parameters<typeof t>[0])}
-                </Text>
-              ) : null}
-              <TouchableOpacity
-                testID="med-add-time"
-                style={styles.addTimeBtn}
-                onPress={addTimeOfDay}
-                accessibilityRole="button"
-                accessibilityLabel={t('medication.addTime')}
-              >
-                <Text style={styles.addTimeBtnText}>{t('medication.addTime')}</Text>
-              </TouchableOpacity>
-
-              {/* Interval stepper (every_n_days only) */}
+              {/* F5: interval stepper appears BEFORE times for every_n_days (§11.2/OQ-MP4/§5.3) */}
               {picker.freq === 'every_n_days' && (
                 <View style={styles.intervalRow}>
                   <Text style={styles.fieldLabel}>{t('medication.fieldInterval')}</Text>
@@ -512,6 +482,54 @@ export function MedicationPlanFormSheet({
                 </View>
               )}
 
+              {/* Times of day */}
+              <Text style={styles.fieldLabel}>{t('medication.fieldTimesOfDay')}</Text>
+              {picker.timesOfDay.map((time, idx) => (
+                <View key={idx} style={styles.timeChipRow}>
+                  <TouchableOpacity
+                    testID={`med-tod-${idx}`}
+                    style={styles.timeChip}
+                    onPress={() =>
+                      openPicker(`tod-${idx}`, parseCivilTime(time))
+                    }
+                    accessibilityRole="button"
+                    accessibilityLabel={`${t('medication.fieldTimesOfDay')} ${time}`}
+                    hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
+                  >
+                    <Text style={styles.timeChipText}>{time}</Text>
+                  </TouchableOpacity>
+                  {picker.timesOfDay.length > 1 && (
+                    <TouchableOpacity
+                      testID={`med-tod-remove-${idx}`}
+                      style={styles.timeChipRemove}
+                      onPress={() => removeTimeOfDay(idx)}
+                      accessibilityRole="button"
+                      accessibilityLabel={t('medication.removeTime')}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                    >
+                      <Text style={styles.timeChipRemoveText}>✕</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+              ))}
+              {hasSubmitted && errors.timeError ? (
+                <Text style={styles.errorText} accessibilityLiveRegion="polite">
+                  {t(errors.timeError as Parameters<typeof t>[0])}
+                </Text>
+              ) : null}
+              {/* F5 (MVP cap OQ-MP4): hide "+ Add a time" for every_n_days — allows ≤1 time only */}
+              {picker.freq === 'daily' && (
+                <TouchableOpacity
+                  testID="med-add-time"
+                  style={styles.addTimeBtn}
+                  onPress={addTimeOfDay}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('medication.addTime')}
+                >
+                  <Text style={styles.addTimeBtnText}>{t('medication.addTime')}</Text>
+                </TouchableOpacity>
+              )}
+
               {/* Start date */}
               <Text style={styles.fieldLabel}>{t('medication.fieldStartDate')}</Text>
               <TouchableOpacity
@@ -550,17 +568,38 @@ export function MedicationPlanFormSheet({
                 style={styles.dateBtn}
                 onPress={() => openPicker('startTime', parseCivilTime(picker.startTime))}
                 accessibilityRole="button"
-                accessibilityLabel={`เวลา: ${picker.startTime}`}
+                accessibilityLabel={`${t('medication.timeField')}: ${picker.startTime}`}
               >
                 <Text style={styles.dateBtnText}>{picker.startTime}</Text>
               </TouchableOpacity>
             </>
           )}
 
-          {/* ── Echo / preview ─────────────────────────────────────────────── */}
-          <View style={styles.echoRow}>
+          {/* ── Echo / preview line (F1 — §5.5: signature trust device) ──── */}
+          <View
+            style={styles.echoRow}
+            accessibilityLiveRegion="polite"
+          >
             <Text style={styles.echoPrefix}>{t('medication.echoPrefix')}</Text>
-            <Text testID="med-echo" style={styles.echoText}>{echoText}</Text>
+            {/* F1: open-ring due mark + verbatim name · dose · first time */}
+            <View style={styles.echoOccurrenceRow} testID="med-echo">
+              <Text style={[styles.echoRingMark, !active && styles.echoRingMarkInactive]}>
+                ◯
+              </Text>
+              <Text
+                style={[styles.echoOccurrenceText, !active && styles.echoOccurrenceTextInactive]}
+                numberOfLines={2}
+              >
+                {name.trim()
+                  ? `${name.trim()}${dose.trim() ? ` · ${dose.trim()}` : ''}    ${echoFirstTime}${echoMultiTime ? `  ${t('medication.echoAndMore')}` : ''}`
+                  : `${'ชื่อยา... · เวลา...'}`
+                }
+              </Text>
+            </View>
+            {/* F1: "Planned" tag when active=false */}
+            {!active && (
+              <Text style={styles.echoPlannedTag}>{t('medication.echoPlanned')}</Text>
+            )}
           </View>
 
           {/* ── Active toggle ──────────────────────────────────────────────── */}
@@ -585,54 +624,99 @@ export function MedicationPlanFormSheet({
             />
           </View>
 
-          {/* ── Save button ────────────────────────────────────────────────── */}
+          {/* ── Consent nudge (F6: positioned near Save, below Active toggle) */}
+          {showConsentNudge && (
+            <View style={styles.consentNudge} accessibilityLiveRegion="polite">
+              <Text style={styles.consentNudgeTitle}>{t('medication.consentNudgeTitle')}</Text>
+              <TouchableOpacity
+                style={styles.consentNudgeBtn}
+                onPress={onManageConsents}
+                accessibilityRole="button"
+                accessibilityLabel={t('medication.consentNudgeAction')}
+              >
+                <Text style={styles.consentNudgeBtnText}>{t('medication.consentNudgeAction')}</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* ── Save button (F6: disabled + label update when nudge shown; M5: spinner) */}
           <TouchableOpacity
             testID="med-save-btn"
-            style={[styles.saveBtn, (!saveEnabled || isSaving) ? styles.saveBtnDisabled : null]}
+            style={[
+              styles.saveBtn,
+              (!saveEnabled || isSaving || showConsentNudge) ? styles.saveBtnDisabled : null,
+            ]}
             onPress={handleSave}
-            disabled={!saveEnabled || isSaving}
+            disabled={!saveEnabled || isSaving || showConsentNudge}
             accessibilityRole="button"
-            accessibilityLabel={t('medication.save')}
-            accessibilityState={{ disabled: !saveEnabled || isSaving }}
+            accessibilityLabel={
+              showConsentNudge
+                ? t('medication.saveDisabledConsentLabel')
+                : t('medication.save')
+            }
+            accessibilityState={{ disabled: !saveEnabled || isSaving || showConsentNudge }}
           >
-            <Text style={styles.saveBtnText}>
-              {isSaving ? '…' : t('medication.save')}
-            </Text>
+            {/* M5: 16dp inline spinner instead of '…' text */}
+            {isSaving
+              ? <ActivityIndicator size={16} color="#FFFFFF" />
+              : <Text style={styles.saveBtnText}>{t('medication.save')}</Text>
+            }
           </TouchableOpacity>
 
-          {/* ── Edit-mode actions ─────────────────────────────────────────── */}
+          {/* ── Edit-mode actions (F4: sub-copy + Quiet variant) ─────────────── */}
           {isEdit && existingPlan && !showDeleteConfirm && (
             <View style={styles.editActions}>
+              <View style={styles.hairlineDivider} />
+
               {existingPlan.active ? (
-                <TouchableOpacity
-                  testID="med-deactivate-btn"
-                  style={styles.secondaryBtn}
-                  onPress={() => onDeactivate(existingPlan.id)}
-                  accessibilityRole="button"
-                  accessibilityLabel={t('medication.deactivate')}
-                >
-                  <Text style={styles.secondaryBtnText}>{t('medication.deactivate')}</Text>
-                </TouchableOpacity>
+                <View style={styles.actionGroup}>
+                  <TouchableOpacity
+                    testID="med-deactivate-btn"
+                    style={styles.actionBtn}
+                    onPress={() => onDeactivate(existingPlan.id)}
+                    accessibilityRole="button"
+                    accessibilityLabel={t('medication.deactivate')}
+                  >
+                    <Text style={styles.actionBtnText}>{t('medication.deactivate')}</Text>
+                  </TouchableOpacity>
+                  {/* F4: "ปิด ≠ ลบประวัติ" sub-copy */}
+                  <Text style={styles.actionSubCopy} accessibilityElementsHidden>
+                    {t('medication.deactivateSubCopy1')}
+                  </Text>
+                  <Text style={styles.actionSubCopy} accessibilityElementsHidden>
+                    {t('medication.deactivateSubCopy2')}
+                  </Text>
+                </View>
               ) : (
                 <TouchableOpacity
                   testID="med-reactivate-btn"
-                  style={styles.secondaryBtn}
+                  style={styles.actionBtn}
                   onPress={() => onReactivate(existingPlan.id)}
                   accessibilityRole="button"
                   accessibilityLabel={t('medication.reactivate')}
                 >
-                  <Text style={styles.secondaryBtnText}>{t('medication.reactivate')}</Text>
+                  <Text style={styles.actionBtnText}>{t('medication.reactivate')}</Text>
                 </TouchableOpacity>
               )}
-              <TouchableOpacity
-                testID="med-delete-trigger"
-                style={styles.dangerBtnQuiet}
-                onPress={() => setShowDeleteConfirm(true)}
-                accessibilityRole="button"
-                accessibilityLabel={t('medication.delete')}
-              >
-                <Text style={styles.dangerBtnQuietText}>{t('medication.delete')}</Text>
-              </TouchableOpacity>
+
+              <View style={styles.actionGroup}>
+                <TouchableOpacity
+                  testID="med-delete-trigger"
+                  style={styles.actionBtn}
+                  onPress={() => setShowDeleteConfirm(true)}
+                  accessibilityRole="button"
+                  accessibilityLabel={t('medication.delete')}
+                >
+                  <Text style={styles.actionBtnText}>{t('medication.delete')}</Text>
+                </TouchableOpacity>
+                {/* F4: delete sub-copy */}
+                <Text style={styles.actionSubCopy} accessibilityElementsHidden>
+                  {t('medication.deleteSubCopy1')}
+                </Text>
+                <Text style={styles.actionSubCopy} accessibilityElementsHidden>
+                  {t('medication.deleteSubCopy2')}
+                </Text>
+              </View>
             </View>
           )}
 
@@ -698,7 +782,7 @@ export function MedicationPlanFormSheet({
                   <TouchableOpacity
                     onPress={confirmPickerIOS}
                     accessibilityRole="button"
-                    accessibilityLabel="ยืนยัน"
+                    accessibilityLabel={t('medication.confirmPicker')}
                   >
                     <Text style={styles.iosPickerDone}>✓</Text>
                   </TouchableOpacity>
@@ -816,14 +900,26 @@ const styles = StyleSheet.create({
     color: '#A8505A',
     marginTop: 4,
   },
+  // F7: privacy row with lock glyph
+  privacyRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginTop: 4,
+    gap: 4,
+  },
+  privacyIcon: {
+    fontSize: 12,
+    color: '#94818A',
+    lineHeight: 18,
+  },
   privacyLine: {
     fontFamily: 'IBMPlexSans-Regular',
     fontSize: 12,
     color: '#94818A',
-    marginTop: 6,
+    flex: 1,
   },
 
-  // ── Schedule chips ────────────────────────────────────────────────────────
+  // ── Schedule chips (B7: check glyph; B8: minHeight ≥48) ─────────────────
   chipRow: {
     flexDirection: 'row',
     gap: 8,
@@ -831,17 +927,24 @@ const styles = StyleSheet.create({
   },
   chip: {
     flex: 1,
-    minHeight: 44,
+    minHeight: 48,
     borderRadius: 8,
     borderWidth: 1.5,
     borderColor: '#EBE1D9',
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 4,
+    flexDirection: 'row',
+    gap: 4,
   },
   chipActive: {
     borderColor: '#A8505A',
     backgroundColor: '#FBEDEE',
+  },
+  chipCheck: {
+    fontSize: 12,
+    color: '#A8505A',
+    fontWeight: '700',
   },
   chipText: {
     fontFamily: 'IBMPlexSans-Medium',
@@ -945,7 +1048,7 @@ const styles = StyleSheet.create({
     color: '#3A2A30',
   },
 
-  // ── Echo line ─────────────────────────────────────────────────────────────
+  // ── Echo line (F1: open-ring mark + verbatim + inactive treatment) ───────
   echoRow: {
     marginTop: 14,
     backgroundColor: '#FBF6F1',
@@ -956,8 +1059,38 @@ const styles = StyleSheet.create({
     fontFamily: 'IBMPlexSans-Regular',
     fontSize: 12,
     color: '#94818A',
-    marginBottom: 2,
+    marginBottom: 4,
   },
+  echoOccurrenceRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 6,
+  },
+  echoRingMark: {
+    fontSize: 14,
+    color: '#9A7E86', // due ring color (accessibility-notes §1.2)
+    lineHeight: 20,
+  },
+  echoRingMarkInactive: {
+    color: '#94818A',
+  },
+  echoOccurrenceText: {
+    fontFamily: 'IBMPlexSans-Medium',
+    fontSize: 14,
+    color: '#3A2A30',
+    flex: 1,
+  },
+  echoOccurrenceTextInactive: {
+    color: '#5F4A52',
+  },
+  echoPlannedTag: {
+    fontFamily: 'IBMPlexSans-Regular',
+    fontSize: 12,
+    color: '#5F4A52',
+    marginTop: 4,
+    fontStyle: 'italic',
+  },
+  // (legacy echoText retained for potential external use)
   echoText: {
     fontFamily: 'IBMPlexSans-Medium',
     fontSize: 14,
@@ -1007,34 +1140,35 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 
-  // ── Edit-mode secondary actions ───────────────────────────────────────────
+  // ── Edit-mode secondary actions (F4: Quiet variant + sub-copy) ────────────
   editActions: {
     marginTop: 20,
-    gap: 12,
+    gap: 4,
   },
-  secondaryBtn: {
+  hairlineDivider: {
+    height: 1,
+    backgroundColor: '#EBE1D9',
+    marginBottom: 16,
+  },
+  actionGroup: {
+    marginBottom: 12,
+  },
+  // Quiet text button (design-system §5.1 Quiet variant — §6)
+  actionBtn: {
     minHeight: 48,
-    borderRadius: 10,
-    borderWidth: 1.5,
-    borderColor: '#A8505A',
-    alignItems: 'center',
     justifyContent: 'center',
+    paddingVertical: 4,
   },
-  secondaryBtnText: {
+  actionBtnText: {
     fontFamily: 'IBMPlexSans-Medium',
     fontSize: 15,
-    color: '#A8505A',
+    color: '#5F4A52',
   },
-  dangerBtnQuiet: {
-    minHeight: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  dangerBtnQuietText: {
-    fontFamily: 'IBMPlexSans-Medium',
-    fontSize: 15,
+  actionSubCopy: {
+    fontFamily: 'IBMPlexSans-Regular',
+    fontSize: 12,
     color: '#94818A',
-    textDecorationLine: 'underline',
+    marginTop: 2,
   },
 
   // ── Delete confirm panel ──────────────────────────────────────────────────

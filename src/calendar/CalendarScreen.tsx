@@ -72,6 +72,7 @@ import { bucketCivilDay } from './civilDayBucketer';
 import type { TokenStorage } from '../auth/tokenStorage';
 import type { ChecklistItemRecord, ReminderOccurrenceRecord, OccurrenceStatus } from '../sync/syncTypes';
 import { consumePendingCalendarFocusDate } from './pendingCalendarFocusDate';
+import { reanchor, cancelForOccurrence } from '../notifications';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -393,22 +394,48 @@ export function CalendarScreen({
     await syncPush();
   }, [syncPull, syncPush]);
 
+  // ── Notification re-anchor (FLAG-5, ADR Decision 2) ───────────────────────
+  // Re-materializes the rolling-window OS notification schedule after sync.
+  // Calls reanchor() from src/notifications/index.ts which:
+  //   1. Builds the new 7-day window from active reminders
+  //   2. Cancels stale pending OS notifications
+  //   3. Schedules the new set (idempotent replace via deterministic occurrence id)
+  // Permission-declined is non-fatal: calendar projection unaffected.
+  // Device-only (expo-notifications native module); not exercised in CI unit tests.
+  const reanchorNotifications = useCallback(async () => {
+    const reminders = calendarSyncStore.getActiveReminders();
+    // Collect all materialized occurrences across all active reminders
+    const occurrences = reminders.flatMap((r) =>
+      calendarSyncStore.getOccurrencesForReminder(r.id),
+    );
+    // Non-fatal: any native error is swallowed inside reanchor()
+    await reanchor(reminders, occurrences);
+  }, []);
+
+  // ── Sync + re-anchor (combined foreground flow) ────────────────────────────
+
+  const syncAndReanchor = useCallback(async () => {
+    await syncAll();
+    // Re-anchor after sync so we have fresh reminder data from the server
+    void reanchorNotifications();
+  }, [syncAll, reanchorNotifications]);
+
   // ── Pull on mount and foreground ───────────────────────────────────────────
 
   useEffect(() => {
-    void syncAll();
+    void syncAndReanchor();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
     function handleAppState(next: AppStateStatus): void {
       if (next === 'active') {
-        void syncAll();
+        void syncAndReanchor();
       }
     }
     const sub = AppState.addEventListener('change', handleAppState);
     return () => sub.remove();
-  }, [syncAll]);
+  }, [syncAndReanchor]);
 
   // ── Build calendar maps ────────────────────────────────────────────────────
 
@@ -482,7 +509,10 @@ export function CalendarScreen({
               refreshFromStore();
               // Push immediately — fire-and-forget (no await to not block UI)
               void syncPush();
-              // TODO carry-forward: cancel OS notification for this occurrence
+              // Cancel the OS notification for this occurrence (resolves TODO carry-forward).
+              // `id` is the deterministic uuidv5 occurrence id — used as the OS notification
+              // identifier (ADR Decision 2 / functional spec §3.4).
+              void cancelForOccurrence(id);
             },
           },
           ...(currentStatus !== 'snoozed'
@@ -500,6 +530,11 @@ export function CalendarScreen({
                     );
                     refreshFromStore();
                     void syncPush();
+                    // Cancel the current pending alarm before the snooze reschedule.
+                    // Note: Task 5 will add the 10/30/60 picker and the reschedule call.
+                    // For now (Task 2) we cancel the original; the snooze reanchor on
+                    // next foreground picks up the new snoozedUntil (spec §2.2 step 3b).
+                    void cancelForOccurrence(id);
                   },
                 },
               ]

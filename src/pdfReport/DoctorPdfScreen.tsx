@@ -67,7 +67,18 @@ import { localCivilToday } from '../pregnancy/gestationalAge';
 import { kickCountSyncStore } from '../kickCount/kickCountSyncStore';
 import { calendarSyncStore } from '../sync/calendarSyncStore';
 import { selfLogSyncStore } from '../selfLog/selfLogSyncStore';
-import { buildDoctorReportHtml, LABELS, isWithinRange, formatDateTime, type ReportSelfLog } from './doctorReportAssembler';
+import { medicationPlanSyncStore } from '../medication/medicationPlanSyncStore';
+import { medicationLogSyncStore } from '../medication/medicationLogSyncStore';
+import { computeAdherence } from './medicationAdherence';
+import {
+  buildDoctorReportHtml,
+  LABELS,
+  isWithinRange,
+  formatDateTime,
+  type ReportSelfLog,
+  type ReportMedicationPlan,
+  type ReportMedicationLog,
+} from './doctorReportAssembler';
 import { kickCountChartSvg } from './reportCharts';
 import { createProductionPdfService } from './pdfService';
 import {
@@ -181,11 +192,40 @@ export function DoctorPdfScreen({
         note: decodeFieldFromBase64(s.note),
       }));
 
+      // Decode base64 medication plan name/dose before passing to the assembler.
+      // getPlans() returns only live (non-deleted) plans. Deleted plan logs are
+      // automatically routed to selfRecordedLogs by computeAdherence's orphan-routing
+      // rule (any log whose planId is not in the passed plan set → self-recorded).
+      // Security: NEVER log name or dose — SD-2/SD-5 drug-name health data.
+      const medicationPlans: ReportMedicationPlan[] = medicationPlanSyncStore.getPlans().map((p) => ({
+        id: p.id,
+        name: decodeFieldFromBase64(p.name) ?? '',
+        dose: decodeFieldFromBase64(p.dose) ?? null,
+        scheduleRule: p.scheduleRule ?? null,
+        active: p.active,
+        deletedAt: p.deletedAt ?? null,
+      }));
+
+      // Decode medication log notes before passing to assembler.
+      // Assembler filters by range; we pass all live logs.
+      // Security: NEVER log occurrenceTime, note, or medicationPlanId — SD-5.
+      const medicationLogs: ReportMedicationLog[] = medicationLogSyncStore
+        .getLogs()
+        .map((l) => ({
+          id: l.id,
+          medicationPlanId: l.medicationPlanId ?? null,
+          occurrenceTime: l.occurrenceTime,
+          status: l.status,
+          note: decodeFieldFromBase64(l.note) ?? null,
+        }));
+
       const html = buildDoctorReportHtml({
         profile,
         kickSessions,
         appointments,
         selfLogs,
+        medicationPlans,
+        medicationLogs,
         dateFrom,
         dateTo,
         reportDate: today,
@@ -567,9 +607,14 @@ function ReportPreview({
       <Text style={styles.previewBody}>{L.edd}: {profile.edd}</Text>
       <Text style={styles.previewBody}>{L.gestationalWeek}: {profile.gestationalWeek} {L.weekUnit}</Text>
 
-      {/* Medication — placeholder matches assembler (spec §3, data-source gap) */}
+      {/* Medication — real data from stores, adherence computed on-device (RULING 7.3) */}
       <Text style={styles.previewH2}>{L.medTitle}</Text>
-      <Text style={styles.previewPlaceholder}>{L.medPlaceholder}</Text>
+      <MedicationPreviewSection
+        dateFrom={dateFrom}
+        dateTo={dateTo}
+        locale={locale}
+        includeSensitiveNotes={includeSensitiveNotes}
+      />
 
       {/* Kick-counts — SVG chart rendered from the SAME kickCountChartSvg function
           as the PDF assembler: preview == PDF (single source of truth). */}
@@ -766,6 +811,115 @@ function SelfLogPreviewSection({
           </React.Fragment>
         );
       })}
+    </>
+  );
+}
+
+/**
+ * MedicationPreviewSection — native React Native preview of the medication section.
+ *
+ * Reads from medicationPlanSyncStore + medicationLogSyncStore, decodes base64 fields,
+ * runs computeAdherence (same formula as PDF assembler — single source of truth).
+ *
+ * Adherence: plain count only — no grade, no colour (AC-20/INV-M1).
+ * Note: gated on includeSensitiveNotes (§A.6).
+ * Security: NEVER log name, dose, note, or occurrenceTime — SD-2/SD-5.
+ */
+function MedicationPreviewSection({
+  dateFrom,
+  dateTo,
+  locale,
+  includeSensitiveNotes,
+}: {
+  dateFrom: string;
+  dateTo: string;
+  locale: Locale;
+  includeSensitiveNotes: boolean;
+}): React.JSX.Element {
+  const L = LABELS[locale];
+
+  // Decode plans (live only) — deleted plan logs routed by orphan rule in computeAdherence
+  const plans: ReportMedicationPlan[] = medicationPlanSyncStore.getPlans().map((p) => ({
+    id: p.id,
+    name: decodeFieldFromBase64(p.name) ?? '',
+    dose: decodeFieldFromBase64(p.dose) ?? null,
+    scheduleRule: p.scheduleRule ?? null,
+    active: p.active,
+    deletedAt: p.deletedAt ?? null,
+  }));
+
+  // Decode logs (all live — computeAdherence filters by range internally)
+  const logs: ReportMedicationLog[] = medicationLogSyncStore.getLogs().map((l) => ({
+    id: l.id,
+    medicationPlanId: l.medicationPlanId ?? null,
+    occurrenceTime: l.occurrenceTime,
+    status: l.status,
+    note: decodeFieldFromBase64(l.note) ?? null,
+  }));
+
+  const { planAdherences, selfRecordedLogs } = computeAdherence(plans, logs, dateFrom, dateTo);
+
+  // Filter to logs in range for per-dose display
+  const logsInRange = logs.filter((log) => {
+    const d = log.occurrenceTime.substring(0, 10);
+    return d >= dateFrom && d <= dateTo;
+  });
+
+  const hasData = planAdherences.length > 0 || selfRecordedLogs.length > 0;
+  if (!hasData) {
+    return <Text style={styles.previewBody}>{L.medNoData}</Text>;
+  }
+
+  return (
+    <>
+      {planAdherences.map((pa) => {
+        const adherenceLine = pa.isPrn
+          ? `${L.medTakenPrefix} ${pa.N} ${L.medTimes}`
+          : `${L.medTakenPrefix} ${pa.N}/${pa.M} ${L.medDays}`;
+        const planLogsInRange = logsInRange
+          .filter((log) => log.medicationPlanId === pa.planId)
+          .sort((a, b) => a.occurrenceTime.localeCompare(b.occurrenceTime));
+        return (
+          <React.Fragment key={pa.planId}>
+            <Text style={styles.previewBody}>
+              <Text style={{ fontWeight: 'bold' }}>{pa.name}</Text>
+              {pa.dose ? ` ${pa.dose}` : ''}
+            </Text>
+            <Text style={styles.previewBody}>{adherenceLine}</Text>
+            {planLogsInRange.map((log) => {
+              const dateStr = formatDateTime(log.occurrenceTime, locale);
+              const statusStr = log.status === 'taken' ? L.medTakenStatus : L.medMissedStatus;
+              return (
+                <React.Fragment key={log.id}>
+                  <Text style={styles.previewBody}>  {dateStr}: {statusStr}</Text>
+                  {includeSensitiveNotes && log.note ? (
+                    <Text style={styles.previewBody}>  {L.selfLogNoteLabel}: {log.note}</Text>
+                  ) : null}
+                </React.Fragment>
+              );
+            })}
+          </React.Fragment>
+        );
+      })}
+      {selfRecordedLogs.length > 0 && (
+        <>
+          <Text style={styles.previewBody}>{L.medAdHocLabel}</Text>
+          {[...selfRecordedLogs]
+            .sort((a, b) => a.occurrenceTime.localeCompare(b.occurrenceTime))
+            .map((log) => {
+              const dateStr = formatDateTime(log.occurrenceTime, locale);
+              const statusStr = log.status === 'taken' ? L.medTakenStatus : L.medMissedStatus;
+              return (
+                <React.Fragment key={log.id}>
+                  <Text style={styles.previewBody}>  {dateStr}: {statusStr}</Text>
+                  {includeSensitiveNotes && log.note ? (
+                    <Text style={styles.previewBody}>  {L.selfLogNoteLabel}: {log.note}</Text>
+                  ) : null}
+                </React.Fragment>
+              );
+            })}
+        </>
+      )}
     </>
   );
 }

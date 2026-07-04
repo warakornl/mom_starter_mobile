@@ -859,6 +859,16 @@ const th = {
   'capture.unit.kg': 'กก.',
   'capture.unit.mmHg': 'mmHg',
 
+  // ── Quick Capture — Medication family (capture-ui §3.1 + medication-behavior §B) ─
+  // Plan name / dose are VERBATIM (never translated, never parsed — INV-M4).
+  // taken / missed get EQUAL weight — missed is NEVER amber/shaming (INV-M2 / AC-20).
+  'capture.type.medication': 'ยา',
+  'capture.medication.takenLabel': 'กินแล้ว',
+  'capture.medication.missedLabel': 'ไม่ได้กิน',
+  'capture.medication.planFromLabel': 'จากแผนยา',
+  'capture.medication.doseLabel': 'ขนาด',
+  'capture.medication.statusLabel': 'สถานะ',
+
   // ── Medication Plans (medication-plan-ui.md §9) ──────────────────────────────
   // Navigation / tab
   'medication.navTitle': 'แผนยา',
@@ -1683,6 +1693,15 @@ const en: MsgShape = {
   // Unit labels (display only — not user-typed)
   'capture.unit.kg': 'kg',
   'capture.unit.mmHg': 'mmHg',
+
+  // ── Quick Capture — Medication family (capture-ui §3.1 + medication-behavior §B) ─
+  // Plan name / dose are VERBATIM. taken / missed EQUAL weight — never amber (INV-M2).
+  'capture.type.medication': 'Medication',
+  'capture.medication.takenLabel': 'Taken',
+  'capture.medication.missedLabel': 'Not taken',
+  'capture.medication.planFromLabel': 'From plan',
+  'capture.medication.doseLabel': 'Dose',
+  'capture.medication.statusLabel': 'Status',
 
   // ── Medication Plans (medication-plan-ui.md §9) ──────────────────────────────
   'medication.navTitle': 'Medication Plans',

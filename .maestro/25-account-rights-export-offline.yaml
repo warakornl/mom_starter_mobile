@@ -1,0 +1,152 @@
+# 25-account-rights-export-offline.yaml
+# Flow: Offline / network-error export → calm error card + Retry → error card again (still offline).
+#
+# ON-DEVICE ARTIFACT — execute with:
+#   maestro test .maestro/25-account-rights-export-offline.yaml
+#
+# Prerequisites:
+#   - iOS Simulator or Android Emulator with dev build
+#   - Backend running at localhost:8080 OR intentionally unreachable (see network note below)
+#   - Account: mom@test.local / MomTest-Password-2026 (pregnancy profile)
+#
+# Network prerequisite (IMPORTANT):
+#   Maestro does not have a built-in "disable network" command. To test offline behavior,
+#   use one of the following approaches BEFORE running this flow:
+#     Option A: Stop the backend (kill the Spring Boot process) — the fetch will fail with
+#               a network error (connection refused), producing EXPORT_ERROR.
+#     Option B: iOS Simulator: Simulator → Network → (throttle to 100% packet loss) if available.
+#     Option C: Device: enable Airplane Mode before running the flow.
+#   After the flow completes, restore the network before running other flows.
+#
+# What this flow verifies (AR-AC-03, US-24):
+#   AR-AC-03: Offline / network error → calm, non-blaming error card appears;
+#             no file is presented as saved; Retry button is visible.
+#             Tapping Retry while still offline shows the error card again
+#             (Retry re-runs the full export flow — AR-AC-03, E-1).
+#   AR-AC-03 (Dismiss): Tapping Dismiss returns to EXPORT_IDLE with no error.
+#
+# No DEVICE-ONLY launch-gates in this flow for the error path (the error card and
+# Retry/Dismiss buttons are native RN components fully driveable by Maestro).
+# The network disabling itself requires a manual prerequisite step.
+#
+# Selector strategy: id: (testID) where available.
+
+appId: com.momstarter.app
+
+---
+
+# ── 1. Launch fresh ──────────────────────────────────────────────────────────
+- launchApp:
+    clearState: true
+
+- extendedWaitUntil:
+    visible:
+      id: welcome-login-btn
+    timeout: 8000
+
+# ── 2. Login ─────────────────────────────────────────────────────────────────
+# NOTE: Login must succeed BEFORE network is disabled. If testing Airplane Mode,
+# log in first, THEN enable Airplane Mode before step 5.
+- tapOn:
+    id: welcome-login-btn
+
+- tapOn:
+    id: login-email
+- clearText
+- inputText: mom@test.local
+
+- tapOn:
+    id: login-password
+- clearText
+- inputText: "MomTest-Password-2026"
+
+- tapOn:
+    id: login-submit
+
+- extendedWaitUntil:
+    visible:
+      id: home-week-hero
+    timeout: 10000
+
+# ── 3. Navigate to Settings ───────────────────────────────────────────────────
+- tapOn:
+    id: home-settings-btn
+
+- extendedWaitUntil:
+    visible:
+      id: settings-screen
+    timeout: 5000
+
+- assertVisible:
+    id: settings-download-data-btn
+
+# ── 4. MANUAL PREREQUISITE: Ensure network is unavailable ────────────────────
+# At this point: stop the backend, or enable Airplane Mode, or use Simulator
+# network throttling (100% packet loss). The export fetch must fail.
+#
+# Maestro cannot automate this step. Verify before continuing.
+
+# ── 5. Tap "Download my data" — fetch fails → EXPORT_ERROR ───────────────────
+- tapOn:
+    id: settings-download-data-btn
+
+# Spinner briefly appears (EXPORT_IN_PROGRESS), then the fetch fails and
+# the error card is shown (EXPORT_ERROR). Wait for the error card.
+# Timeout is generous (export timeout is 20s per M-3; set 25s here).
+- extendedWaitUntil:
+    visible:
+      id: settings-export-error-card
+    timeout: 25000
+
+# AR-AC-03: Calm error card present; no file presented as saved.
+- assertVisible:
+    id: settings-export-error-card
+
+# Retry and Dismiss buttons are visible (AR-AC-03 + E-1)
+- assertVisible:
+    id: settings-export-retry-btn
+- assertVisible:
+    id: settings-export-dismiss-btn
+
+# The export row is no longer showing a spinner (error state, not in-progress)
+- assertNotVisible:
+    id: settings-download-spinner
+
+# ── 6. Tap Retry while still offline → error card again (E-1) ────────────────
+# Retry re-runs the full export flow from EXPORT_IN_PROGRESS.
+# The network is still down, so EXPORT_ERROR appears again.
+- tapOn:
+    id: settings-export-retry-btn
+
+# Wait for error card to re-appear after retry attempt
+- extendedWaitUntil:
+    visible:
+      id: settings-export-error-card
+    timeout: 25000
+
+# Error card still visible — Retry does not present a false success (AR-AC-03)
+- assertVisible:
+    id: settings-export-error-card
+- assertVisible:
+    id: settings-export-retry-btn
+- assertVisible:
+    id: settings-export-dismiss-btn
+
+# ── 7. Tap Dismiss → return to EXPORT_IDLE ────────────────────────────────────
+- tapOn:
+    id: settings-export-dismiss-btn
+
+# Error card dismissed; download row re-appears (EXPORT_IDLE)
+- extendedWaitUntil:
+    visible:
+      id: settings-download-data-btn
+    timeout: 5000
+
+- assertNotVisible:
+    id: settings-export-error-card
+
+# ── 8. RESTORE NETWORK (manual step) ─────────────────────────────────────────
+# After completing this flow: re-enable network / restart the backend / disable
+# Airplane Mode before running other Maestro flows that require connectivity.
+
+# End of flow — offline export error card + Retry + Dismiss verified (AR-AC-03, US-24, E-1).

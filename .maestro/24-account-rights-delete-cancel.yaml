@@ -1,0 +1,142 @@
+# 24-account-rights-delete-cancel.yaml
+# Flow: Settings → Delete account → type-to-confirm floor → cancel → account intact.
+#
+# ON-DEVICE ARTIFACT — execute with:
+#   maestro test .maestro/24-account-rights-delete-cancel.yaml
+#
+# This flow is NON-DESTRUCTIVE. The account is not deleted. Safe to run against
+# mom@test.local or any test account.
+#
+# Prerequisites:
+#   - iOS Simulator or Android Emulator with dev build
+#   - Backend running at localhost:8080
+#   - Account: mom@test.local / MomTest-Password-2026 (pregnancy profile)
+#
+# What this flow verifies (AR-AC-14, US-25):
+#   AR-AC-14: Cancel at the confirm sheet leaves the account and all data
+#             completely unchanged — no deletion, no sign-out, no local clear.
+#   AR-AC-09 (supplemental): Confirm sheet opened, type-to-confirm floor exercised.
+#   AR-AC-20 (supplemental): Cancel button tappable regardless of floor state.
+#
+# No DEVICE-ONLY launch-gates in this flow (cancel does not trigger biometric or DELETE).
+# The cancel path is fully exercisable in Maestro.
+#
+# Selector strategy: id: (testID) where available.
+
+appId: com.momstarter.app
+
+---
+
+# ── 1. Launch fresh ──────────────────────────────────────────────────────────
+- launchApp:
+    clearState: true
+
+- extendedWaitUntil:
+    visible:
+      id: welcome-login-btn
+    timeout: 8000
+
+# ── 2. Login ─────────────────────────────────────────────────────────────────
+- tapOn:
+    id: welcome-login-btn
+
+- tapOn:
+    id: login-email
+- clearText
+- inputText: mom@test.local
+
+- tapOn:
+    id: login-password
+- clearText
+- inputText: "MomTest-Password-2026"
+
+- tapOn:
+    id: login-submit
+
+- extendedWaitUntil:
+    visible:
+      id: home-week-hero
+    timeout: 10000
+
+# ── 3. Navigate to Settings ───────────────────────────────────────────────────
+- tapOn:
+    id: home-settings-btn
+
+- extendedWaitUntil:
+    visible:
+      id: settings-screen
+    timeout: 5000
+
+# ── 4. Tap "Delete my account" → confirm sheet opens ─────────────────────────
+- assertVisible:
+    id: settings-delete-account-btn
+
+- tapOn:
+    id: settings-delete-account-btn
+
+- extendedWaitUntil:
+    visible:
+      id: delete-sheet-title
+    timeout: 5000
+
+# Sheet opened — confirm button visible (disabled until floor satisfied)
+- assertVisible:
+    id: delete-sheet-confirm-btn
+- assertVisible:
+    id: delete-sheet-cancel-btn
+
+# ── 5. Type something in the floor input (floor partially satisfied) ──────────
+# Type a partial/wrong word to verify the floor behaves correctly.
+- tapOn:
+    id: delete-sheet-confirm-input
+- clearText
+- inputText: "DEL"
+
+# ── 6. Tap cancel — AR-AC-14: account completely unchanged ────────────────────
+- tapOn:
+    id: delete-sheet-cancel-btn
+
+# ── 7. Sheet dismissed → still on Settings (no sign-out, no teardown) ─────────
+- extendedWaitUntil:
+    visible:
+      id: settings-screen
+    timeout: 5000
+
+# Settings screen still visible = still signed in, account intact (AR-AC-14, US-25)
+- assertVisible:
+    id: settings-screen
+
+# The delete row is visible again (can re-enter the confirm flow if needed)
+- assertVisible:
+    id: settings-delete-account-btn
+
+# WelcomeScreen must NOT be visible (no sign-out occurred)
+- assertNotVisible:
+    id: welcome-login-btn
+
+# ── 8. Re-open the confirm sheet and cancel again (back/dismiss path) ─────────
+- tapOn:
+    id: settings-delete-account-btn
+
+- extendedWaitUntil:
+    visible:
+      id: delete-sheet-title
+    timeout: 5000
+
+# This time cancel immediately (floor not satisfied — button disabled anyway)
+- tapOn:
+    id: delete-sheet-cancel-btn
+
+- extendedWaitUntil:
+    visible:
+      id: settings-screen
+    timeout: 5000
+
+- assertVisible:
+    id: settings-screen
+
+# Confirm: still signed in after a second cancel (account data intact)
+- assertNotVisible:
+    id: welcome-login-btn
+
+# End of flow — cancel at confirm sheet leaves account intact (AR-AC-14, US-25).

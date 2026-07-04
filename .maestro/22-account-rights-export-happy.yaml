@@ -1,0 +1,133 @@
+# 22-account-rights-export-happy.yaml
+# Flow: Settings → "Download my data" → in-progress state asserted → (share sheet — DEVICE-ONLY).
+#
+# ON-DEVICE ARTIFACT — execute with:
+#   maestro test .maestro/22-account-rights-export-happy.yaml
+#
+# Prerequisites:
+#   - iOS Simulator or Android Emulator running with dev build (npx expo run:ios / run:android)
+#   - Backend running at localhost:8080 (account export endpoint active)
+#   - Account: mom@test.local / MomTest-Password-2026 (pre-seeded, pregnancy profile)
+#   - Account is NOT soft-deleted (export must not return 404)
+#
+# What this flow verifies (AR-AC-01, 03, 06, 07, 08, US-24):
+#   AR-AC-01: Tapping "Download my data" transitions to in-progress state within the same
+#             interaction (spinner visible; row disabled).
+#   AR-AC-07: Export row is visible and tappable regardless of any consent state.
+#   AR-AC-08: A second tap while in-progress is a no-op (row is disabled — Maestro cannot
+#             assert "only one GET fired", but the disabled row prevents double-tap at the UI level).
+#
+# *** DEVICE-ONLY LAUNCH-GATES in this flow ***
+#   LG-1 (OS share sheet): The actual expo-sharing shareAsync call and the OS share sheet
+#         appearance cannot be driven or asserted by Maestro. After the spinner disappears
+#         the share sheet is presented natively. Maestro cannot tap buttons inside the OS
+#         share sheet. A human must observe the sheet appears and can dismiss it.
+#         Mark this flow as INCOMPLETE for LG-1 until verified on real hardware.
+#   LG-5 (Actual file write): expo-file-system writeAsStringAsync to cacheDirectory is native.
+#         The spinner appearing is evidence the call was initiated; actual write success
+#         requires on-device verification.
+#
+# Selector strategy: id: (testID) where available; text: for i18n visible labels.
+
+appId: com.momstarter.app
+
+---
+
+# ── 1. Launch fresh ──────────────────────────────────────────────────────────
+- launchApp:
+    clearState: true
+
+- extendedWaitUntil:
+    visible:
+      id: welcome-login-btn
+    timeout: 8000
+
+# ── 2. Login ─────────────────────────────────────────────────────────────────
+- tapOn:
+    id: welcome-login-btn
+
+- tapOn:
+    id: login-email
+- clearText
+- inputText: mom@test.local
+
+- tapOn:
+    id: login-password
+- clearText
+- inputText: "MomTest-Password-2026"
+
+- tapOn:
+    id: login-submit
+
+- extendedWaitUntil:
+    visible:
+      id: home-week-hero
+    timeout: 10000
+
+# ── 3. Navigate to Settings ───────────────────────────────────────────────────
+- tapOn:
+    id: home-settings-btn
+
+- extendedWaitUntil:
+    visible:
+      id: settings-screen
+    timeout: 5000
+
+# ── 4. Assert "Download my data" row visible (AR-AC-07: no consent gate) ─────
+- assertVisible:
+    id: settings-download-data-btn
+
+# The row must NOT be in-progress at rest (EXPORT_IDLE = no spinner)
+- assertNotVisible:
+    id: settings-download-spinner
+
+# ── 5. Tap "Download my data" (AR-AC-01: same-interaction in-progress) ────────
+- tapOn:
+    id: settings-download-data-btn
+
+# Row transitions to EXPORT_IN_PROGRESS:
+#   - settings-download-spinner appears
+#   - The row itself becomes disabled (cannot be re-tapped)
+- extendedWaitUntil:
+    visible:
+      id: settings-download-spinner
+    timeout: 5000
+
+# AR-AC-08 (UI guard): second tap while spinner is visible must be a no-op.
+# The row is disabled=true (native TouchableOpacity); Maestro will issue the tap
+# but the handler guard (exportPhase !== 'EXPORT_IDLE') drops it.
+# We cannot assert "only one GET fired" from Maestro, but no second in-progress
+# state change occurs.
+- tapOn:
+    id: settings-download-data-btn
+
+# Spinner must still be present (single in-progress state, not duplicated/reset)
+- assertVisible:
+    id: settings-download-spinner
+
+# ── 6. DEVICE-ONLY LAUNCH-GATE: OS share sheet ───────────────────────────────
+# After the fetch succeeds and the file is written to cacheDirectory, expo-sharing
+# opens the OS share sheet. Maestro cannot drive or assert the native share sheet.
+#
+# HUMAN VERIFICATION REQUIRED (before Phase-1 ship):
+#   [ ] The share sheet appears on-device after the spinner disappears.
+#   [ ] The user can save/share the file to a destination (Files, Mail, etc.).
+#   [ ] After dismissing the sheet, the Settings screen returns to EXPORT_IDLE
+#       (no error card, no spinner, "Download my data" row is tappable again).
+#   [ ] The exported file is valid JSON (open in a text editor).
+#   [ ] The filename contains no PII: format is momstarter-export-YYYYMMDD.json (AR-AC-25).
+#
+# Wait for the spinner to disappear (share resolved + EXPORT_IDLE restored):
+- extendedWaitUntil:
+    notVisible:
+      id: settings-download-spinner
+    timeout: 30000
+
+# After share resolves (complete or cancel), EXPORT_IDLE: row re-enabled, no error.
+- assertVisible:
+    id: settings-download-data-btn
+
+- assertNotVisible:
+    id: settings-export-error-card
+
+# End of flow — in-progress state verified; OS share is a DEVICE-ONLY launch-gate.

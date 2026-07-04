@@ -924,6 +924,25 @@ const th = {
   'medication.deleteConfirmCancel': 'ยกเลิก',
   // Offline pill
   'medication.offlinePill': 'ออฟไลน์ · บันทึกไว้ในเครื่อง',
+  // a11y / M3: i18n for previously hardcoded Thai labels
+  'medication.removeTime': 'ลบ',
+  'medication.confirmPicker': 'ยืนยัน',
+  'medication.timeField': 'เวลา',
+  // Error state (B5)
+  'medication.dataStillHere': 'ข้อมูลของคุณยังอยู่',
+  'medication.loadingSkeleton': 'กำลังโหลดแผนยา',
+  // Consent banner (B4)
+  'medication.consentBannerAction': 'เปิดสิทธิ์บันทึกสุขภาพ ›',
+  // Echo preview (F1)
+  'medication.echoAndMore': 'และอื่นๆ',
+  'medication.echoPlanned': 'วางแผนไว้',
+  // Deactivate/Delete sub-copy (F4)
+  'medication.deactivateSubCopy1': 'หยุดพักชั่วคราว — ไม่สร้างการแจ้งเตือนใหม่',
+  'medication.deactivateSubCopy2': 'ประวัติการกินยาของคุณยังอยู่ครบ',
+  'medication.deleteSubCopy1': 'นำออกจากรายการนี้',
+  'medication.deleteSubCopy2': 'ประวัติการกินยา (ที่บันทึกไว้แล้ว) ยังคงอยู่',
+  // Save button disabled (F6)
+  'medication.saveDisabledConsentLabel': 'เปิดสิทธิ์บันทึกสุขภาพเพื่อบันทึก',
 };
 
 // ─── English catalog (must match th shape exactly) ────────────────────────────
@@ -1709,6 +1728,25 @@ const en: MsgShape = {
   'medication.deleteConfirmOk': 'Confirm delete',
   'medication.deleteConfirmCancel': 'Cancel',
   'medication.offlinePill': 'Offline · saved on this device',
+  // a11y / M3: i18n for previously hardcoded Thai labels
+  'medication.removeTime': 'Remove',
+  'medication.confirmPicker': 'Done',
+  'medication.timeField': 'Time',
+  // Error state (B5)
+  'medication.dataStillHere': 'Your data is still here',
+  'medication.loadingSkeleton': 'Loading medication plans',
+  // Consent banner (B4)
+  'medication.consentBannerAction': 'Enable health logging ›',
+  // Echo preview (F1)
+  'medication.echoAndMore': 'and more',
+  'medication.echoPlanned': 'Planned',
+  // Deactivate/Delete sub-copy (F4)
+  'medication.deactivateSubCopy1': 'Stops new reminders.',
+  'medication.deactivateSubCopy2': 'Your medication history stays.',
+  'medication.deleteSubCopy1': 'Removes from this list.',
+  'medication.deleteSubCopy2': 'Logged history is kept.',
+  // Save button disabled (F6)
+  'medication.saveDisabledConsentLabel': 'Enable health logging to save',
 };
 
 // ─── Exports ──────────────────────────────────────────────────────────────────

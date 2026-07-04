@@ -66,11 +66,14 @@ export const PENDING_BUDGET = 60;
 /**
  * Generic lock-screen title for medication reminders (SD-11).
  * NEVER replaced with drug name or dose.
+ *
+ * A locale-aware variant would require threading a `locale` param through
+ * buildScheduleSet(). That is deferred — add it in the i18n task if needed.
+ * There is intentionally no English-fallback constant here; it was dead code
+ * (the scheduler always emits TH). Remove MEDICATION_TITLE_EN rather than
+ * leaving a constant that implies wired i18n when it is not.
  */
 export const MEDICATION_TITLE_TH = 'ถึงเวลากินยา';
-
-/** English fallback (SD-11, i18n). */
-export const MEDICATION_TITLE_EN = 'Time for your medication';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 

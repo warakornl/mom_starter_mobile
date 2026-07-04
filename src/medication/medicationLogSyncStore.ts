@@ -63,15 +63,20 @@ export interface MedicationLogSyncStore {
   /**
    * Create a new medication log (create-only, immutable).
    *
-   * Generates a client UUIDv4, builds a MedicationLog with version=0, sets
-   * loggedAt = now() (absolute UTC), inserts into the in-memory map, and
-   * enqueues for push via sync/push.
+   * When `id` is omitted: generates a client UUIDv4 (existing behaviour).
+   * When `id` is supplied: uses it verbatim.  If that id already exists in the
+   * store (same deterministic id → same occurrence), the call is an idempotent
+   * no-op: the existing record is returned and NO second queue entry is added.
+   * This implements the Task-4 duplicate guard (spec §3.2 / INV-MR-5):
+   *   markDoneLogId = uuidv5("medication_taken", oid) → same id from any device
+   *   → union-merge collapses to ONE row (D3/E7 — no backend change needed).
    *
-   * Two calls with the same input produce two distinct records (different UUIDs).
+   * Two calls with DIFFERENT (or no) ids still produce two distinct records
+   * (BID/TID non-collapse — MR-AC-9 / MR-E10).
    *
    * Security: do NOT log input.note, input.occurrenceTime, or input.medicationPlanId.
    */
-  addLog(input: MedicationLogInput): MedicationLog;
+  addLog(input: MedicationLogInput, id?: string): MedicationLog;
 
   /**
    * Upsert a pull-received record by (id, version) de-dup.
@@ -217,10 +222,22 @@ export function createMedicationLogSyncStore(): MedicationLogSyncStore {
 
     // ── Create ─────────────────────────────────────────────────────────────────
 
-    addLog(input: MedicationLogInput): MedicationLog {
+    addLog(input: MedicationLogInput, id?: string): MedicationLog {
+      // Duplicate guard (Task 4 / spec §3.2 / INV-MR-5):
+      // When an explicit id is supplied (deterministic mark-done id), check if a
+      // live record with that id already exists.  If so, return it immediately
+      // WITHOUT adding a second push-queue entry — idempotent no-op.
+      if (id) {
+        const existing = logMap.get(id);
+        if (existing && !existing.deletedAt) {
+          return { ...existing };
+        }
+      }
+
+      const logId = id ?? uuidv4();
       const now = new Date().toISOString();
       const record: MedicationLog = {
-        id: uuidv4(),
+        id: logId,
         // Security: never log these fields — health data (SD-5)
         medicationPlanId: input.medicationPlanId ?? null,
         occurrenceTime: input.occurrenceTime,
@@ -235,7 +252,6 @@ export function createMedicationLogSyncStore(): MedicationLogSyncStore {
         updatedAt: now,
         deletedAt: null,
       };
-      // Fresh UUID will not exist in the map; guards against theoretical UUID reuse
       upsertBase(record);
       pendingCreated.push({ ...record });
       return { ...record };

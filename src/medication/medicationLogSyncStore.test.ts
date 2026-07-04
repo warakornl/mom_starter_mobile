@@ -123,6 +123,79 @@ describe('medicationLogSyncStore — addLog + drainQueue', () => {
   });
 });
 
+// ─── addLog(input, id?) explicit-id overload — Task 4 duplicate guard ─────────
+//
+// Spec §3.2 / INV-MR-5: the mark-done log id is uuidv5("medication_taken", oid).
+// The store MUST accept an explicit id verbatim (and fall back to uuidv4 when absent).
+// Repeated addLog with the same explicit id = idempotent no-op (dedup guard).
+
+describe('medicationLogSyncStore — addLog(input, id?) explicit-id overload (Task 4 / spec §3.2)', () => {
+  const EXPLICIT_ID = 'cccccccc-1111-4000-8000-000000000033';
+
+  it('uses the supplied explicit id verbatim (not uuidv4)', () => {
+    const store = createMedicationLogSyncStore();
+    const result = store.addLog(makeInput(), EXPLICIT_ID);
+    expect(result.id).toBe(EXPLICIT_ID);
+  });
+
+  it('record is findable by the explicit id via getLog', () => {
+    const store = createMedicationLogSyncStore();
+    store.addLog(makeInput(), EXPLICIT_ID);
+    expect(store.getLog(EXPLICIT_ID)).toBeDefined();
+    expect(store.getLog(EXPLICIT_ID)?.id).toBe(EXPLICIT_ID);
+  });
+
+  it('falls back to uuidv4 (truthy, non-explicit) when no id is supplied — no regression', () => {
+    const store = createMedicationLogSyncStore();
+    const result = store.addLog(makeInput());
+    expect(result.id).toBeTruthy();
+    expect(result.id).not.toBe(EXPLICIT_ID);
+  });
+
+  it('two distinct explicit ids produce two distinct records — BID/TID non-collapse (MR-AC-9)', () => {
+    const store = createMedicationLogSyncStore();
+    const ID_A = 'dddddddd-2222-4000-8000-000000000044';
+    const ID_B = 'eeeeeeee-3333-4000-8000-000000000055';
+    store.addLog(makeInput({ occurrenceTime: OCCURRENCE_1 }), ID_A);
+    store.addLog(makeInput({ occurrenceTime: OCCURRENCE_2 }), ID_B);
+    expect(store.getLogs()).toHaveLength(2);
+  });
+
+  it('second addLog with the same explicit id is an idempotent no-op — dedup guard (MR-E8 / MR-AC-8)', () => {
+    const store = createMedicationLogSyncStore();
+    store.addLog(makeInput(), EXPLICIT_ID);
+    store.addLog(makeInput(), EXPLICIT_ID); // second call: same id
+    // Only ONE record in store
+    expect(store.getLogs()).toHaveLength(1);
+  });
+
+  it('second addLog with same explicit id does NOT add a second entry to the push queue', () => {
+    const store = createMedicationLogSyncStore();
+    store.addLog(makeInput(), EXPLICIT_ID);
+    store.addLog(makeInput(), EXPLICIT_ID);
+    const cs = store.drainQueue();
+    // Only ONE created entry queued for push (duplicate suppressed)
+    expect(cs.medicationLogs!.created).toHaveLength(1);
+    expect(cs.medicationLogs!.created[0].id).toBe(EXPLICIT_ID);
+  });
+
+  it('record returned on second call is the previously stored record (no mutation)', () => {
+    const store = createMedicationLogSyncStore();
+    const first = store.addLog(makeInput({ occurrenceTime: OCCURRENCE_1 }), EXPLICIT_ID);
+    const second = store.addLog(makeInput({ occurrenceTime: OCCURRENCE_2 }), EXPLICIT_ID);
+    // Second call must return the FIRST record unchanged (idempotent — first write wins)
+    expect(second.id).toBe(EXPLICIT_ID);
+    expect(second.occurrenceTime).toBe(first.occurrenceTime);
+  });
+
+  it('explicit-id record is emitted in drainQueue.created with the correct id', () => {
+    const store = createMedicationLogSyncStore();
+    store.addLog(makeInput(), EXPLICIT_ID);
+    const cs = store.drainQueue();
+    expect(cs.medicationLogs!.created[0].id).toBe(EXPLICIT_ID);
+  });
+});
+
 // ─── getLog ───────────────────────────────────────────────────────────────────
 
 describe('medicationLogSyncStore — getLog', () => {

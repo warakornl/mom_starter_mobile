@@ -125,18 +125,31 @@ export type RootStackParamList = {
    * Capture — Quick Capture / Self-log form (capture-ui.md).
    * Entry: Day-Detail "Add" / Home shortcut / specific-context reminder.
    *
-   * metricType: if present, type control is hidden and pre-set.
-   *             if absent, the type segmented control is shown (generic "Add").
+   * metricType: if present, type control is hidden and pre-set (self-log family).
+   *             if absent AND medicationPlanId absent, the type control is shown.
    * loggedAtDate: YYYY-MM-DD of the day being logged (default = today).
    * defaultTime:  HH:mm override (e.g. from a reminder occurrence time).
    *              If absent: now on today / 12:00 on non-today (capture-ui §2).
+   * medicationPlanId: if present, type is pre-set to 'medication', the plan is
+   *              resolved verbatim (name/dose), and "taken" is the default status.
+   *              Absent → medication type may still be selected ad-hoc from the
+   *              type control (medicationPlanId will be null in that path).
+   *              AC-22: Slice 3 (reminders) will pass the occurrence's plan id
+   *              here; AC-22 client dedup is a render-time concern (Day-Detail).
    *
-   * Security: NO health values in route params (PDPA SD-9).
+   * Security: NO health values in route params (PDPA SD-9). Plan ID is a UUID,
+   * not a drug name or dose. Name/dose are resolved from the in-memory store.
    */
   Capture: {
     metricType?: import('../sync/syncTypes').SelfLogMetricType;
     loggedAtDate?: string;
     defaultTime?: string;
+    /**
+     * medicationPlanId — when present, Capture opens in medication-family mode
+     * with this plan pre-selected ("taken" default). Absent → type control shown.
+     * UUID only — no health data in route params (PDPA SD-9).
+     */
+    medicationPlanId?: string;
   };
 
   /**

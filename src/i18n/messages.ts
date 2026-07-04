@@ -957,6 +957,8 @@ const th = {
   'medication.echoPlaceholder': 'ชื่อยา... · เวลา...',
   // PRN label — schedule-preview when plan has no schedule (§design #2)
   'medication.prnLabel': 'PRN',
+  // Log a dose — quiet affordance on each active plan row (Task 11)
+  'medication.logDose': 'บันทึกการกินยา',
 };
 
 // ─── English catalog (must match th shape exactly) ────────────────────────────
@@ -1774,6 +1776,8 @@ const en: MsgShape = {
   'medication.echoPlaceholder': 'Med name... · Time...',
   // PRN label — schedule-preview when plan has no schedule (§design #2)
   'medication.prnLabel': 'PRN',
+  // Log a dose — quiet affordance on each active plan row (Task 11)
+  'medication.logDose': 'Log a dose',
 };
 
 // ─── Exports ──────────────────────────────────────────────────────────────────

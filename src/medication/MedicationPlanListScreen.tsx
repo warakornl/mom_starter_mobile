@@ -68,6 +68,12 @@ interface MedicationPlanListScreenProps {
   tokenStorage: TokenStorage;
   apiBaseUrl: string;
   onManageConsents: () => void;
+  /**
+   * Navigate to Capture pre-linked to a specific plan (Task 11).
+   * Called with the plan's UUID — never with name/dose (PDPA SD-9).
+   * When omitted (legacy tests / snapshots) the affordance is hidden.
+   */
+  onLogDose?: (planId: string) => void;
 }
 
 // ToastVariant is re-exported from medicationPlanFormLogic
@@ -196,6 +202,7 @@ function buildSchedulePreview(
 
 export function MedicationPlanListScreen({
   onManageConsents,
+  onLogDose,
 }: MedicationPlanListScreenProps): React.JSX.Element {
   const { t } = useT();
 
@@ -573,66 +580,85 @@ export function MedicationPlanListScreen({
               <View
                 style={[styles.planCard, !plan.active ? styles.planCardInactive : null]}
               >
-                {/* Row body — opens Edit sheet */}
-                <TouchableOpacity
-                  testID={`med-plan-card-${plan.id}`}
-                  style={styles.planCardContent}
-                  onPress={() => openEditForm(plan)}
-                  accessibilityRole="button"
-                  accessibilityLabel={rowSrLabel}
-                  accessibilityHint={undefined}
-                >
-                  {/* F2: Leading pill glyph */}
-                  <Text
-                    style={[styles.pillGlyph, !plan.active && styles.pillGlyphInactive]}
-                    accessibilityElementsHidden
+                {/* Plan row body + trailing switch */}
+                <View style={styles.planCardRow}>
+                  {/* Row body — opens Edit sheet */}
+                  <TouchableOpacity
+                    testID={`med-plan-card-${plan.id}`}
+                    style={styles.planCardContent}
+                    onPress={() => openEditForm(plan)}
+                    accessibilityRole="button"
+                    accessibilityLabel={rowSrLabel}
+                    accessibilityHint={undefined}
                   >
-                    💊
-                  </Text>
-
-                  <View style={styles.planCardMain}>
-                    {/* Name */}
+                    {/* F2: Leading pill glyph */}
                     <Text
-                      style={[styles.planName, !plan.active ? styles.planNameInactive : null]}
-                      numberOfLines={1}
-                    >
-                      {planName}
-                    </Text>
-                    {/* F2: dose segment */}
-                    {planDose ? (
-                      <Text style={styles.planDose} numberOfLines={1}>{planDose}</Text>
-                    ) : null}
-                    {/* F3: schedule preview (localized, inactive appended) */}
-                    <Text style={styles.planPreview} numberOfLines={1}>{preview}</Text>
-                    {/* F2: encryption notice (§3) */}
-                    <Text
-                      style={styles.encryptionNotice}
+                      style={[styles.pillGlyph, !plan.active && styles.pillGlyphInactive]}
                       accessibilityElementsHidden
                     >
-                      🔒 {t('medication.encryptionNotice')}
+                      💊
                     </Text>
-                  </View>
-                </TouchableOpacity>
 
-                {/* B1: trailing Switch — 1-tap deactivate/reactivate (§3/§6.1/§8.3) */}
-                <View style={styles.rowToggleZone}>
-                  <Switch
-                    testID={`med-plan-toggle-${plan.id}`}
-                    value={plan.active}
-                    onValueChange={(val) => {
-                      if (val) {
-                        handleReactivate(plan.id);
-                      } else {
-                        handleDeactivate(plan.id);
-                      }
-                    }}
-                    trackColor={{ false: '#EBE1D9', true: '#A8505A' }}
-                    thumbColor={plan.active ? '#FFFFFF' : '#94818A'}
-                    accessibilityRole="switch"
-                    accessibilityLabel={toggleSrLabel}
-                    accessibilityState={{ checked: plan.active }}
-                  />
+                    <View style={styles.planCardMain}>
+                      {/* Name */}
+                      <Text
+                        style={[styles.planName, !plan.active ? styles.planNameInactive : null]}
+                        numberOfLines={1}
+                      >
+                        {planName}
+                      </Text>
+                      {/* F2: dose segment */}
+                      {planDose ? (
+                        <Text style={styles.planDose} numberOfLines={1}>{planDose}</Text>
+                      ) : null}
+                      {/* F3: schedule preview (localized, inactive appended) */}
+                      <Text style={styles.planPreview} numberOfLines={1}>{preview}</Text>
+                      {/* F2: encryption notice (§3) */}
+                      <Text
+                        style={styles.encryptionNotice}
+                        accessibilityElementsHidden
+                      >
+                        🔒 {t('medication.encryptionNotice')}
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+
+                  {/* B1: trailing Switch — 1-tap deactivate/reactivate (§3/§6.1/§8.3) */}
+                  <View style={styles.rowToggleZone}>
+                    <Switch
+                      testID={`med-plan-toggle-${plan.id}`}
+                      value={plan.active}
+                      onValueChange={(val) => {
+                        if (val) {
+                          handleReactivate(plan.id);
+                        } else {
+                          handleDeactivate(plan.id);
+                        }
+                      }}
+                      trackColor={{ false: '#EBE1D9', true: '#A8505A' }}
+                      thumbColor={plan.active ? '#FFFFFF' : '#94818A'}
+                      accessibilityRole="switch"
+                      accessibilityLabel={toggleSrLabel}
+                      accessibilityState={{ checked: plan.active }}
+                    />
+                  </View>
                 </View>
+
+                {/* Log a dose — quiet affordance (Task 11).
+                    Only shown for active plans and when the onLogDose callback is wired.
+                    Sits below the row body so it doesn't compete with the edit tap
+                    (row body) or the active toggle (trailing Switch). */}
+                {plan.active && onLogDose ? (
+                  <TouchableOpacity
+                    testID={`med-plan-log-btn-${plan.id}`}
+                    style={styles.logDoseBtn}
+                    onPress={() => onLogDose(plan.id)}
+                    accessibilityRole="button"
+                    accessibilityLabel={`${t('medication.logDose')} — ${planName}`}
+                  >
+                    <Text style={styles.logDoseBtnText}>{t('medication.logDose')}</Text>
+                  </TouchableOpacity>
+                ) : null}
               </View>
             );
           }}
@@ -848,13 +874,18 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     borderWidth: 1,
     borderColor: '#EBE1D9',
-    minHeight: 72,
-    flexDirection: 'row',
-    alignItems: 'center',
+    // flexDirection changed to column so logDoseBtn sits below the row
+    flexDirection: 'column',
   },
   planCardInactive: {
     backgroundColor: '#FBF6F1',
     opacity: 0.75,
+  },
+  // Inner row: edit-body + trailing switch, side-by-side
+  planCardRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    minHeight: 72,
   },
   // Row body: occupies flex-1, opens Edit sheet
   planCardContent: {
@@ -914,5 +945,24 @@ const styles = StyleSheet.create({
     minHeight: 72,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+
+  // ── Log a dose affordance (Task 11) ───────────────────────────────────────
+  // Quiet link inside each active plan card; sits below the row body so it
+  // never competes with the edit tap (row body) or the active toggle.
+  // Styled as a small underlined text link (design-system "quiet affordance").
+  logDoseBtn: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    paddingTop: 2,
+    minHeight: 36,
+    justifyContent: 'center',
+  },
+  logDoseBtnText: {
+    fontFamily: 'IBMPlexSans-Medium',
+    fontSize: 13,
+    color: '#A8505A', // rose/600 — consistent with other quiet links
+    textDecorationLine: 'underline',
   },
 });

@@ -73,7 +73,7 @@ import type { TokenStorage } from '../auth/tokenStorage';
 import type { Locale } from '../auth/types';
 import type { ChecklistItemRecord, ReminderOccurrenceRecord, OccurrenceStatus, ReminderType, MedicationLogInput } from '../sync/syncTypes';
 import { consumePendingCalendarFocusDate } from './pendingCalendarFocusDate';
-import { reanchor, cancelForOccurrence } from '../notifications';
+import { reanchor, cancelForOccurrence, scheduleSnooze, MEDICATION_TITLE_TH } from '../notifications';
 import { medicationPlanSyncStore } from '../medication/medicationPlanSyncStore';
 import { resolveMedicationOccurrenceTitle } from './medicationOccurrenceResolver';
 import type { MedicationPlan } from '../sync/syncTypes';
@@ -83,6 +83,12 @@ import { consentStore } from '../consent/consentStore';
 import { createConsentApiClient } from '../consent/consentApiClient';
 import { consentQueue } from '../consent/consentSync';
 import { ConsentNudgeModal } from '../consent/ConsentNudgeModal';
+import { SnoozeChooserSheet } from './SnoozeChooserSheet';
+import {
+  isMedicationReminder,
+  computeSnoozedUntil,
+  type SnoozeDuration,
+} from './snoozeChooserLogic';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -394,6 +400,17 @@ export function CalendarScreen({
   const [showConsentModal, setShowConsentModal] = useState(false);
   const [consentLoading, setConsentLoading] = useState(false);
 
+  // Task 5: snooze chooser state (medication-only 10/30/60 picker — spec §2)
+  const [showSnoozeChooser, setShowSnoozeChooser] = useState(false);
+  // pendingSnoozeRef stores the occurrence context while the chooser sheet is open.
+  // Using a ref (not state) avoids an extra render on open; cleared on pick/dismiss.
+  const pendingSnoozeRef = useRef<{
+    id: string;
+    reminderId: string;
+    scheduledLocalTime: string;
+    displayTitle: string;
+  } | null>(null);
+
   // Refresh display maps from store (triggers useMemo re-run via refreshKey)
   const refreshFromStore = useCallback(() => {
     setRefreshKey((k) => k + 1);
@@ -619,6 +636,44 @@ export function CalendarScreen({
     })();
   }, [locale, tokenStorage, apiBaseUrl]);
 
+  // ── Task 5: handle snooze chooser pick ────────────────────────────────────
+  // Called when the user taps a 10/30/60-min option in SnoozeChooserSheet.
+  // Applies the snooze: writes the occurrence, schedules the OS alarm, closes sheet.
+  const handleSnooze = useCallback(
+    (minutes: SnoozeDuration) => {
+      const pending = pendingSnoozeRef.current;
+      if (!pending) return;
+
+      const now = new Date();
+      const snoozedUntilDate = computeSnoozedUntil(minutes, now);
+      const snoozedUntilStr = snoozedUntilDate.toISOString();
+
+      // 1. Write snoozed occurrence optimistically (same path as existing snooze)
+      calendarSyncStore.enqueueOccurrence(
+        pending.reminderId,
+        pending.scheduledLocalTime,
+        'snoozed',
+        now.toISOString(),
+        snoozedUntilStr,
+      );
+      refreshFromStore();
+      void syncPush();
+
+      // 2. Cancel the current pending alarm (original fire time or previous snooze)
+      void cancelForOccurrence(pending.id);
+
+      // 3. Schedule exactly ONE new OS alarm at snoozedUntil (Task 5 reschedule).
+      //    SD-11: medication title is the generic constant — never the drug name.
+      //    Same-id scheduling replaces any prior pending alarm (idempotent — MR-E11).
+      void scheduleSnooze(pending.id, snoozedUntilDate, MEDICATION_TITLE_TH);
+
+      // Close the chooser
+      pendingSnoozeRef.current = null;
+      setShowSnoozeChooser(false);
+    },
+    [refreshFromStore, syncPush],
+  );
+
   // Mark done / snooze / edit for a reminder occurrence (FLAG-7/W-A + Feature B)
   const handleOccurrenceAction = useCallback(
     (
@@ -686,28 +741,49 @@ export function CalendarScreen({
               }
             },
           },
-          ...(currentStatus !== 'snoozed'
+          // Task 5 snooze routing (spec §2.1):
+          //   - medication → show 10/30/60 chooser (SnoozeChooserSheet); re-snooze allowed
+          //   - non-medication → fixed 1h, no chooser; not offered when already snoozed
+          ...(isMedicationReminder(reminderType) || currentStatus !== 'snoozed'
             ? [
                 {
-                  text: t('calendar.snooze1h'),
+                  // Medication: "เลื่อนเตือน" (chooser opens); non-medication: "เลื่อน 1 ชั่วโมง"
+                  text: isMedicationReminder(reminderType)
+                    ? t('notification.action.snooze')
+                    : t('calendar.snooze1h'),
                   onPress: () => {
-                    const snoozedUntil = new Date(Date.now() + 60 * 60 * 1000).toISOString();
-                    calendarSyncStore.enqueueOccurrence(
-                      reminderId,
-                      scheduledLocalTime,
-                      'snoozed',
-                      new Date().toISOString(),
-                      snoozedUntil,
-                    );
-                    refreshFromStore();
-                    void syncPush();
-                    // Cancel the original alarm now. The snooze RESCHEDULE at
-                    // snoozedUntil is DEFERRED to Task 5 (10/30/60-min picker).
-                    // In Task-2 isolation: buildExcludedIds() excludes ALL snoozed
-                    // occurrences on the next reanchor, so no replacement alarm is
-                    // ever set — the dose is effectively silent until Task 5 lands.
-                    // Do NOT claim the reanchor "picks up snoozedUntil"; it does not.
-                    void cancelForOccurrence(id);
+                    if (isMedicationReminder(reminderType)) {
+                      // Medication: open the 10/30/60 chooser sheet.
+                      // Store context in ref so handleSnooze can apply the pick.
+                      pendingSnoozeRef.current = {
+                        id,
+                        reminderId,
+                        scheduledLocalTime,
+                        displayTitle,
+                      };
+                      setShowSnoozeChooser(true);
+                    } else {
+                      // Non-medication: apply fixed now + 60 min (spec §2.3).
+                      // Task 5: NOW also schedules the OS alarm at snoozedUntil
+                      // (Task-2 deferred this; the "reschedule is deferred to Task 5"
+                      // comment is now resolved — Task 5 is here).
+                      const now = new Date();
+                      const snoozedUntilDate = new Date(now.getTime() + 60 * 60 * 1000);
+                      const snoozedUntilStr = snoozedUntilDate.toISOString();
+                      calendarSyncStore.enqueueOccurrence(
+                        reminderId,
+                        scheduledLocalTime,
+                        'snoozed',
+                        now.toISOString(),
+                        snoozedUntilStr,
+                      );
+                      refreshFromStore();
+                      void syncPush();
+                      // Cancel the original alarm, then reschedule at snoozedUntil.
+                      // Same-id replace is idempotent (MR-E11 / INV-MR-5).
+                      void cancelForOccurrence(id);
+                      void scheduleSnooze(id, snoozedUntilDate, displayTitle);
+                    }
                   },
                 },
               ]
@@ -725,7 +801,7 @@ export function CalendarScreen({
         ],
       );
     },
-    [t, refreshFromStore, syncPush, onEditReminder, handleMarkDoneConsentGrant],
+    [t, refreshFromStore, syncPush, onEditReminder, handleMarkDoneConsentGrant, setShowSnoozeChooser],
   );
 
   // ── Render ──────────────────────────────────────────────────────────────────
@@ -978,6 +1054,21 @@ export function CalendarScreen({
         grantLabel={t('capture.consent.grant')}
         notNowLabel={t('capture.consent.notNow')}
         changeLaterNote={t('capture.consent.changeLater')}
+      />
+
+      {/* Task 5: medication snooze chooser (10/30/60 min — spec §2 / screens-spec §2.1).
+          Rendered only when visible=true (medication occurrence tapped Snooze).
+          Non-medication occurrences skip this sheet entirely (fixed 1h path in handleOccurrenceAction).
+          Dismiss without pick leaves the occurrence in its prior status — no write (spec §2.4). */}
+      <SnoozeChooserSheet
+        visible={showSnoozeChooser}
+        now={new Date()}
+        onPick={handleSnooze}
+        onDismiss={() => {
+          // Dismissed without picking: no write; clear pending context.
+          pendingSnoozeRef.current = null;
+          setShowSnoozeChooser(false);
+        }}
       />
     </SafeAreaView>
   );

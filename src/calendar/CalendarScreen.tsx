@@ -530,10 +530,12 @@ export function CalendarScreen({
                     );
                     refreshFromStore();
                     void syncPush();
-                    // Cancel the current pending alarm before the snooze reschedule.
-                    // Note: Task 5 will add the 10/30/60 picker and the reschedule call.
-                    // For now (Task 2) we cancel the original; the snooze reanchor on
-                    // next foreground picks up the new snoozedUntil (spec §2.2 step 3b).
+                    // Cancel the original alarm now. The snooze RESCHEDULE at
+                    // snoozedUntil is DEFERRED to Task 5 (10/30/60-min picker).
+                    // In Task-2 isolation: buildExcludedIds() excludes ALL snoozed
+                    // occurrences on the next reanchor, so no replacement alarm is
+                    // ever set — the dose is effectively silent until Task 5 lands.
+                    // Do NOT claim the reanchor "picks up snoozedUntil"; it does not.
                     void cancelForOccurrence(id);
                   },
                 },

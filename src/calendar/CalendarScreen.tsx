@@ -659,12 +659,12 @@ export function CalendarScreen({
       refreshFromStore();
       void syncPush();
 
-      // 2. Cancel the current pending alarm (original fire time or previous snooze)
-      void cancelForOccurrence(pending.id);
-
-      // 3. Schedule exactly ONE new OS alarm at snoozedUntil (Task 5 reschedule).
+      // 2. Schedule exactly ONE new OS alarm at snoozedUntil (Task 5 reschedule).
+      //    Same-id scheduling replaces any prior pending alarm (idempotent replace —
+      //    MR-E11 / INV-MR-5 / ADR Decision 2). No pre-cancel needed: the pre-cancel
+      //    was a race — if cancelAsync resolved AFTER scheduleAsync, it silenced the
+      //    newly created alarm. Rely on same-id replace exclusively (Fix C).
       //    SD-11: medication title is the generic constant — never the drug name.
-      //    Same-id scheduling replaces any prior pending alarm (idempotent — MR-E11).
       void scheduleSnooze(pending.id, snoozedUntilDate, MEDICATION_TITLE_TH);
 
       // Close the chooser
@@ -779,9 +779,9 @@ export function CalendarScreen({
                       );
                       refreshFromStore();
                       void syncPush();
-                      // Cancel the original alarm, then reschedule at snoozedUntil.
-                      // Same-id replace is idempotent (MR-E11 / INV-MR-5).
-                      void cancelForOccurrence(id);
+                      // Schedule at snoozedUntil via same-id replace (idempotent —
+                      // MR-E11 / INV-MR-5 / ADR Decision 2). No pre-cancel: the
+                      // pre-cancel was a race that could silence the new alarm (Fix C).
                       void scheduleSnooze(id, snoozedUntilDate, displayTitle);
                     }
                   },

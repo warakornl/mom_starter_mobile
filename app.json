@@ -14,6 +14,16 @@
     },
     "scheme": "momstarter",
     "assetBundlePatterns": ["**/*"],
+    "plugins": [
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#A8505A",
+          "sounds": []
+        }
+      ]
+    ],
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.momstarter.app"
@@ -23,7 +33,12 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#FBF6F1"
       },
-      "package": "com.momstarter.app"
+      "package": "com.momstarter.app",
+      "permissions": [
+        "USE_EXACT_ALARM",
+        "POST_NOTIFICATIONS",
+        "RECEIVE_BOOT_COMPLETED"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png",

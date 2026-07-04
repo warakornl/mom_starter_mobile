@@ -345,80 +345,102 @@ export function SettingsScreen({
       return;
     }
 
-    const rawApiClient = createAccountApiClient(apiBaseUrl);
+    // I-1: Track whether the gate ended in delete_success so the finally block can
+    // skip the lock/in-flight release (the screen unmounts after success; calling
+    // setState would cause a harmless but noisy "unmounted component" warning).
+    let isDeleteSuccess = false;
 
-    // Session-aware delete wrapper: uses the extracted pure mapper (I-2).
-    // mapDelete401 drops `message` on 401 so `message ?? code` → session_expired.
-    const sessionAwareDeleteApi = async (token: string) =>
-      mapDelete401(await rawApiClient.deleteAccount(token));
+    try {
+      // NOTE (M-1 / §2.3 E-20, §3.2 E-21): There is NO shared refresh interceptor in
+      // this codebase — authApiClient exposes `refresh()` but no wrapper transparently
+      // retries 401 responses across endpoints. The current behaviour (ANY 401 →
+      // session_expired sentinel → onSessionExpired()) is therefore the honest design.
+      // A retry-on-refresh path is deliberately deferred pending a shared authed-fetch
+      // helper; flag to solution-architect / backlog before Phase 2.
+      const rawApiClient = createAccountApiClient(apiBaseUrl);
 
-    const logoutForDelete = buildPerformLogout(tokenStorage, onLogout);
+      // Session-aware delete wrapper: uses the extracted pure mapper (I-2).
+      // mapDelete401 drops `message` on 401 so `message ?? code` → session_expired.
+      const sessionAwareDeleteApi = async (token: string) =>
+        mapDelete401(await rawApiClient.deleteAccount(token));
 
-    // Telemetry — enriched with Platform.OS + Platform.Version (Task-2 minor)
-    const telemetry = (
-      event: string,
-      data: import('../accountRights/deleteFlowLogic').DegradeTelemetryData,
-    ) => {
-      const enriched = {
-        ...data,
-        platform: Platform.OS,
-        osVersion: String(Platform.Version),
+      const logoutForDelete = buildPerformLogout(tokenStorage, onLogout);
+
+      // Telemetry — enriched with Platform.OS + Platform.Version (Task-2 minor)
+      const telemetry = (
+        event: string,
+        data: import('../accountRights/deleteFlowLogic').DegradeTelemetryData,
+      ) => {
+        const enriched = {
+          ...data,
+          platform: Platform.OS,
+          osVersion: String(Platform.Version),
+        };
+        // In prod, forward to crash reporter / analytics (no PII in enriched)
+        if (__DEV__) {
+          // eslint-disable-next-line no-console
+          console.warn('[account-rights telemetry]', event, enriched);
+        }
       };
-      // In prod, forward to crash reporter / analytics (no PII in enriched)
-      if (__DEV__) {
-        // eslint-disable-next-line no-console
-        console.warn('[account-rights telemetry]', event, enriched);
+
+      const outcome = await runDeleteGate({
+        stepUpDegraded,
+        // I-1: createRealDeviceAuthAdapter() may throw synchronously if the native
+        // module is absent. The try/finally below guarantees the lock is released.
+        deviceAuth: createRealDeviceAuthAdapter(),
+        deleteAccountApi: sessionAwareDeleteApi,
+        performLogout: logoutForDelete,
+        telemetry,
+        getToken: () => tokens.accessToken,
+        promptMessage: t('accountRights.delete.biometricPrompt'),
+        onStateChange: (state) => {
+          if (state === 'DELETE_IN_FLIGHT' || state === 'STEPUP_IN_FLIGHT') {
+            setDeleteInFlight(true);
+          }
+        },
+      });
+
+      // Outcome handling (lock + in-flight release consolidated in finally below):
+      switch (outcome.outcome) {
+        case 'delete_success':
+          // performLogout already ran inside runDeleteGate → onLogout navigates to S1.
+          // Sheet teardown is implicit (screen unmounts). Mark so finally skips release.
+          isDeleteSuccess = true;
+          break;
+
+        case 'auth_cancelled':
+          // No delete, no sign-out — re-enable button; floor stays satisfied
+          break;
+
+        case 'stepup_degraded':
+          // C-2 throw-degrade: show non-alarming notice; floor stays satisfied
+          setStepUpDegraded(true);
+          break;
+
+        case 'delete_error':
+          // Check for session-expired sentinel
+          if (isSessionExpiredCode(outcome.code)) {
+            setDeleteSheetVisible(false);
+            handleSessionExpired();
+            return; // finally still runs → releases lock + clears in-flight
+          }
+          // Regular delete error — stays signed in, data intact (AR-AC-13)
+          setDeleteError(outcome.code);
+          break;
       }
-    };
-
-    const outcome = await runDeleteGate({
-      stepUpDegraded,
-      deviceAuth: createRealDeviceAuthAdapter(),
-      deleteAccountApi: sessionAwareDeleteApi,
-      performLogout: logoutForDelete,
-      telemetry,
-      getToken: () => tokens.accessToken,
-      promptMessage: t('accountRights.delete.biometricPrompt'),
-      onStateChange: (state) => {
-        if (state === 'DELETE_IN_FLIGHT' || state === 'STEPUP_IN_FLIGHT') {
-          setDeleteInFlight(true);
-        }
-      },
-    });
-
-    // Outcome handling:
-    switch (outcome.outcome) {
-      case 'delete_success':
-        // performLogout already ran inside runDeleteGate → onLogout navigates to S1
-        // Sheet teardown is implicit (screen unmounts)
-        break;
-
-      case 'auth_cancelled':
-        // No delete, no sign-out — re-enable button; floor stays satisfied (M-4)
-        setDeleteInFlight(false);
+    } catch {
+      // I-1: Unexpected synchronous or async throw (e.g. missing native module on a
+      // device that lacks the biometrics bridge). Surface a calm retry-able error and
+      // let the finally block release the lock so the user can tap again.
+      setDeleteError('unknown_error');
+    } finally {
+      // I-1 GUARANTEE: on every non-success terminal outcome — including unexpected
+      // throws — release the lock and clear the in-flight spinner. On delete_success
+      // the screen unmounts; skip state updates to avoid the "unmounted" warning.
+      if (!isDeleteSuccess) {
         releaseDeleteLock(deleteLockRef);
-        break;
-
-      case 'stepup_degraded':
-        // C-2 throw-degrade: show non-alarming notice; floor stays satisfied
         setDeleteInFlight(false);
-        setStepUpDegraded(true);
-        releaseDeleteLock(deleteLockRef);
-        break;
-
-      case 'delete_error':
-        // Check for session-expired sentinel
-        if (isSessionExpiredCode(outcome.code)) {
-          releaseDeleteLock(deleteLockRef);
-          setDeleteSheetVisible(false);
-          handleSessionExpired();
-          return;
-        }
-        // Regular delete error — stays signed in, data intact (AR-AC-13)
-        setDeleteInFlight(false);
-        setDeleteError(outcome.code);
-        releaseDeleteLock(deleteLockRef);
-        break;
+      }
     }
   }, [
     apiBaseUrl,

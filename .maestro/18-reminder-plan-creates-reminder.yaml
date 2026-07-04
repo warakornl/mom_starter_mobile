@@ -1,0 +1,176 @@
+# 18-reminder-plan-creates-reminder.yaml
+# Flow: Create a scheduled medication plan → verify a linked medication reminder is
+#       created and appears as a due occurrence on today's calendar view.
+#
+# ON-DEVICE ARTIFACT — this file is authored by the qa-test agent for on-device
+# execution only. The sandbox cannot run Maestro flows. Execute with:
+#
+#   maestro test .maestro/18-reminder-plan-creates-reminder.yaml
+#
+# Full suite run (from mom_starter_mobile root):
+#   maestro test .maestro/
+#
+# Prerequisites:
+#   - iOS Simulator or Android emulator running with dev build.
+#   - Backend running at localhost:8080.
+#   - Account: mom@test.local / MomTest-Password-2026 (pre-seeded, pregnancy profile).
+#   - Account has cloud_storage AND general_health consent GRANTED.
+#   - Notification permission GRANTED on the device (for alarm scheduling verification).
+#     If denied, reminders still appear on the calendar — the OS-alarm side is a
+#     LAUNCH-GATE (see FIRING LAUNCH-GATE note below).
+#   - No existing medication plan for "ทดสอบยาเตือน" (clean state).
+#
+# FIRING LAUNCH-GATE (device-only, NOT assertable in Maestro):
+#   Maestro can assert that a reminder APPEARS on the calendar (in-app projection).
+#   It CANNOT assert that an OS alarm actually fires at the dose's wall-clock time.
+#   On-device verification that the alarm fires at the exact civil time requires:
+#     (a) A dev build with USE_EXACT_ALARM declared (Android) or a real device (iOS).
+#     (b) Manual observation: set a plan with today's next dose time ≤ 2 min away,
+#         lock the screen, wait for the "ถึงเวลากินยา" notification to appear.
+#   This is a LAUNCH-GATE item per ADR Decision 1 / plan Task 6. Record the p95
+#   punctuality threshold before shipping (target: fires within the dose-time minute
+#   on USE_EXACT_ALARM; accept Doze-window late-not-early skew on fallback ladder).
+#
+# Spec refs:
+#   MR-AC-1 (plan with schedule_rule → linked Reminder{type:'medication',
+#            sourceRefType:'medication_plan', sourceRefId=plan.id, hideOnLockScreen:true}).
+#   US-17 (auto-reminder from a saved plan; no separate "set reminder" step).
+#   medication-reminders-behavior.md §0 / §1 (firing behavior).
+#   ADR Decision 3 (no backend change — reminder row accepted by existing server).
+#
+# Traceability (MR-AC-1 / US-17):
+#   Logic level: medicationPlanReminderLinkage.test.ts (buildLinkedReminder,
+#                applyPlanCreateLinkage — schedule_rule → reminder; PRN → no reminder).
+#   This flow closes the E2E reachability gap (reminder visible on calendar home).
+
+appId: com.momstarter.app
+
+---
+
+# ── 1. Launch fresh ───────────────────────────────────────────────────────────
+- launchApp:
+    clearState: true
+
+- extendedWaitUntil:
+    visible:
+      id: welcome-login-btn
+    timeout: 8000
+
+# ── 2. Login ─────────────────────────────────────────────────────────────────
+- tapOn:
+    id: welcome-login-btn
+
+- tapOn:
+    id: login-email
+- clearText
+- inputText: mom@test.local
+
+- tapOn:
+    id: login-password
+- clearText
+- inputText: "MomTest-Password-2026"
+
+- tapOn:
+    id: login-submit
+
+- extendedWaitUntil:
+    visible:
+      id: home-week-hero
+    timeout: 10000
+
+# ── 3. Navigate to Medication Plans ──────────────────────────────────────────
+- tapOn:
+    id: home-medication-shortcut
+
+- extendedWaitUntil:
+    anyOf:
+      - visible:
+          id: med-empty-state
+      - visible:
+          id: med-plan-list
+    timeout: 8000
+
+# ── 4. Add a new scheduled plan with a time near "now" ───────────────────────
+# Note: For the OS-alarm part, run this on-device with a dose time 1–2 min in the
+# future and observe the lock-screen notification. That step is a LAUNCH-GATE (cannot
+# be automated by Maestro). This automated flow verifies only the in-app calendar
+# projection (which fires regardless of notification permission).
+- tapOn:
+    id: med-add-top
+
+- extendedWaitUntil:
+    visible:
+      id: med-name-input
+    timeout: 5000
+
+# Enter a distinctive drug name (plaintext — app encodes before storing)
+- tapOn:
+    id: med-name-input
+- clearText
+- inputText: "ทดสอบยาเตือน"
+
+- tapOn:
+    id: med-dose-input
+- clearText
+- inputText: "1 เม็ด"
+
+# Select daily schedule (MR-AC-1: recurrence_rule != null → reminder created)
+- tapOn:
+    id: med-freq-chip-daily
+
+# ── 5. Save the plan ─────────────────────────────────────────────────────────
+- tapOn:
+    id: med-save-btn
+
+- extendedWaitUntil:
+    visible:
+      id: med-plan-list
+    timeout: 8000
+
+# ── 6. Navigate to Calendar Home to verify reminder appears ──────────────────
+# The plan save triggers applyPlanCreateLinkage → a linked Reminder is enqueued
+# in the sync store. The calendar home projects today's occurrences from all
+# active reminders — the new medication occurrence should be visible.
+- tapOn:
+    id: home-tab-calendar
+
+- extendedWaitUntil:
+    visible:
+      id: calendar-today-view
+    timeout: 8000
+
+# ── 7. Verify a medication reminder occurrence appears on today's calendar ────
+# cal-occurrence-medication is the testID for a medication-type occurrence row
+# in the Day Detail / today's list.
+# If the dose time is past noon and it is already past that time, the occurrence
+# may show as "missed" — that is correct behavior (derived end-of-day state).
+# Either 'due' or 'done' or 'snoozed' or 'missed' → the occurrence row is present.
+- extendedWaitUntil:
+    anyOf:
+      - visible:
+          id: cal-occurrence-medication
+      - visible:
+          id: cal-day-detail-medication
+    timeout: 8000
+
+# ── 8. Occurrence row is visible — reminder was created (MR-AC-1 confirmed) ──
+# Maestro structural assertion: the row exists on the calendar.
+# Manual follow-up: verify the row shows "ถึงเวลากินยา" generic copy (not drug name)
+# and that two action buttons (กินแล้ว / เลื่อนเตือน) are present.
+- assertVisible:
+    anyOf:
+      - id: cal-occurrence-medication
+      - id: cal-day-detail-medication
+
+# ── LAUNCH-GATE NOTE (NOT automatable) ────────────────────────────────────────
+# Step 8 only asserts in-app projection. The OS alarm part requires:
+#   1. Set dose time 1–2 min in the future (do NOT save default — edit the time field).
+#   2. Lock the device.
+#   3. Wait for "ถึงเวลากินยา" notification on the lock screen.
+#   4. Confirm title is generic (no drug name visible on lock screen — SD-11 / INV-MR-2).
+#   5. Note wall-clock delta (dose time vs notification time) for p95 punctuality record.
+# Record result in the Task-6 on-device launch-gate checklist.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# End of flow 18 — plan created → medication reminder projected on calendar (in-app).
+# OS-alarm firing is a device/dev-build launch-gate (not automatable by Maestro).

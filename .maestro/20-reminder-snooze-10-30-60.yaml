@@ -1,0 +1,174 @@
+# 20-reminder-snooze-10-30-60.yaml
+# Flow: Calendar Home → snooze a due medication occurrence → verify snooze chooser
+#       shows 10/30/60 options and picking one marks the occurrence as snoozed.
+#
+# ON-DEVICE ARTIFACT — execute with:
+#   maestro test .maestro/20-reminder-snooze-10-30-60.yaml
+#
+# Full suite run (from mom_starter_mobile root):
+#   maestro test .maestro/
+#
+# Prerequisites:
+#   - iOS Simulator or Android emulator running with dev build.
+#   - Backend running at localhost:8080.
+#   - Account: mom@test.local / MomTest-Password-2026.
+#   - Account has cloud_storage AND general_health consent GRANTED.
+#   - At least one active scheduled medication plan exists with a dose today in 'due' state
+#     (run 18-reminder-plan-creates-reminder.yaml first; ensure occurrence is not yet done).
+#
+# SNOOZE RE-ALARM LAUNCH-GATE (device-only, NOT assertable in Maestro):
+#   Maestro can assert:
+#     (a) The snooze chooser sheet appears with 10/30/60 options.
+#     (b) Picking an option marks the occurrence as "snoozed" (UI state change).
+#     (c) The occurrence row shows "เลื่อนไปเวลา HH:mm" (snoozedUntil time).
+#   Maestro CANNOT assert that the OS re-alarm actually fires at snoozedUntil.
+#   That requires a real device + waiting N minutes. Record as LAUNCH-GATE:
+#     - Pick 10 min, lock the device, wait 10 min, observe "ถึงเวลากินยา" notification.
+#     - Confirm title is generic (SD-11 / INV-MR-2).
+#     - Confirm occurrence re-presents with the same two actions (no new occurrence forked).
+#   One-alarm guarantee (MR-AC-6 / MR-E11): picking 30 min after an already-snoozed
+#   occurrence must replace (not add to) the pending alarm — verify on device that
+#   only ONE notification fires, not two.
+#
+# Spec refs:
+#   MR-AC-6 (medication snooze offers 10/30/60; picks write snoozed+snoozedUntil;
+#            reschedules exactly one alarm; re-snooze replaces never adds).
+#   MRS-AC-3 ("เลื่อนเตือน" → 10/30/60 chooser for medication).
+#   MRS-AC-4 (exactly one alarm; re-snooze replaces).
+#   medication-reminders-behavior.md §2 (snooze state machine).
+#   medication-reminders-screens.md §2 (chooser states, dismiss behavior).
+#
+# Traceability:
+#   Logic: snoozeChooserLogic.test.ts (computeSnoozedUntil 10/30/60, isMedicationReminder).
+#          snoozeRouterLogic.test.ts (medication→chooser, non-medication→fixed1h).
+#          notificationScheduler.test.ts (scheduleSnooze, re-snooze replaces never two).
+#   This flow closes the E2E reachability gap for the snooze chooser surface.
+
+appId: com.momstarter.app
+
+---
+
+# ── 1. Launch fresh ───────────────────────────────────────────────────────────
+- launchApp:
+    clearState: true
+
+- extendedWaitUntil:
+    visible:
+      id: welcome-login-btn
+    timeout: 8000
+
+# ── 2. Login ─────────────────────────────────────────────────────────────────
+- tapOn:
+    id: welcome-login-btn
+
+- tapOn:
+    id: login-email
+- clearText
+- inputText: mom@test.local
+
+- tapOn:
+    id: login-password
+- clearText
+- inputText: "MomTest-Password-2026"
+
+- tapOn:
+    id: login-submit
+
+- extendedWaitUntil:
+    visible:
+      id: home-week-hero
+    timeout: 10000
+
+# ── 3. Navigate to Calendar Home ──────────────────────────────────────────────
+- tapOn:
+    id: home-tab-calendar
+
+- extendedWaitUntil:
+    visible:
+      id: calendar-today-view
+    timeout: 8000
+
+# ── 4. Wait for a due medication occurrence ───────────────────────────────────
+- extendedWaitUntil:
+    visible:
+      id: cal-occurrence-medication
+    timeout: 8000
+
+# ── 5. Tap "เลื่อนเตือน" (Snooze) on the medication occurrence ────────────────
+# cal-snooze-medication is the testID for the snooze button on a medication row.
+# This triggers resolveSnoozeRoute(type='medication', ...) → 'chooser' branch.
+- tapOn:
+    id: cal-snooze-medication
+
+# ── 6. Snooze chooser bottom sheet appears (MRS-AC-3) ────────────────────────
+# snooze-chooser-sheet is the testID for the 10/30/60 bottom sheet.
+- extendedWaitUntil:
+    visible:
+      id: snooze-chooser-sheet
+    timeout: 5000
+
+# ── 7. Verify all three options are visible (10 / 30 / 60 minutes) ────────────
+# MRS-AC-3: exactly three choices — no free-entry, no other interval.
+- assertVisible:
+    id: snooze-opt-10
+- assertVisible:
+    id: snooze-opt-30
+- assertVisible:
+    id: snooze-opt-60
+
+# ── 8. Pick 30 minutes (middle option) ────────────────────────────────────────
+# Picks a concrete option to exercise the write path.
+# The test suite exercises all three options at the unit level (snoozeChooserLogic).
+# This flow exercises one (30 min) at the E2E level.
+- tapOn:
+    id: snooze-opt-30
+
+# ── 9. Chooser closes — occurrence is now snoozed (MRS-AC-4) ─────────────────
+# The chooser sheet must dismiss after the pick.
+- extendedWaitUntil:
+    notVisible:
+      id: snooze-chooser-sheet
+    timeout: 3000
+
+# ── 10. Occurrence row shows snoozed state ────────────────────────────────────
+# cal-occurrence-snoozed or the medication row now has snoozedUntil sub-label.
+# snooze-snoozed-label is the testID for the "เลื่อนไปเวลา HH:mm" sub-label.
+- extendedWaitUntil:
+    anyOf:
+      - visible:
+          id: cal-occurrence-snoozed
+      - visible:
+          id: snooze-snoozed-label
+    timeout: 5000
+
+# ── 11. Re-snooze test (MR-E11 / MR-AC-6 re-snooze replaces, never two alarms) ─
+# If the snoozed row still shows "เลื่อนเตือน", tap it again (re-snooze).
+# The chooser reappears; pick 60 min this time (replacing the 30-min alarm).
+# One-alarm guarantee: only ONE pending notification should exist for this oid.
+# This is a LAUNCH-GATE at the OS level (cannot count pending notifications in Maestro).
+# The unit test (notificationScheduler.test.ts re-snooze replaces never two) covers the
+# scheduler logic. Record the on-device manual check in Task-6 checklist.
+
+# ── NON-MEDICATION REGRESSION GUARD (MR-AC-6 / §2.3) ────────────────────────
+# To verify non-medication occurrences still snooze at fixed 1h (no chooser):
+#   1. Navigate to a kick_count or appointment occurrence row.
+#   2. Tap its snooze button.
+#   3. Verify NO chooser sheet appears (snooze-chooser-sheet must NOT be visible).
+#   4. Verify the occurrence transitions directly to 'snoozed' state.
+# This is a manual check — Maestro would need a separate flow for each type.
+# Logic-level: snoozeRouterLogic.test.ts (non-medication → fixed1h, no chooser).
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ── SNOOZE RE-ALARM LAUNCH-GATE (device manual check) ─────────────────────────
+# Steps NOT automatable by Maestro:
+#   1. After picking 30 min (step 8), lock the device.
+#   2. Wait 30 minutes.
+#   3. Verify "ถึงเวลากินยา" fires on the lock screen — title generic (SD-11).
+#   4. Verify exactly ONE notification fires (not two — re-snooze replaced, not added).
+#   5. The notification shows the same two actions (กินแล้ว / เลื่อนเตือน).
+#   6. The occurrence ID (oid) is unchanged (snooze never forks a new occurrence — §2.2 step 5).
+# Record result in Task-6 on-device launch-gate checklist.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# End of flow 20 — snooze chooser surface verified (10/30/60 shown, pick writes snoozed).
+# Re-alarm firing and one-alarm guarantee are launch-gate items.

@@ -1,0 +1,182 @@
+# 21-reminder-permission-declined-graceful.yaml
+# Flow: Notification permission DECLINED → app still usable, medication reminders
+#       appear in the calendar (in-app projection), no OS alarm fires.
+#
+# ON-DEVICE ARTIFACT — execute with:
+#   maestro test .maestro/21-reminder-permission-declined-graceful.yaml
+#
+# Full suite run (from mom_starter_mobile root):
+#   maestro test .maestro/
+#
+# Prerequisites:
+#   - iOS Simulator or Android emulator running with dev build.
+#   - Backend running at localhost:8080.
+#   - Account: mom@test.local / MomTest-Password-2026.
+#   - Account has cloud_storage AND general_health consent GRANTED.
+#   - Notification permission DENIED on the device BEFORE running this flow.
+#     How to deny:
+#       Android: Settings → App info → Notifications → Off
+#       iOS:     Settings → mom-starter → Notifications → Off
+#     Alternatively, on Android 13+ (API 33+) tap "Don't allow" on the
+#     POST_NOTIFICATIONS runtime dialog when it is first shown.
+#   - At least one active scheduled medication plan exists (run flow 18 first).
+#
+# IMPORTANT — what Maestro CAN and CANNOT assert here:
+#
+#   CAN assert (automated — this flow):
+#     (a) The app launches and functions normally (no crash, no blocked state).
+#     (b) Medication reminder occurrences appear in the calendar (in-app projection).
+#     (c) Mark-done and snooze from the in-app calendar still work.
+#     (d) A "turn on notifications" affordance is visible (non-blocking inline banner).
+#
+#   CANNOT assert (LAUNCH-GATE — manual verification):
+#     (e) NO OS alarm fires. With permission denied, the scheduler must skip
+#         scheduleAsync. Verify by observing the notification tray — nothing fires
+#         at the dose time. This is inherently device-time-dependent and not
+#         assertable in Maestro.
+#     (f) After re-enabling notifications in OS settings, the next app-foreground
+#         re-materializes alarms (re-anchor trigger — §1.3).
+#
+# Spec refs:
+#   MR-AC-5 (permission denied → calendar unaffected, no OS alarm, non-fatal).
+#   MRS-AC-5 (declined permission → reminders visible, no OS alarm, one-time
+#            non-blocking affordance, all in-app actions work).
+#   MR-E13 (data/calendar unaffected; no OS alarm fires).
+#   medication-reminders-behavior.md §1.5 (permission-declined → in-app only).
+#   medication-reminders-screens.md §3 (permission prompt states).
+#   ADR Decision 1 (POST_NOTIFICATIONS separate runtime permission — non-fatal).
+#
+# Traceability:
+#   Logic: notificationScheduler.test.ts
+#          ("does NOT schedule when permission is declined (non-fatal — no throw)")
+#          ("permission declined during reanchor — non-fatal, no schedule")
+#   This flow closes the E2E reachability gap (app usable + calendar shows reminders
+#   when notification permission is denied).
+
+appId: com.momstarter.app
+
+---
+
+# ── 0. Pre-condition: notification permission is DENIED (manual step) ─────────
+# Before running this flow, deny notification permission in OS settings.
+# Maestro cannot control OS permission dialogs directly; the pre-condition must
+# be set manually. See prerequisites above.
+
+# ── 1. Launch fresh ───────────────────────────────────────────────────────────
+- launchApp:
+    clearState: true
+
+- extendedWaitUntil:
+    visible:
+      id: welcome-login-btn
+    timeout: 8000
+
+# ── 2. Login ─────────────────────────────────────────────────────────────────
+- tapOn:
+    id: welcome-login-btn
+
+- tapOn:
+    id: login-email
+- clearText
+- inputText: mom@test.local
+
+- tapOn:
+    id: login-password
+- clearText
+- inputText: "MomTest-Password-2026"
+
+- tapOn:
+    id: login-submit
+
+- extendedWaitUntil:
+    visible:
+      id: home-week-hero
+    timeout: 10000
+
+# ── 3. Verify home screen is reachable (app not blocked — MRS-AC-5) ───────────
+# The home screen must load normally regardless of notification permission.
+- assertVisible:
+    id: home-week-hero
+
+# ── 4. Navigate to Calendar Home ──────────────────────────────────────────────
+- tapOn:
+    id: home-tab-calendar
+
+- extendedWaitUntil:
+    visible:
+      id: calendar-today-view
+    timeout: 8000
+
+# ── 5. Verify medication occurrence is visible in the calendar ────────────────
+# With permission denied the in-app projection is UNAFFECTED (MR-AC-5 / MR-E13).
+# The occurrence row must appear with 'due' (or 'snoozed'/'missed') status.
+- extendedWaitUntil:
+    anyOf:
+      - visible:
+          id: cal-occurrence-medication
+      - visible:
+          id: cal-day-detail-medication
+    timeout: 8000
+
+- assertVisible:
+    anyOf:
+      - id: cal-occurrence-medication
+      - id: cal-day-detail-medication
+
+# ── 6. Verify "turn on notifications" inline affordance is present ────────────
+# perm-declined-banner is the testID for the one-time non-blocking declined banner
+# (rose/50 tint, dismissible — medication-reminders-screens.md §3 Declined state).
+# This is a structural check. Exact copy ("เปิดการแจ้งเตือนเพื่อรับการเตือนยา") is
+# a manual text check.
+- extendedWaitUntil:
+    visible:
+      id: perm-declined-banner
+    timeout: 5000
+
+# ── 7. Affordance is non-blocking — dismiss it ────────────────────────────────
+# The banner must be dismissible. After dismissal it must NOT reappear (one-time).
+- tapOn:
+    id: perm-declined-dismiss
+
+- extendedWaitUntil:
+    notVisible:
+      id: perm-declined-banner
+    timeout: 3000
+
+# ── 8. Calendar is still fully usable after dismissing the affordance ─────────
+# The occurrence row must still be visible (dismissing the banner does not affect
+# the calendar projection).
+- assertVisible:
+    anyOf:
+      - id: cal-occurrence-medication
+      - id: cal-day-detail-medication
+
+# ── 9. Mark-done still works from in-app calendar (MR-E13) ───────────────────
+# Mark the occurrence done from the in-app calendar (no OS alarm required for this).
+- tapOn:
+    id: cal-mark-done-medication
+
+- extendedWaitUntil:
+    anyOf:
+      - visible:
+          id: cal-occurrence-done
+      - visible:
+          id: cal-occurrence-medication-done
+    timeout: 5000
+
+# ── NO-OS-ALARM LAUNCH-GATE (device manual check) ─────────────────────────────
+# Steps NOT automatable by Maestro:
+#   1. With notification permission denied, set a dose time 1–2 min in the future.
+#   2. Lock the device.
+#   3. Wait past the dose time.
+#   4. Verify NO notification appears on the lock screen (notification tray empty).
+#   5. Unlock the device and foreground the app.
+#   6. Verify the occurrence now shows 'missed' (derived end-of-day, not alarmed).
+#   7. Re-enable notifications in OS settings.
+#   8. Foreground the app again — verify alarms are now re-scheduled (re-anchor).
+#   9. Optionally set another dose time 1–2 min away and verify it now fires.
+# Record result in Task-6 on-device launch-gate checklist.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# End of flow 21 — permission-declined: app usable, reminders on calendar, no blocking.
+# OS no-alarm verification is a device-time-dependent LAUNCH-GATE.

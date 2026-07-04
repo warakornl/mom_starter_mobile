@@ -70,12 +70,15 @@ import { expand } from '../recurrence/recurrenceExpander';
 import { computeOccurrenceId } from '../occurrence/occurrenceId';
 import { bucketCivilDay } from './civilDayBucketer';
 import type { TokenStorage } from '../auth/tokenStorage';
-import type { ChecklistItemRecord, ReminderOccurrenceRecord, OccurrenceStatus } from '../sync/syncTypes';
+import type { ChecklistItemRecord, ReminderOccurrenceRecord, OccurrenceStatus, ReminderType, MedicationLogInput } from '../sync/syncTypes';
 import { consumePendingCalendarFocusDate } from './pendingCalendarFocusDate';
 import { reanchor, cancelForOccurrence } from '../notifications';
 import { medicationPlanSyncStore } from '../medication/medicationPlanSyncStore';
 import { resolveMedicationOccurrenceTitle } from './medicationOccurrenceResolver';
 import type { MedicationPlan } from '../sync/syncTypes';
+import { medicationLogSyncStore } from '../medication/medicationLogSyncStore';
+import { buildMarkDoneMedicationPayload } from './markDoneLogic';
+import { consentStore } from '../consent/consentStore';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -107,6 +110,18 @@ export type CalendarItem =
       dose: string | null;
       status: OccurrenceStatus;
       materialized: boolean;
+      /**
+       * Parent Reminder.type — used by handleOccurrenceAction to branch on
+       * the mark-done side-effect (medication → create MedicationLog; others → zero logs).
+       * Spec §3.5 / AC-17b.
+       */
+      reminderType: ReminderType;
+      /**
+       * reminder.sourceRefId — the medication plan UUID for medication occurrences.
+       * Undefined for reminder types that have no sourceRef (custom, kick_count, etc.).
+       * Security: MOTHER-health SD-2 — never log this field.
+       */
+      sourceRefId: string | undefined;
     };
 
 // ─── Civil date helpers ───────────────────────────────────────────────────────
@@ -192,6 +207,8 @@ function buildProjectedItems(
       dose: string | null;
       status: OccurrenceStatus;
       materialized: boolean;
+      reminderType: ReminderType;
+      sourceRefId: string | undefined;
     }
 
     const projected: RawOcc[] = civilStrings.map((civil) => {
@@ -212,6 +229,11 @@ function buildProjectedItems(
           ? 'missed'
           : 'due',
         materialized: !!materialized,
+        // Task 4: carry reminder type + sourceRefId so handleOccurrenceAction can
+        // branch on mark-done side-effect (medication → MedicationLog; others → zero).
+        // Spec §3.5 / AC-17b.
+        reminderType: reminder.type,
+        sourceRefId: reminder.sourceRefId,
       };
     });
 
@@ -237,6 +259,8 @@ function buildProjectedItems(
           dose: resolvedDose,
           status: mat.status,
           materialized: true,
+          reminderType: reminder.type,
+          sourceRefId: reminder.sourceRefId,
         });
       }
     }
@@ -347,6 +371,16 @@ export function CalendarScreen({
 
   // Calendar sync client — bound to calendarSyncStore singleton
   const clientRef = useRef(createCalendarSyncClient(apiBaseUrl, calendarSyncStore));
+
+  // Task 4 (AC-17 / MR-E1): held medication log for the consent-gate path.
+  // When orchestrateMedicationSave returns action='gate' (general_health absent),
+  // the occurrence is already done but the taken log must NOT be written yet.
+  // We store the payload + deterministic id here; a future grant-handler persists it.
+  // Security: NEVER log this ref's contents (SD-5 MOTHER-health).
+  const heldMedicationLogRef = useRef<{
+    payload: MedicationLogInput;
+    logId: string;
+  } | null>(null);
 
   // Refresh display maps from store (triggers useMemo re-run via refreshKey)
   const refreshFromStore = useCallback(() => {
@@ -531,6 +565,8 @@ export function CalendarScreen({
       scheduledLocalTime: string,
       displayTitle: string,
       currentStatus: OccurrenceStatus,
+      reminderType: ReminderType,
+      sourceRefId: string | undefined,
     ) => {
       if (currentStatus === 'done') return;
 
@@ -541,6 +577,8 @@ export function CalendarScreen({
           {
             text: t('calendar.markDone'),
             onPress: () => {
+              // 1. Flip occurrence → done (optimistic, always — even if consent absent).
+              //    ReminderOccurrence is cloud_storage gated, not general_health (E10).
               calendarSyncStore.enqueueOccurrence(
                 reminderId,
                 scheduledLocalTime,
@@ -550,10 +588,38 @@ export function CalendarScreen({
               refreshFromStore();
               // Push immediately — fire-and-forget (no await to not block UI)
               void syncPush();
-              // Cancel the OS notification for this occurrence (resolves TODO carry-forward).
+              // Cancel the OS notification for this occurrence (spec §3.4).
               // `id` is the deterministic uuidv5 occurrence id — used as the OS notification
               // identifier (ADR Decision 2 / functional spec §3.4).
               void cancelForOccurrence(id);
+
+              // 2. For medication occurrences only: create exactly ONE taken log
+              //    via the consent-gated orchestrateMedicationSave path (spec §3.1).
+              //    Non-medication → AC-17b: zero logs.
+              if (reminderType === 'medication' && sourceRefId) {
+                const { markDoneLogId, orchestrationResult } = buildMarkDoneMedicationPayload({
+                  oid: id,
+                  scheduledLocalTime,
+                  sourceRefId,
+                  consentGranted: consentStore.isGranted('general_health'),
+                });
+
+                if (orchestrationResult.action === 'persist') {
+                  // Consent present → write immediately with deterministic id (dedup guard).
+                  // Same markDoneLogId from any device → idempotent server union-merge (D3/E7).
+                  medicationLogSyncStore.addLog(orchestrationResult.payload, markDoneLogId);
+                } else if (orchestrationResult.action === 'gate') {
+                  // Consent absent (MR-E1): occurrence is already done (step 1 above);
+                  // hold the payload for when general_health is granted.
+                  // Security: NEVER log payload contents (SD-5).
+                  heldMedicationLogRef.current = {
+                    payload: orchestrationResult.payload,
+                    logId: markDoneLogId,
+                  };
+                }
+                // action === 'skip' cannot happen here (saveEnabled is always true
+                // in buildMarkDoneMedicationPayload — the function sets saveEnabled=true).
+              }
             },
           },
           ...(currentStatus !== 'snoozed'
@@ -796,6 +862,8 @@ export function CalendarScreen({
                       item.scheduledLocalTime,
                       item.displayTitle,
                       item.status,
+                      item.reminderType,
+                      item.sourceRefId,
                     );
                   }
                 }}

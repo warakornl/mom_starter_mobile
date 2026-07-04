@@ -73,6 +73,9 @@ import type { TokenStorage } from '../auth/tokenStorage';
 import type { ChecklistItemRecord, ReminderOccurrenceRecord, OccurrenceStatus } from '../sync/syncTypes';
 import { consumePendingCalendarFocusDate } from './pendingCalendarFocusDate';
 import { reanchor, cancelForOccurrence } from '../notifications';
+import { medicationPlanSyncStore } from '../medication/medicationPlanSyncStore';
+import { resolveMedicationOccurrenceTitle } from './medicationOccurrenceResolver';
+import type { MedicationPlan } from '../sync/syncTypes';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -88,7 +91,20 @@ export type CalendarItem =
       id: string;
       reminderId: string;
       scheduledLocalTime: string;
+      /**
+       * In-app display title.
+       * For medication occurrences: the decoded drug name resolved from the
+       * linked medication_plan (SD-11 in-app half — design §5.3 / ADR Decision 4).
+       * For all other types: the reminder's displayTitle verbatim.
+       * NEVER used as a notification payload (that uses MEDICATION_TITLE_TH).
+       */
       displayTitle: string;
+      /**
+       * Decoded dose string for medication occurrences (e.g. "1 เม็ด").
+       * Null for non-medication occurrences or when the plan has no dose.
+       * Security: MOTHER-health SD-2 — never log this field.
+       */
+      dose: string | null;
       status: OccurrenceStatus;
       materialized: boolean;
     };
@@ -132,8 +148,16 @@ function monthStartDow(isoDate: string): number {
  * Project all reminder occurrences in [today, today+PROJECTION_DAYS].
  * Returns a map of civil-date → projected occurrence items.
  * Merged with materialized (done/snoozed) rows via dedup (materialized wins).
+ *
+ * @param today     Civil "YYYY-MM-DD" for today's date (device local).
+ * @param plansById Map<planId, MedicationPlan> for in-app medication name
+ *                  resolution (SD-11 in-app half — design §5.3 / ADR Decision 4).
+ *                  Passed explicitly so this function stays unit-testable.
  */
-function buildProjectedItems(today: string): Map<string, CalendarItem[]> {
+function buildProjectedItems(
+  today: string,
+  plansById: ReadonlyMap<string, MedicationPlan>,
+): Map<string, CalendarItem[]> {
   const windowEnd = addDays(today, PROJECTION_DAYS);
   const reminders = calendarSyncStore.getActiveReminders();
   const result = new Map<string, CalendarItem[]>();
@@ -151,12 +175,21 @@ function buildProjectedItems(today: string): Map<string, CalendarItem[]> {
     const materializedRows = calendarSyncStore.getOccurrencesForReminder(reminder.id);
     const materializedById = new Map(materializedRows.map((r) => [r.id, r]));
 
+    // Resolve in-app display title + dose for this reminder (SD-11 in-app half).
+    // For medication reminders: decodes drug name/dose from the linked plan.
+    // For other types: returns displayTitle verbatim.
+    // Security: the resolved `title` is for in-app display ONLY — never for
+    // notification payloads (those use MEDICATION_TITLE_TH via notificationScheduler).
+    const { title: resolvedTitle, dose: resolvedDose } =
+      resolveMedicationOccurrenceTitle(reminder, plansById);
+
     // Build projected items, then dedup with materialized
     interface RawOcc {
       id: string;
       reminderId: string;
       scheduledLocalTime: string;
       displayTitle: string;
+      dose: string | null;
       status: OccurrenceStatus;
       materialized: boolean;
     }
@@ -171,7 +204,8 @@ function buildProjectedItems(today: string): Map<string, CalendarItem[]> {
         id,
         reminderId: reminder.id,
         scheduledLocalTime: civil,
-        displayTitle: reminder.displayTitle,
+        displayTitle: resolvedTitle,
+        dose: resolvedDose,
         status: materialized
           ? materialized.status
           : isPastDate
@@ -199,7 +233,8 @@ function buildProjectedItems(today: string): Map<string, CalendarItem[]> {
           id: mat.id,
           reminderId: mat.reminderId,
           scheduledLocalTime: mat.scheduledLocalTime,
-          displayTitle: reminder.displayTitle,
+          displayTitle: resolvedTitle,
+          dose: resolvedDose,
           status: mat.status,
           materialized: true,
         });
@@ -442,7 +477,13 @@ export function CalendarScreen({
   // refreshKey in deps triggers rebuild after pull or occurrence action
   const { checklistMap, occurrenceMap } = useMemo(() => {
     const c = buildChecklistItems();
-    const o = buildProjectedItems(today);
+    // Build plansById from the medication plan store for in-app name resolution.
+    // SD-11 in-app half (ADR Decision 4 / design §5.3): medication occurrence rows
+    // display the real drug name from the linked plan, not the generic displayTitle.
+    const plansById = new Map<string, MedicationPlan>(
+      medicationPlanSyncStore.getPlans().map((p) => [p.id, p]),
+    );
+    const o = buildProjectedItems(today, plansById);
     return { checklistMap: c, occurrenceMap: o };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [today, refreshKey]);
@@ -762,6 +803,12 @@ export function CalendarScreen({
                 <View style={[styles.agendaDot, statusColor]} />
                 <View style={styles.agendaContent}>
                   <Text style={styles.agendaTitle}>{item.displayTitle}</Text>
+                  {/* Dose subtitle — shown only for medication occurrences with a
+                      resolved dose (SD-11 in-app half: design §5.3 / ADR Decision 4).
+                      Security: dose is MOTHER-health SD-2; never log this value. */}
+                  {item.dose ? (
+                    <Text style={styles.agendaDose}>{item.dose}</Text>
+                  ) : null}
                   <Text style={styles.agendaTime}>
                     {item.scheduledLocalTime.slice(11, 16)}
                   </Text>
@@ -927,6 +974,8 @@ const styles = StyleSheet.create({
   },
   agendaContent: { flex: 1 },
   agendaTitle: { fontSize: 15, color: '#3A2A30', fontWeight: '500' },
+  /** Dose subtitle for medication occurrences (design §5.2 / §5.3). */
+  agendaDose: { fontSize: 13, color: '#5F4A52', marginTop: 1 },
   agendaTime: { fontSize: 13, color: '#5F4A52', marginTop: 2 },
   agendaStatus: { fontSize: 12, color: '#94818A', marginTop: 2 },
 });

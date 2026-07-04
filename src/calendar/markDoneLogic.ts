@@ -26,6 +26,7 @@ import {
   orchestrateMedicationSave,
   type MedicationSaveOrchestrationResult,
 } from '../capture/medicationCaptureLogic';
+import type { ReminderType, MedicationLogInput } from '../sync/syncTypes';
 
 // ─── computeMarkDoneLogId ─────────────────────────────────────────────────────
 
@@ -74,6 +75,10 @@ export function splitScheduledLocalTime(scheduledLocalTime: string): {
   dateCivil: string;
   timeStr: string;
 } {
+  // FLAG-1 no-seconds contract: input MUST be exactly "YYYY-MM-DDTHH:mm" (16 chars).
+  // Seconds or sub-seconds in the input would be silently truncated by slice(11,16).
+  // The recurrence expander always produces this exact format; do not pass ISO-8601
+  // strings with seconds (e.g. "...T08:00:00") to this function.
   return {
     dateCivil: scheduledLocalTime.slice(0, 10),
     timeStr: scheduledLocalTime.slice(11, 16),
@@ -138,4 +143,88 @@ export function buildMarkDoneMedicationPayload(params: MarkDoneMedicationParams)
   });
 
   return { markDoneLogId, orchestrationResult };
+}
+
+// ─── executeMarkDoneHandler ───────────────────────────────────────────────────
+
+/**
+ * Return type of executeMarkDoneHandler.
+ *
+ *   showNudge=false — either a noop (non-medication / missing sourceRefId) or a
+ *                     successful persist (addLog was called internally).
+ *   showNudge=true  — consent absent; addLog was NOT called.  Caller must:
+ *                       1. Store heldPayload + heldLogId (e.g. in a ref).
+ *                       2. Show the JIT consent nudge (ConsentNudgeModal).
+ *                       3. On grant: call addLog(heldPayload, heldLogId) exactly once.
+ *                       4. On dismiss: clear the held ref (same-session lifetime).
+ */
+export type MarkDoneHandlerResult =
+  | { showNudge: false }
+  | { showNudge: true; heldPayload: MedicationLogInput; heldLogId: string };
+
+/**
+ * Thin, pure, testable handler for the mark-done medication log side-effect.
+ *
+ * Decides: medication+sourceRefId → build payload + (persist OR gate).
+ *          non-medication (or missing sourceRefId) → noop (AC-17b: zero logs).
+ *
+ * Accepts `addLog` as an injectable dependency so callers can spy on it in tests
+ * without any mocking framework overhead.  For the `persist` path, addLog is
+ * called internally with the deterministic `markDoneLogId` (dedup guard, spec §3.2).
+ * For the `gate` path, addLog is NOT called; the caller receives the held payload +
+ * id so it can flush on grant.
+ *
+ * Security: NEVER log params.oid, scheduledLocalTime, sourceRefId, or addLog args (SD-5).
+ *
+ * @param params.reminderType     Parent reminder type — gates medication vs zero-log.
+ * @param params.sourceRefId      medication plan UUID; undefined → noop.
+ * @param params.oid              Deterministic occurrence id (uuidv5 from computeOccurrenceId).
+ * @param params.scheduledLocalTime  "YYYY-MM-DDTHH:mm" floating-civil (FLAG-1 no-seconds).
+ * @param params.consentGranted   Current general_health consent state.
+ * @param params.addLog           Injectable addLog(payload, id) — called on persist only.
+ * @returns  MarkDoneHandlerResult — { showNudge:false } or gate info for caller.
+ */
+export function executeMarkDoneHandler(params: {
+  reminderType: ReminderType;
+  sourceRefId: string | undefined;
+  oid: string;
+  scheduledLocalTime: string;
+  consentGranted: boolean;
+  addLog: (payload: MedicationLogInput, id: string) => void;
+}): MarkDoneHandlerResult {
+  // AC-17b: non-medication occurrences produce zero logs.
+  // Also guard missing sourceRefId (no plan → cannot build a meaningful log).
+  if (params.reminderType !== 'medication' || !params.sourceRefId) {
+    return { showNudge: false };
+  }
+
+  const { markDoneLogId, orchestrationResult } = buildMarkDoneMedicationPayload({
+    oid: params.oid,
+    scheduledLocalTime: params.scheduledLocalTime,
+    sourceRefId: params.sourceRefId,
+    consentGranted: params.consentGranted,
+  });
+
+  if (orchestrationResult.action === 'persist') {
+    // Consent present → write immediately via injectable addLog with deterministic id.
+    // Same markDoneLogId from any device → idempotent server union-merge (D3/E7).
+    // Security: NEVER log payload contents (SD-5).
+    params.addLog(orchestrationResult.payload, markDoneLogId);
+    return { showNudge: false };
+  }
+
+  if (orchestrationResult.action === 'gate') {
+    // Consent absent (MR-E1): addLog NOT called.  Return held payload + id
+    // so the caller can (a) show the JIT consent nudge and (b) flush on grant.
+    // Security: NEVER log heldPayload contents (SD-5).
+    return {
+      showNudge: true,
+      heldPayload: orchestrationResult.payload,
+      heldLogId: markDoneLogId,
+    };
+  }
+
+  // action === 'skip' cannot happen here (saveEnabled is always true in
+  // buildMarkDoneMedicationPayload).  Defensive fallthrough.
+  return { showNudge: false };
 }

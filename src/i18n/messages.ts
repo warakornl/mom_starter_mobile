@@ -869,6 +869,20 @@ const th = {
   'capture.medication.doseLabel': 'ขนาด',
   'capture.medication.statusLabel': 'สถานะ',
 
+  // ── Notification strings — medication reminder (design §5.4, SD-11) ──────────
+  // These keys are the single source of truth for the generic lock-screen copy
+  // (screens-spec §5.4 / ADR Decision 4). NEVER include drug name/dose here.
+  // NOTE: The notificationScheduler.ts MEDICATION_TITLE_TH constant uses the
+  //       same string value ('ถึงเวลากินยา') — they MUST stay in sync.
+  //       The scheduler cannot use useT() (it is a pure function outside React)
+  //       so the constant is kept alongside this catalog entry for alignment.
+  //       "ถึงเวลาทานยา" (the older calendar-spec wording) is RECONCILED here
+  //       to the owner-decided "ถึงเวลากินยา" (design §3 OQ-MR-2).
+  'notification.medication.title': 'ถึงเวลากินยา',
+  'notification.medication.body': 'แตะเพื่อดู',
+  'notification.action.markDone': 'กินแล้ว ✓',
+  'notification.action.snooze': 'เลื่อนเตือน',
+
   // ── Medication Plans (medication-plan-ui.md §9) ──────────────────────────────
   // Navigation / tab
   'medication.navTitle': 'แผนยา',
@@ -1704,6 +1718,12 @@ const en: MsgShape = {
   'capture.medication.planFromLabel': 'From plan',
   'capture.medication.doseLabel': 'Dose',
   'capture.medication.statusLabel': 'Status',
+
+  // ── Notification strings — medication reminder (design §5.4, SD-11) ──────────
+  'notification.medication.title': 'Time for your medication',
+  'notification.medication.body': 'Tap to see',
+  'notification.action.markDone': 'Taken ✓',
+  'notification.action.snooze': 'Snooze',
 
   // ── Medication Plans (medication-plan-ui.md §9) ──────────────────────────────
   'medication.navTitle': 'Medication Plans',

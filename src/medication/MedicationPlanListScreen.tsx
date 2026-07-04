@@ -61,6 +61,7 @@ import {
   type ToastVariant,
 } from './medicationPlanFormLogic';
 import { MedicationPlanFormSheet } from './MedicationPlanFormSheet';
+import { shouldShowLogDose } from './logDoseParams';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -647,12 +648,13 @@ export function MedicationPlanListScreen({
                 {/* Log a dose — quiet affordance (Task 11).
                     Only shown for active plans and when the onLogDose callback is wired.
                     Sits below the row body so it doesn't compete with the edit tap
-                    (row body) or the active toggle (trailing Switch). */}
-                {plan.active && onLogDose ? (
+                    (row body) or the active toggle (trailing Switch).
+                    Visibility decided by shouldShowLogDose pure helper (TDD-tested). */}
+                {shouldShowLogDose(plan, !!onLogDose) ? (
                   <TouchableOpacity
                     testID={`med-plan-log-btn-${plan.id}`}
                     style={styles.logDoseBtn}
-                    onPress={() => onLogDose(plan.id)}
+                    onPress={() => onLogDose?.(plan.id)}
                     accessibilityRole="button"
                     accessibilityLabel={`${t('medication.logDose')} — ${planName}`}
                   >
@@ -951,18 +953,27 @@ const styles = StyleSheet.create({
   // Quiet link inside each active plan card; sits below the row body so it
   // never competes with the edit tap (row body) or the active toggle.
   // Styled as a small underlined text link (design-system "quiet affordance").
+  //
+  // A11y fixes (design-reviewer blockers):
+  //   1. minHeight raised from 36 → 48 to meet the ≥48×48dp touch-target floor.
+  //      paddingTop/paddingBottom ensure the tap area fills the full 48dp even
+  //      though the visible text is smaller.
+  //   2. marginTop: 8 provides ≥8dp vertical separation from the planCardRow
+  //      edit target so a mis-tap at the bottom of the row body cannot land on
+  //      the log-dose link.
   logDoseBtn: {
     alignSelf: 'flex-start',
     paddingHorizontal: 16,
     paddingBottom: 12,
-    paddingTop: 2,
-    minHeight: 36,
+    paddingTop: 4,
+    marginTop: 8,
+    minHeight: 48,
     justifyContent: 'center',
   },
   logDoseBtnText: {
     fontFamily: 'IBMPlexSans-Medium',
     fontSize: 13,
-    color: '#A8505A', // rose/600 — consistent with other quiet links
+    color: '#8E3A44', // rose/700 — token-consistent (was rose/600 #A8505A)
     textDecorationLine: 'underline',
   },
 });

@@ -1,18 +1,22 @@
 /**
- * logDoseParams.test.ts — RED tests for buildLogDoseParams (Slice 2, Task 11)
+ * logDoseParams.test.ts — unit tests for logDoseParams helpers (Slice 2, Task 11)
  *
- * TDD: these tests must fail before the implementation exists.
+ * TDD: shouldShowLogDose tests were written RED before the implementation.
  *
- * buildLogDoseParams(planId) is the pure helper that turns a MedicationPlan id
- * into the Capture route-param shape `{ medicationPlanId: string }` so the
- * "log a dose" affordance in MedicationPlanListScreen can navigate without
- * knowing the internal Capture param shape.
+ * buildLogDoseParams(planId) turns a MedicationPlan id into the Capture
+ * route-param shape `{ medicationPlanId: string }` so the "log a dose"
+ * affordance in MedicationPlanListScreen can navigate without knowing the
+ * internal Capture param shape.
+ *
+ * shouldShowLogDose(plan, hasOnLogDose) is the pure visibility predicate:
+ * returns true only when the plan is active AND the onLogDose callback is
+ * wired (i.e. both conditions must hold).
  *
  * Security: planId is a UUID, not a drug name or dose — safe in route params
- * (PDPA SD-9). No health data flows through this function.
+ * (PDPA SD-9). No health data flows through these functions.
  */
 
-import { buildLogDoseParams } from './logDoseParams';
+import { buildLogDoseParams, shouldShowLogDose } from './logDoseParams';
 
 describe('buildLogDoseParams', () => {
   it('returns an object with medicationPlanId equal to the supplied planId', () => {
@@ -34,5 +38,31 @@ describe('buildLogDoseParams', () => {
   it('works for any non-empty string planId', () => {
     expect(buildLogDoseParams('plan-1').medicationPlanId).toBe('plan-1');
     expect(buildLogDoseParams('  ').medicationPlanId).toBe('  ');
+  });
+});
+
+// ─── shouldShowLogDose ────────────────────────────────────────────────────────
+// Pure predicate: plan.active && hasOnLogDose.
+// Written RED before the implementation (TDD — a11y blocker fix, Task 11).
+
+describe('shouldShowLogDose', () => {
+  // Minimal stub: only the fields shouldShowLogDose inspects.
+  const activePlan = { active: true } as { active: boolean };
+  const inactivePlan = { active: false } as { active: boolean };
+
+  it('returns true when plan is active and callback is wired', () => {
+    expect(shouldShowLogDose(activePlan, true)).toBe(true);
+  });
+
+  it('returns false when plan is inactive even if callback is wired', () => {
+    expect(shouldShowLogDose(inactivePlan, true)).toBe(false);
+  });
+
+  it('returns false when plan is active but callback is absent', () => {
+    expect(shouldShowLogDose(activePlan, false)).toBe(false);
+  });
+
+  it('returns false when both plan is inactive and callback is absent', () => {
+    expect(shouldShowLogDose(inactivePlan, false)).toBe(false);
   });
 });

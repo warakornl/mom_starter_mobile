@@ -28,3 +28,24 @@
 export function buildLogDoseParams(planId: string): { medicationPlanId: string } {
   return { medicationPlanId: planId };
 }
+
+/**
+ * Pure predicate: should the "Log a dose" affordance be shown for this plan?
+ *
+ * Returns true only when BOTH conditions hold:
+ *   1. `plan.active` — inactive plans cannot have a dose logged against them.
+ *   2. `hasOnLogDose` — the parent has wired the onLogDose callback; when
+ *      absent (legacy tests / snapshots) the affordance is hidden entirely.
+ *
+ * Extracted from the inline render conditional in MedicationPlanListScreen so
+ * it can be unit-tested independently (a11y TDD fix — design-reviewer blocker).
+ *
+ * @param plan         — object carrying at minimum an `active: boolean` field.
+ * @param hasOnLogDose — true when `onLogDose` prop is defined (pass `!!onLogDose`).
+ */
+export function shouldShowLogDose(
+  plan: { active: boolean },
+  hasOnLogDose: boolean,
+): boolean {
+  return plan.active && hasOnLogDose;
+}

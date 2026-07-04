@@ -45,6 +45,9 @@ import { selfLogSyncStore } from '../selfLog/selfLogSyncStore';
 import { medicationPlanSyncStore } from '../medication/medicationPlanSyncStore';
 import { medicationLogSyncStore } from '../medication/medicationLogSyncStore';
 
+// SD-5 session-expired teardown runner (thin testable factory — option b fix)
+import { buildSessionExpiredRunner } from './sessionExpiredRunner';
+
 // Account Rights imports
 import { runExport, type ExportPhase } from '../accountRights/exportOrchestration';
 import { createAccountApiClient } from '../accountRights/accountApiClient';
@@ -153,14 +156,30 @@ export function SettingsScreen({
     };
   }, []);
 
-  // ── Effective session-expired handler ─────────────────────────────────────────
-  // Falls back to onLogout so the screen stays functional without the prop.
+  // ── Effective session-expired handler (SD-5 fix) ──────────────────────────────
+  // ALWAYS runs the full performLogout teardown (clearTokens + ALL health stores)
+  // THEN calls onSessionExpired (navigate) or falls back to onLogout.
+  // Prior behaviour called onSessionExpired() directly (navigate-only), leaving
+  // tokens + all health SyncStores populated — a cross-account PHI leak (SD-5).
+  // buildSessionExpiredRunner delegates to performLogout with onComplete = navigate.
   const handleSessionExpired = useCallback(() => {
-    if (onSessionExpired) {
-      onSessionExpired();
-    } else {
-      void buildPerformLogout(tokenStorage, onLogout)();
-    }
+    void buildSessionExpiredRunner({
+      clearTokens: () => tokenStorage.clear(),
+      resetSupplyStore: () => supplySyncStore.reset(),
+      resetKickCountStore: () => kickCountSyncStore.reset(),
+      resetCalendarStore: () => calendarSyncStore.reset(),
+      resetConsentStore: () => consentStore.reset(),
+      resetConsentQueue: () => resetConsentQueue(),
+      resetSuggestionStore: () => suggestionStore.reset(),
+      resetExpensesStore: () => expensesSyncStore.reset(),
+      resetSelfLogStore: () => selfLogSyncStore.reset(),
+      resetMedicationPlanStore: () => medicationPlanSyncStore.reset(),
+      resetMedicationLogStore: () => medicationLogSyncStore.reset(),
+      clearKickCountDraft: () => clearDraft(),
+      // onSessionExpired is the navigate callback (called LAST, after all stores cleared).
+      // Falls back to onLogout so the screen stays functional without the prop.
+      onComplete: onSessionExpired ?? onLogout,
+    })();
   }, [onSessionExpired, tokenStorage, onLogout]);
 
   // ─── Logout (existing) ────────────────────────────────────────────────────────

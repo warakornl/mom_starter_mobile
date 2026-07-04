@@ -20,6 +20,26 @@
  *   gate must set explicit punctuality threshold and measure against it.
  *   Notifee carry-forward is DEFERRED (backlog) — not needed for MVP.
  *
+ * TASK-6 LAUNCH-GATE — EXACT-ALARM ON-DEVICE VERIFICATION (greppable: LAUNCH_GATE_EXACT_ALARM):
+ *   On-device testing MUST confirm expo-notifications issues EXACT alarms when
+ *   USE_EXACT_ALARM is declared. If testing shows alarms are inexact only (permission
+ *   rejected at runtime by OEM policy, or the installed expo-notifications build does
+ *   not honor canScheduleExactAlarms()), the remediation is:
+ *     1. REMOVE USE_EXACT_ALARM from app.json android.permissions.
+ *     2. Drop to Notifee (carry-forward, backlog) for exact-alarm support.
+ *   Declaring USE_EXACT_ALARM with no real exact-alarm benefit invites Google Play
+ *   "Alarms & Reminders" permission scrutiny without reward. Do not ship with the
+ *   permission declared unless on-device testing proves exact alarms are delivered.
+ *
+ * TASK-3 / TASK-6 FOLLOW-UP — ANDROID NOTIFICATION CHANNEL + CATEGORY (greppable: MISSING_ANDROID_CHANNEL):
+ *   On Android 8+ (API 26+), notifications require a registered NotificationChannel.
+ *   Without one, expo-notifications falls back to the default channel. This means:
+ *     - No custom channel name/description visible to the user in system settings.
+ *     - The action buttons (snooze/done — Task 3) and hideOnLockScreen category
+ *       (iOS content-extension — Task 5) are both Task-3/5 work items.
+ *   ACTION: Register a named channel (e.g. "medication_reminders") in Task-3 when
+ *   notification action categories are added. Do NOT implement channel creation here.
+ *
  * Security (SD-11): notification title NEVER contains drug name or dose. Only
  *   the generic constants from notificationScheduler.ts are passed to scheduleAsync.
  *   No sensitive data is logged.

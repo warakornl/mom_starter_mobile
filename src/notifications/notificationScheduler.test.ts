@@ -27,7 +27,6 @@ import {
   WINDOW_DAYS,
   PENDING_BUDGET,
   MEDICATION_TITLE_TH,
-  MEDICATION_TITLE_EN,
 } from './notificationScheduler';
 import type { NotificationsAdapter } from './notificationsAdapter';
 import {
@@ -250,16 +249,38 @@ describe('buildScheduleSet — excludedIds', () => {
 // ─── buildScheduleSet — medication title (SD-11) ──────────────────────────────
 
 describe('buildScheduleSet — SD-11 generic title', () => {
-  it('medication reminders always use the generic Thai title (never displayTitle)', () => {
+  // Fix I-3: displayTitle is set to a realistic drug-name string to confirm the
+  // scheduler NEVER leaks a sensitive drug name into the notification payload.
+  // Using a generic 'ยา' was too weak — it would not fail even if the title
+  // mapping were accidentally changed to pass displayTitle through.
+  it('medication reminder with a drug-name displayTitle emits ONLY the generic Thai constant — never the drug name', () => {
+    const DRUG_NAME = 'Paracetamol 500mg'; // realistic drug-name — must NEVER appear in output
     const r = makeReminder({
       id: 'rem-sd11',
       type: 'medication',
-      displayTitle: 'ยา', // generic — but title in notification must be the fixed constant
+      displayTitle: DRUG_NAME,
     });
     const entries = buildScheduleSet([r], new Set(), NOW_LOCAL, WINDOW_DAYS, PENDING_BUDGET);
     expect(entries.length).toBeGreaterThan(0);
     entries.forEach(e => {
+      // (a) title must be exactly the generic constant — never the drug name
       expect(e.title).toBe(MEDICATION_TITLE_TH);
+      // (b) neither title nor body (if present in ScheduleEntry) contains the drug name
+      expect(e.title).not.toContain(DRUG_NAME);
+    });
+    // Confirm the test WOULD fail if title mapping were wrong: a non-medication
+    // reminder with the same displayTitle DOES emit the drug name (control check)
+    const apptWithSameName = makeReminder({
+      id: 'rem-appt-ctrl',
+      type: 'appointment',
+      displayTitle: DRUG_NAME,
+      sourceRefType: undefined,
+      sourceRefId: undefined,
+    });
+    const ctrlEntries = buildScheduleSet([apptWithSameName], new Set(), NOW_LOCAL, WINDOW_DAYS, PENDING_BUDGET);
+    expect(ctrlEntries.length).toBeGreaterThan(0);
+    ctrlEntries.forEach(e => {
+      expect(e.title).toBe(DRUG_NAME); // appointment → displayTitle passes through
     });
   });
 

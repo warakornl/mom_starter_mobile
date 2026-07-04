@@ -404,11 +404,16 @@ export function CalendarScreen({
   const [showSnoozeChooser, setShowSnoozeChooser] = useState(false);
   // pendingSnoozeRef stores the occurrence context while the chooser sheet is open.
   // Using a ref (not state) avoids an extra render on open; cleared on pick/dismiss.
+  // Minor 3: openedAt is snapshotted when the chooser opens (not re-evaluated on
+  // every parent render) so the "alerts at" times in the sheet are stable and
+  // handleSnooze uses the same baseline as the displayed times.
   const pendingSnoozeRef = useRef<{
     id: string;
     reminderId: string;
     scheduledLocalTime: string;
     displayTitle: string;
+    /** Snapshot of new Date() taken when the chooser was opened (Minor 3). */
+    openedAt: Date;
   } | null>(null);
 
   // Refresh display maps from store (triggers useMemo re-run via refreshKey)
@@ -644,7 +649,9 @@ export function CalendarScreen({
       const pending = pendingSnoozeRef.current;
       if (!pending) return;
 
-      const now = new Date();
+      // Minor 3: use the snapshotted openedAt so snoozedUntil matches the
+      // "alerts at" times displayed in the sheet (stable across parent renders).
+      const now = pending.openedAt;
       const snoozedUntilDate = computeSnoozedUntil(minutes, now);
       const snoozedUntilStr = snoozedUntilDate.toISOString();
 
@@ -755,11 +762,15 @@ export function CalendarScreen({
                     if (isMedicationReminder(reminderType)) {
                       // Medication: open the 10/30/60 chooser sheet.
                       // Store context in ref so handleSnooze can apply the pick.
+                      // Minor 3: snapshot now at open time so the displayed "alerts at"
+                      // times are stable across parent re-renders and handleSnooze uses
+                      // the same baseline as the times shown to the user.
                       pendingSnoozeRef.current = {
                         id,
                         reminderId,
                         scheduledLocalTime,
                         displayTitle,
+                        openedAt: new Date(),
                       };
                       setShowSnoozeChooser(true);
                     } else {
@@ -1062,7 +1073,7 @@ export function CalendarScreen({
           Dismiss without pick leaves the occurrence in its prior status — no write (spec §2.4). */}
       <SnoozeChooserSheet
         visible={showSnoozeChooser}
-        now={new Date()}
+        now={pendingSnoozeRef.current?.openedAt ?? new Date()}
         onPick={handleSnooze}
         onDismiss={() => {
           // Dismissed without picking: no write; clear pending context.

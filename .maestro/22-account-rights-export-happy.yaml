@@ -7,7 +7,9 @@
 # Prerequisites:
 #   - iOS Simulator or Android Emulator running with dev build (npx expo run:ios / run:android)
 #   - Backend running at localhost:8080 (account export endpoint active)
-#   - Account: mom@test.local / MomTest-Password-2026 (pre-seeded, pregnancy profile)
+#   - Account: dev@momstarter.local / DevTest-Password-2026 — auto-seeded and email-verified
+#     ONLY when the backend runs with the local Spring profile (momstarter.dev.auto-verify-email=true).
+#     Needs a pregnancy profile (run 03-pregnancy.yaml first or seed via API).
 #   - Account is NOT soft-deleted (export must not return 404)
 #
 # What this flow verifies (AR-AC-01, 03, 06, 07, 08, US-24):
@@ -49,12 +51,12 @@ appId: com.momstarter.app
 - tapOn:
     id: login-email
 - clearText
-- inputText: mom@test.local
+- inputText: dev@momstarter.local
 
 - tapOn:
     id: login-password
 - clearText
-- inputText: "MomTest-Password-2026"
+- inputText: "DevTest-Password-2026"
 
 - tapOn:
     id: login-submit

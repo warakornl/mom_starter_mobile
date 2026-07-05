@@ -1,0 +1,91 @@
+# 05-supplies-add.yaml
+# Flow: login → navigate to Supplies → add one item → assert item appears in list.
+#
+# Prerequisites:
+#   - iOS Simulator running with dev build (npx expo run:ios)
+#   - Backend running at localhost:8080 (sync push/pull)
+#   - Account: dev@momstarter.local / DevTest-Password-2026 — auto-seeded and email-verified
+#     ONLY when the backend runs with the local Spring profile (momstarter.dev.auto-verify-email=true).
+#     Start the backend with the local profile: --spring.profiles.active=local
+#   - Account must have a pregnancy profile (run 03-pregnancy.yaml first or seed via API)
+#
+# REGRESSION: This flow verifies that the uuid-crypto bug is fixed.
+#   In affected builds, tapping "supplies-add" crashed with:
+#   "global.crypto.randomUUID is not a function" (missing polyfill).
+#   Fix: polyfills.ts now installs a shim before uuid v4 runs.
+#   Expected: no crash, item appears in list after save.
+#
+# Selector strategy: testID (id:) throughout — language-independent.
+
+appId: com.momstarter.app
+
+---
+
+- launchApp:
+    clearState: true
+
+# Wait for Welcome screen
+- assertVisible:
+    id: welcome-login-btn
+
+# Tap "เข้าสู่ระบบ"
+- tapOn:
+    id: welcome-login-btn
+
+# Fill credentials
+- tapOn:
+    id: login-email
+- clearText
+- inputText: dev@momstarter.local
+
+- tapOn:
+    id: login-password
+- clearText
+- inputText: "DevTest-Password-2026"
+
+# Submit
+- tapOn:
+    id: login-submit
+
+# Wait for Home (week hero = pregnant, or postpartum banner)
+- extendedWaitUntil:
+    visible:
+      id: home-week-hero
+    timeout: 10000
+
+# Navigate to Supplies via the shortcut link on Home
+- tapOn:
+    id: home-supplies-shortcut
+
+# Wait for SuppliesScreen — FAB is always present
+- extendedWaitUntil:
+    visible:
+      id: supplies-add
+    timeout: 8000
+
+# Tap FAB to open the add form
+- tapOn:
+    id: supplies-add
+
+# Wait for the add/edit form modal (name field is the reliable anchor)
+- extendedWaitUntil:
+    visible:
+      id: supplies-form-name
+    timeout: 5000
+
+# Type the item name (field is autoFocused but we tap to be explicit)
+- tapOn:
+    id: supplies-form-name
+- clearText
+- inputText: "ผ้าอ้อมทดสอบ E2E"
+
+# Save
+- tapOn:
+    id: supplies-form-save
+
+# The modal dismisses and the new item should appear in the list.
+# supplies-item is rendered for every row in the FlatList.
+- extendedWaitUntil:
+    visible:
+      id: supplies-item
+    timeout: 8000

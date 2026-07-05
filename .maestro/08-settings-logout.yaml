@@ -1,0 +1,98 @@
+# 08-settings-logout.yaml
+# Flow: login → tap ☰ on Home → SettingsScreen → tap logout → confirm → assert WelcomeScreen.
+#
+# Prerequisites:
+#   - iOS Simulator running with dev build (npx expo run:ios)
+#   - Backend running at localhost:8080 (token validation)
+#   - Account: dev@momstarter.local / DevTest-Password-2026 — auto-seeded and email-verified
+#     ONLY when the backend runs with the local Spring profile (momstarter.dev.auto-verify-email=true).
+#   - Account has a pregnancy profile (home-week-hero must be visible post-login)
+#
+# REGRESSION: Verifies that logout is now 2 levels deep (Home ☰ → Settings → ออกจากระบบ
+#   → confirm dialog). In an earlier design logout was on Home directly — the move to
+#   SettingsScreen prevents accidental logout.
+#   NOTE: The button icon changed from ⚙ (gear) to ☰ (hamburger) in the latest merge.
+#   testID="home-settings-btn" is unchanged — this flow still works without modification.
+#   Expected: tapping home-settings-btn → SettingsScreen; logout only after confirm.
+#
+# NOTE on Alert buttons: iOS native Alert renders the title ("ออกจากระบบ") as
+#   non-interactive text and the action buttons as interactive elements at the bottom.
+#   Both the title AND the confirm button share the same text "ออกจากระบบ" (Thai) /
+#   "Sign out" (EN). Maestro's tapOn targets the first interactive element with that
+#   text — in an iOS Alert this is the button, not the title. If disambiguation is
+#   needed, the cancel button "ยกเลิก" / "Cancel" can be tapped first to verify the
+#   dialog appears, then the confirm tapped.
+#
+# Selector strategy: id: (testID) where available; text: regex for Alert buttons.
+
+appId: com.momstarter.app
+
+---
+
+- launchApp:
+    clearState: true
+
+# Wait for Welcome screen
+- assertVisible:
+    id: welcome-login-btn
+
+# Login
+- tapOn:
+    id: welcome-login-btn
+
+- tapOn:
+    id: login-email
+- clearText
+- inputText: dev@momstarter.local
+
+- tapOn:
+    id: login-password
+- clearText
+- inputText: "DevTest-Password-2026"
+
+- tapOn:
+    id: login-submit
+
+# Wait for Home
+- extendedWaitUntil:
+    visible:
+      id: home-week-hero
+    timeout: 10000
+
+# Tap the ☰ hamburger button (top-right of Home header; was ⚙ gear before latest merge)
+- tapOn:
+    id: home-settings-btn
+
+# Wait for SettingsScreen (container testID)
+- extendedWaitUntil:
+    visible:
+      id: settings-screen
+    timeout: 5000
+
+# Assert the logout row is visible before tapping it (2-level confirmation check)
+- assertVisible:
+    id: settings-logout
+
+# Tap "ออกจากระบบ" / "Sign out" row → triggers Alert.alert confirm dialog
+- tapOn:
+    id: settings-logout
+
+# The Alert appears. Wait for the confirm/destructive button text.
+# Thai: "ออกจากระบบ"  |  EN: "Sign out"
+# (Both title and button share the same text; Maestro picks the interactive element.)
+- extendedWaitUntil:
+    visible:
+      text: ".*ออกจากระบบ.*|.*[Ss]ign out.*"
+    timeout: 5000
+
+# Tap the confirm button. On iOS Alert the button is the first tappable element
+# matching the text — the title is a non-interactive UILabel.
+- tapOn:
+    text: ".*ออกจากระบบ.*|.*[Ss]ign out.*"
+
+# performLogout runs: clears tokens + resets all local stores (PDPA 1.1 clearing).
+# Navigator resets to WelcomeScreen.
+- extendedWaitUntil:
+    visible:
+      id: welcome-login-btn
+    timeout: 8000

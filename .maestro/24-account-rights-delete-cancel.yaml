@@ -5,12 +5,14 @@
 #   maestro test .maestro/24-account-rights-delete-cancel.yaml
 #
 # This flow is NON-DESTRUCTIVE. The account is not deleted. Safe to run against
-# mom@test.local or any test account.
+# the shared dev account or any test account.
 #
 # Prerequisites:
 #   - iOS Simulator or Android Emulator with dev build
 #   - Backend running at localhost:8080
-#   - Account: mom@test.local / MomTest-Password-2026 (pregnancy profile)
+#   - Account: dev@momstarter.local / DevTest-Password-2026 — auto-seeded and email-verified
+#     ONLY when the backend runs with the local Spring profile (momstarter.dev.auto-verify-email=true).
+#     Needs a pregnancy profile (run 03-pregnancy.yaml first or seed via API).
 #
 # What this flow verifies (AR-AC-14, US-25):
 #   AR-AC-14: Cancel at the confirm sheet leaves the account and all data
@@ -43,12 +45,12 @@ appId: com.momstarter.app
 - tapOn:
     id: login-email
 - clearText
-- inputText: mom@test.local
+- inputText: dev@momstarter.local
 
 - tapOn:
     id: login-password
 - clearText
-- inputText: "MomTest-Password-2026"
+- inputText: "DevTest-Password-2026"
 
 - tapOn:
     id: login-submit

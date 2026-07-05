@@ -8,7 +8,8 @@
 # Prerequisites:
 #   - iOS Simulator or Android emulator running with dev build.
 #   - Backend running at localhost:8080.
-#   - Account: mom@test.local / MomTest-Password-2026.
+#   - Account: dev@momstarter.local / DevTest-Password-2026 — auto-seeded and email-verified
+#     ONLY when the backend runs with the local Spring profile (momstarter.dev.auto-verify-email=true).
 #   - Account has cloud_storage AND general_health consent GRANTED.
 #   - At least one active scheduled medication plan exists with a dose time today
 #     (run 18-reminder-plan-creates-reminder.yaml first and ensure dose time is
@@ -59,12 +60,12 @@ appId: com.momstarter.app
 - tapOn:
     id: login-email
 - clearText
-- inputText: mom@test.local
+- inputText: dev@momstarter.local
 
 - tapOn:
     id: login-password
 - clearText
-- inputText: "MomTest-Password-2026"
+- inputText: "DevTest-Password-2026"
 
 - tapOn:
     id: login-submit

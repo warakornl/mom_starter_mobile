@@ -13,7 +13,9 @@
 # Prerequisites:
 #   - iOS Simulator or Android emulator running with dev build.
 #   - Backend running at localhost:8080.
-#   - Account: mom@test.local / MomTest-Password-2026 (pre-seeded, pregnancy profile).
+#   - Account: dev@momstarter.local / DevTest-Password-2026 — auto-seeded and email-verified
+#     ONLY when the backend runs with the local Spring profile (momstarter.dev.auto-verify-email=true).
+#     Needs a pregnancy profile (run 03-pregnancy.yaml first or seed via API).
 #   - Account has cloud_storage AND general_health consent GRANTED.
 #   - Notification permission GRANTED on the device (for alarm scheduling verification).
 #     If denied, reminders still appear on the calendar — the OS-alarm side is a
@@ -63,12 +65,12 @@ appId: com.momstarter.app
 - tapOn:
     id: login-email
 - clearText
-- inputText: mom@test.local
+- inputText: dev@momstarter.local
 
 - tapOn:
     id: login-password
 - clearText
-- inputText: "MomTest-Password-2026"
+- inputText: "DevTest-Password-2026"
 
 - tapOn:
     id: login-submit

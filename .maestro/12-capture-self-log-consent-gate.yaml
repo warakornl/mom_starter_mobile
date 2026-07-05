@@ -10,7 +10,8 @@
 # Prerequisites:
 #   - iOS Simulator running with dev build (npx expo run:ios)
 #   - Backend running at localhost:8080
-#   - Account: mom@test.local / MomTest-Password-2026 (pregnancy profile)
+#   - Account: dev@momstarter.local / DevTest-Password-2026 — auto-seeded and email-verified
+#     ONLY when the backend runs with the local Spring profile (momstarter.dev.auto-verify-email=true).
 #   - Account must have general_health consent DECLINED before this flow runs.
 #     Decline it via: Settings → Manage consents → Health logging → Decline.
 #   - PREREQUISITE: calendar-add-capture-btn testID must be wired in CalendarScreen
@@ -57,12 +58,12 @@ appId: com.momstarter.app
 - tapOn:
     id: login-email
 - clearText
-- inputText: mom@test.local
+- inputText: dev@momstarter.local
 
 - tapOn:
     id: login-password
 - clearText
-- inputText: "MomTest-Password-2026"
+- inputText: "DevTest-Password-2026"
 
 - tapOn:
     id: login-submit

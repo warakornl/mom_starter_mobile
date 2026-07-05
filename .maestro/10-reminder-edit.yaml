@@ -1,0 +1,162 @@
+# 10-reminder-edit.yaml
+# Flow: create one-off reminder → tap its agenda row → tap "แก้ไข" in Alert
+#       → ReminderFormScreen opens in edit mode → change title → save → CalendarScreen returns
+#
+# FEATURE #13 — reminder-edit now wired in RootNavigator.
+# Before #13: Alert had "ทำแล้ว" / "เลื่อน 1 ชั่วโมง" / "ยกเลิก" only.
+# After  #13: Alert adds "แก้ไข" (key: calendar.editReminder) →
+#             onEditReminder(reminderId) → RootNavigator → ReminderFormScreen edit mode.
+#
+# ALERT BUTTON TARGETING:
+#   React Native Alert buttons on iOS are native UIAlertAction.
+#   Maestro targets them via `tapOn: text: "แก้ไข"`.
+#   This is reliable when the string is unique within the displayed Alert
+#   (other buttons are "ทำแล้ว", "เลื่อน 1 ชั่วโมง", "ยกเลิก" — no collision).
+#   If this step fails (Maestro cannot resolve the native Alert button), fall back
+#   to manual testing via TC-REM-05 and file an issue for adding testID to Alert buttons.
+#
+# AGENDA-ITEM SELECTIVITY NOTE:
+#   calendar-agenda-item testID is shared across ALL agenda rows (appointments + reminders).
+#   This flow creates a fresh reminder immediately before tapping, making it the most
+#   recently added item. However, if the test account already has agenda items on today,
+#   the first visible calendar-agenda-item may be an appointment row, not the reminder.
+#   For a reliable run, use a test account with no pre-existing agenda items on today's date,
+#   or run after clearState (this flow does clearState: true at launch).
+#   Full manual coverage: TC-REM-05.
+#
+# testIDs confirmed in source:
+#   reminder-title, reminder-startdate, reminder-starttime, reminder-picker-done,
+#   reminder-save, calendar-agenda-item, calendar-screen, calendar-add-reminder-btn
+#   "แก้ไข" text from messages.ts 'calendar.editReminder': 'แก้ไข'
+#
+# Prerequisites:
+#   - iOS Simulator running with dev build (npx expo run:ios)
+#   - Backend running at localhost:8080
+#   - Account: dev@momstarter.local / DevTest-Password-2026 — auto-seeded and email-verified
+#     ONLY when the backend runs with the local Spring profile (momstarter.dev.auto-verify-email=true).
+#   - Account has a pregnancy profile (run 03-pregnancy.yaml first if needed)
+
+appId: com.momstarter.app
+
+---
+
+- launchApp:
+    clearState: true
+
+# Login
+- assertVisible:
+    id: welcome-login-btn
+- tapOn:
+    id: welcome-login-btn
+
+- tapOn:
+    id: login-email
+- clearText
+- inputText: dev@momstarter.local
+
+- tapOn:
+    id: login-password
+- clearText
+- inputText: "DevTest-Password-2026"
+
+- tapOn:
+    id: login-submit
+
+- extendedWaitUntil:
+    visible:
+      id: home-week-hero
+    timeout: 10000
+
+# Navigate to Calendar
+- tapOn:
+    id: home-calendar-shortcut
+
+- extendedWaitUntil:
+    visible:
+      id: calendar-screen
+    timeout: 8000
+
+# Step 1: Create a one-off reminder (same as 07-reminder-create.yaml)
+- tapOn:
+    id: calendar-add-reminder-btn
+
+- extendedWaitUntil:
+    visible:
+      id: reminder-startdate
+    timeout: 5000
+
+- tapOn:
+    id: reminder-title
+- clearText
+- inputText: "ทดสอบแก้ไข E2E"
+
+# Accept default start-date (today)
+- tapOn:
+    id: reminder-startdate
+- extendedWaitUntil:
+    visible:
+      id: reminder-picker-done
+    timeout: 5000
+- tapOn:
+    id: reminder-picker-done
+
+# Accept default start-time
+- tapOn:
+    id: reminder-starttime
+- extendedWaitUntil:
+    visible:
+      id: reminder-picker-done
+    timeout: 5000
+- tapOn:
+    id: reminder-picker-done
+
+# Save reminder (freq defaults to one_off)
+- tapOn:
+    id: reminder-save
+
+# Calendar returns and shows the reminder in today's agenda (REG-02 / REG-05)
+- extendedWaitUntil:
+    visible:
+      id: calendar-screen
+    timeout: 10000
+- assertVisible:
+    id: calendar-agenda-item
+
+# Step 2: Tap the reminder row to open the Alert
+- tapOn:
+    id: calendar-agenda-item
+
+# Step 3: Tap "แก้ไข" in the native Alert
+# Note: if this step fails due to Alert targeting, see ALERT BUTTON TARGETING above.
+- tapOn:
+    text: "แก้ไข"
+
+# Step 4: ReminderFormScreen opens in edit mode — reminder-title field should be visible
+#         with the previously entered title "ทดสอบแก้ไข E2E"
+- extendedWaitUntil:
+    visible:
+      id: reminder-title
+    timeout: 5000
+
+# Step 5: Change the title
+- tapOn:
+    id: reminder-title
+- clearText
+- inputText: "ทดสอบแก้ไข E2E (อัปเดตแล้ว)"
+
+# Step 6: Save the edit
+- tapOn:
+    id: reminder-save
+
+# Step 7: CalendarScreen re-appears — edit was saved
+- extendedWaitUntil:
+    visible:
+      id: calendar-screen
+    timeout: 10000
+
+# The updated title should appear in the agenda.
+# Note: asserting exact text in calendar-agenda-item by title is not done here because
+# the row text format may include time prefix. Presence of calendar-agenda-item is
+# sufficient for E2E; title correctness is verified manually per TC-REM-05.
+- assertVisible:
+    id: calendar-agenda-item

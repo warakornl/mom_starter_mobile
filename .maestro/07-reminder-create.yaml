@@ -1,0 +1,151 @@
+# 07-reminder-create.yaml
+# Flow: login → Calendar → add reminder (one_off, default date/time) → save
+#       → assert reminder appears in CalendarScreen agenda immediately.
+#
+# Prerequisites:
+#   - iOS Simulator running with dev build (npx expo run:ios)
+#   - Backend running at localhost:8080
+#   - Account: dev@momstarter.local / DevTest-Password-2026 — auto-seeded and email-verified
+#     ONLY when the backend runs with the local Spring profile (momstarter.dev.auto-verify-email=true).
+#   - Account has a pregnancy profile (run 03-pregnancy.yaml first)
+#
+# DATE/TIME PICKER LIMITATION (iOS spinner-in-Modal):
+#   Maestro cannot reliably drag/scroll the wheel to a specific value.
+#   This flow accepts the pre-populated defaults (today, 08:00) and taps Done
+#   without scrolling the wheel. Specific value selection = manual only (TC-REM-01).
+#   reminder-picker-done is a SINGLE SHARED Done button for ALL reminder pickers
+#   (date, time, until-date, time-of-day) — same testID used for every picker close.
+#
+# REGRESSION (REG-02 + REG-05 — refresh-on-focus + auto-date-focus):
+#   After save, CalendarScreen must (a) auto-select the reminder's start date and
+#   (b) show the new reminder in the agenda immediately — without needing to leave
+#   and re-enter the screen.
+#   Mechanism: ReminderFormScreen calls setPendingCalendarFocusDate(startDate)
+#   before navigation.goBack(); CalendarScreen's useFocusEffect consumes it and
+#   auto-selects that date (changing the displayed month if needed).
+#   This flow accepts the pre-populated default start date (today), so the
+#   auto-focus lands on today — the calendar-agenda-item assertion is RELIABLE
+#   because the selected date always matches the reminder's start date, not just
+#   "whatever day happens to be selected". If the item is absent,
+#   pendingCalendarFocusDate or useFocusEffect regression has occurred
+#   (REG-05 / REG-02 respectively).
+#
+# testIDs added in latest merge (all 8 previously-missing IDs are now in source):
+#   calendar-screen, calendar-add-reminder-btn, reminder-title,
+#   reminder-picker-done (shared), calendar-agenda-item
+#
+# Selector strategy: id: (testID) throughout — language-independent.
+
+appId: com.momstarter.app
+
+---
+
+- launchApp:
+    clearState: true
+
+# Login
+- assertVisible:
+    id: welcome-login-btn
+- tapOn:
+    id: welcome-login-btn
+
+- tapOn:
+    id: login-email
+- clearText
+- inputText: dev@momstarter.local
+
+- tapOn:
+    id: login-password
+- clearText
+- inputText: "DevTest-Password-2026"
+
+- tapOn:
+    id: login-submit
+
+- extendedWaitUntil:
+    visible:
+      id: home-week-hero
+    timeout: 10000
+
+# Navigate to Calendar
+- tapOn:
+    id: home-calendar-shortcut
+
+# Wait for CalendarScreen (calendar-screen testID is now in source)
+- extendedWaitUntil:
+    visible:
+      id: calendar-screen
+    timeout: 8000
+
+# Tap "add reminder" button (calendar-add-reminder-btn is now in source)
+- tapOn:
+    id: calendar-add-reminder-btn
+
+# Wait for ReminderFormScreen — startdate field is the reliable testID anchor
+- extendedWaitUntil:
+    visible:
+      id: reminder-startdate
+    timeout: 5000
+
+# Enter reminder title (reminder-title testID is now in source)
+- tapOn:
+    id: reminder-title
+- clearText
+- inputText: "ทานยาวิตามิน E2E"
+
+# Verify the start-date and start-time picker fields are present
+- assertVisible:
+    id: reminder-startdate
+- assertVisible:
+    id: reminder-starttime
+
+# Open the start-date picker
+- tapOn:
+    id: reminder-startdate
+
+# iOS: picker Modal slides up. Wait for Done button.
+# reminder-picker-done is the single shared Done button for all reminder pickers (now in source).
+- extendedWaitUntil:
+    visible:
+      id: reminder-picker-done
+    timeout: 5000
+
+# Tap Done — accepts the default pre-populated start date (today)
+- tapOn:
+    id: reminder-picker-done
+
+# Open the start-time picker
+- tapOn:
+    id: reminder-starttime
+
+# Wait for Done button in time picker (same shared reminder-picker-done)
+- extendedWaitUntil:
+    visible:
+      id: reminder-picker-done
+    timeout: 5000
+
+# Tap Done — accepts default time (08:00)
+- tapOn:
+    id: reminder-picker-done
+
+# Default freq is one_off — no timesOfDay required. Save directly.
+- tapOn:
+    id: reminder-save
+
+# navigation.goBack() fires; CalendarScreen re-appears.
+# useFocusEffect consumes pendingCalendarFocusDate → auto-selects the reminder's
+# start date (REG-05: pendingCalendarFocusDate fix) and refreshes the agenda
+# (REG-02: refresh-on-focus fix). Assert CalendarScreen is back.
+- extendedWaitUntil:
+    visible:
+      id: calendar-screen
+    timeout: 10000
+
+# REG-05 + REG-02: assert the created reminder APPEARS in the agenda immediately.
+# The assertion is reliable because pendingCalendarFocusDate ensures the calendar
+# is already on the correct date (the reminder's start date — today in this flow).
+# calendar-agenda-item testID is on BOTH checklist and occurrence agenda rows;
+# assertVisible matches any visible row.
+# Absence = pendingCalendarFocusDate regression (REG-05) or useFocusEffect regression (REG-02).
+- assertVisible:
+    id: calendar-agenda-item

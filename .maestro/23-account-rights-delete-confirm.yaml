@@ -3,11 +3,11 @@
 #       real DELETE /v1/account → (S1 navigation — DEVICE-ONLY).
 #
 # ══════════════════════════════════════════════════════════════════════════════
-# !! DISPOSABLE ACCOUNT REQUIRED — NEVER RUN WITH mom@test.local !!
+# !! DISPOSABLE ACCOUNT REQUIRED — NEVER RUN WITH dev@momstarter.local !!
 #
 # This flow PERMANENTLY DELETES the account it logs in with.
 # It MUST be pointed at a freshly-seeded throwaway account.
-# Pointing it at mom@test.local (the shared account used by flows 22, 24, 25)
+# Pointing it at dev@momstarter.local (the shared account used by flows 22, 24, 25)
 # will destroy those flows' prerequisites.
 #
 # Credentials are injected via Maestro env vars (never hardcoded here):
@@ -34,7 +34,7 @@
 #   - Backend running at localhost:8080
 #   - A FRESH disposable account seeded and credentials exported as env vars
 #     (DISPOSABLE_EMAIL / DISPOSABLE_PASSWORD). See header above.
-#     MUST NOT be mom@test.local — flows 22/24/25 depend on that account.
+#     MUST NOT be dev@momstarter.local — flows 22/24/25 depend on that account.
 #   - Device enrolled with biometric or passcode (to exercise the step-up branch).
 #     For NONE-device testing (skip step-up) see the prerequisites note below.
 #
@@ -77,7 +77,7 @@ appId: com.momstarter.app
 
 # ── 2. Login ─────────────────────────────────────────────────────────────────
 # !! MUST use ${DISPOSABLE_EMAIL} / ${DISPOSABLE_PASSWORD} (env vars required) !!
-# !! This flow PERMANENTLY DELETES the account — NEVER use mom@test.local     !!
+# !! This flow PERMANENTLY DELETES the account — NEVER use dev@momstarter.local !!
 # !! Pass: --env DISPOSABLE_EMAIL=<email> --env DISPOSABLE_PASSWORD=<pw>      !!
 - tapOn:
     id: welcome-login-btn

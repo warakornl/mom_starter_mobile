@@ -45,7 +45,7 @@ maestro --version
    - หรือ override ผ่าน `app.json extra.apiBaseUrl`
    - บน Simulator ใช้ `localhost:8080` ได้ปกติ
 
-6. **Pregnancy profile** — flow ที่ต้องการ pregnancy profile (03, 04, 05, 06, 07, 07b, 08, 09, 10, 14, 15, 16, 17, 18, 19, 20, 21, 22, 24, 25):
+6. **Pregnancy profile** — flow ที่ต้องการ pregnancy profile (03, 04, 05, 06, 07, 07b, 08, 09, 10, 14, 15, 16, 17, 18, 19, 20, 21, 22, 24, 25; 11/12/13 consent-only):
    - รัน `03-pregnancy.yaml` ก่อน (ตั้ง week 38) หรือ seed ผ่าน API โดยตรง
    - Flow 09 ต้องการ profile pregnant ที่ week >= 32 (gate `shouldShowModule`)
 

@@ -7,7 +7,9 @@
 # Prerequisites:
 #   - iOS Simulator or Android Emulator with dev build
 #   - Backend running at localhost:8080 OR intentionally unreachable (see network note below)
-#   - Account: mom@test.local / MomTest-Password-2026 (pregnancy profile)
+#   - Account: dev@momstarter.local / DevTest-Password-2026 — auto-seeded and email-verified
+#     ONLY when the backend runs with the local Spring profile (momstarter.dev.auto-verify-email=true).
+#     Needs a pregnancy profile (run 03-pregnancy.yaml first or seed via API).
 #
 # Network prerequisite (IMPORTANT):
 #   Maestro does not have a built-in "disable network" command. To test offline behavior,
@@ -53,12 +55,12 @@ appId: com.momstarter.app
 - tapOn:
     id: login-email
 - clearText
-- inputText: mom@test.local
+- inputText: dev@momstarter.local
 
 - tapOn:
     id: login-password
 - clearText
-- inputText: "MomTest-Password-2026"
+- inputText: "DevTest-Password-2026"
 
 - tapOn:
     id: login-submit

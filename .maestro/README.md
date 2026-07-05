@@ -17,20 +17,35 @@ maestro --version
 ## สิ่งที่ต้องเตรียมก่อนรัน
 
 1. **iOS Simulator** — เปิด simulator ไว้ (Xcode → Open Simulator หรือ `xcrun simctl boot`)
-2. **Dev Build** — แนะนำให้ใช้ dev build แทน Expo Go เพราะ Maestro ต้องการ `bundleIdentifier` (`com.momstarter.app`) ที่แน่นอน:
+
+2. **Dev Build** — ต้องใช้ dev build เท่านั้น (ไม่ใช่ Expo Go) เพราะ Maestro ระบุ app ด้วย `bundleIdentifier` (`com.momstarter.app`) และ flow ที่ใช้ notifications/biometric (flow 18–23) ต้องการ dev build เพื่อเข้าถึง native API:
 
    ```bash
    cd mom_starter_mobile
    npx expo run:ios
    ```
 
-3. **Backend รันอยู่** — branch `main` (หรือ sync กับ feature branch ที่ต้องการ) ต้องรันที่ `localhost:8080` ก่อน เพราะ flow E2E ทะลุ API จริง
+   Expo Go ใช้ bundle id ของตัวเอง → `launchApp` ไม่ตรง และ notification/biometric API ไม่พร้อมใช้งาน
 
-4. **บัญชีทดสอบ** — มีสองชุด:
-   - `mom@test.local` / `MomTest-Password-2026` — **default สำหรับ flow 05–09** (verified working กับ docker backend ปัจจุบัน; pre-seeded, รันได้ทันทีโดยไม่ต้อง seed เอง)
-   - `dev@momstarter.local` / `DevTest-Password-2026` — ใช้ใน flow 01, 03, 04 แต่ **ต้อง seed เองก่อน** ในฐานข้อมูล local (ยังไม่ได้ seed ใน docker backend default)
+3. **Backend รันอยู่** — ต้องรันที่ `localhost:8080` พร้อม **local Spring profile** (`--spring.profiles.active=local`) เพราะ:
+   - Profile `local` เปิด `momstarter.dev.auto-verify-email=true` ซึ่งทำให้ `DevModeSeeder` สร้างบัญชีทดสอบอัตโนมัติ
+   - Flow E2E ทะลุ API จริง ทุก flow ต้องมี backend รันอยู่
 
-5. **Pregnancy profile** — flow 05–07, 09 ต้องการ account ที่มี pregnancy profile อยู่แล้ว:
+4. **บัญชีทดสอบ** — บัญชีเดียวที่ code สร้างให้อัตโนมัติคือ:
+   - `dev@momstarter.local` / `DevTest-Password-2026`
+   - สร้าง + email-verified อัตโนมัติโดย `DevModeSeeder` **เฉพาะเมื่อ** backend รันด้วย local Spring profile (`momstarter.dev.auto-verify-email=true`)
+   - ไม่ต้องสมัครหรือ verify email เอง — ล็อกอินได้ทันทีหลัง backend start
+
+   > หมายเหตุ: ไม่มีบัญชี `mom@test.local` ใน codebase — ไม่มีโค้ดไหน seed บัญชีนี้ อย่าใช้
+
+5. **API URL บน physical device** — app auto-derive URL จาก Expo host IP เป็น `http://<LAN-IP>:8080` (ดู `src/config.ts`) บน physical device ต้องแน่ใจว่า:
+   - backend bind ที่ `0.0.0.0` (ไม่ใช่แค่ `127.0.0.1`)
+   - device กับ dev machine อยู่ใน Wi-Fi เดียวกัน
+   - firewall เปิด port 8080
+   - หรือ override ผ่าน `app.json extra.apiBaseUrl`
+   - บน Simulator ใช้ `localhost:8080` ได้ปกติ
+
+6. **Pregnancy profile** — flow ที่ต้องการ pregnancy profile (03, 04, 05, 06, 07, 07b, 08, 09, 10, 14, 15, 16, 17, 18, 19, 20, 21, 22, 24, 25):
    - รัน `03-pregnancy.yaml` ก่อน (ตั้ง week 38) หรือ seed ผ่าน API โดยตรง
    - Flow 09 ต้องการ profile pregnant ที่ week >= 32 (gate `shouldShowModule`)
 

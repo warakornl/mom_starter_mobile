@@ -54,6 +54,7 @@ import {
   ActivityIndicator,
   StyleSheet,
   SafeAreaView,
+  Modal,
 } from 'react-native';
 import { SvgXml } from 'react-native-svg';
 
@@ -99,6 +100,8 @@ import {
 } from './DoctorPdfScreenLogic';
 import { decodeFieldFromBase64 } from '../capture/captureScreenLogic';
 import type { ReportProfile } from './doctorReportAssembler';
+import { formatYearMonth } from './monthYearFormatter';
+import { TH_MONTHS_SHORT, EN_MONTHS_SHORT } from '../i18n/thaiDate';
 
 // ─── Lazy production PDF service singleton ────────────────────────────────────
 
@@ -139,6 +142,35 @@ export function DoctorPdfScreen({
 
   // ── Gate state (session-level — persisted state is in consentStore) ────────
   const [gateState, setGateState] = useState<PdfEgressGateState>(initialPdfEgressGateState);
+
+  // ── Month picker state (FIX 3: real month/year picker — §8A.2) ─────────────
+  // pickerTarget: which field is being edited ('from' | 'to')
+  // pickerYear/pickerMonth: the tentative selection inside the modal (1-indexed)
+  type PickerTarget = 'from' | 'to';
+  const [pickerVisible, setPickerVisible] = useState(false);
+  const [pickerTarget, setPickerTarget] = useState<PickerTarget>('from');
+  const [pickerYear, setPickerYear] = useState(0);
+  const [pickerMonth, setPickerMonth] = useState(1); // 1-12
+
+  function openPicker(target: PickerTarget): void {
+    const src = target === 'from' ? builderState.monthFrom : builderState.monthTo;
+    const [y, m] = src.split('-').map(Number);
+    setPickerTarget(target);
+    setPickerYear(y);
+    setPickerMonth(m);
+    setPickerVisible(true);
+  }
+
+  function confirmPicker(): void {
+    const mm = pickerMonth < 10 ? `0${pickerMonth}` : `${pickerMonth}`;
+    const yyyyMm = `${pickerYear}-${mm}`;
+    if (pickerTarget === 'from') {
+      setBuilderState((prev) => applyMonthFromChanged(prev, yyyyMm));
+    } else {
+      setBuilderState((prev) => applyMonthToChanged(prev, yyyyMm));
+    }
+    setPickerVisible(false);
+  }
 
   // ── JIT consent hook ───────────────────────────────────────────────────────
   const jit = useJitConsent('pdf_egress', tokenStorage, apiBaseUrl);
@@ -437,55 +469,37 @@ export function DoctorPdfScreen({
 
       <ScrollView testID="pdf-screen-builder" contentContainerStyle={styles.builderContent}>
 
-        {/* ── Date range (v2 §8A.2): month picker fields replace preset chips ── */}
+        {/* ── Date range (v2 §8A.2): month picker fields (real modal picker) ── */}
         <Text style={styles.sectionLabel}>{t('pdf.screen.dateRangeLabel')}</Text>
 
-        {/* Month from picker field (v2 §8A.2).
-         * Displays current YYYY-MM value. Tap opens a native month picker.
-         * TODO: wire @react-native-community/datetimepicker once the library is
-         * confirmed in the project. The state setter is applyMonthFromChanged.
-         * Interim: tapping cycles ±1 month so testers can exercise isDateRangeValid. */}
+        {/* Month from picker field — tapping opens month/year picker modal */}
         <Text style={styles.pickerFieldLabel}>{t('pdf.screen.monthFrom')}</Text>
         <TouchableOpacity
           testID="pdf-screen-month-from"
           style={styles.pickerField}
-          onPress={() => {
-            // Interim: each tap advances monthFrom by +1 month (wraps at current monthTo).
-            // The real native picker (DateTimePicker) is wired in the native-picker slice.
-            const [y, m] = builderState.monthFrom.split('-').map(Number);
-            let ny = y;
-            let nm = m + 1;
-            if (nm > 12) { nm = 1; ny += 1; }
-            const next = `${ny}-${nm < 10 ? '0' : ''}${nm}`;
-            setBuilderState((prev) => applyMonthFromChanged(prev, next));
-          }}
+          onPress={() => openPicker('from')}
           accessibilityRole="button"
-          accessibilityLabel={`${t('pdf.screen.monthFrom')}: ${builderState.monthFrom}`}
+          accessibilityLabel={`${t('pdf.screen.monthFrom')}: ${formatYearMonth(builderState.monthFrom, locale)}`}
         >
-          <Text style={styles.pickerFieldValue}>{builderState.monthFrom}</Text>
+          {/* Display in Thai long form (BE era) or English month+year */}
+          <Text style={styles.pickerFieldValue}>
+            {formatYearMonth(builderState.monthFrom, locale)}
+          </Text>
           <Text style={styles.pickerFieldChevron}>{'›'}</Text>
         </TouchableOpacity>
 
-        {/* Month to picker field (v2 §8A.2).
-         * Displays current YYYY-MM value. Tap cycles -1 month so testers can
-         * trigger the invalid-range error. Same native-picker TODO as monthFrom. */}
+        {/* Month to picker field — tapping opens month/year picker modal */}
         <Text style={styles.pickerFieldLabel}>{t('pdf.screen.monthTo')}</Text>
         <TouchableOpacity
           testID="pdf-screen-month-to"
           style={[styles.pickerField, rangeError && styles.pickerFieldError]}
-          onPress={() => {
-            // Interim: each tap retreats monthTo by -1 month (allows testing validation).
-            const [y, m] = builderState.monthTo.split('-').map(Number);
-            let ny = y;
-            let nm = m - 1;
-            if (nm < 1) { nm = 12; ny -= 1; }
-            const next = `${ny}-${nm < 10 ? '0' : ''}${nm}`;
-            setBuilderState((prev) => applyMonthToChanged(prev, next));
-          }}
+          onPress={() => openPicker('to')}
           accessibilityRole="button"
-          accessibilityLabel={`${t('pdf.screen.monthTo')}: ${builderState.monthTo}`}
+          accessibilityLabel={`${t('pdf.screen.monthTo')}: ${formatYearMonth(builderState.monthTo, locale)}`}
         >
-          <Text style={styles.pickerFieldValue}>{builderState.monthTo}</Text>
+          <Text style={styles.pickerFieldValue}>
+            {formatYearMonth(builderState.monthTo, locale)}
+          </Text>
           <Text style={styles.pickerFieldChevron}>{'›'}</Text>
         </TouchableOpacity>
 
@@ -559,6 +573,96 @@ export function DoctorPdfScreen({
         parentalAttested={jit.parentalAttested}
         onParentalAttest={jit.setParentalAttested}
       />
+
+      {/* ── Month/year picker modal (FIX 3, §8A.2) ─────────────────────────── */}
+      {/* Cross-platform modal with year stepper + 12-month grid.
+       * Does NOT require @react-native-community/datetimepicker.
+       * Mirrors the bottom-sheet modal pattern from ReminderFormScreen (§8A). */}
+      <Modal
+        visible={pickerVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setPickerVisible(false)}
+      >
+        <View style={styles.pickerOverlay}>
+          <View style={styles.pickerCard}>
+            {/* Header row: cancel ─── title ─── done */}
+            <View style={styles.pickerHeaderRow}>
+              <TouchableOpacity
+                style={styles.pickerCancelBtn}
+                onPress={() => setPickerVisible(false)}
+                accessibilityRole="button"
+                accessibilityLabel={t('general.cancel')}
+              >
+                <Text style={styles.pickerCancelText}>{t('general.cancel')}</Text>
+              </TouchableOpacity>
+              <Text style={styles.pickerTitle}>{t('picker.selectMonth')}</Text>
+              <TouchableOpacity
+                testID="pdf-picker-done"
+                style={styles.pickerDoneBtn}
+                onPress={confirmPicker}
+                accessibilityRole="button"
+                accessibilityLabel={t('general.done')}
+              >
+                <Text style={styles.pickerDoneText}>{t('general.done')}</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Year stepper: ‹ YYYY › */}
+            <View style={styles.pickerYearRow}>
+              <TouchableOpacity
+                testID="pdf-picker-year-prev"
+                style={styles.pickerStepBtn}
+                onPress={() => setPickerYear((y) => y - 1)}
+                accessibilityRole="button"
+                accessibilityLabel="Previous year"
+              >
+                <Text style={styles.pickerStepText}>{'‹'}</Text>
+              </TouchableOpacity>
+              <Text style={styles.pickerYearLabel} testID="pdf-picker-year-label">
+                {locale === 'th' ? `พ.ศ. ${pickerYear + 543}` : `${pickerYear}`}
+              </Text>
+              <TouchableOpacity
+                testID="pdf-picker-year-next"
+                style={styles.pickerStepBtn}
+                onPress={() => setPickerYear((y) => y + 1)}
+                accessibilityRole="button"
+                accessibilityLabel="Next year"
+              >
+                <Text style={styles.pickerStepText}>{'›'}</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* 12-month grid: 3 rows × 4 cols */}
+            <View style={styles.pickerMonthGrid}>
+              {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => {
+                const isSelected = m === pickerMonth;
+                return (
+                  <TouchableOpacity
+                    key={m}
+                    testID={`pdf-picker-month-${m}`}
+                    style={[styles.pickerMonthCell, isSelected && styles.pickerMonthCellSelected]}
+                    onPress={() => setPickerMonth(m)}
+                    accessibilityRole="button"
+                    accessibilityState={{ selected: isSelected }}
+                  >
+                    <Text
+                      style={[
+                        styles.pickerMonthLabel,
+                        isSelected && styles.pickerMonthLabelSelected,
+                      ]}
+                    >
+                      {locale === 'th'
+                        ? (TH_MONTHS_SHORT[m - 1] ?? `${m}`)
+                        : (EN_MONTHS_SHORT[m - 1] ?? `${m}`)}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -1169,5 +1273,95 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: BORDER,
     backgroundColor: CREAM,
+  },
+
+  // ── Month/year picker modal styles (FIX 3, §8A.2) ───────────────────────────
+  // Bottom-sheet pattern matching ReminderFormScreen (§8A).
+  pickerOverlay: {
+    flex: 1,
+    justifyContent: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.35)',
+  },
+  pickerCard: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingHorizontal: 16,
+    paddingBottom: 32,
+    paddingTop: 4,
+  },
+  pickerHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: BORDER,
+    marginBottom: 12,
+  },
+  pickerCancelBtn: { minWidth: 56, paddingVertical: 4 },
+  pickerCancelText: { fontSize: 15, color: NEUTRAL_600 },
+  pickerTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: NEUTRAL_900,
+    textAlign: 'center',
+    flex: 1,
+  },
+  pickerDoneBtn: { minWidth: 56, paddingVertical: 4, alignItems: 'flex-end' },
+  pickerDoneText: { fontSize: 15, fontWeight: '600', color: ROSE_600 },
+
+  // Year stepper row
+  pickerYearRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 24,
+    marginBottom: 16,
+  },
+  pickerStepBtn: {
+    minWidth: 44,
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pickerStepText: { fontSize: 22, color: ROSE_600 },
+  pickerYearLabel: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: NEUTRAL_900,
+    minWidth: 100,
+    textAlign: 'center',
+  },
+
+  // 12-month grid: 3 rows × 4 cols
+  pickerMonthGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    justifyContent: 'center',
+  },
+  pickerMonthCell: {
+    width: '22%',
+    minHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: BORDER,
+    backgroundColor: CREAM,
+  },
+  pickerMonthCellSelected: {
+    backgroundColor: ROSE_600,
+    borderColor: ROSE_600,
+  },
+  pickerMonthLabel: {
+    fontSize: 13,
+    color: NEUTRAL_900,
+    textAlign: 'center',
+  },
+  pickerMonthLabelSelected: {
+    color: '#FFFFFF',
+    fontWeight: '600',
   },
 });

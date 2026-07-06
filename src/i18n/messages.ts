@@ -171,6 +171,7 @@ const th = {
   // ── Date/time picker (shared across forms) ────────────────────────────────────
   'picker.selectDate': 'เลือกวันที่',
   'picker.selectTime': 'เลือกเวลา',
+  'picker.selectMonth': 'เลือกเดือน',
 
   // ── Home screen (calendar-home) ───────────────────────────────────────────────
   // Template keys use {n}, {d}, {date}, {days}, {pct} placeholders.
@@ -1178,6 +1179,7 @@ const en: MsgShape = {
   // ── Date/time picker (shared across forms) ────────────────────────────────────
   'picker.selectDate': 'Select date',
   'picker.selectTime': 'Select time',
+  'picker.selectMonth': 'Select month',
 
   // ── Home screen ──────────────────────────────────────────────────────────────
   'home.loading': 'Loading',

@@ -11,14 +11,20 @@ const EN_MONTHS = [
   'July', 'August', 'September', 'October', 'November', 'December',
 ];
 
-/** Abbreviated Thai month names (3-char with dot, e.g. "มิ.ย.") */
-const TH_MONTHS_SHORT = [
+/**
+ * Abbreviated Thai month names (3-char with dot, e.g. "มิ.ย.").
+ * Exported for use in month-picker grids (DoctorPdfScreen etc.).
+ */
+export const TH_MONTHS_SHORT = [
   'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.',
   'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.',
 ];
 
-/** Abbreviated English month names (3-char, e.g. "Jun") */
-const EN_MONTHS_SHORT = [
+/**
+ * Abbreviated English month names (3-char, e.g. "Jun").
+ * Exported for use in month-picker grids (DoctorPdfScreen etc.).
+ */
+export const EN_MONTHS_SHORT = [
   'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
   'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
 ];

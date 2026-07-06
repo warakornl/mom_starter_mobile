@@ -114,7 +114,7 @@ describe('accountApiClient.exportAccount', () => {
     expect(calls[0].init?.body).toBeUndefined();
   });
 
-  it('returns ok:false, status:404, code:account_deleted on 404', async () => {
+  it('returns ok:false, status:404, code:account_deleted on 404 with body code:not_found (genuine soft-delete)', async () => {
     const client = createAccountApiClient(
       BASE,
       makeJsonResponse(404, { code: 'not_found', message: 'Not found' }),
@@ -124,6 +124,59 @@ describe('accountApiClient.exportAccount', () => {
     if (!result.ok) {
       expect(result.status).toBe(404);
       expect(result.code).toBe('account_deleted');
+    }
+  });
+
+  it('returns ok:false, status:404, code:export_unavailable on 404 with Spring-default body (no code field)', async () => {
+    // Spring Boot framework/routing 404 — ProblemDetail without a "code" field.
+    const springBody = { timestamp: '2026-07-06T00:00:00.000+00:00', status: 404, error: 'Not Found', path: '/v1/account/export' };
+    const client = createAccountApiClient(
+      BASE,
+      makeJsonResponse(404, springBody),
+    );
+    const result = await client.exportAccount(TOKEN);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.status).toBe(404);
+      expect(result.code).toBe('export_unavailable');
+    }
+  });
+
+  it('returns ok:false, status:404, code:export_unavailable on 404 with empty body (JSON parse throws)', async () => {
+    // Empty body — res.json() throws; must not propagate the throw.
+    const emptyBodyFetch: FetchFn = () =>
+      Promise.resolve({
+        ok: false,
+        status: 404,
+        statusText: 'Not Found',
+        text: () => Promise.resolve(''),
+        json: () => Promise.reject(new SyntaxError('Unexpected end of JSON input')),
+      } as unknown as Response);
+    const client = createAccountApiClient(BASE, emptyBodyFetch);
+    const result = await client.exportAccount(TOKEN);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.status).toBe(404);
+      expect(result.code).toBe('export_unavailable');
+    }
+  });
+
+  it('returns ok:false, status:404, code:export_unavailable on 404 with non-JSON HTML body', async () => {
+    // Spring HTML error page — res.json() throws a SyntaxError.
+    const htmlBodyFetch: FetchFn = () =>
+      Promise.resolve({
+        ok: false,
+        status: 404,
+        statusText: 'Not Found',
+        text: () => Promise.resolve('<html><body>Not Found</body></html>'),
+        json: () => Promise.reject(new SyntaxError('Unexpected token < in JSON')),
+      } as unknown as Response);
+    const client = createAccountApiClient(BASE, htmlBodyFetch);
+    const result = await client.exportAccount(TOKEN);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.status).toBe(404);
+      expect(result.code).toBe('export_unavailable');
     }
   });
 

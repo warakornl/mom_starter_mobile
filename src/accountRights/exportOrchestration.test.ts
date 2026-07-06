@@ -113,7 +113,7 @@ describe('runExport — happy path', () => {
 // ─── Error paths ──────────────────────────────────────────────────────────────
 
 describe('runExport — error paths', () => {
-  it('returns {phase:EXPORT_UNAVAILABLE_404} on 404 (account soft-deleted)', async () => {
+  it('returns {phase:EXPORT_UNAVAILABLE_404} on 404 with code:account_deleted (genuine soft-delete)', async () => {
     const outcome = await runExport({
       accessToken: TOKEN,
       apiClient: makeApiClient({ ok: false, status: 404, code: 'account_deleted' }),
@@ -122,7 +122,7 @@ describe('runExport — error paths', () => {
     expect(outcome.phase).toBe('EXPORT_UNAVAILABLE_404');
   });
 
-  it('emits EXPORT_UNAVAILABLE_404 via onPhaseChange on 404', async () => {
+  it('emits EXPORT_UNAVAILABLE_404 via onPhaseChange on account_deleted 404', async () => {
     const phases: ExportPhase[] = [];
     await runExport({
       accessToken: TOKEN,
@@ -131,6 +131,39 @@ describe('runExport — error paths', () => {
       onPhaseChange: (p) => phases.push(p),
     });
     expect(phases).toContain('EXPORT_UNAVAILABLE_404');
+  });
+
+  it('returns {phase:EXPORT_ERROR} on 404 with code:export_unavailable (routing/framework 404 — retryable)', async () => {
+    // A stale backend returning framework 404 for an unknown path must land in
+    // EXPORT_ERROR (calm, retryable), NOT the terminal EXPORT_UNAVAILABLE_404.
+    const outcome = await runExport({
+      accessToken: TOKEN,
+      apiClient: makeApiClient({ ok: false, status: 404, code: 'export_unavailable' }),
+      fileService: makeFileService({ ok: true, fileUri: FAKE_URI }),
+    });
+    expect(outcome.phase).toBe('EXPORT_ERROR');
+  });
+
+  it('emits EXPORT_ERROR (not EXPORT_UNAVAILABLE_404) via onPhaseChange on export_unavailable 404', async () => {
+    const phases: ExportPhase[] = [];
+    await runExport({
+      accessToken: TOKEN,
+      apiClient: makeApiClient({ ok: false, status: 404, code: 'export_unavailable' }),
+      fileService: makeFileService({ ok: true, fileUri: FAKE_URI }),
+      onPhaseChange: (p) => phases.push(p),
+    });
+    expect(phases).toContain('EXPORT_ERROR');
+    expect(phases).not.toContain('EXPORT_UNAVAILABLE_404');
+  });
+
+  it('does NOT call saveAndShare on export_unavailable 404 (never a partial success)', async () => {
+    const fileService = makeFileService({ ok: true, fileUri: FAKE_URI });
+    await runExport({
+      accessToken: TOKEN,
+      apiClient: makeApiClient({ ok: false, status: 404, code: 'export_unavailable' }),
+      fileService,
+    });
+    expect(fileService.saveAndShare).not.toHaveBeenCalled();
   });
 
   it('returns {phase:EXPORT_ERROR} on network error', async () => {

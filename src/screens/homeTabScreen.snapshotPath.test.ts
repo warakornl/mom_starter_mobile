@@ -20,10 +20,52 @@
  * Note: Full async lifecycle tests (useFocusEffect re-GET) require
  * React Native Testing Library with mocked API and are deferred to the
  * integration test slice. This file covers the pure-logic contracts.
+ *
+ * Mocks: react-native and @react-navigation/native are native modules
+ * that cannot be loaded in the pure-node ts-jest environment. They are
+ * stubbed here so the module-export check resolves without a bundler.
  */
 
-// RED: will fail with "Cannot find module './HomeTabScreen'" until the
-// HomeTabScreen.tsx file is created (GREEN phase).
+// ─── React Native stubs (required before HomeTabScreen import) ────────────────
+
+// Stub react-native: HomeTabScreen imports View/Text/etc which require the
+// Metro bundler. We only need the module to resolve, not render.
+jest.mock('react-native', () => {
+  const StyleSheet = { create: (obj: unknown) => obj };
+  const mkComponent = (name: string) => name;
+  return {
+    View: mkComponent('View'),
+    Text: mkComponent('Text'),
+    TouchableOpacity: mkComponent('TouchableOpacity'),
+    SafeAreaView: mkComponent('SafeAreaView'),
+    ScrollView: mkComponent('ScrollView'),
+    StyleSheet,
+    AppState: {
+      addEventListener: jest.fn(() => ({ remove: jest.fn() })),
+      currentState: 'active',
+    },
+  };
+});
+
+// Stub @react-navigation/native: useFocusEffect requires a navigation context.
+jest.mock('@react-navigation/native', () => ({
+  useFocusEffect: jest.fn(),
+}));
+
+// Stub SuggestionBanner (imports react-native transitively).
+jest.mock('../suggestion/SuggestionBanner', () => ({
+  SuggestionBanner: 'SuggestionBanner',
+}));
+
+// Stub expo-secure-store (used by LanguageContext for locale persistence).
+jest.mock('expo-secure-store', () => ({
+  getItemAsync: jest.fn(() => Promise.resolve(null)),
+  setItemAsync: jest.fn(() => Promise.resolve()),
+  deleteItemAsync: jest.fn(() => Promise.resolve()),
+}));
+
+// ─── Imports (after mocks are registered) ─────────────────────────────────────
+
 import { HomeTabScreen } from './HomeTabScreen';
 import { buildCalendarTabSnapshot } from './calendarTabSnapshotBuilder';
 import type { PregnancyProfile } from '../pregnancy/types';

@@ -212,6 +212,10 @@ const th = {
   'settings.title': 'ตั้งค่า',
   'settings.account': 'บัญชีผู้ใช้',
   'settings.privacy': 'ความเป็นส่วนตัวและการยินยอม',
+  // ── Edit pregnancy (settings section) ────────────────────────────────────────
+  'settings.pregnancy': 'การตั้งครรภ์',
+  'settings.editPregnancy': 'แก้ไขข้อมูลการตั้งครรภ์',
+  'settings.editPregnancySubtitle': 'วันกำหนดคลอด / อายุครรภ์',
 
   // ── Profile Setup ─────────────────────────────────────────────────────────────
   'profile.navTitle': 'ตั้งกำหนดคลอด',
@@ -257,6 +261,20 @@ const th = {
   'profile.errorPreconditionFailed': 'ไม่สามารถบันทึกได้ในขณะนี้ กรุณาลองอีกครั้ง',
   'profile.errorGeneric': 'บันทึกไม่สำเร็จในขณะนี้',
   'profile.errorOffline': 'ออฟไลน์ · บันทึกไว้ในเครื่องเมื่อออนไลน์',
+  // ── Edit pregnancy profile (edit host screen strings) ─────────────────────────
+  'profile.editNavTitle': 'แก้ไขข้อมูลการตั้งครรภ์',
+  'profile.editLoading': 'กำลังโหลดข้อมูลการตั้งครรภ์...',
+  'profile.editLoadError': 'โหลดข้อมูลไม่สำเร็จ กรุณาลองอีกครั้ง',
+  'profile.editLoadRetry': 'ลองอีกครั้ง',
+  'profile.editNotFound': 'ยังไม่มีข้อมูลการตั้งครรภ์',
+  'profile.editNotEditable': 'ไม่สามารถแก้ไขข้อมูลได้ในขั้นนี้',
+  /** AC-10 R-3 conflict reload message (§5.2) */
+  'profile.editConflictReloaded': 'ข้อมูลถูกแก้ไขจากอุปกรณ์อื่น เราดึงข้อมูลล่าสุดมาให้แล้ว กรุณาตรวจสอบและบันทึกอีกครั้ง',
+  /** AC-15 discard-changes guard */
+  'profile.editDiscardTitle': 'ทิ้งการแก้ไข?',
+  'profile.editDiscardBody': 'การเปลี่ยนแปลงที่ยังไม่ได้บันทึกจะถูกลบ',
+  'profile.editDiscardCancel': 'ยกเลิก',
+  'profile.editDiscardConfirm': 'ทิ้ง',
 
   // ── Supplies (เตรียมคลอด) ─────────────────────────────────────────────────────
   'supplies.navTitle': 'รายการเตรียมคลอด',
@@ -1169,6 +1187,10 @@ const en: MsgShape = {
   'settings.title': 'Settings',
   'settings.account': 'Account',
   'settings.privacy': 'Privacy & Permissions',
+  // ── Edit pregnancy (settings section) ────────────────────────────────────────
+  'settings.pregnancy': 'Pregnancy',
+  'settings.editPregnancy': 'Edit pregnancy profile',
+  'settings.editPregnancySubtitle': 'Due date / gestational age',
 
   // ── Profile Setup ─────────────────────────────────────────────────────────────
   'profile.navTitle': 'Set due date',
@@ -1212,6 +1234,18 @@ const en: MsgShape = {
   'profile.errorPreconditionFailed': 'Could not save right now — please try again',
   'profile.errorGeneric': 'Could not save right now',
   'profile.errorOffline': 'Offline — will sync when back online',
+  // ── Edit pregnancy profile (edit host screen strings) ─────────────────────────
+  'profile.editNavTitle': 'Edit pregnancy profile',
+  'profile.editLoading': 'Loading pregnancy profile...',
+  'profile.editLoadError': 'Could not load profile — try again',
+  'profile.editLoadRetry': 'Try again',
+  'profile.editNotFound': 'No pregnancy profile found',
+  'profile.editNotEditable': 'Cannot edit at this stage',
+  'profile.editConflictReloaded': "Updated on another device — we've loaded the latest. Please review and save again.",
+  'profile.editDiscardTitle': 'Discard changes?',
+  'profile.editDiscardBody': 'Unsaved changes will be lost',
+  'profile.editDiscardCancel': 'Keep editing',
+  'profile.editDiscardConfirm': 'Discard',
 
   // ── Supplies ──────────────────────────────────────────────────────────────────
   'supplies.navTitle': 'Supply checklist',

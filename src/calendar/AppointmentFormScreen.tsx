@@ -49,12 +49,26 @@ import { toCivilDate, toCivilTime, parseCivilDate, parseCivilTime } from './date
 import { formatCivilDate } from '../i18n/messages';
 import type { Locale } from '../auth/types';
 import { setPendingCalendarFocusDate } from './pendingCalendarFocusDate';
+import type { AncFormPrefill } from '../suggestion/types';
+import {
+  initAppointmentFormState,
+  buildChecklistItemToCreate,
+} from './appointmentFormPrefill';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 export interface AppointmentFormScreenProps {
   /** Existing item to edit; undefined = create new appointment. */
   existingItem?: ChecklistItemRecord;
+  /**
+   * ANC suggestion prefill payload — mutually exclusive with existingItem.
+   * When provided the form opens in CREATE mode with pre-filled fields from the
+   * ANC cadence suggestion (Surface 5, §2.3).
+   *
+   * INV-A4: nothing is written until the mother taps Save.
+   * Cancel with prefill → 0 rows + empty sync queue (no side effect).
+   */
+  prefill?: AncFormPrefill;
   /** Category to pre-fill on new items. Defaults to 'appointment'. */
   defaultCategory?: ChecklistItemCategory;
   /** Token storage — required to trigger sync push after save. */
@@ -120,6 +134,7 @@ function parseNote(note: string): { location: string; doctor: string; extra: str
 
 export function AppointmentFormScreen({
   existingItem,
+  prefill,
   defaultCategory = 'appointment',
   tokenStorage,
   apiBaseUrl,
@@ -129,22 +144,23 @@ export function AppointmentFormScreen({
   const { t, locale } = useT();
   const isEdit = !!existingItem;
 
-  // Parse existing scheduledAt
-  const existingDate = existingItem?.scheduledAt?.slice(0, 10) ?? localCivilToday();
-  const existingTime = existingItem?.scheduledAt?.slice(11, 16) ?? '09:00';
-  const existingAllDay = existingItem?.scheduledAt?.endsWith('T00:00') ?? false;
+  // ── Form initialization (existingItem ?? prefill ?? default) ───────────────
+  const initState = initAppointmentFormState({
+    existingItem,
+    prefill,
+    locale,
+    defaultCategory,
+  });
 
   // Parse existing note (R-A: location/doctor were folded in)
   const parsedNote = parseNote(existingItem?.note ?? '');
 
   // ── Form state ─────────────────────────────────────────────────────────────
-  const [title, setTitle] = useState(existingItem?.title ?? '');
-  const [category, setCategory] = useState<ChecklistItemCategory>(
-    existingItem?.category ?? defaultCategory,
-  );
-  const [date, setDate] = useState(existingDate);
-  const [time, setTime] = useState(existingTime);
-  const [allDay, setAllDay] = useState(existingAllDay);
+  const [title, setTitle] = useState(initState.title);
+  const [category, setCategory] = useState<ChecklistItemCategory>(initState.category);
+  const [date, setDate] = useState(initState.date);
+  const [time, setTime] = useState(initState.time);
+  const [allDay, setAllDay] = useState(initState.allDay);
   const [location, setLocation] = useState(parsedNote.location);
   const [doctor, setDoctor] = useState(parsedNote.doctor);
   const [extraNote, setExtraNote] = useState(parsedNote.extra);
@@ -158,8 +174,11 @@ export function AppointmentFormScreen({
   const [showTimePicker, setShowTimePicker] = useState(false);
   // tempPickerDate holds the intermediate Date while the iOS wheel is spinning,
   // so we only commit to state when the user presses "Done".
-  const [tempPickerDate, setTempPickerDate] = useState<Date>(parseCivilDate(date));
-  const [tempPickerTime, setTempPickerTime] = useState<Date>(parseCivilTime(time));
+  // When date is '' (blank — ANC_PREFILL_DATE=OFF), seed the picker with today.
+  const [tempPickerDate, setTempPickerDate] = useState<Date>(
+    parseCivilDate(initState.date || localCivilToday()),
+  );
+  const [tempPickerTime, setTempPickerTime] = useState<Date>(parseCivilTime(initState.time));
 
   // Calendar sync client — created once per mount (bound to calendarSyncStore)
   const clientRef = useRef(
@@ -220,18 +239,17 @@ export function AppointmentFormScreen({
       };
       calendarSyncStore.enqueueUpdateChecklistItem(updated);
     } else {
-      const created: ChecklistItemRecord = {
+      // Use buildChecklistItemToCreate so that source='from_suggestion' and
+      // sourceSuggestionStateId are set correctly when prefill is provided (INV-A4).
+      const created = buildChecklistItemToCreate({
         id: uuidv4(),
-        category,
         title: title.trim(),
+        category,
         scheduledAt,
-        done: false,
         note: note || null,
-        source: 'user_created',
-        version: 0,
-        createdAt: now,
-        updatedAt: now,
-      };
+        now,
+        prefill,
+      });
       calendarSyncStore.enqueueCreateChecklistItem(created);
     }
 
@@ -315,6 +333,19 @@ export function AppointmentFormScreen({
 
   return (
     <ScrollView style={styles.container} keyboardShouldPersistTaps="handled">
+      {/* ── Disclaimer header band (INV-A6 — rose/50 bg, 100% visible, from-suggestion only) ── */}
+      {initState.headerDisclaimer ? (
+        <View
+          testID="appointment-disclaimer-band"
+          style={styles.disclaimerBand}
+          accessibilityRole="none"
+          accessible={true}
+          accessibilityLabel={initState.headerDisclaimer}
+        >
+          <Text style={styles.disclaimerText}>{initState.headerDisclaimer}</Text>
+        </View>
+      ) : null}
+
       {/* Title */}
       <Text style={styles.label}>{t('appointment.fieldTitle')}</Text>
       <TextInput
@@ -335,7 +366,10 @@ export function AppointmentFormScreen({
       </Text>
 
       {/* Date — Pressable that opens DateTimePicker */}
-      <Text style={styles.label}>{t('appointment.fieldDate')}</Text>
+      {/* Flag-driven dateLabel: use prefill.dateLabel when from-suggestion, else generic key */}
+      <Text style={styles.label}>
+        {initState.dateLabel || t('appointment.fieldDate')}
+      </Text>
       <TouchableOpacity
         testID="appointment-date"
         style={[styles.pickerField, dateError ? styles.inputError : null]}
@@ -550,6 +584,25 @@ export function AppointmentFormScreen({
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FBF6F1', padding: 16 },
+  /**
+   * Disclaimer header band — rose/50 bg, always-on, never truncated (INV-A6).
+   * Full-width, no line limit, never behind a "read more" control.
+   * PDPA-A4: doctor-signed copy only (INV-A5).
+   */
+  disclaimerBand: {
+    backgroundColor: '#FBEDEE', // rose/50
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#F5D0D4', // rose/200
+    padding: 14,
+    marginBottom: 4,
+  },
+  disclaimerText: {
+    fontFamily: 'IBMPlexSans-Regular',
+    fontSize: 13,
+    lineHeight: 20,
+    color: '#5F4A52', // ink/soft
+  },
   label: { fontSize: 13, color: '#5F4A52', fontWeight: '600', marginTop: 16, marginBottom: 4 },
   hint: { fontSize: 12, color: '#94818A', marginBottom: 4 },
   input: {

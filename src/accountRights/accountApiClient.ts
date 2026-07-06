@@ -138,8 +138,25 @@ export function createAccountApiClient(
         }
 
         if (res.status === 404) {
-          // Account is soft-deleted (§2.5). Terminal for the export flow.
-          return { ok: false, status: 404, code: 'account_deleted' };
+          // Parse body to distinguish a genuine soft-delete (GlobalExceptionHandler
+          // returns {"code":"not_found",...}) from a routing/framework 404 (Spring
+          // returns a ProblemDetail or HTML error page with no "code" field).
+          // Guard against non-JSON / empty body — DO NOT throw, DO NOT log.
+          let parsed: Partial<{ code: string }> = {};
+          try {
+            parsed = (await res.json()) as Partial<{ code: string }>;
+          } catch {
+            // Non-JSON body (e.g. Spring HTML error page or empty body).
+            // Leave parsed as {}, which falls through to the routing-404 branch below.
+          }
+          if (parsed.code === 'not_found') {
+            // Genuine soft-delete (§2.5). Terminal for the export flow.
+            return { ok: false, status: 404, code: 'account_deleted' };
+          }
+          // Routing or framework 404 (unknown path, stale backend lacking the endpoint).
+          // Return a retryable error so the UI shows EXPORT_ERROR, not the terminal
+          // "account deleted" message (which would be alarming and incorrect).
+          return { ok: false, status: 404, code: 'export_unavailable' };
         }
 
         const err = await parseError(res);

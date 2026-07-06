@@ -53,7 +53,7 @@ describe('catalog key presence', () => {
     'home.weekDisplay', 'home.weekDisplayDays', 'home.eddLine',
     'home.postpartumStage', 'home.babyAgeDays', 'home.babyAgeWeeks',
     'home.babyAgeWeeksAndDays', 'home.daysSinceBirth', 'home.birthDateLine',
-    'home.progressA11y', 'home.pregnancyPlaceholder', 'home.postpartumPlaceholder',
+    'home.progressA11y',
     'home.errorHeadline', 'home.errorSubline', 'home.logout',
     'home.logoutTitle', 'home.logoutMessage', 'home.logoutCancel', 'home.logoutConfirm',
     // Profile Setup

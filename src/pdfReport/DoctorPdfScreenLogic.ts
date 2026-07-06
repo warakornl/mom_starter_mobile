@@ -1,17 +1,24 @@
 /**
  * DoctorPdfScreenLogic — pure state machine for the Doctor PDF Builder screen.
  *
- * Spec ref: pdf-doctor-ui.md §1–§5
+ * Spec ref: pdf-doctor-ui.md §1–§5; bottom-tab-navigation-design.md v2.1 §8A.2
  *
  * No React imports — testable in Node without React Native.
  *
- * Date-range presets (spec §1):
- *   this_month    — 1st of current month → today
- *   last_3_months — today minus 3 months → today
- *   all_time      — 1900-01-01 → 9999-12-31
+ * v2 date-range (spec §8A.2 OQ-NAV-4):
+ *   Replace preset chips (this_month / last_3_months / all_time) with month pickers:
+ *   monthFrom  — YYYY-MM, start month
+ *   monthTo    — YYYY-MM, end month
+ *   dateFrom   — YYYY-MM-01 (first calendar day of monthFrom)
+ *   dateTo     — YYYY-MM-DD (last calendar day of monthTo)
+ *   Default:   monthFrom = current month − 3, monthTo = current month
+ *              → rolling 4-month window (e.g. Apr–Jul 2026 when today = 2026-07-xx)
  *
- * Phase machine:
- *   builder     — user picks range + manifest toggles; Preview button enabled
+ * Validation: monthFrom ≤ monthTo (year first, then month number).
+ * Invalid range → Preview button disabled; error shown below monthTo field.
+ *
+ * Phase machine (unchanged from v1):
+ *   builder     — user picks range + manifest toggles; Preview button enabled when valid
  *   generating  — PDF HTML being assembled (spinner; cancel not supported in v1)
  *   preview     — HTML ready; faithful render (same sections/disclaimer) before share
  *   error       — generation failed; "ลองอีกครั้ง / try again" affordance
@@ -25,23 +32,19 @@ import type { DoctorReportInput } from './doctorReportAssembler';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-/** The three date-range presets (spec §1). */
-export type DateRangePreset = 'this_month' | 'last_3_months' | 'all_time';
-
-/** A civil date range for the report. Both are "YYYY-MM-DD". */
-export interface DateRange {
-  dateFrom: string;
-  dateTo: string;
-}
-
 /** The phase the Builder screen is currently in. */
 export type BuilderPhase = 'builder' | 'generating' | 'preview' | 'error';
 
-/** Full state for the DoctorPdfScreen. */
+/** Full state for the DoctorPdfScreen (v2: monthFrom/monthTo replace selectedPreset). */
 export interface BuilderPhaseState {
   phase: BuilderPhase;
-  selectedPreset: DateRangePreset;
+  /** Start month in YYYY-MM format (e.g. '2026-04'). */
+  monthFrom: string;
+  /** End month in YYYY-MM format (e.g. '2026-07'). */
+  monthTo: string;
+  /** Derived: YYYY-MM-01 (first calendar day of monthFrom). */
   dateFrom: string;
+  /** Derived: last calendar day of monthTo (e.g. '2026-07-31'). */
   dateTo: string;
   /**
    * Whether to include sensitive notes in the PDF (spec §2.2).
@@ -54,7 +57,7 @@ export interface BuilderPhaseState {
   generationError: string | null;
 }
 
-// ─── Date helpers ─────────────────────────────────────────────────────────────
+// ─── Internal date helpers ────────────────────────────────────────────────────
 
 /** Zero-pad a number to two digits. */
 function pad2(n: number): string {
@@ -62,37 +65,29 @@ function pad2(n: number): string {
 }
 
 /**
- * computePresetRange — derive the [dateFrom, dateTo] range for a given preset.
+ * computeLastDayOfMonth — return last calendar day of a YYYY-MM month string.
  *
- * @param preset  The user-selected preset.
- * @param today   Civil "YYYY-MM-DD" date (injected for testability).
+ * Uses `new Date(year, monthIndex, 0).getDate()` which returns the day
+ * count of the month before monthIndex — equivalent to the last day of
+ * the 1-indexed month. This correctly handles Feb in leap years.
  */
-export function computePresetRange(preset: DateRangePreset, today: string): DateRange {
-  if (preset === 'all_time') {
-    return { dateFrom: '1900-01-01', dateTo: '9999-12-31' };
-  }
+function computeLastDayOfMonth(yyyyMm: string): number {
+  const [y, m] = yyyyMm.split('-').map(Number);
+  // new Date(y, m, 0): monthIndex=m, day=0 → last day of month m (1-indexed)
+  return new Date(y, m, 0).getDate();
+}
 
-  const [y, m, d] = today.split('-').map(Number);
-
-  if (preset === 'this_month') {
-    const dateFrom = `${y}-${pad2(m)}-01`;
-    return { dateFrom, dateTo: today };
-  }
-
-  // last_3_months: subtract 3 calendar months
-  let fromYear = y;
-  let fromMonth = m - 3;
-  if (fromMonth <= 0) {
-    fromMonth += 12;
-    fromYear -= 1;
-  }
-  // Clamp the day to the last valid day of the target month.
-  // new Date(year, monthIndex, 0) returns the last day of the month before monthIndex,
-  // which is equivalent to the last day of fromMonth (1-indexed).
-  const lastDayOfFromMonth = new Date(fromYear, fromMonth, 0).getDate();
-  const fromDay = Math.min(d, lastDayOfFromMonth);
-  const dateFrom = `${fromYear}-${pad2(fromMonth)}-${pad2(fromDay)}`;
-  return { dateFrom, dateTo: today };
+/**
+ * monthTodateRange — compute dateFrom/dateTo from YYYY-MM strings.
+ *
+ * dateFrom = YYYY-MM-01 (spec §8A.2)
+ * dateTo   = YYYY-MM-DD where DD = last day of monthTo
+ */
+function monthToDateRange(monthFrom: string, monthTo: string): { dateFrom: string; dateTo: string } {
+  const dateFrom = `${monthFrom}-01`;
+  const lastDay = computeLastDayOfMonth(monthTo);
+  const dateTo = `${monthTo}-${pad2(lastDay)}`;
+  return { dateFrom, dateTo };
 }
 
 // ─── State factory ────────────────────────────────────────────────────────────
@@ -100,14 +95,34 @@ export function computePresetRange(preset: DateRangePreset, today: string): Date
 /**
  * builderPhaseInitial — create initial state for the Builder screen.
  *
- * Default preset: this_month (spec §1 default).
+ * Default range (spec §8A.2):
+ *   monthFrom = current month − 3 calendar months
+ *   monthTo   = current month
+ *   → rolling 4-month window covering the typical ANC check-up report period
+ *
  * @param today  Civil "YYYY-MM-DD" date (from localCivilToday() at the call site).
  */
 export function builderPhaseInitial(today: string): BuilderPhaseState {
-  const { dateFrom, dateTo } = computePresetRange('this_month', today);
+  const [y, m] = today.split('-').map(Number);
+
+  // Compute monthTo = current month
+  const monthTo = `${y}-${pad2(m)}`;
+
+  // Compute monthFrom = current month − 3 (handle year boundary)
+  let fromYear = y;
+  let fromMonth = m - 3;
+  if (fromMonth <= 0) {
+    fromMonth += 12;
+    fromYear -= 1;
+  }
+  const monthFrom = `${fromYear}-${pad2(fromMonth)}`;
+
+  const { dateFrom, dateTo } = monthToDateRange(monthFrom, monthTo);
+
   return {
     phase: 'builder',
-    selectedPreset: 'this_month',
+    monthFrom,
+    monthTo,
     dateFrom,
     dateTo,
     includeSensitiveNotes: false,
@@ -119,21 +134,50 @@ export function builderPhaseInitial(today: string): BuilderPhaseState {
 // ─── State transitions ────────────────────────────────────────────────────────
 
 /**
- * applyPresetSelected — user tapped a preset chip.
- * Updates selectedPreset and recomputes the date range.
+ * applyMonthFromChanged — user changed the "Month from" picker.
+ * Updates monthFrom, recomputes dateFrom, clears any cached HTML.
  */
-export function applyPresetSelected(
+export function applyMonthFromChanged(
   prev: BuilderPhaseState,
-  preset: DateRangePreset,
-  today: string,
+  monthFrom: string,
 ): BuilderPhaseState {
-  const { dateFrom, dateTo } = computePresetRange(preset, today);
+  const dateFrom = `${monthFrom}-01`;
   return {
     ...prev,
-    selectedPreset: preset,
+    monthFrom,
     dateFrom,
-    dateTo,
+    generatedHtml: null,
   };
+}
+
+/**
+ * applyMonthToChanged — user changed the "Month to" picker.
+ * Updates monthTo, recomputes dateTo (last day of the selected month), clears cached HTML.
+ */
+export function applyMonthToChanged(
+  prev: BuilderPhaseState,
+  monthTo: string,
+): BuilderPhaseState {
+  const lastDay = computeLastDayOfMonth(monthTo);
+  const dateTo = `${monthTo}-${pad2(lastDay)}`;
+  return {
+    ...prev,
+    monthTo,
+    dateTo,
+    generatedHtml: null,
+  };
+}
+
+/**
+ * isDateRangeValid — selector for whether the current month range is valid.
+ *
+ * Valid when monthFrom ≤ monthTo (string comparison: YYYY-MM lexicographic order
+ * is equivalent to chronological order for ISO month strings).
+ *
+ * Used to disable the Preview button and show inline error when invalid (spec §8A.2).
+ */
+export function isDateRangeValid(state: BuilderPhaseState): boolean {
+  return state.monthFrom <= state.monthTo;
 }
 
 /**

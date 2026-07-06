@@ -50,7 +50,7 @@ import type { Stage } from '../pregnancy/gestationalAge';
 import type { Lifecycle } from '../pregnancy/types';
 import { useT } from '../i18n/LanguageContext';
 import { buildAncStartPayload } from './ancHandleStart';
-import { ANC_PREFILL_DATE } from './ancConfig';
+import { ANC_PREFILL_DATE, ANC_CATALOG_COPY } from './ancConfig';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -126,15 +126,41 @@ function SuggestionCard({
   onSnooze: (key: SuggestionKey, days: SnoozeDays) => void;
   onDismiss: (key: SuggestionKey) => void;
 }): React.JSX.Element {
-  const { t } = useT();
+  const { t, locale } = useT();
   const { key, captureTarget, evidenceStrength, source } = suggestion;
 
+  // ── ANC cadence card branch (FIX1 + FIX3) ──────────────────────────────────
+  // The ANC card uses approved doctor-signed copy from ANC_CATALOG_COPY instead
+  // of generic i18n keys (INV-A5). It also suppresses the unapproved reason
+  // line (FIX3 / INV-A5) and renders the inline disclaimer + source ribbon (FIX1).
+  const isAnc = key === 'anc_next_checkup';
+  const isLocaleEn = locale === 'en';
+
   const titleKey = `suggestion.${key}.title` as Parameters<typeof t>[0];
-  const reasonKey = `suggestion.${key}.reason` as Parameters<typeof t>[0];
   const evidenceKey = `suggestion.evidence.${evidenceStrength}` as Parameters<typeof t>[0];
 
-  const title = t(titleKey);
-  const reason = t(reasonKey);
+  // For ANC, title comes from signed ANC_CATALOG_COPY (INV-A5);
+  // for other keys, from the generic i18n catalog.
+  const title = isAnc
+    ? (isLocaleEn ? ANC_CATALOG_COPY.title.en : ANC_CATALOG_COPY.title.th)
+    : t(titleKey);
+
+  // FIX3: The ANC reason string ("การฝากครรภ์ตามนัด...") is NOT in the approved
+  // §3.4 copy set — do NOT render it (rely on headline + disclaimer + ribbon).
+  // For other keys, render the reason normally.
+  const reasonKey = `suggestion.${key}.reason` as Parameters<typeof t>[0];
+  const reason = isAnc ? null : t(reasonKey);
+
+  // ANC disclaimer (INV-A6 — always-on, 100% visible, NEVER truncated)
+  const ancDisclaimer = isAnc
+    ? (isLocaleEn ? ANC_CATALOG_COPY.cardDisclaimer.en : ANC_CATALOG_COPY.cardDisclaimer.th)
+    : null;
+
+  // ANC source ribbon replaces the generic evidence ribbon (design-system §2.3)
+  const ancSourceRibbon = isAnc
+    ? (isLocaleEn ? ANC_CATALOG_COPY.sourceRibbon.en : ANC_CATALOG_COPY.sourceRibbon.th)
+    : null;
+
   const evidenceLabel = t(evidenceKey);
   const sourcePrefix = t('suggestion.source.prefix');
   const evidenceGlyph = EVIDENCE_GLYPHS[evidenceStrength] ?? '○';
@@ -150,8 +176,11 @@ function SuggestionCard({
   const snooze14Label = t('suggestion.action.snooze14d');
   const cancelLabel = t('suggestion.action.snoozeCancel');
 
-  const cardA11y =
-    `Suggestion: ${title}. Reason: ${reason}. ${evidenceLabel}. ${t('suggestion.banner.notMedicalAdvice')}. Actions: ${startLabel}, ${snoozeLabel}, ${dismissLabel}.`;
+  // FIX1: For ANC, accessibilityLabel includes the full disclaimer + source ribbon
+  // (screen-reader parity — INV-A6; disclaimer must not be skippable).
+  const cardA11y = isAnc
+    ? `Suggestion: ${title}. ${ancDisclaimer ?? ''}. ${ancSourceRibbon ?? ''}. Actions: ${startLabel}, ${snoozeLabel}, ${dismissLabel}.`
+    : `Suggestion: ${title}. Reason: ${reason ?? ''}. ${evidenceLabel}. ${t('suggestion.banner.notMedicalAdvice')}. Actions: ${startLabel}, ${snoozeLabel}, ${dismissLabel}.`;
 
   function handleSnooze() {
     const options = [
@@ -181,18 +210,47 @@ function SuggestionCard({
         </Text>
       </View>
 
-      {/* Reason text */}
-      <Text style={cardStyles.reason} accessibilityElementsHidden={true}>
-        {reason}
-      </Text>
-
-      {/* Evidence ribbon — §2.1 signature element */}
-      <View style={cardStyles.ribbon} accessibilityElementsHidden={true}>
-        <Text style={cardStyles.ribbonDot}>{evidenceGlyph}</Text>
-        <Text style={cardStyles.ribbonText} numberOfLines={2}>
-          {`${evidenceLabel} · ${sourcePrefix}${source} ›`}
+      {/* FIX3: Reason text — NOT rendered for ANC key (INV-A5: unapproved copy).
+          Rendered normally for all other suggestion keys. */}
+      {reason ? (
+        <Text style={cardStyles.reason} accessibilityElementsHidden={true}>
+          {reason}
         </Text>
-      </View>
+      ) : null}
+
+      {/* FIX1: ANC inline disclaimer (INV-A6 — always-on, 100% visible, never truncated,
+          never behind a "read more"). Renders between headline and source ribbon.
+          Only shown for the ANC cadence card. */}
+      {ancDisclaimer ? (
+        <Text
+          testID={`suggestion-card-anc-disclaimer-${key}`}
+          style={cardStyles.ancDisclaimer}
+          accessibilityElementsHidden={true}
+        >
+          {ancDisclaimer}
+        </Text>
+      ) : null}
+
+      {/* FIX1: ANC source ribbon replaces the generic evidence ribbon.
+          For all other keys, the generic evidence ribbon renders as before. */}
+      {isAnc && ancSourceRibbon ? (
+        <View
+          testID={`suggestion-card-anc-ribbon-${key}`}
+          style={cardStyles.ribbon}
+          accessibilityElementsHidden={true}
+        >
+          <Text style={cardStyles.ribbonText} numberOfLines={0}>
+            {`${ancSourceRibbon} ›`}
+          </Text>
+        </View>
+      ) : (
+        <View style={cardStyles.ribbon} accessibilityElementsHidden={true}>
+          <Text style={cardStyles.ribbonDot}>{evidenceGlyph}</Text>
+          <Text style={cardStyles.ribbonText} numberOfLines={2}>
+            {`${evidenceLabel} · ${sourcePrefix}${source} ›`}
+          </Text>
+        </View>
+      )}
 
       {/* Three actions — §2.2: Start · Snooze · Not for me */}
       <View style={cardStyles.actions}>
@@ -269,6 +327,19 @@ const cardStyles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 25,
     color: '#5F4A52', // ink/soft
+  },
+  /**
+   * ANC inline disclaimer block (INV-A6 / design-system §2.4):
+   *   - caption (13pt), ink/soft (#5F4A52), 8dp top margin from headline
+   *   - NEVER truncated — no numberOfLines cap (design spec: wraps to required lines)
+   *   - Always-on for anc_next_checkup card; absent for all other cards
+   */
+  ancDisclaimer: {
+    fontFamily: 'IBMPlexSans-Regular',
+    fontSize: 13,
+    lineHeight: 19,
+    color: '#5F4A52', // ink/soft (design-system §2.4)
+    marginTop: 8, // space/2 (8dp) per design spec §2.4
   },
   ribbon: {
     flexDirection: 'row',

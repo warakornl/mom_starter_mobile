@@ -87,11 +87,18 @@ export function createSuggestionStore(persistStorage?: SuggestionPersistStorage)
 
     /**
      * Mark a suggestion as started (the mother tapped "Start").
-     * Started suggestions are excluded from the offerable list.
-     * (suggestion-flow-ui.md §2.2 "Start" action)
+     *
+     * For cadence suggestions (e.g. `anc_next_checkup`), pass `resurfacesAt`
+     * (ISO instant) to implement a per-round quiet: the suggestion is suppressed
+     * until `resurfacesAt ≤ now`, then re-evaluated for the next target round.
+     *
+     * For non-cadence keys (all existing keys), call without `resurfacesAt`:
+     * the started state is a permanent exclude (unchanged behavior).
+     *
+     * (suggestion-flow-ui.md §2.2 "Start" action; §1.5 ANC re-arm)
      */
-    start(key: SuggestionKey): void {
-      transition(key, 'started');
+    start(key: SuggestionKey, resurfacesAt?: string): void {
+      transition(key, 'started', resurfacesAt);
     },
 
     /**

@@ -78,7 +78,15 @@ export function getOfferable(
       if (!state) return true; // no record → treat as 'offered'
 
       if (state.status === 'dismissed') return false;
-      if (state.status === 'started') return false;
+      if (state.status === 'started') {
+        // ANC cadence re-arm (§1.5): a started row with resurfacesAt behaves
+        // exactly like snoozed — suppressed while resurfacesAt > now,
+        // re-evaluable once now ≥ resurfacesAt.
+        // A started row WITHOUT resurfacesAt (non-cadence keys) is a permanent
+        // exclude — preserves existing behavior for all other keys.
+        if (!state.resurfacesAt) return false;
+        if (new Date(state.resurfacesAt) > ctx.now) return false;
+      }
       if (state.status === 'snoozed') {
         // Resurface when resurfacesAt ≤ now (or when resurfacesAt is absent)
         if (state.resurfacesAt && new Date(state.resurfacesAt) > ctx.now) {

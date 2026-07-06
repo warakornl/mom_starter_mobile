@@ -107,6 +107,34 @@ describe('suggestionStore.start', () => {
     const parsed = JSON.parse(storage._stored()!);
     expect(parsed['triferdine_daily']?.status).toBe('started');
   });
+
+  // Surface 1: ANC cadence re-arm — start(key, resurfacesAt)
+  it('stores resurfacesAt when provided (ANC round-quiet)', () => {
+    const store = createSuggestionStore();
+    const resurfacesAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
+    store.start('anc_t3_checkup', resurfacesAt);
+    const state = store.getState()['anc_t3_checkup'];
+    expect(state?.status).toBe('started');
+    expect(state?.resurfacesAt).toBe(resurfacesAt);
+  });
+
+  it('stores no resurfacesAt when not provided (non-cadence keys — unchanged)', () => {
+    const store = createSuggestionStore();
+    store.start('triferdine_daily');
+    const state = store.getState()['triferdine_daily'];
+    expect(state?.status).toBe('started');
+    expect(state?.resurfacesAt).toBeUndefined();
+  });
+
+  it('persists resurfacesAt to storage', async () => {
+    const storage = makeMemStorage();
+    const store = createSuggestionStore(storage);
+    const resurfacesAt = '2026-08-01T00:00:00.000Z';
+    store.start('anc_t3_checkup', resurfacesAt);
+    await Promise.resolve();
+    const parsed = JSON.parse(storage._stored()!);
+    expect(parsed['anc_t3_checkup']?.resurfacesAt).toBe(resurfacesAt);
+  });
 });
 
 // ─── reenable ─────────────────────────────────────────────────────────────────

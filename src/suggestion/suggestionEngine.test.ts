@@ -197,6 +197,40 @@ describe('getOfferable — user state gate', () => {
   });
 });
 
+// ─── started re-arm (Surface 1 — ANC cadence) ────────────────────────────────
+// Behavior: started WITHOUT resurfacesAt → permanent exclude (unchanged).
+// started WITH future resurfacesAt → round-quiet (excluded, like snoozed).
+// started WITH past/now resurfacesAt → re-evaluable (included).
+
+describe('getOfferable — started re-arm gate (ANC cadence §1.5)', () => {
+  it('excludes a started suggestion with no resurfacesAt (unchanged behavior)', () => {
+    const states = mkState('anc_t3_checkup', 'started');
+    const result = getOfferable(mkCtx(), states);
+    expect(result.some((s) => s.key === 'anc_t3_checkup')).toBe(false);
+  });
+
+  it('excludes a started suggestion with a future resurfacesAt (round-quiet)', () => {
+    const future = new Date(NOW.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString();
+    const states = mkState('anc_t3_checkup', 'started', future);
+    const result = getOfferable(mkCtx(), states);
+    expect(result.some((s) => s.key === 'anc_t3_checkup')).toBe(false);
+  });
+
+  it('includes a started suggestion with a past resurfacesAt (re-arms for next round)', () => {
+    const past = new Date(NOW.getTime() - 1000).toISOString();
+    const states = mkState('anc_t3_checkup', 'started', past);
+    const result = getOfferable(mkCtx(), states);
+    expect(result.some((s) => s.key === 'anc_t3_checkup')).toBe(true);
+  });
+
+  it('includes a started suggestion where resurfacesAt exactly equals now', () => {
+    const exact = NOW.toISOString();
+    const states = mkState('anc_t3_checkup', 'started', exact);
+    const result = getOfferable(mkCtx(), states);
+    expect(result.some((s) => s.key === 'anc_t3_checkup')).toBe(true);
+  });
+});
+
 // ─── ordering ─────────────────────────────────────────────────────────────────
 
 describe('getOfferable — evidence-strength ordering', () => {

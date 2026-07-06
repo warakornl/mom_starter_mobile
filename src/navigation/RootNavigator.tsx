@@ -1,30 +1,35 @@
 /**
  * RootNavigator — root native-stack navigator.
  *
- * Route map (post bottom-tab-nav refactor):
+ * Route map (v2, bottom-tab-navigation-design.md v2.1):
  *   Welcome → Login | Register
  *   Login → MainTabs (on success)
  *   Register → VerifyEmail (on 202)
  *   VerifyEmail → Consent (on verify success)
  *   Consent → MainTabs (on continue — limited mode or full mode)
- *   MainTabs — BottomTabNavigator (5 tabs: Supplies, Expenses, Calendar, Report, Medication)
- *     Calendar tab — dashboard + CalendarScreen:
+ *   MainTabs — BottomTabNavigator (5 tabs: Supplies, Expenses, Home (center), Calendar, Medication)
+ *     Home tab — dashboard + snapshot-population path (v2):
  *       → ProfileSetup (if GET 404; tab bar suppressed — ProfileSetup is a root screen)
  *       → stays in tabs (if profile exists — pregnant or postpartum)
- *     Calendar tab (T3, lifecycle=pregnant) — "ลูกคลอดแล้ว" banner CTA:
+ *       → DoctorReport (entry row "รายงานสำหรับแพทย์ ›")
+ *     Home tab (T3, lifecycle=pregnant) — "ลูกคลอดแล้ว" banner CTA:
  *       → BirthEvent (profile version passed as route param)
+ *     Calendar tab — CalendarScreen DIRECT (no wrapper; fixes nested ScrollView bug §3A)
+ *   DoctorReport — root-stack screen hosting DoctorPdfScreen (§8A):
+ *       → entered from Home tab "รายงานสำหรับแพทย์ ›" row
+ *       → navigation.goBack() on onBack
  *   ProfileSetup — initial due-date / current-week entry:
  *       → MainTabs (on PUT success; resets stack to tabs)
  *   BirthEvent — records POST /v1/pregnancy-profile/birth-event:
- *       → MainTabs (on success; resets stack; Calendar tab reloads → postpartum)
+ *       → MainTabs (on success; resets stack; Home tab reloads on focus → postpartum)
  *
  * Design decisions:
  *   - Auth screens keep callback-based prop API (decouples from navigation, stays testable).
  *   - Profile snapshot is now hosted in PregnancyProfileContext ABOVE the tab navigator.
- *     CalendarTabScreen updates it via useProfileSnapshotSetter().
- *     Non-tab screens (KickCount*, Settings, DoctorPdf, Suggestions) read via useProfileSnapshot().
- *   - Supplies, Expenses, DoctorPdf, MedicationPlans are now TABS inside BottomTabNavigator;
- *     they are no longer separate stack routes.
+ *     HomeTabScreen updates it via useProfileSnapshotSetter() (v2; was CalendarTabScreen).
+ *     Non-tab screens (KickCount*, Settings, DoctorReport, Suggestions) read via useProfileSnapshot().
+ *   - Supplies, Expenses, MedicationPlans are TABS inside BottomTabNavigator.
+ *   - DoctorReport is now a ROOT-STACK SCREEN (not a tab) — spec §8A, OQ-NAV-4.
  *   - profileSnapshot state removed from RootNavigator (was B-1 pattern from old Home).
  *     PregnancyProfileContext replaces it — same security properties (no tokens, no raw health).
  *
@@ -35,6 +40,7 @@
  */
 
 import React from 'react';
+import { View, Text, StyleSheet } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import type { RootStackParamList } from './types';
@@ -62,6 +68,7 @@ import { ConsentScreen } from '../screens/ConsentScreen';
 import { ManageConsentsScreen } from '../screens/ManageConsentsScreen';
 import { SuggestionFlowScreen } from '../suggestion/SuggestionFlowScreen';
 import { CaptureScreen } from '../capture/CaptureScreen';
+import { DoctorPdfScreen } from '../pdfReport/DoctorPdfScreen';
 import { BottomTabNavigator } from './BottomTabNavigator';
 import { useT } from '../i18n/LanguageContext';
 
@@ -96,7 +103,7 @@ interface RootNavigatorProps {
 function StackNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps): React.JSX.Element {
   const { t } = useT();
 
-  // Read profile snapshot from context (updated by CalendarTabScreen after GET profile).
+  // Read profile snapshot from context (updated by HomeTabScreen after GET profile, v2).
   // Safe defaults before the profile loads (same as old kickProps pattern).
   const snapshot = useProfileSnapshot();
   const kickProps = snapshot ?? {
@@ -200,16 +207,17 @@ function StackNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps): React
         )}
       </Stack.Screen>
 
-      {/* MainTabs — BottomTabNavigator (5 tabs).
+      {/* MainTabs — BottomTabNavigator (5 tabs, v2).
        *
-       * Wraps: Supplies, Expenses, Calendar (center, initial), Report, Medication.
-       * CalendarTabScreen handles profile GET, updates PregnancyProfileContext,
-       * and dispatches to non-tab screens (BirthEvent, Settings, KickCount, etc.).
-       * ProfileSetup is a root-stack screen; when CalendarTabScreen navigates to it
+       * Wraps: Supplies, Expenses, Home (center, initial), Calendar, Medication.
+       * HomeTabScreen handles profile GET, updates PregnancyProfileContext,
+       * and dispatches to non-tab screens (BirthEvent, Settings, KickCount,
+       * DoctorReport entry row, etc.).
+       * ProfileSetup is a root-stack screen; when HomeTabScreen navigates to it
        * the tab bar is naturally suppressed (BottomTabNavigator is unmounted).
        *
        * headerShown: false — BottomTabNavigator manages its own tab bar;
-       * CalendarTabScreen renders its own top bar with ⚙ and [TH|EN].
+       * HomeTabScreen renders its own top bar with ⚙ and [TH|EN] (v2 §3.2).
        */}
       <Stack.Screen
         name="MainTabs"
@@ -327,7 +335,7 @@ function StackNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps): React
       </Stack.Screen>
 
       {/* Settings — account/settings menu.
-       * Entry: gear ⚙ in Calendar tab top bar (§3.3, §9 — replaces ☰ hamburger).
+       * Entry: gear ⚙ in Home tab top bar (v2 §3.2 — moved from Calendar).
        * Reads profileSnapshot from PregnancyProfileContext for lifecycle-gated rows.
        */}
       <Stack.Screen
@@ -405,7 +413,7 @@ function StackNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps): React
       </Stack.Screen>
 
       {/* Suggestions — full stage-scoped suggestion list.
-       * Entry: SuggestionBanner "View all" in CalendarTabScreen.
+       * Entry: SuggestionBanner "View all" in HomeTabScreen (v2).
        * Props derived from profileSnapshot (PregnancyProfileContext).
        */}
       <Stack.Screen
@@ -446,6 +454,59 @@ function StackNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps): React
             apiBaseUrl={apiBaseUrl}
           />
         )}
+      </Stack.Screen>
+
+      {/* DoctorReport — root-stack screen hosting DoctorPdfScreen (v2 §8A).
+       *
+       * Entry: HomeTab "รายงานสำหรับแพทย์ ›" entry row (onDoctorReport callback).
+       * Replaces the former Report tab (OQ-NAV-4).
+       * onBack = navigation.goBack() (native back to Home tab).
+       *
+       * §report-edd-guard: we only render DoctorPdfScreen when the snapshot exists
+       * AND the EDD is a real date (not the '2999-12-31' sentinel that would be
+       * injected via kickProps fallback when snapshot === null). If the snapshot is
+       * null or the EDD is the sentinel, show a loading placeholder rather than
+       * passing a bogus date to the PDF assembler.
+       *
+       * In practice, this guard is rarely triggered: HomeTabScreen's onDoctorReport
+       * callback is only callable from the rendered DoctorReportRow, which is only
+       * shown after loadProfile completes with a real profile. But defensive guard
+       * here covers deep-link and dev edge cases.
+       */}
+      <Stack.Screen
+        name="DoctorReport"
+        options={{ title: t('pdf.screen.builderTitle'), headerBackTitle: t('general.back') }}
+      >
+        {({ navigation: stackNav }) => {
+          // §report-edd-guard
+          const edd = snapshot?.edd ?? null;
+          const isSentinel = edd === '2999-12-31';
+          const isReady = snapshot !== null && edd !== null && !isSentinel;
+
+          if (!isReady) {
+            // Snapshot not yet populated or sentinel EDD — show placeholder.
+            return (
+              <View style={doctorReportGuardStyles.container}>
+                <Text style={doctorReportGuardStyles.text}>
+                  {t('home.loading')}
+                </Text>
+              </View>
+            );
+          }
+
+          return (
+            <DoctorPdfScreen
+              tokenStorage={tokenStorage}
+              apiBaseUrl={apiBaseUrl}
+              profile={{
+                edd: snapshot.edd,
+                gestationalWeek: snapshot.gestationalWeek,
+                lifecycle: snapshot.lifecycle,
+              }}
+              onBack={() => stackNav.goBack()}
+            />
+          );
+        }}
       </Stack.Screen>
 
       {/* ── Kick Count — stack-pushed over tabs ────────────────────────────────
@@ -495,7 +556,7 @@ function StackNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps): React
       />
 
       {/* SC-K4: History list.
-       * Entry (postpartum): quiet history link in CalendarTabScreen (§4.3, direct entry).
+       * Entry (postpartum): quiet history link in HomeTabScreen (v2 §4.3, direct entry).
        * Entry (pregnant): from KickCountHome.
        */}
       <Stack.Screen
@@ -521,6 +582,22 @@ function StackNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps): React
     </Stack.Navigator>
   );
 }
+
+// ─── §report-edd-guard loading placeholder styles ─────────────────────────────
+
+const doctorReportGuardStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FBF6F1',
+  },
+  text: {
+    fontFamily: 'IBMPlexSans-Regular',
+    fontSize: 16,
+    color: '#94818A',
+  },
+});
 
 // ─── Public export ────────────────────────────────────────────────────────────
 

@@ -297,53 +297,61 @@ describe('reminder.snooze.* keys (Task 5 — medication snooze chooser)', () => 
 
 // ─── Bottom-tab navigation i18n keys (bottom-tab-navigation-design.md §1.1, §8.2) ─
 
-describe('tab navigation i18n keys — bottom-tab-nav', () => {
+// v2 (bottom-tab-navigation-design.md v2.1 §1.1, §8.2):
+//   Tab order: Supplies · Expenses · Home (center) · Calendar · Medication
+//   tab.report / tab.report.a11y REMOVED (OQ-NAV-4: Doctor Report is now a root-stack screen)
+//   tab.home / tab.home.a11y ADDED (center tab, §3)
+//   tab.supplies label → 'ของใช้' (OQ-NAV-5)
+//   tab.calendar.a11y simplified (calendar is grid-only tab, no dashboard context)
+describe('tab navigation i18n keys — bottom-tab-nav v2', () => {
   const TAB_KEYS: MessageKey[] = [
-    // Visible labels (spec §1.1)
+    // Visible labels (spec §1.1 v2: 5 tabs, no Report)
     'tab.supplies',
     'tab.expenses',
+    'tab.home',
     'tab.calendar',
-    'tab.report',
     'tab.medication',
     // Accessibility labels (spec §8.2)
     'tab.supplies.a11y',
     'tab.expenses.a11y',
+    'tab.home.a11y',
     'tab.calendar.a11y',
-    'tab.report.a11y',
     'tab.medication.a11y',
     // Kick-count card and postpartum history link (spec §4.2, §4.3)
     'kick.historyLink',
     'kick.countCard',
   ];
 
-  it('has all tab navigation keys with non-empty Thai values', () => {
+  it('has all v2 tab navigation keys with non-empty Thai values', () => {
     for (const key of TAB_KEYS) {
       expect(catalog.th[key]).toBeTruthy();
     }
   });
 
-  it('has all tab navigation keys with non-empty English values', () => {
+  it('has all v2 tab navigation keys with non-empty English values', () => {
     for (const key of TAB_KEYS) {
       expect(catalog.en[key]).toBeTruthy();
     }
   });
 
-  it('tab.calendar (th) is ปฏิทิน (owner decision §10 OQ-NAV-1)', () => {
+  it('tab.calendar (th) is ปฏิทิน', () => {
     expect(catalog.th['tab.calendar']).toBe('ปฏิทิน');
   });
 
-  it('tab.supplies (th) is เตรียม (owner decision §10 OQ-NAV-2)', () => {
-    expect(catalog.th['tab.supplies']).toBe('เตรียม');
+  it('tab.home (th) is หน้าหลัก (v2 center tab OQ-NAV-1)', () => {
+    expect(catalog.th['tab.home']).toBe('หน้าหลัก');
   });
 
-  it('tab.calendar.a11y (th) includes ปฏิทิน (spec §8.2 — longer label for screen readers)', () => {
+  it('tab.supplies (th) is ของใช้ (v2 OQ-NAV-5; was เตรียม)', () => {
+    expect(catalog.th['tab.supplies']).toBe('ของใช้');
+  });
+
+  it('tab.home.a11y (th) includes หน้าหลัก (spec §8.2)', () => {
+    expect(catalog.th['tab.home.a11y']).toContain('หน้าหลัก');
+  });
+
+  it('tab.calendar.a11y (th) includes ปฏิทิน (spec §8.2 — grid-only tab v2)', () => {
     expect(catalog.th['tab.calendar.a11y']).toContain('ปฏิทิน');
-  });
-
-  it('tab.calendar.a11y is longer than tab.calendar (screen reader gets full description)', () => {
-    const visible = catalog.th['tab.calendar'];
-    const a11y = catalog.th['tab.calendar.a11y'];
-    expect(a11y.length).toBeGreaterThan(visible.length);
   });
 
   it('kick.historyLink (th) contains ประวัติ (postpartum history link text)', () => {

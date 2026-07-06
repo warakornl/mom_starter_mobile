@@ -6,22 +6,23 @@
  *   Login         — no params
  *   Register      — no params
  *   VerifyEmail   — email: address shown in check-inbox screen
- *   MainTabs      — no params; renders BottomTabNavigator (5 tabs; initial = Calendar)
+ *   MainTabs      — no params; renders BottomTabNavigator (5 tabs; initial = Home)
  *   ProfileSetup  — no params (initial pregnancy profile setup — first-run or GET 404)
  *   BirthEvent    — profileVersion: current profile version (for If-Match header)
  *
- * Navigation flow:
- *   Login/VerifyEmail success → MainTabs (Calendar tab opens by default)
- *   CalendarTab (GET 404 profile) → ProfileSetup (via onNeedsProfile; tab bar suppressed)
+ * Navigation flow v2 (bottom-tab-navigation-design.md §1.1):
+ *   Login/VerifyEmail success → MainTabs (Home tab opens by default)
+ *   HomeTab (GET 404 profile) → ProfileSetup (via onNeedsProfile; tab bar suppressed)
  *   ProfileSetup complete → MainTabs (via onSetupComplete callback + navigation.reset)
- *   CalendarTab T3 banner "ลูกคลอดแล้ว" → BirthEvent (via onBirthEvent(version))
+ *   HomeTab T3 banner "ลูกคลอดแล้ว" → BirthEvent (via onBirthEvent(version))
  *   BirthEvent success → MainTabs (via onBirthRecorded + navigation.reset)
- *   CalendarTab → AppointmentForm (stack-pushed over tabs)
- *   CalendarTab → ReminderForm   (stack-pushed over tabs)
+ *   HomeTab "รายงานสำหรับแพทย์ ›" row → DoctorReport (root-stack screen §8A)
+ *   CalendarTab renders CalendarScreen directly (no wrapper per §3A)
+ *   CalendarScreen → AppointmentForm / ReminderForm (stack-pushed over tabs)
  *
  * Tabs (inside BottomTabNavigator — not separate stack routes):
- *   Supplies, Expenses, Calendar, Report (DoctorPdf), Medication
- *   These were formerly separate stack routes; they are now rendered as tabs.
+ *   Supplies, Expenses, Home (center), Calendar, Medication
+ *   Doctor Report is now a root-stack screen, not a tab.
  *
  * Deep-link carry-forward:
  *   VerifyEmail will also receive `pendingToken?: string` once Expo Linking
@@ -36,15 +37,23 @@ export type RootStackParamList = {
   /**
    * MainTabs — the 5-tab bottom navigator (BottomTabNavigator).
    * Replaces the former 'Home' route. Contains: Supplies, Expenses,
-   * Calendar (initial, center), Report, Medication.
+   * Home (center, initial), Calendar, Medication.
    * Profile snapshot is hosted in PregnancyProfileContext above this route.
    *
    * `screen` param allows deep-linking to a specific tab from outside
    * the tab navigator (e.g. SuggestionFlowScreen's "Start" CTA that routes
-   * to the Supplies or Calendar tab).  Matches the React Navigation v6
+   * to the Supplies or Calendar tab). Matches the React Navigation v6
    * nested-navigator `navigate('MainTabs', { screen: 'Supplies' })` pattern.
    */
-  MainTabs: { screen?: 'Supplies' | 'Expenses' | 'Calendar' | 'Report' | 'Medication' } | undefined;
+  MainTabs: { screen?: 'Supplies' | 'Expenses' | 'Home' | 'Calendar' | 'Medication' } | undefined;
+
+  /**
+   * DoctorReport — root-stack screen hosting DoctorPdfScreen (v2 §8A).
+   * Entered via HomeTab "รายงานสำหรับแพทย์ ›" row; replaces the former Report tab.
+   * No params — health data is read from PregnancyProfileContext (PDPA SD-9).
+   * §report-edd-guard: screen guards against the 2999-12-31 sentinel EDD.
+   */
+  DoctorReport: undefined;
 
   ProfileSetup: undefined;
   /** Birth event screen — records birth and transitions lifecycle to postpartum. */
@@ -66,7 +75,7 @@ export type RootStackParamList = {
 
   /**
    * Settings — account/settings menu.
-   * Entry: gear ⚙ in the Calendar tab top bar (§3.3, §9 — replaces ☰ hamburger).
+   * Entry: gear ⚙ in the Home tab top bar (v2 §3.2 — moved from Calendar).
    * Stack-pushed over the tabs.
    */
   Settings: undefined;

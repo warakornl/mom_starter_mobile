@@ -29,11 +29,10 @@
  *   - No auth tokens in the PDF or in any log call.
  *   - Share is explicit and per-act (not auto-upload).
  *
- * testIDs:
+ * testIDs (v2: preset chips replaced by month picker fields per §8A.2):
  *   pdf-screen-builder              — builder phase container
- *   pdf-screen-preset-this-month   — this month preset chip
- *   pdf-screen-preset-3months      — 3 months preset chip
- *   pdf-screen-preset-all-time     — all time preset chip
+ *   pdf-screen-month-from          — "Month from" touchable picker field (v2)
+ *   pdf-screen-month-to            — "Month to" touchable picker field (v2)
  *   pdf-screen-preview-btn         — Preview button
  *   pdf-screen-generating           — generating spinner container
  *   pdf-screen-preview              — preview phase container
@@ -89,13 +88,14 @@ import {
 } from './consentGate';
 import {
   builderPhaseInitial,
-  applyPresetSelected,
+  applyMonthFromChanged,
+  applyMonthToChanged,
+  isDateRangeValid,
   applyGeneratingStarted,
   applyPreviewReady,
   applyPreviewError,
   applyBackToBuilder,
   type BuilderPhaseState,
-  type DateRangePreset,
 } from './DoctorPdfScreenLogic';
 import { decodeFieldFromBase64 } from '../capture/captureScreenLogic';
 import type { ReportProfile } from './doctorReportAssembler';
@@ -421,7 +421,9 @@ export function DoctorPdfScreen({
   }
 
   // ── Builder phase (default) ────────────────────────────────────────────────
-  const isPreviewEnabled = gateAction === 'generate';
+  // v2 §8A.2: Preview enabled only when consent granted AND range valid (monthFrom ≤ monthTo).
+  const isPreviewEnabled = gateAction === 'generate' && isDateRangeValid(builderState);
+  const rangeError = !isDateRangeValid(builderState);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -435,38 +437,65 @@ export function DoctorPdfScreen({
 
       <ScrollView testID="pdf-screen-builder" contentContainerStyle={styles.builderContent}>
 
-        {/* ── Date range ──────────────────────────────────────────────────── */}
+        {/* ── Date range (v2 §8A.2): month picker fields replace preset chips ── */}
         <Text style={styles.sectionLabel}>{t('pdf.screen.dateRangeLabel')}</Text>
-        <View style={styles.presetRow}>
-          {(['this_month', 'last_3_months', 'all_time'] as DateRangePreset[]).map((preset) => {
-            const label = preset === 'this_month'
-              ? t('pdf.screen.presetThisMonth')
-              : preset === 'last_3_months'
-                ? t('pdf.screen.presetLast3Months')
-                : t('pdf.screen.presetAllTime');
-            const testID = preset === 'this_month'
-              ? 'pdf-screen-preset-this-month'
-              : preset === 'last_3_months'
-                ? 'pdf-screen-preset-3months'
-                : 'pdf-screen-preset-all-time';
-            const isSelected = builderState.selectedPreset === preset;
-            return (
-              <TouchableOpacity
-                key={preset}
-                testID={testID}
-                style={[styles.presetChip, isSelected && styles.presetChipSelected]}
-                onPress={() => setBuilderState((prev) => applyPresetSelected(prev, preset, today))}
-                accessibilityRole="radio"
-                accessibilityState={{ selected: isSelected }}
-                accessibilityLabel={label}
-              >
-                <Text style={[styles.presetChipText, isSelected && styles.presetChipTextSelected]}>
-                  {label}
-                </Text>
-              </TouchableOpacity>
-            );
-          })}
-        </View>
+
+        {/* Month from picker field (v2 §8A.2).
+         * Displays current YYYY-MM value. Tap opens a native month picker.
+         * TODO: wire @react-native-community/datetimepicker once the library is
+         * confirmed in the project. The state setter is applyMonthFromChanged.
+         * Interim: tapping cycles ±1 month so testers can exercise isDateRangeValid. */}
+        <Text style={styles.pickerFieldLabel}>{t('pdf.screen.monthFrom')}</Text>
+        <TouchableOpacity
+          testID="pdf-screen-month-from"
+          style={styles.pickerField}
+          onPress={() => {
+            // Interim: each tap advances monthFrom by +1 month (wraps at current monthTo).
+            // The real native picker (DateTimePicker) is wired in the native-picker slice.
+            const [y, m] = builderState.monthFrom.split('-').map(Number);
+            let ny = y;
+            let nm = m + 1;
+            if (nm > 12) { nm = 1; ny += 1; }
+            const next = `${ny}-${nm < 10 ? '0' : ''}${nm}`;
+            setBuilderState((prev) => applyMonthFromChanged(prev, next));
+          }}
+          accessibilityRole="button"
+          accessibilityLabel={`${t('pdf.screen.monthFrom')}: ${builderState.monthFrom}`}
+        >
+          <Text style={styles.pickerFieldValue}>{builderState.monthFrom}</Text>
+          <Text style={styles.pickerFieldChevron}>{'›'}</Text>
+        </TouchableOpacity>
+
+        {/* Month to picker field (v2 §8A.2).
+         * Displays current YYYY-MM value. Tap cycles -1 month so testers can
+         * trigger the invalid-range error. Same native-picker TODO as monthFrom. */}
+        <Text style={styles.pickerFieldLabel}>{t('pdf.screen.monthTo')}</Text>
+        <TouchableOpacity
+          testID="pdf-screen-month-to"
+          style={[styles.pickerField, rangeError && styles.pickerFieldError]}
+          onPress={() => {
+            // Interim: each tap retreats monthTo by -1 month (allows testing validation).
+            const [y, m] = builderState.monthTo.split('-').map(Number);
+            let ny = y;
+            let nm = m - 1;
+            if (nm < 1) { nm = 12; ny -= 1; }
+            const next = `${ny}-${nm < 10 ? '0' : ''}${nm}`;
+            setBuilderState((prev) => applyMonthToChanged(prev, next));
+          }}
+          accessibilityRole="button"
+          accessibilityLabel={`${t('pdf.screen.monthTo')}: ${builderState.monthTo}`}
+        >
+          <Text style={styles.pickerFieldValue}>{builderState.monthTo}</Text>
+          <Text style={styles.pickerFieldChevron}>{'›'}</Text>
+        </TouchableOpacity>
+
+        {/* Inline validation error: shown when monthFrom > monthTo (spec §8A.2) */}
+        {rangeError && (
+          <Text style={styles.rangeError} accessibilityRole="alert">
+            {t('pdf.screen.monthRangeError')}
+          </Text>
+        )}
+
 
         {/* ── Manifest (what's included) — spec §2 ─────────────────────── */}
         <Text style={styles.sectionLabel}>{t('pdf.screen.manifestTitle')}</Text>
@@ -1011,24 +1040,42 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
 
-  // Preset chips
-  presetRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
-  presetChip: {
+  // Month picker fields (v2 §8A.2 — replace preset chips)
+  pickerFieldLabel: {
+    fontSize: 13,
+    color: NEUTRAL_600,
+    marginTop: 12,
+    marginBottom: 4,
+  },
+  pickerField: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
+    paddingVertical: 12,
+    borderRadius: 10,
     borderWidth: 1.5,
     borderColor: BORDER,
     backgroundColor: CREAM,
-    minHeight: 40,
-    justifyContent: 'center',
+    minHeight: 48,
   },
-  presetChipSelected: {
-    backgroundColor: ROSE_600,
+  pickerFieldError: {
     borderColor: ROSE_600,
   },
-  presetChipText: { fontSize: 14, color: NEUTRAL_600 },
-  presetChipTextSelected: { color: '#fff', fontWeight: '600' },
+  pickerFieldValue: {
+    fontSize: 16,
+    color: NEUTRAL_900,
+    fontFamily: 'IBMPlexMono-Medium',
+  },
+  pickerFieldChevron: {
+    fontSize: 18,
+    color: NEUTRAL_400,
+  },
+  rangeError: {
+    fontSize: 13,
+    color: ROSE_600,
+    marginTop: 6,
+  },
 
   // Manifest card
   manifestCard: {

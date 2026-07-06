@@ -507,11 +507,17 @@ export function RootNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps):
           <ProfileEditScreen
             tokenStorage={tokenStorage}
             apiBaseUrl={apiBaseUrl}
-            // AC-7 / R-2: goBack to Settings on successful save
+            // AC-15: navigation passed for beforeRemove dirty-guard registration.
+            navigation={navigation}
+            // AC-7 / R-2: goBack to Settings on successful save.
+            // isDirtyRef is cleared by ProfileEditScreen before this is called,
+            // so the goBack() is NOT intercepted by the beforeRemove guard.
             onEditComplete={() => navigation.goBack()}
             // AC-13 (BLOCKING, SD-5): ALL four 401 paths (GET no-token, GET server-401,
             // PUT no-token, PUT server-401) run the FULL performLogout teardown before
             // navigating to Welcome.  Reuses the exact runner from Home.onLogout (L242-257).
+            // ProfileEditScreen wraps this in handleSessionExpired which clears isDirtyRef
+            // first, so the navigation.reset below is NOT trapped by the guard.
             onSessionExpired={() => {
               void performLogout({
                 clearTokens: () => tokenStorage.clear(),

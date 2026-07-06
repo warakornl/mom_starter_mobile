@@ -69,7 +69,7 @@ import { SuggestionBanner } from '../suggestion/SuggestionBanner';
 import type { SuggestionKey, OfferableSuggestion } from '../suggestion/types';
 import { resolveCalendarDashboardSections } from './calendarDashboardSections';
 import { resolveSuggestionAction } from './calendarTabSuggestionRouting';
-import { buildCalendarTabSnapshot } from './calendarTabSnapshotBuilder';
+import { loadProfileIntoSnapshot } from './homeTabSnapshotLoader';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -586,20 +586,18 @@ export function HomeTabScreen({
    * This is the full snapshot-population path (spec §3 build risk):
    *   1. Load cached consent + suggestions
    *   2. Fetch latest consents from API
-   *   3. GET pregnancy profile
-   *   4. Compute GestationalAge or PostpartumAge
-   *   5. Write ProfileSnapshot to PregnancyProfileContext via setSnapshot()
+   *   3. Delegate to loadProfileIntoSnapshot (pure async — testable in Node)
+   *      which handles: no-token→onLogout, 200→setSnapshot, 404→onNeedsProfile,
+   *      401→onLogout, error→setState(error)
    *
    * Called on mount via useFocusEffect so the snapshot is populated on every
    * tab focus (re-GET heals stale EDD after ProfileEdit — AC-8).
+   *
+   * The critical setSnapshot path is tested in homeTabSnapshotLoader.test.ts.
    */
   const loadProfile = useCallback(async () => {
     const tokens = await tokenStorage.load();
-    const accessToken = tokens?.accessToken;
-    if (!accessToken) {
-      onLogout();
-      return;
-    }
+    const accessToken = tokens?.accessToken ?? null;
 
     // Load cached consent state first
     await consentStore.loadFromStorage();
@@ -607,50 +605,44 @@ export function HomeTabScreen({
 
     try {
       const consentClient = createConsentApiClient(apiBaseUrl);
-      const consentsResult = await consentClient.getConsents(accessToken);
-      if (consentsResult.ok) {
+      const consentsResult = await consentClient.getConsents(accessToken ?? '');
+      if (accessToken && consentsResult.ok) {
         consentStore.hydrate(consentsResult.page.items);
       }
     } catch {
       // network error — cached consent state preserved
     }
 
+    const todayCivil = localCivilToday();
     const client = createPregnancyClient(apiBaseUrl);
-    const result = await client.getProfile(accessToken, localCivilToday());
 
-    if (result.ok) {
-      const { profile } = result;
-      const todayCivil = localCivilToday();
-      if (profile.lifecycle === 'postpartum' && profile.birthDate) {
-        loadedBirthDate.current = profile.birthDate;
-        loadedEdd.current = null;
-        const pp = recomputeFromBirthDate(profile.birthDate);
-        setState({ kind: 'postpartum', profile, pp });
-        // §3 build risk: lift snapshot into PregnancyProfileContext so non-tab screens
-        // (DoctorReport, KickCount*, Settings, Suggestions) have correct props.
-        setSnapshot(buildCalendarTabSnapshot({
-          profile,
-          ga: null,
-          generalHealthConsented: consentStore.isGranted('general_health'),
-          todayCivil,
-        }));
-      } else {
+    // §3 build risk: delegate to the extracted pure function.
+    // setSnapshot is called exactly once on 200 (both pregnant and postpartum).
+    // 401 → onLogout; 404 → onNeedsProfile; errors → setState(error).
+    await loadProfileIntoSnapshot({
+      accessToken,
+      getProfile: (token, today) => client.getProfile(token, today),
+      todayCivil,
+      generalHealthConsented: consentStore.isGranted('general_health'),
+      setSnapshot,
+      onLogout,
+      onNeedsProfile: () => setState({ kind: 'needs-onboarding' }),
+      onPregnant: (profile, ga) => {
         loadedEdd.current = profile.edd;
         loadedBirthDate.current = null;
-        const ga = recomputeFromEdd(profile.edd);
-        setState({ kind: 'pregnant', profile, ga });
-        setSnapshot(buildCalendarTabSnapshot({
-          profile,
-          ga,
-          generalHealthConsented: consentStore.isGranted('general_health'),
-          todayCivil,
-        }));
-      }
-    } else if (result.status === 404) {
-      setState({ kind: 'needs-onboarding' });
-    } else {
-      setState({ kind: 'error', message: result.message });
-    }
+        const freshGa = recomputeFromEdd(profile.edd);
+        setState({ kind: 'pregnant', profile, ga: freshGa });
+        void ga; // ga from loader is equivalent; freshGa used for ref consistency
+      },
+      onPostpartum: (profile, pp) => {
+        loadedBirthDate.current = profile.birthDate ?? null;
+        loadedEdd.current = null;
+        const freshPp = recomputeFromBirthDate(profile.birthDate!);
+        setState({ kind: 'postpartum', profile, pp: freshPp });
+        void pp; // pp from loader is equivalent; freshPp used for ref consistency
+      },
+      onError: (message) => setState({ kind: 'error', message }),
+    });
   }, [tokenStorage, apiBaseUrl, onLogout, recomputeFromEdd, recomputeFromBirthDate, setSnapshot]);
 
   // Re-GET on every focus (AC-8: ensures stale EDD is healed after ProfileEdit)

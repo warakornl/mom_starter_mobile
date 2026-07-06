@@ -766,10 +766,10 @@ const th = {
   'pdf.screen.navTitle': 'รายงานสำหรับแพทย์',
   'pdf.screen.builderTitle': 'รายงานสำหรับแพทย์',
   'pdf.screen.previewNavTitle': 'ตัวอย่างรายงาน',
-  'pdf.screen.dateRangeLabel': 'ช่วงวันที่',
-  'pdf.screen.presetThisMonth': 'เดือนนี้',
-  'pdf.screen.presetLast3Months': '3 เดือน',
-  'pdf.screen.presetAllTime': 'ตั้งแต่เริ่ม',
+  'pdf.screen.dateRangeLabel': 'ช่วงเวลา',
+  'pdf.screen.monthFrom': 'เดือนเริ่ม',
+  'pdf.screen.monthTo': 'เดือนสิ้นสุด',
+  'pdf.screen.monthRangeError': 'เดือนเริ่มต้องไม่อยู่หลังเดือนสิ้นสุด',
   'pdf.screen.manifestTitle': 'จะรวมอะไรบ้าง',
   'pdf.screen.manifestMedication': 'ยาและการกินยา (adherence)',
   'pdf.screen.manifestKickCounts': 'การนับลูกดิ้น',
@@ -1055,19 +1055,23 @@ const th = {
   'accountRights.delete.errorTitle': 'ลบบัญชีไม่สำเร็จ',
   'accountRights.delete.errorBody': 'ตรวจสอบการเชื่อมต่อแล้วลองใหม่ บัญชีของคุณยังคงอยู่',
 
-  // ── Bottom-tab navigation (bottom-tab-navigation-design.md §1.1, §8.2) ─────────
-  // Visible tab labels — short, lifecycle-neutral (spec §1.1 owner decisions baked in)
-  'tab.supplies': 'เตรียม',          // owner: short form (§10 OQ-NAV-2)
+  // ── Bottom-tab navigation v2 (bottom-tab-navigation-design.md v2.1 §1.1, §8.2) ─
+  // Tab order: Supplies · Expenses · Home (center) · Calendar · Medication
+  // Doctor Report removed from tab bar (now accessed from Home tab row → root stack)
+  // Visible tab labels — short, lifecycle-neutral
+  'tab.supplies': 'ของใช้',          // v2: changed from 'เตรียม' per OQ-NAV-5 (lifecycle-neutral)
   'tab.expenses': 'ค่าใช้จ่าย',
-  'tab.calendar': 'ปฏิทิน',          // center tab — initialRouteName (§10 OQ-NAV-1)
-  'tab.report': 'รายงาน',
+  'tab.home': 'หน้าหลัก',            // v2 CENTER tab — dashboard + settings + report entry
+  'tab.calendar': 'ปฏิทิน',          // v2: grid-only (no dashboard above it)
   'tab.medication': 'ยา',
   // Accessibility labels — full names for screen readers (spec §8.2)
-  'tab.supplies.a11y': 'รายการเตรียมคลอด',
+  'tab.supplies.a11y': 'รายการของใช้สำหรับคุณแม่',   // v2: updated per OQ-NAV-5
   'tab.expenses.a11y': 'ค่าใช้จ่าย',
-  'tab.calendar.a11y': 'ปฏิทินและข้อมูลการตั้งครรภ์',
-  'tab.report.a11y': 'รายงานสำหรับแพทย์',
+  'tab.home.a11y': 'หน้าหลักและข้อมูลการตั้งครรภ์',  // v2 center tab (§8.2)
+  'tab.calendar.a11y': 'ปฏิทิน',                      // v2: simplified (grid-only)
   'tab.medication.a11y': 'แผนการใช้ยา',
+  // Doctor Report entry row in Home tab scroll (spec §3.3)
+  'home.doctorReport': 'รายงานสำหรับแพทย์ ›',
   // Kick-count card (pregnant wk≥32, spec §4.2) — warm & inviting, not clinical
   'kick.countCard': 'ได้เวลานับลูกดิ้นแล้ว ›',
   // Postpartum kick-count history link (spec §4.3) — always visible postpartum
@@ -1718,9 +1722,9 @@ const en: MsgShape = {
   'pdf.screen.builderTitle': 'Doctor report',
   'pdf.screen.previewNavTitle': 'Report preview',
   'pdf.screen.dateRangeLabel': 'Date range',
-  'pdf.screen.presetThisMonth': 'This month',
-  'pdf.screen.presetLast3Months': '3 months',
-  'pdf.screen.presetAllTime': 'All time',
+  'pdf.screen.monthFrom': 'Month from',
+  'pdf.screen.monthTo': 'Month to',
+  'pdf.screen.monthRangeError': 'Month from must not be after month to',
   'pdf.screen.manifestTitle': "What's included",
   'pdf.screen.manifestMedication': 'Medication & adherence',
   'pdf.screen.manifestKickCounts': 'Kick-counts',
@@ -1968,19 +1972,22 @@ const en: MsgShape = {
   'accountRights.delete.errorTitle': 'Account deletion failed',
   'accountRights.delete.errorBody': 'Check your connection and try again. Your account is still intact.',
 
-  // ── Bottom-tab navigation (bottom-tab-navigation-design.md §1.1, §8.2) ─────────
+  // ── Bottom-tab navigation v2 (bottom-tab-navigation-design.md v2.1 §1.1, §8.2) ─
+  // Tab order: Supplies · Expenses · Home (center) · Calendar · Medication
   // Visible tab labels
   'tab.supplies': 'Supplies',
   'tab.expenses': 'Expenses',
+  'tab.home': 'Home',               // v2 CENTER tab
   'tab.calendar': 'Calendar',
-  'tab.report': 'Report',
   'tab.medication': 'Meds',
   // Accessibility labels — full names for screen readers (spec §8.2)
-  'tab.supplies.a11y': 'Birth Supplies Checklist',
+  'tab.supplies.a11y': 'Baby Supplies List',            // v2: updated per OQ-NAV-5
   'tab.expenses.a11y': 'Expenses',
-  'tab.calendar.a11y': 'Calendar and Pregnancy Overview',
-  'tab.report.a11y': 'Doctor Report',
+  'tab.home.a11y': 'Home and Pregnancy Overview',       // v2 center tab (§8.2)
+  'tab.calendar.a11y': 'Calendar',                      // v2: simplified (grid-only)
   'tab.medication.a11y': 'Medication Plans',
+  // Doctor Report entry row in Home tab scroll
+  'home.doctorReport': 'Doctor report ›',
   // Kick-count card (pregnant wk≥32, spec §4.2)
   'kick.countCard': 'Time to count kicks ›',
   // Postpartum kick-count history link (spec §4.3)

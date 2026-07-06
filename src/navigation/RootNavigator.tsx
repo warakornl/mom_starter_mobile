@@ -54,6 +54,7 @@ import { LoginScreen } from '../auth/LoginScreen';
 import { RegisterScreen } from '../auth/RegisterScreen';
 import { VerifyEmailScreen } from '../auth/VerifyEmailScreen';
 import { ProfileSetupScreen } from '../pregnancy/ProfileSetupScreen';
+import { ProfileEditScreen } from '../pregnancy/ProfileEditScreen';
 import { BirthEventScreen } from '../pregnancy/BirthEventScreen';
 import { SuppliesScreen } from '../supplies/SuppliesScreen';
 import { ExpensesScreen } from '../expenses/ExpensesScreen';
@@ -458,6 +459,10 @@ export function RootNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps):
        *   apiBaseUrl — enables "Download my data" + "Delete my account" rows.
        *   onSessionExpired — routes to Welcome when export/delete returns 401
        *     (global session-expired handling — §2.3 E-20, §3.2 E-21).
+       *
+       * Edit pregnancy profile:
+       *   profileLifecycle — from profileSnapshot; gates the edit row (AC-2).
+       *   onEditPregnancy  — navigates to ProfileEdit (shown only when pregnant).
        */}
       <Stack.Screen
         name="Settings"
@@ -474,6 +479,57 @@ export function RootNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps):
             onSessionExpired={() =>
               navigation.reset({ index: 0, routes: [{ name: 'Welcome' }] })
             }
+            profileLifecycle={profileSnapshot?.lifecycle ?? null}
+            onEditPregnancy={
+              profileSnapshot?.lifecycle === 'pregnant'
+                ? () => navigation.navigate('ProfileEdit')
+                : undefined
+            }
+          />
+        )}
+      </Stack.Screen>
+
+      {/* ProfileEdit — edit-pregnancy-profile host (Settings entry).
+       *
+       * AC-2: Only navigated to when lifecycle=pregnant (gate also in Settings row).
+       * AC-3: Performs a fresh GET on mount (snapshot lacks version+eddBasis — G-2).
+       * AC-7 / R-2: on PUT 200, goBack() to Settings (NOT reset-to-Home).
+       * AC-8: after goBack, Home re-GETs via useFocusEffect when it regains focus.
+       * AC-9: NO reanchor/notification reschedule on save.
+       * AC-13 (BLOCKING, SD-5): ALL four 401 paths route through performLogout teardown.
+       * AC-17: profile data held in ProfileEditScreen local state — NOT in route params.
+       */}
+      <Stack.Screen
+        name="ProfileEdit"
+        options={{ title: t('profile.editNavTitle'), headerBackTitle: t('general.back') }}
+      >
+        {({ navigation }) => (
+          <ProfileEditScreen
+            tokenStorage={tokenStorage}
+            apiBaseUrl={apiBaseUrl}
+            // AC-7 / R-2: goBack to Settings on successful save
+            onEditComplete={() => navigation.goBack()}
+            // AC-13 (BLOCKING, SD-5): ALL four 401 paths (GET no-token, GET server-401,
+            // PUT no-token, PUT server-401) run the FULL performLogout teardown before
+            // navigating to Welcome.  Reuses the exact runner from Home.onLogout (L242-257).
+            onSessionExpired={() => {
+              void performLogout({
+                clearTokens: () => tokenStorage.clear(),
+                resetSupplyStore: () => supplySyncStore.reset(),
+                resetKickCountStore: () => kickCountSyncStore.reset(),
+                resetCalendarStore: () => calendarSyncStore.reset(),
+                resetSelfLogStore: () => selfLogSyncStore.reset(),
+                resetMedicationPlanStore: () => medicationPlanSyncStore.reset(),
+                resetMedicationLogStore: () => medicationLogSyncStore.reset(),
+                resetConsentStore: () => consentStore.reset(),
+                resetConsentQueue: () => resetConsentQueue(),
+                resetSuggestionStore: () => suggestionStore.reset(),
+                resetExpensesStore: () => expensesSyncStore.reset(),
+                clearKickCountDraft: () => clearDraft(),
+                onComplete: () =>
+                  navigation.reset({ index: 0, routes: [{ name: 'Welcome' }] }),
+              });
+            }}
           />
         )}
       </Stack.Screen>

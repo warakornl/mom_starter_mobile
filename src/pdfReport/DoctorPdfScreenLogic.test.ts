@@ -1,25 +1,26 @@
 /**
  * DoctorPdfScreenLogic.test.ts — TDD for the Builder screen's pure state logic.
  *
- * Tests the date-range preset calculation and builder state transitions
- * without any React Native or hook imports.
+ * v2 update (bottom-tab-navigation-design.md §8A.2 OQ-NAV-4):
+ *   - Replaced preset chips (this_month / last_3_months / all_time) with
+ *     monthFrom + monthTo YYYY-MM pickers.
+ *   - Default range: monthFrom = current month − 3, monthTo = current month.
+ *   - dateFrom = monthFrom-01, dateTo = last day of monthTo.
+ *   - New selector: isDateRangeValid(state) = monthFrom ≤ monthTo.
+ *   - Preview button disabled when validation error active.
+ *   - computePresetRange / DateRangePreset / applyPresetSelected are retired
+ *     (removed from public API; internal use only in legacy code).
  *
- * Presets (spec §1):
- *   this_month   — from 1st of current month to today
- *   last_3_months — from (today - 3 months) to today
- *   all_time      — from '1900-01-01' to '9999-12-31'
- *
- * Phase machine:
+ * Phase machine (unchanged):
  *   builder → generating → preview | error
  *   preview → share (OS sheet) | back (builder)
  */
 
 import {
-  computePresetRange,
-  type DateRangePreset,
-  type DateRange,
   builderPhaseInitial,
-  applyPresetSelected,
+  applyMonthFromChanged,
+  applyMonthToChanged,
+  isDateRangeValid,
   applyGeneratingStarted,
   applyPreviewReady,
   applyPreviewError,
@@ -29,136 +30,234 @@ import {
 } from './DoctorPdfScreenLogic';
 import type { DoctorReportInput } from './doctorReportAssembler';
 
-// ─── Preset range tests ────────────────────────────────────────────────────────
+// ─── builderPhaseInitial — v2 month defaults ──────────────────────────────────
 
-describe('computePresetRange', () => {
-  const today = '2026-07-15';  // civil YYYY-MM-DD
-
-  it('this_month: dateFrom = first of current month, dateTo = today', () => {
-    const range = computePresetRange('this_month', today);
-    expect(range.dateFrom).toBe('2026-07-01');
-    expect(range.dateTo).toBe(today);
-  });
-
-  it('last_3_months: dateFrom = 3 months before today, dateTo = today', () => {
-    const range = computePresetRange('last_3_months', today);
-    // 3 months before 2026-07-15 → 2026-04-15
-    expect(range.dateFrom).toBe('2026-04-15');
-    expect(range.dateTo).toBe(today);
-  });
-
-  it('last_3_months: handles year boundary (e.g. Jan - 3 months = October previous year)', () => {
-    const range = computePresetRange('last_3_months', '2026-01-15');
-    expect(range.dateFrom).toBe('2025-10-15');
-    expect(range.dateTo).toBe('2026-01-15');
-  });
-
-  it('all_time: dateFrom = 1900-01-01, dateTo = 9999-12-31', () => {
-    const range = computePresetRange('all_time', today);
-    expect(range.dateFrom).toBe('1900-01-01');
-    expect(range.dateTo).toBe('9999-12-31');
-  });
-
-  it('returns a DateRange with both dateFrom and dateTo as strings', () => {
-    const range = computePresetRange('this_month', today);
-    expect(typeof range.dateFrom).toBe('string');
-    expect(typeof range.dateTo).toBe('string');
-  });
-
-  it('dateFrom is always <= dateTo for this_month', () => {
-    const range = computePresetRange('this_month', today);
-    expect(range.dateFrom <= range.dateTo).toBe(true);
-  });
-
-  it('dateFrom is always <= dateTo for last_3_months', () => {
-    const range = computePresetRange('last_3_months', today);
-    expect(range.dateFrom <= range.dateTo).toBe(true);
-  });
-
-  // Date clamping: a 31-day month - 3 months can land on a short month
-  it('last_3_months: clamps day to last day of target month (31st → Feb)', () => {
-    // 2026-05-31 minus 3 months = 2026-02-?? → Feb has 28 days in 2026
-    const range = computePresetRange('last_3_months', '2026-05-31');
-    expect(range.dateFrom).toBe('2026-02-28');
-    expect(range.dateTo).toBe('2026-05-31');
-  });
-
-  it('last_3_months: clamps 31st to 30 when target month has 30 days', () => {
-    // 2026-08-31 minus 3 months = 2026-05-31 → May has 31 days, no clamp needed
-    // 2026-07-31 minus 3 months = 2026-04-31 → April has 30 days, clamp to 30
-    const range = computePresetRange('last_3_months', '2026-07-31');
-    expect(range.dateFrom).toBe('2026-04-30');
-    expect(range.dateTo).toBe('2026-07-31');
-  });
-
-  it('last_3_months: leap year Feb — clamps 31st to 29 in leap year', () => {
-    // 2024-05-31 minus 3 months = 2024-02-?? → 2024 is a leap year → 29 days
-    const range = computePresetRange('last_3_months', '2024-05-31');
-    expect(range.dateFrom).toBe('2024-02-29');
-    expect(range.dateTo).toBe('2024-05-31');
-  });
-});
-
-// ─── Builder state machine tests ───────────────────────────────────────────────
-
-describe('builderPhaseInitial', () => {
+describe('builderPhaseInitial — v2 month-from/to defaults', () => {
   it('starts in builder phase', () => {
-    const state = builderPhaseInitial('2026-07-15');
+    const state = builderPhaseInitial('2026-07-06');
     expect(state.phase).toBe('builder');
   });
 
-  it('defaults to this_month preset', () => {
-    const state = builderPhaseInitial('2026-07-15');
-    expect(state.selectedPreset).toBe('this_month');
+  it('monthTo defaults to current month (YYYY-MM)', () => {
+    const state = builderPhaseInitial('2026-07-06');
+    expect(state.monthTo).toBe('2026-07');
   });
 
-  it('computes the correct initial range from this_month preset', () => {
-    const state = builderPhaseInitial('2026-07-15');
-    expect(state.dateFrom).toBe('2026-07-01');
-    expect(state.dateTo).toBe('2026-07-15');
+  it('monthFrom defaults to 3 calendar months before current month', () => {
+    // July 2026 − 3 months = April 2026
+    const state = builderPhaseInitial('2026-07-06');
+    expect(state.monthFrom).toBe('2026-04');
+  });
+
+  it('monthFrom handles year boundary (January − 3 = October previous year)', () => {
+    const state = builderPhaseInitial('2026-01-15');
+    expect(state.monthFrom).toBe('2025-10');
+  });
+
+  it('dateFrom is first day of monthFrom', () => {
+    const state = builderPhaseInitial('2026-07-06');
+    expect(state.dateFrom).toBe('2026-04-01');
+  });
+
+  it('dateTo is last day of monthTo (July has 31 days)', () => {
+    const state = builderPhaseInitial('2026-07-06');
+    expect(state.dateTo).toBe('2026-07-31');
+  });
+
+  it('dateTo last day handles February non-leap (28 days)', () => {
+    // monthTo = 2026-02 (not leap) → dateTo = 2026-02-28
+    const state = builderPhaseInitial('2026-02-10');
+    expect(state.dateTo).toBe('2026-02-28');
+  });
+
+  it('dateTo last day handles February leap year (29 days)', () => {
+    // monthTo = 2024-02 (leap) → dateTo = 2024-02-29
+    const state = builderPhaseInitial('2024-02-15');
+    expect(state.dateTo).toBe('2024-02-29');
   });
 
   it('has no generation error initially', () => {
-    const state = builderPhaseInitial('2026-07-15');
+    const state = builderPhaseInitial('2026-07-06');
     expect(state.generationError).toBeNull();
   });
 
   it('has no generated HTML initially', () => {
-    const state = builderPhaseInitial('2026-07-15');
+    const state = builderPhaseInitial('2026-07-06');
     expect(state.generatedHtml).toBeNull();
+  });
+
+  it('default range is valid (monthFrom ≤ monthTo)', () => {
+    const state = builderPhaseInitial('2026-07-06');
+    expect(isDateRangeValid(state)).toBe(true);
+  });
+
+  it('does NOT have selectedPreset field (removed in v2)', () => {
+    const state = builderPhaseInitial('2026-07-06');
+    expect('selectedPreset' in state).toBe(false);
   });
 });
 
-describe('applyPresetSelected', () => {
-  const today = '2026-07-15';
+// ─── applyMonthFromChanged ────────────────────────────────────────────────────
+
+describe('applyMonthFromChanged', () => {
+  const today = '2026-07-06';
   const initial = builderPhaseInitial(today);
 
-  it('updates selectedPreset to last_3_months', () => {
-    const next = applyPresetSelected(initial, 'last_3_months', today);
-    expect(next.selectedPreset).toBe('last_3_months');
+  it('updates monthFrom to the given YYYY-MM', () => {
+    const next = applyMonthFromChanged(initial, '2026-05');
+    expect(next.monthFrom).toBe('2026-05');
   });
 
-  it('updates dateFrom when preset changes to last_3_months', () => {
-    const next = applyPresetSelected(initial, 'last_3_months', today);
-    expect(next.dateFrom).toBe('2026-04-15');
+  it('sets dateFrom to first day of new monthFrom', () => {
+    const next = applyMonthFromChanged(initial, '2026-05');
+    expect(next.dateFrom).toBe('2026-05-01');
   });
 
-  it('updates dateFrom when preset changes to all_time', () => {
-    const next = applyPresetSelected(initial, 'all_time', today);
-    expect(next.dateFrom).toBe('1900-01-01');
-    expect(next.dateTo).toBe('9999-12-31');
-  });
-
-  it('stays in builder phase after preset change', () => {
-    const next = applyPresetSelected(initial, 'last_3_months', today);
+  it('stays in builder phase', () => {
+    const next = applyMonthFromChanged(initial, '2026-05');
     expect(next.phase).toBe('builder');
   });
 
+  it('clears generatedHtml (range changed — any cached preview is stale)', () => {
+    const withHtml: BuilderPhaseState = { ...initial, generatedHtml: '<html/>' };
+    const next = applyMonthFromChanged(withHtml, '2026-05');
+    expect(next.generatedHtml).toBeNull();
+  });
+
   it('returns a new state object (immutable)', () => {
-    const next = applyPresetSelected(initial, 'all_time', today);
+    const next = applyMonthFromChanged(initial, '2026-06');
     expect(next).not.toBe(initial);
   });
+
+  it('does not change monthTo or dateTo', () => {
+    const next = applyMonthFromChanged(initial, '2026-06');
+    expect(next.monthTo).toBe(initial.monthTo);
+    expect(next.dateTo).toBe(initial.dateTo);
+  });
 });
+
+// ─── applyMonthToChanged ──────────────────────────────────────────────────────
+
+describe('applyMonthToChanged', () => {
+  const today = '2026-07-06';
+  const initial = builderPhaseInitial(today);
+
+  it('updates monthTo to the given YYYY-MM', () => {
+    const next = applyMonthToChanged(initial, '2026-08');
+    expect(next.monthTo).toBe('2026-08');
+  });
+
+  it('sets dateTo to last day of new monthTo (August = 31 days)', () => {
+    const next = applyMonthToChanged(initial, '2026-08');
+    expect(next.dateTo).toBe('2026-08-31');
+  });
+
+  it('sets dateTo to last day of April (30 days)', () => {
+    const next = applyMonthToChanged(initial, '2026-04');
+    expect(next.dateTo).toBe('2026-04-30');
+  });
+
+  it('sets dateTo to last day of Feb 2026 (non-leap = 28)', () => {
+    const next = applyMonthToChanged(initial, '2026-02');
+    expect(next.dateTo).toBe('2026-02-28');
+  });
+
+  it('sets dateTo to last day of Feb 2024 (leap = 29)', () => {
+    const next = applyMonthToChanged(initial, '2024-02');
+    expect(next.dateTo).toBe('2024-02-29');
+  });
+
+  it('stays in builder phase', () => {
+    const next = applyMonthToChanged(initial, '2026-08');
+    expect(next.phase).toBe('builder');
+  });
+
+  it('clears generatedHtml (range changed — cached preview is stale)', () => {
+    const withHtml: BuilderPhaseState = { ...initial, generatedHtml: '<html/>' };
+    const next = applyMonthToChanged(withHtml, '2026-08');
+    expect(next.generatedHtml).toBeNull();
+  });
+
+  it('returns a new state object (immutable)', () => {
+    const next = applyMonthToChanged(initial, '2026-09');
+    expect(next).not.toBe(initial);
+  });
+
+  it('does not change monthFrom or dateFrom', () => {
+    const next = applyMonthToChanged(initial, '2026-09');
+    expect(next.monthFrom).toBe(initial.monthFrom);
+    expect(next.dateFrom).toBe(initial.dateFrom);
+  });
+});
+
+// ─── isDateRangeValid ─────────────────────────────────────────────────────────
+
+describe('isDateRangeValid', () => {
+  const today = '2026-07-06';
+
+  it('returns true when monthFrom < monthTo (normal range)', () => {
+    const state: BuilderPhaseState = {
+      ...builderPhaseInitial(today),
+      monthFrom: '2026-04',
+      monthTo: '2026-07',
+      dateFrom: '2026-04-01',
+      dateTo: '2026-07-31',
+    };
+    expect(isDateRangeValid(state)).toBe(true);
+  });
+
+  it('returns true when monthFrom === monthTo (single month — valid)', () => {
+    const state: BuilderPhaseState = {
+      ...builderPhaseInitial(today),
+      monthFrom: '2026-07',
+      monthTo: '2026-07',
+      dateFrom: '2026-07-01',
+      dateTo: '2026-07-31',
+    };
+    expect(isDateRangeValid(state)).toBe(true);
+  });
+
+  it('returns false when monthFrom > monthTo (invalid: from is after to)', () => {
+    const state: BuilderPhaseState = {
+      ...builderPhaseInitial(today),
+      monthFrom: '2026-08',
+      monthTo: '2026-07',
+      dateFrom: '2026-08-01',
+      dateTo: '2026-07-31',
+    };
+    expect(isDateRangeValid(state)).toBe(false);
+  });
+
+  it('returns false when monthFrom is in a later year than monthTo', () => {
+    const state: BuilderPhaseState = {
+      ...builderPhaseInitial(today),
+      monthFrom: '2027-01',
+      monthTo: '2026-12',
+      dateFrom: '2027-01-01',
+      dateTo: '2026-12-31',
+    };
+    expect(isDateRangeValid(state)).toBe(false);
+  });
+
+  it('returns true when monthFrom is in an earlier year than monthTo', () => {
+    const state: BuilderPhaseState = {
+      ...builderPhaseInitial(today),
+      monthFrom: '2025-11',
+      monthTo: '2026-02',
+      dateFrom: '2025-11-01',
+      dateTo: '2026-02-28',
+    };
+    expect(isDateRangeValid(state)).toBe(true);
+  });
+
+  it('default initial state is always valid', () => {
+    expect(isDateRangeValid(builderPhaseInitial('2026-07-06'))).toBe(true);
+    expect(isDateRangeValid(builderPhaseInitial('2026-01-01'))).toBe(true);
+    expect(isDateRangeValid(builderPhaseInitial('2025-12-31'))).toBe(true);
+  });
+});
+
+// ─── Remaining phase machine tests (unchanged behavior) ───────────────────────
 
 describe('applyGeneratingStarted', () => {
   const today = '2026-07-15';
@@ -252,7 +351,7 @@ describe('applyBackToBuilder', () => {
   });
 });
 
-// ─── assembleReportIfGranted tests ────────────────────────────────────────────
+// ─── assembleReportIfGranted tests (unchanged) ────────────────────────────────
 
 describe('assembleReportIfGranted', () => {
   const minimalInput: DoctorReportInput = {

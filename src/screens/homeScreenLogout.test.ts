@@ -1,5 +1,10 @@
 /**
- * HomeScreen logout PDPA health-store clearing — unit tests (TDD, failing first).
+ * Logout PDPA health-store clearing — unit tests (TDD).
+ *
+ * Previously named after HomeScreen; now targets the live logout paths in
+ * BottomTabNavigator (handleLogout) and CalendarTabScreen (onLogout callback
+ * on session-expiry / no-token path).  HomeScreen.tsx has been deleted
+ * (no longer imported as a component — CalendarTabScreen is the successor).
  *
  * 1.1 (appsec): logout MUST clear every health store to prevent cross-account
  * data leakage when user A logs out and user B logs into the same device
@@ -13,8 +18,9 @@
  *   - selfLogSyncStore (self-log health events — MOTHER-health SD-5 general_health gated)
  *
  * Part A (factory-based): store reset() behaviour using isolated factory instances.
- * Part B (singleton-based, BLOCKER 1): the session-expiry / no-token auto-logout
- *   path routes through performLogout and resets ALL singleton stores including
+ * Part B (singleton-based): the session-expiry / no-token auto-logout path routes
+ *   through performLogout (wired from BottomTabNavigator.handleLogout and
+ *   CalendarTabScreen's onLogout) and resets ALL singleton stores including
  *   selfLogSyncStore (SD-5 cross-account-leak guard).
  */
 
@@ -170,20 +176,16 @@ describe('supplySyncStore / SyncStore.reset() — session isolation (1.1)', () =
   });
 });
 
-// ─── BLOCKER 1: session-expiry / no-token auto-logout — singleton-store reset ─
+// ─── Part B: session-expiry / no-token auto-logout — singleton-store reset ───
 //
-// The second logout exit path (HomeScreen.loadProfile → no access token → onLogout())
-// was wired as a bare navigation.reset() in RootNavigator.tsx, bypassing
-// performLogout entirely. This means selfLogSyncStore.reset() (and the other health
-// stores) NEVER fired on that path — a real cross-account leak the moment a
-// 401/refresh-failure handler clears tokens mid-session.
+// Live code path (post HomeScreen deletion):
+//   CalendarTabScreen.loadProfile() → no access token → props.onLogout()
+//     → BottomTabNavigator.handleLogout() → performLogout({ ... all stores ... })
 //
-// Fix (BLOCKER 1): the onLogout callback in RootNavigator's Home screen now routes
-// through performLogout with all store-reset deps including resetSelfLogStore.
-//
-// These tests verify the end-to-end store-clear behaviour using the real module-level
-// singletons (not factory instances) because that is what the wiring in RootNavigator
-// operates on.
+// The session-expiry / no-token auto-logout path routes through performLogout with
+// all store-reset deps wired (including resetSelfLogStore — SD-5 cross-account-leak
+// guard). These tests use real module-level singletons because that is what the
+// wiring in BottomTabNavigator.handleLogout() operates on.
 
 function makeSelfLogInput(overrides: Partial<SelfLogInput> = {}): SelfLogInput {
   return {

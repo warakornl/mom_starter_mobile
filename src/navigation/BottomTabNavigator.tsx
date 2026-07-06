@@ -209,9 +209,12 @@ const tabBarStyles = StyleSheet.create({
   },
   label: {
     fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 11,
-    lineHeight: 16,
+    // §7.5 floor: min 12pt. Settled at 13pt — fits "หน้าหลัก" on one line;
+    // "ค่าใช้จ่าย" wraps cleanly to two lines with numberOfLines={2} (§8.7 FIX 5).
+    fontSize: 13,
+    lineHeight: 17,
     marginTop: 2,
+    textAlign: 'center',
   },
   // Active disc: 52×52dp rose/600 filled disc (v2 §2.1 — moves with focus)
   activeDisc: {

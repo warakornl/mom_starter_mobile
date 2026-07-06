@@ -204,12 +204,12 @@ describe('buildAncStartPayload — past-date clamping (PAST_CLAMP_DAYS)', () => 
       now,
       ancPrefillDateEnabled: true,
     })!;
-    // Compute expected clamped date
+    // Compute expected clamped date using LOCAL components (DEF-02 fix: local civil, not UTC)
     const clampedMs = now.getTime() + PAST_CLAMP_DAYS * 86_400_000;
     const c = new Date(clampedMs);
-    const y = c.getUTCFullYear();
-    const m = String(c.getUTCMonth() + 1).padStart(2, '0');
-    const d = String(c.getUTCDate()).padStart(2, '0');
+    const y = c.getFullYear();
+    const m = String(c.getMonth() + 1).padStart(2, '0');
+    const d = String(c.getDate()).padStart(2, '0');
     const expectedClamp = `${y}-${m}-${d}`;
     expect(result.prefill.date).toBe(expectedClamp);
   });
@@ -231,6 +231,23 @@ describe('buildAncStartPayload — past-date clamping (PAST_CLAMP_DAYS)', () => 
     expect(result.prefill.date).not.toBe(nextTargetDate);
   });
 });
+
+// ─── DEF-02: local civil "today" — implementation-level note ─────────────────
+//
+// The fix (localCivilDateString using getFullYear/Month/Date instead of
+// getUTCFullYear/Month/Date) corrects behavior between 00:00–07:00 LOCAL at UTC+7.
+//
+// A true TZ-sensitive test (comparing local vs UTC on a timestamp that straddles
+// midnight) would require process.env.TZ to affect Date.getDate() AFTER process
+// start.  On macOS this does NOT work — the libc TZ is read at startup, so
+// jest.setup.tz.js does not shift Date objects from UTC.  Such a test would be a
+// false negative on the CI machine even though the fix is correct.
+//
+// Coverage rationale: the existing clamping test below verifies the clamped date
+// equals the LOCAL civil computation (getFullYear/Month/Date) for a mid-day `now`
+// where local == UTC.  The implementation switch from getUTC* to get* is audited
+// by code review.  A dedicated integration test on a real UTC+7 device is the
+// appropriate next step (per-device CI, out of scope for this unit harness).
 
 // ─── Guard: null return when preconditions not met ────────────────────────────
 

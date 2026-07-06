@@ -23,7 +23,15 @@
  * AC-8: after goBack, Home re-GETs via useFocusEffect (wired separately in HomeScreen).
  * AC-9: NO reanchor/notification reschedule on save.
  * AC-10 / R-3: PUT 409 → reload form with currentProfile + show conflict message.
- * AC-15: unsaved-changes guard (dirty check: method / edd / currentWeek vs existingProfile).
+ * AC-15: unsaved-changes guard — wired END-TO-END:
+ *   1. ProfileSetupScreen.onDirty fires on every user-driven field change.
+ *   2. handleDirty sets isDirtyRef.current = true.
+ *   3. useEffect registers a beforeRemove listener on `navigation`.
+ *   4. buildBeforeRemoveHandler intercepts back when dirty, shows discard Alert.
+ *   5. Confirm-discard: clears dirty + dispatches the pending navigation action.
+ *   6. Save success: isDirtyRef cleared BEFORE onEditComplete so goBack is silent.
+ *   7. Session-expiry (GET or PUT): isDirtyRef cleared via handleSessionExpired
+ *      BEFORE performLogout.reset runs, so the logout navigation is NOT trapped.
  * AC-18: loading state during entry GET — spinner, no inputs, back returns to Settings.
  */
 
@@ -38,16 +46,28 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { TokenStorage } from '../auth/tokenStorage';
-import { createPregnancyClient } from './pregnancyApiClient';
-import { localCivilToday } from './gestationalAge';
 import type { PregnancyProfile } from './types';
 import { ProfileSetupScreen } from './ProfileSetupScreen';
-import {
-  resolveEditGetOutcome,
-  resolveEditNoTokenOutcome,
-  type EditGetOutcome,
-} from './profileEditLogic';
+import { runEntryGet } from './profileEditRuntimeWiring';
+import { buildBeforeRemoveHandler } from './profileEditBeforeRemoveHandler';
+import type { BeforeRemoveEvent } from './profileEditBeforeRemoveHandler';
+import type { EditGetOutcome } from './profileEditLogic';
 import { useT } from '../i18n/LanguageContext';
+
+// ─── Navigation interface (minimal — only what AC-15 needs) ───────────────────
+
+/**
+ * Minimal navigation prop for AC-15's beforeRemove guard.
+ * Matches the shape React Navigation's NativeStack navigation object provides
+ * for those two methods; typed narrowly so tests can pass a simple mock.
+ */
+export interface EditNavigationProp {
+  addListener(
+    event: 'beforeRemove',
+    callback: (e: BeforeRemoveEvent) => void,
+  ): () => void;
+  dispatch(action: Readonly<{ type: string }>): void;
+}
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -56,6 +76,12 @@ export interface ProfileEditScreenProps {
   tokenStorage: TokenStorage;
   /** API base URL from src/config.ts. */
   apiBaseUrl: string;
+  /**
+   * AC-15: Navigation object used to register the beforeRemove dirty guard.
+   * In production this is the native-stack `navigation` prop from RootNavigator.
+   * In tests pass a minimal mock with addListener/dispatch.
+   */
+  navigation: EditNavigationProp;
   /**
    * AC-7 / R-2: Called after PUT 200 — goBack to Settings.
    * The navigator implements this as `navigation.goBack()`.
@@ -80,6 +106,7 @@ export interface ProfileEditScreenProps {
 export function ProfileEditScreen({
   tokenStorage,
   apiBaseUrl,
+  navigation,
   onEditComplete,
   onSessionExpired,
 }: ProfileEditScreenProps): React.JSX.Element {
@@ -96,6 +123,41 @@ export function ProfileEditScreen({
   // Set to true whenever ProfileSetupScreen notifies us of a field change.
   const isDirtyRef = useRef(false);
 
+  // ── AC-13 SD-5: session-expiry wrapper ───────────────────────────────────────
+  // Clears isDirtyRef BEFORE calling onSessionExpired so that the performLogout
+  // navigation.reset (triggered inside onSessionExpired) does NOT get intercepted
+  // by the beforeRemove guard — even if the user had started editing.
+  const handleSessionExpired = useCallback(() => {
+    isDirtyRef.current = false;
+    onSessionExpired();
+  }, [onSessionExpired]);
+
+  // ── AC-15: register beforeRemove guard once navigation is available ───────────
+  // buildBeforeRemoveHandler returns a listener that:
+  //   - when dirty: prevents navigation + shows discard Alert
+  //   - when clean: lets navigation proceed
+  // The listener refs isDirtyRef so it always sees the current dirty state
+  // without needing to be re-created.
+  useEffect(() => {
+    const unsubscribe = navigation.addListener(
+      'beforeRemove',
+      buildBeforeRemoveHandler(
+        isDirtyRef,
+        Alert.alert,
+        (action) => navigation.dispatch(action),
+        // Cast to the plain (key: string) => string signature that the pure
+        // handler factory expects — the i18n t() is a superset that satisfies it.
+        t as (key: string) => string,
+      ),
+    );
+    return unsubscribe;
+  }, [navigation, t]);
+
+  // ── AC-15: called by ProfileSetupScreen on every user-driven field change ─────
+  const handleDirty = useCallback(() => {
+    isDirtyRef.current = true;
+  }, []);
+
   // ── Entry GET ────────────────────────────────────────────────────────────────
 
   const doEntryGet = useCallback(async () => {
@@ -103,29 +165,13 @@ export function ProfileEditScreen({
     isDirtyRef.current = false;
     setConflictMsg(null);
 
-    const tokens = await tokenStorage.load();
-    const accessToken = tokens?.accessToken;
-    if (!accessToken) {
-      const noTokenOutcome = resolveEditNoTokenOutcome();
-      if (noTokenOutcome.type === 'session-expired') {
-        onSessionExpired();
-        return;
-      }
-    }
-
-    try {
-      const client = createPregnancyClient(apiBaseUrl);
-      const result = await client.getProfile(accessToken!, localCivilToday());
-      const resolved = resolveEditGetOutcome(result);
-      if (resolved.type === 'session-expired') {
-        onSessionExpired();
-        return;
-      }
-      setOutcome(resolved);
-    } catch {
-      setOutcome({ type: 'error', retryable: true });
-    }
-  }, [tokenStorage, apiBaseUrl, onSessionExpired]);
+    await runEntryGet({
+      tokenStorage,
+      apiBaseUrl,
+      onSessionExpired: handleSessionExpired,
+      onOutcome: setOutcome,
+    });
+  }, [tokenStorage, apiBaseUrl, handleSessionExpired]);
 
   useEffect(() => {
     void doEntryGet();
@@ -137,36 +183,6 @@ export function ProfileEditScreen({
     setOutcome({ type: 'show-form', profile: currentProfile });
     setConflictMsg(t('profile.editConflictReloaded'));
     isDirtyRef.current = false; // form reloaded to latest — reset dirty
-  }, [t]);
-
-  // ── AC-15: unsaved-changes guard ─────────────────────────────────────────────
-  // Called when the user presses the native back button while form is shown.
-  // If dirty, prompt. If clean, just let navigation proceed.
-
-  const handleDirty = useCallback(() => {
-    isDirtyRef.current = true;
-  }, []);
-
-  const handleBackPress = useCallback(() => {
-    if (isDirtyRef.current) {
-      Alert.alert(
-        t('profile.editDiscardTitle'),
-        t('profile.editDiscardBody'),
-        [
-          { text: t('profile.editDiscardCancel'), style: 'cancel' },
-          {
-            text: t('profile.editDiscardConfirm'),
-            style: 'destructive',
-            onPress: () => {
-              isDirtyRef.current = false;
-              // Navigation will pop naturally via the header back button
-            },
-          },
-        ],
-      );
-      return true; // intercepted
-    }
-    return false; // allow
   }, [t]);
 
   // ─── Render ───────────────────────────────────────────────────────────────────
@@ -254,15 +270,21 @@ export function ProfileEditScreen({
         tokenStorage={tokenStorage}
         apiBaseUrl={apiBaseUrl}
         existingProfile={profile}
-        // AC-7 / R-2: goBack to Settings on 200 (NOT reset-to-Home)
+        // AC-7 / R-2: goBack to Settings on 200 (NOT reset-to-Home).
+        // isDirtyRef cleared BEFORE calling onEditComplete so the subsequent
+        // navigation.goBack() is not intercepted by the beforeRemove guard.
         onSetupComplete={(savedProfile) => {
           isDirtyRef.current = false;
           onEditComplete(savedProfile);
         }}
-        // AC-13 (BLOCKING): PUT 401 (no-token or server) → full teardown + Welcome
-        onSessionExpired={onSessionExpired}
+        // AC-13 (BLOCKING, SD-5): PUT 401 (no-token or server) → full teardown + Welcome.
+        // handleSessionExpired clears isDirtyRef first so the logout navigation.reset
+        // is NOT trapped by the beforeRemove guard.
+        onSessionExpired={handleSessionExpired}
         // AC-10 R-3: PUT 409 → reload form to latest server profile
         onConflict={handleConflict}
+        // AC-15: user changed a field → mark form dirty → beforeRemove guard activates
+        onDirty={handleDirty}
       />
     </View>
   );

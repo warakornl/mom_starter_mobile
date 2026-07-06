@@ -54,6 +54,7 @@ import {
   initAppointmentFormState,
   buildChecklistItemToCreate,
 } from './appointmentFormPrefill';
+import { buildAncReminderRecord } from './ancReminderBuilder';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -166,6 +167,14 @@ export function AppointmentFormScreen({
   const [extraNote, setExtraNote] = useState(parsedNote.extra);
   const [titleError, setTitleError] = useState('');
   const [dateError, setDateError] = useState('');
+  /**
+   * Reminder toggle — default OFF per spec §3.6b.
+   * Seeded from prefill.attachReminder (always false per AncFormPrefill spec).
+   * Only shown when creating from an ANC suggestion (prefill?.fromSuggestion).
+   */
+  const [attachReminder, setAttachReminder] = useState(
+    prefill?.attachReminder ?? false,
+  );
 
   // ── Picker state ───────────────────────────────────────────────────────────
   // showDatePicker / showTimePicker: Android renders the picker as a dialog;
@@ -241,8 +250,9 @@ export function AppointmentFormScreen({
     } else {
       // Use buildChecklistItemToCreate so that source='from_suggestion' and
       // sourceSuggestionStateId are set correctly when prefill is provided (INV-A4).
+      const newItemId = uuidv4();
       const created = buildChecklistItemToCreate({
-        id: uuidv4(),
+        id: newItemId,
         title: title.trim(),
         category,
         scheduledAt,
@@ -251,6 +261,21 @@ export function AppointmentFormScreen({
         prefill,
       });
       calendarSyncStore.enqueueCreateChecklistItem(created);
+
+      // ── Reminder write (Surface 6) — ONLY when toggle is ON (INV-A4) ────
+      // The reminder is enqueued in the same change-set as the checklistItem.
+      // Guard: fromSuggestion ensures the reminder path only fires for ANC.
+      // PDPA-A4: buildAncReminderRecord enforces generic title + hideOnLockScreen.
+      if (attachReminder && prefill?.fromSuggestion) {
+        const reminder = buildAncReminderRecord({
+          id: uuidv4(),
+          checklistItemId: newItemId,
+          scheduledAt,
+          locale,
+          now,
+        });
+        calendarSyncStore.enqueueCreateReminder(reminder);
+      }
     }
 
     // Signal CalendarScreen to auto-select the appointment's date on focus.
@@ -445,6 +470,35 @@ export function AppointmentFormScreen({
         multiline
         numberOfLines={3}
       />
+
+      {/* ── Reminder toggle (Surface 6 — from-suggestion only, default OFF) ── */}
+      {/* Only shown when creating from an ANC suggestion.
+          PDPA-A4 helper note: lock-screen notification uses a generic title. */}
+      {prefill?.fromSuggestion && !isEdit ? (
+        <View style={styles.reminderRow} testID="appointment-reminder-section">
+          <View style={styles.reminderLabelCol}>
+            <Text style={styles.label}>{t('appointment.reminder.toggleLabel')}</Text>
+            <Text style={styles.hint}>{t('appointment.reminder.lead')}</Text>
+            {attachReminder ? (
+              <Text
+                style={styles.pdpaNote}
+                testID="appointment-reminder-pdpa-note"
+                accessibilityRole="none"
+              >
+                {t('appointment.reminder.lockScreenNote')}
+              </Text>
+            ) : null}
+          </View>
+          <Switch
+            testID="appointment-reminder-toggle"
+            value={attachReminder}
+            onValueChange={setAttachReminder}
+            trackColor={{ true: '#A8505A', false: '#EBE1D9' }}
+            thumbColor="#FFFFFF"
+            accessibilityLabel={t('appointment.reminder.toggleLabel')}
+          />
+        </View>
+      ) : null}
 
       {/* Buttons */}
       <TouchableOpacity
@@ -667,6 +721,36 @@ const styles = StyleSheet.create({
   pickerDoneBtn: { minHeight: 44, justifyContent: 'center' },
   pickerDoneText: { fontSize: 15, color: '#C0485F', fontWeight: '600' },
   iosPicker: { alignSelf: 'center' },
+
+  // Reminder toggle row (Surface 6)
+  reminderRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    marginTop: 16,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#EBE1D9',
+    padding: 14,
+    gap: 12,
+  },
+  reminderLabelCol: {
+    flex: 1,
+    gap: 2,
+  },
+  /**
+   * PDPA-A4 helper note — shown inline when reminder toggle is ON.
+   * Informs the user that the lock-screen notification uses a generic title.
+   * Screen-reader parity: accessibilityRole="none" so it's read naturally in flow.
+   */
+  pdpaNote: {
+    fontFamily: 'IBMPlexSans-Regular',
+    fontSize: 12,
+    lineHeight: 18,
+    color: '#94818A', // ink/faint
+    marginTop: 4,
+  },
 
   saveBtn: {
     backgroundColor: '#A8505A',

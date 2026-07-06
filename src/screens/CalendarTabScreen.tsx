@@ -1,4 +1,17 @@
 /**
+ * CalendarTabScreen — SUPERSEDED by HomeTabScreen (v2 bottom-tab-navigation-design.md §3).
+ *
+ * @deprecated v2 (bottom-tab-navigation-design.md v2.1):
+ *   - Dashboard content (StageBanner, ProgressBar, etc.) moved to HomeTabScreen.tsx
+ *   - CalendarScreen is now rendered DIRECTLY in BottomTabNavigator (Tab 4, §3A).
+ *   - LangToggle + gear ⚙ moved to HomeTabScreen top bar (§3.2).
+ *   - Snapshot-population path (loadProfile + useProfileSnapshotSetter) moved to HomeTabScreen.
+ *   - DoctorReport entry row added to HomeTabScreen (§3.3).
+ *   This file is kept for reference and to avoid breaking any direct imports from
+ *   calendarTabSnapshotBuilder.ts / calendarDashboardSections.ts tests.
+ *   DO NOT render CalendarTabScreen in BottomTabNavigator — use HomeTabScreen + CalendarScreen.
+ *
+ * Original doc:
  * CalendarTabScreen — Calendar tab content (dashboard header + CalendarScreen).
  *
  * This screen replaces HomeScreen as the primary landing surface.

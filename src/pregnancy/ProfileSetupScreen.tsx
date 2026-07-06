@@ -48,7 +48,7 @@ import {
   Platform,
 } from 'react-native';
 import type { TokenStorage } from '../auth/tokenStorage';
-import { createPregnancyClient } from './pregnancyApiClient';
+import { runSave } from './profileEditRuntimeWiring';
 import { localCivilToday, computeGestationalAge } from './gestationalAge';
 import type { Stage } from './gestationalAge';
 import type { PregnancyProfile } from './types';
@@ -82,6 +82,15 @@ export interface ProfileSetupScreenProps {
    * message. When absent (create flow), falls back to showing profile.errorConflict.
    */
   onConflict?: (currentProfile: PregnancyProfile) => void;
+  /**
+   * AC-15: Called whenever the user makes a field change (method toggle, week
+   * stepper, date confirm, LMP confirm).  NOT fired on the initial pre-fill
+   * from existingProfile — only on genuine user-driven interactions.
+   * ProfileEditScreen passes handleDirty here to set isDirtyRef.current = true,
+   * enabling the beforeRemove navigation guard.
+   * Optional — when absent (create flow) the callback is a no-op.
+   */
+  onDirty?: () => void;
 }
 
 // ─── Input method ─────────────────────────────────────────────────────────────
@@ -137,6 +146,7 @@ export function ProfileSetupScreen({
   existingProfile,
   onSessionExpired,
   onConflict,
+  onDirty,
 }: ProfileSetupScreenProps): React.JSX.Element {
   const { t, locale } = useT();
 
@@ -179,14 +189,21 @@ export function ProfileSetupScreen({
   function handleMethodChange(method: InputMethod): void {
     setInputMethod(method);
     setErrorMsg(null);
+    // AC-15: user toggled the input method — mark form dirty.
+    // NOT fired on initial pre-fill (useState initialiser, not a handler call).
+    onDirty?.();
   }
 
   function handleStepperDecrement(): void {
     setCurrentWeek((w) => Math.max(1, w - 1));
+    // AC-15: user pressed stepper — mark form dirty.
+    onDirty?.();
   }
 
   function handleStepperIncrement(): void {
     setCurrentWeek((w) => Math.min(42, w + 1));
+    // AC-15: user pressed stepper — mark form dirty.
+    onDirty?.();
   }
 
   function handleDateConfirm(): void {
@@ -195,6 +212,8 @@ export function ProfileSetupScreen({
       setEdd(trimmed);
       setShowDateModal(false);
       setErrorMsg(null);
+      // AC-15: user confirmed a date — mark form dirty.
+      onDirty?.();
     } else {
       Alert.alert(t('profile.dateFormatAlertTitle'), t('profile.dateFormatAlertMsg'));
     }
@@ -209,6 +228,8 @@ export function ProfileSetupScreen({
       setInputMethod('due_date');
       setShowLmpModal(false);
       setErrorMsg(null);
+      // AC-15: user derived EDD from LMP — mark form dirty.
+      onDirty?.();
     } else {
       Alert.alert(t('profile.dateFormatAlertTitle'), t('profile.dateFormatAlertMsg'));
     }
@@ -216,76 +237,52 @@ export function ProfileSetupScreen({
 
   async function handleSave(): Promise<void> {
     if (!isValid || saving) return;
-    setSaving(true);
     setErrorMsg(null);
 
-    try {
-      const tokens = await tokenStorage.load();
-      const accessToken = tokens?.accessToken;
-      if (!accessToken) {
-        setSaving(false);
-        if (onSessionExpired) {
-          // AC-13 (BLOCKING, SD-5): no token = dead session → full performLogout teardown.
-          // Never show a stale error on a health screen — run teardown then Welcome.
-          onSessionExpired();
-        } else {
-          // Create flow (no onSessionExpired): legacy behaviour — show re-login prompt.
-          setErrorMsg(t('profile.errorLogin'));
-        }
-        return;
-      }
+    const body =
+      inputMethod === 'due_date'
+        ? { edd }
+        : { currentWeek };
 
-      const clientDate = localCivilToday();
-      const client = createPregnancyClient(apiBaseUrl);
-
-      const reqBody =
-        inputMethod === 'due_date'
-          ? { edd }
-          : { currentWeek };
-
-      const ifMatch = existingProfile?.version !== undefined
+    const ifMatch =
+      existingProfile?.version !== undefined
         ? String(existingProfile.version)
         : undefined;
 
-      const result = await client.putProfile(reqBody, accessToken, ifMatch, clientDate);
-
-      if (result.ok) {
-        onSetupComplete(result.profile);
-      } else if (result.status === 401) {
-        // AC-13 (BLOCKING, SD-5): server 401 on PUT = expired/invalid session.
-        // Run full teardown before navigating to Welcome.
-        if (onSessionExpired) {
-          onSessionExpired();
+    await runSave({
+      tokenStorage,
+      apiBaseUrl,
+      body,
+      ifMatch,
+      // AC-13 (BLOCKING, SD-5): session-expiry actions.
+      // Edit flow (onSessionExpired provided):
+      //   onNoTokenAction + onServerAuthAction both call onSessionExpired()
+      //   → full performLogout teardown + navigate to Welcome.
+      // Create flow (no onSessionExpired):
+      //   legacy behaviour — show re-login / generic error string.
+      onNoTokenAction: onSessionExpired
+        ? onSessionExpired
+        : () => setErrorMsg(t('profile.errorLogin')),
+      onServerAuthAction: onSessionExpired
+        ? onSessionExpired
+        : () => setErrorMsg(t('profile.errorGeneric')),
+      onSuccess: (profile) => onSetupComplete(profile),
+      onConflict: (conflictProfile) => {
+        if (onConflict && conflictProfile) {
+          // AC-10 (R-3): edit flow — reload form to latest server state.
+          onConflict(conflictProfile);
         } else {
-          setErrorMsg(t('profile.errorGeneric'));
+          // Create flow or body-less 409: show the conflict message.
+          setErrorMsg(t('profile.errorConflict'));
         }
-      } else {
-        if (result.status === 403 && result.code === 'consent_required') {
-          setErrorMsg(t('profile.errorConsentRequired'));
-        } else if (result.status === 409) {
-          // AC-10 (R-3): conflict with another device.
-          const conflictProfile =
-            (result as { currentProfile?: PregnancyProfile | null }).currentProfile ?? null;
-          if (onConflict && conflictProfile) {
-            // Edit flow: reload form to latest server state (R-3).
-            onConflict(conflictProfile);
-          } else {
-            // Create flow or missing body: show the conflict message.
-            setErrorMsg(t('profile.errorConflict'));
-          }
-        } else if (result.status === 422) {
-          setErrorMsg(t('profile.errorDateInvalid'));
-        } else if (result.status === 428) {
-          setErrorMsg(t('profile.errorPreconditionFailed'));
-        } else {
-          setErrorMsg(t('profile.errorGeneric'));
-        }
-      }
-    } catch {
-      setErrorMsg(t('profile.errorOffline'));
-    } finally {
-      setSaving(false);
-    }
+      },
+      onValidationError: () => setErrorMsg(t('profile.errorDateInvalid')),
+      onConsentRequired: () => setErrorMsg(t('profile.errorConsentRequired')),
+      onPreconditionFailed: () => setErrorMsg(t('profile.errorPreconditionFailed')),
+      onGenericError: () => setErrorMsg(t('profile.errorGeneric')),
+      onOfflineError: () => setErrorMsg(t('profile.errorOffline')),
+      setSaving,
+    });
   }
 
   // ─── Live confirmation preview (client-side derived, no network) ──────────

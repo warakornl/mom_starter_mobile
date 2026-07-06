@@ -1,64 +1,54 @@
 /**
  * RootNavigator — root native-stack navigator.
  *
- * Route map:
+ * Route map (post bottom-tab-nav refactor):
  *   Welcome → Login | Register
- *   Login → Home (on success) | Register (create account link)
- *   Register → VerifyEmail (on 202) | Login (sign-in link)
- *   VerifyEmail → Consent (on verify success) | Register (change email)
- *   Consent → Home (on continue — limited mode or full mode)
- *   Home — checks for PregnancyProfile on mount:
- *     → ProfileSetup (if GET /v1/pregnancy-profile returns 404)
- *     → stays on Home (if profile exists — pregnant or postpartum)
- *   Home (T3 lifecycle=pregnant) — "ลูกคลอดแล้ว" banner CTA:
- *     → BirthEvent (profile version passed as route param)
+ *   Login → MainTabs (on success)
+ *   Register → VerifyEmail (on 202)
+ *   VerifyEmail → Consent (on verify success)
+ *   Consent → MainTabs (on continue — limited mode or full mode)
+ *   MainTabs — BottomTabNavigator (5 tabs: Supplies, Expenses, Calendar, Report, Medication)
+ *     Calendar tab — dashboard + CalendarScreen:
+ *       → ProfileSetup (if GET 404; tab bar suppressed — ProfileSetup is a root screen)
+ *       → stays in tabs (if profile exists — pregnant or postpartum)
+ *     Calendar tab (T3, lifecycle=pregnant) — "ลูกคลอดแล้ว" banner CTA:
+ *       → BirthEvent (profile version passed as route param)
  *   ProfileSetup — initial due-date / current-week entry:
- *     → Home (on PUT success; resets stack)
+ *       → MainTabs (on PUT success; resets stack to tabs)
  *   BirthEvent — records POST /v1/pregnancy-profile/birth-event:
- *     → Home (on success; resets stack; Home reloads and switches to postpartum)
+ *       → MainTabs (on success; resets stack; Calendar tab reloads → postpartum)
  *
  * Design decisions:
- * - Auth screens keep their callback-based prop API (onSuccess, onSignIn, etc.)
- *   and are wired to navigation via render-prop children inside Stack.Screen.
- *   This decouples screen components from react-navigation and keeps them
- *   testable without a navigation environment.
- * - Login and VerifyEmail success use `navigation.reset` to clear the auth stack
- *   so the user cannot "back" into the sign-in screen after logging in.
- * - HomeScreen receives `onBirthEvent(profileVersion)` which navigates to the
- *   BirthEvent screen with the version as a route param (for If-Match header).
- * - BirthEventScreen receives `onBirthRecorded` which resets to Home; HomeScreen
- *   then reloads on foreground and switches to postpartum mode.
+ *   - Auth screens keep callback-based prop API (decouples from navigation, stays testable).
+ *   - Profile snapshot is now hosted in PregnancyProfileContext ABOVE the tab navigator.
+ *     CalendarTabScreen updates it via useProfileSnapshotSetter().
+ *     Non-tab screens (KickCount*, Settings, DoctorPdf, Suggestions) read via useProfileSnapshot().
+ *   - Supplies, Expenses, DoctorPdf, MedicationPlans are now TABS inside BottomTabNavigator;
+ *     they are no longer separate stack routes.
+ *   - profileSnapshot state removed from RootNavigator (was B-1 pattern from old Home).
+ *     PregnancyProfileContext replaces it — same security properties (no tokens, no raw health).
  *
- * i18n:
- * - Navigator header titles sourced from useT() so they update on locale change.
- * - The `locale` prop on auth screens has been removed (deprecated; locale is
- *   now read from LanguageContext inside each screen via useT()).
+ * i18n: Navigator header titles sourced from useT() so they update on locale change.
  *
- * Carry-forward:
- * - ForgotPassword screen (onForgotPassword is currently a no-op)
- * - Expo Linking deep-link for momstarter://verify?token= → VerifyEmailScreen
- * - ManageConsents screen (S8) is registered; Settings routes to it for ม.19 withdrawal
+ * PDPA / SD-5: performLogout runner called from BottomTabNavigator and ProfileEditScreen
+ *   for all exit paths to ensure all health stores are cleared.
  */
 
-import React, { useState } from 'react';
+import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import type { RootStackParamList } from './types';
 import type { TokenStorage } from '../auth/tokenStorage';
-import type { ProfileSnapshot } from '../pregnancy/PregnancyProfileContext';
 import { localCivilToday } from '../pregnancy/gestationalAge';
+import { PregnancyProfileProvider, useProfileSnapshot } from '../pregnancy/PregnancyProfileContext';
 
 import { WelcomeScreen } from '../screens/WelcomeScreen';
-import { HomeScreen } from '../screens/HomeScreen';
 import { LoginScreen } from '../auth/LoginScreen';
 import { RegisterScreen } from '../auth/RegisterScreen';
 import { VerifyEmailScreen } from '../auth/VerifyEmailScreen';
 import { ProfileSetupScreen } from '../pregnancy/ProfileSetupScreen';
 import { ProfileEditScreen } from '../pregnancy/ProfileEditScreen';
 import { BirthEventScreen } from '../pregnancy/BirthEventScreen';
-import { SuppliesScreen } from '../supplies/SuppliesScreen';
-import { ExpensesScreen } from '../expenses/ExpensesScreen';
-import { CalendarScreen } from '../calendar/CalendarScreen';
 import { AppointmentFormScreen } from '../calendar/AppointmentFormScreen';
 import { ReminderFormScreen } from '../calendar/ReminderFormScreen';
 import { SettingsScreen } from '../settings/SettingsScreen';
@@ -71,16 +61,11 @@ import { calendarSyncStore } from '../sync/calendarSyncStore';
 import { ConsentScreen } from '../screens/ConsentScreen';
 import { ManageConsentsScreen } from '../screens/ManageConsentsScreen';
 import { SuggestionFlowScreen } from '../suggestion/SuggestionFlowScreen';
-import { DoctorPdfScreen } from '../pdfReport/DoctorPdfScreen';
 import { CaptureScreen } from '../capture/CaptureScreen';
-import { buildAddCaptureParams } from '../calendar/calendarAddCaptureHandler';
-import { MedicationPlanListScreen } from '../medication/MedicationPlanListScreen';
-import { buildLogDoseParams } from '../medication/logDoseParams';
+import { BottomTabNavigator } from './BottomTabNavigator';
 import { useT } from '../i18n/LanguageContext';
 
-// ── Logout deps for the session-expiry / no-token auto-logout path ───────────
-// RootNavigator wires these so that HomeScreen.loadProfile → no-token → onLogout()
-// routes through performLogout, clearing ALL health stores (PDPA 1.1 / SD-5).
+// ── Logout deps for SD-5 teardown (used by ProfileEditScreen) ─────────────────
 import { performLogout } from '../auth/performLogout';
 import { supplySyncStore } from '../sync/supplySyncStore';
 import { kickCountSyncStore } from '../kickCount/kickCountSyncStore';
@@ -102,20 +87,23 @@ interface RootNavigatorProps {
   apiBaseUrl: string;
 }
 
-export function RootNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps): React.JSX.Element {
+// ─── Inner navigator (reads from context) ────────────────────────────────────
+
+/**
+ * StackNavigator uses useProfileSnapshot() to pass props to non-tab screens.
+ * It must render inside <PregnancyProfileProvider> so the context is available.
+ */
+function StackNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps): React.JSX.Element {
   const { t } = useT();
 
-  // B-1: Profile snapshot — populated by HomeScreen via onProfileLoaded.
-  // Used to pass gestationalWeek/edd/lifecycle/consent to KickCount screens
-  // without serializing health data through route params.
-  const [profileSnapshot, setProfileSnapshot] = useState<ProfileSnapshot | null>(null);
-
-  // Derived props for KickCount screens (safe defaults before profile loads).
-  const kickProps: ProfileSnapshot = profileSnapshot ?? {
+  // Read profile snapshot from context (updated by CalendarTabScreen after GET profile).
+  // Safe defaults before the profile loads (same as old kickProps pattern).
+  const snapshot = useProfileSnapshot();
+  const kickProps = snapshot ?? {
     gestationalWeek: 0,
     edd: '',
     todayCivil: localCivilToday(),
-    lifecycle: 'pregnant',
+    lifecycle: 'pregnant' as const,
     generalHealthConsented: false,
   };
 
@@ -146,7 +134,7 @@ export function RootNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps):
             apiBaseUrl={apiBaseUrl}
             tokenStorage={tokenStorage}
             onSuccess={() =>
-              navigation.reset({ index: 0, routes: [{ name: 'Home' }] })
+              navigation.reset({ index: 0, routes: [{ name: 'MainTabs' }] })
             }
             onForgotPassword={() => {
               // TODO: navigate('ForgotPassword') — carry-forward (S5 not yet built)
@@ -184,7 +172,7 @@ export function RootNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps):
             pendingToken={route.params.pendingToken}
             tokenStorage={tokenStorage}
             onVerified={() =>
-              // S3: first-run consent before Home (PDPA prod-gate)
+              // S3: first-run consent before MainTabs (PDPA prod-gate)
               navigation.reset({ index: 0, routes: [{ name: 'Consent' }] })
             }
             onChangeEmail={() =>
@@ -194,11 +182,8 @@ export function RootNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps):
         )}
       </Stack.Screen>
 
-      {/* Consent — S3 first-run PDPA consent (general_health + cloud_storage).
-       * Entry: VerifyEmail onVerified (new registrations only).
-       * Returning users manage consents via Settings > ManageConsentsScreen (S8).
-       * onContinue resets to Home regardless of what the user chose;
-       *   generalHealthGranted=false → limited mode (gate logic in HomeScreen).
+      {/* Consent — S3 first-run PDPA consent.
+       * onContinue resets to MainTabs (Calendar tab is the initial route).
        */}
       <Stack.Screen
         name="Consent"
@@ -209,74 +194,41 @@ export function RootNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps):
             tokenStorage={tokenStorage}
             apiBaseUrl={apiBaseUrl}
             onContinue={() =>
-              navigation.reset({ index: 0, routes: [{ name: 'Home' }] })
+              navigation.reset({ index: 0, routes: [{ name: 'MainTabs' }] })
             }
           />
         )}
       </Stack.Screen>
 
-      {/* Home — dashboard
+      {/* MainTabs — BottomTabNavigator (5 tabs).
        *
-       * Checks for PregnancyProfile on mount:
-       *   GET 404 → calls onNeedsProfile → navigate to ProfileSetup
-       *   GET 200, lifecycle=pregnant   → gestational-age dashboard + T3 birth CTA
-       *   GET 200, lifecycle=postpartum → baby-age dashboard (sage/green, postpartum)
+       * Wraps: Supplies, Expenses, Calendar (center, initial), Report, Medication.
+       * CalendarTabScreen handles profile GET, updates PregnancyProfileContext,
+       * and dispatches to non-tab screens (BirthEvent, Settings, KickCount, etc.).
+       * ProfileSetup is a root-stack screen; when CalendarTabScreen navigates to it
+       * the tab bar is naturally suppressed (BottomTabNavigator is unmounted).
        *
-       * B-1: onProfileLoaded updates profileSnapshot state so KickCount screens
-       *   receive the correct gestationalWeek/edd/lifecycle/consent props.
-       * B-1: onKickCount navigates to KickCountHome (wk32 gate enforced in HomeScreen).
+       * headerShown: false — BottomTabNavigator manages its own tab bar;
+       * CalendarTabScreen renders its own top bar with ⚙ and [TH|EN].
        */}
       <Stack.Screen
-        name="Home"
+        name="MainTabs"
         options={{ headerShown: false }}
       >
         {({ navigation }) => (
-          <HomeScreen
+          <BottomTabNavigator
             tokenStorage={tokenStorage}
             apiBaseUrl={apiBaseUrl}
-            onLogout={() => {
-              // Route through performLogout so ALL health stores are reset on
-              // session-expiry / no-token exit — not just on explicit logout
-              // in SettingsScreen. clearTokens is safe to call even when the
-              // token is already gone: it's wrapped in try/catch inside
-              // performLogout (PDPA 1.1 / SD-5 cross-account-leak guard).
-              void performLogout({
-                clearTokens: () => tokenStorage.clear(),
-                resetSupplyStore: () => supplySyncStore.reset(),
-                resetKickCountStore: () => kickCountSyncStore.reset(),
-                resetCalendarStore: () => calendarSyncStore.reset(),
-                resetSelfLogStore: () => selfLogSyncStore.reset(),
-                resetMedicationPlanStore: () => medicationPlanSyncStore.reset(),
-                resetMedicationLogStore: () => medicationLogSyncStore.reset(),
-                resetConsentStore: () => consentStore.reset(),
-                resetConsentQueue: () => resetConsentQueue(),
-                resetSuggestionStore: () => suggestionStore.reset(),
-                resetExpensesStore: () => expensesSyncStore.reset(),
-                clearKickCountDraft: () => clearDraft(),
-                onComplete: () =>
-                  navigation.reset({ index: 0, routes: [{ name: 'Welcome' }] }),
-              });
-            }}
-            onNeedsProfile={() =>
-              navigation.reset({ index: 0, routes: [{ name: 'ProfileSetup' }] })
-            }
-            onBirthEvent={(profileVersion) =>
-              navigation.navigate('BirthEvent', { profileVersion })
-            }
-            onSupplies={() => navigation.navigate('Supplies')}
-            onExpenses={() => navigation.navigate('Expenses')}
-            onCalendar={() => navigation.navigate('Calendar')}
-            onMedication={() => navigation.navigate('MedicationPlans')}
-            onKickCount={() => navigation.navigate('KickCountHome')}
-            onSettings={() => navigation.navigate('Settings')}
-            onSuggestions={() => navigation.navigate('Suggestions')}
-            onDoctorPdf={() => navigation.navigate('DoctorPdf')}
-            onProfileLoaded={(snapshot) => setProfileSnapshot(snapshot)}
+            navigation={navigation}
           />
         )}
       </Stack.Screen>
 
-      {/* ProfileSetup — initial due-date / current-week entry (US-1) */}
+      {/* ProfileSetup — initial due-date / current-week entry (US-1).
+       * Entry: CalendarTabScreen onNeedsProfile (GET 404).
+       * Tab bar is suppressed while this screen is active (root-stack screen).
+       * onSetupComplete resets to MainTabs (Calendar tab opens by default).
+       */}
       <Stack.Screen
         name="ProfileSetup"
         options={{ title: t('profile.navTitle'), headerBackTitle: '' }}
@@ -286,21 +238,16 @@ export function RootNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps):
             tokenStorage={tokenStorage}
             apiBaseUrl={apiBaseUrl}
             onSetupComplete={() =>
-              navigation.reset({ index: 0, routes: [{ name: 'Home' }] })
+              navigation.reset({ index: 0, routes: [{ name: 'MainTabs' }] })
             }
           />
         )}
       </Stack.Screen>
 
-      {/* BirthEvent — records birth and transitions lifecycle to postpartum
+      {/* BirthEvent — records birth and transitions lifecycle to postpartum.
        *
-       * Entry: T3 stage banner "ลูกคลอดแล้ว ›" in HomeScreen
-       * Exit: resets stack to Home; HomeScreen reloads on foreground and
-       *       switches to postpartum mode (lifecycle=postpartum from GET profile).
-       *
-       * Birth CTA placement (pregnancy-profile-ui §4.1):
-       *   Reached from the stage banner (T3 only) and Account ▸ Pregnancy.
-       *   Never a prominent card on the calendar surface.
+       * Entry: T3 stage banner "ลูกคลอดแล้ว ›" in CalendarTabScreen.
+       * Exit: resets stack to MainTabs; CalendarTabScreen reloads on focus → postpartum.
        */}
       <Stack.Screen
         name="BirthEvent"
@@ -312,86 +259,15 @@ export function RootNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps):
             apiBaseUrl={apiBaseUrl}
             profileVersion={route.params.profileVersion}
             onBirthRecorded={() =>
-              navigation.reset({ index: 0, routes: [{ name: 'Home' }] })
+              navigation.reset({ index: 0, routes: [{ name: 'MainTabs' }] })
             }
             onCancel={() => navigation.goBack()}
           />
         )}
       </Stack.Screen>
 
-      {/* Supplies — offline-first supply checklist (sync engine slice 1)
-       *
-       * Entry: shortcut button on HomeScreen ("รายการเตรียมคลอด ›").
-       * The SyncStore is module-level in SuppliesScreen so data persists
-       * across in-session re-mounts; a full app restart triggers a fresh pull.
-       */}
-      <Stack.Screen
-        name="Supplies"
-        options={{ title: t('supplies.navTitle'), headerBackTitle: t('general.back') }}
-      >
-        {() => (
-          <SuppliesScreen
-            tokenStorage={tokenStorage}
-            apiBaseUrl={apiBaseUrl}
-          />
-        )}
-      </Stack.Screen>
-
-      {/* Expenses — offline-first monthly expense ledger (expenses-feature)
-       *
-       * Entry: shortcut button on HomeScreen ("ค่าใช้จ่าย ›").
-       * ExpensesSyncStore is module-level; data persists across in-session re-mounts.
-       * amount stored/synced as satang integer; displayed as ฿ with 2 decimals.
-       */}
-      <Stack.Screen
-        name="Expenses"
-        options={{ title: t('expenses.navTitle'), headerBackTitle: t('general.back') }}
-      >
-        {() => (
-          <ExpensesScreen
-            tokenStorage={tokenStorage}
-            apiBaseUrl={apiBaseUrl}
-          />
-        )}
-      </Stack.Screen>
-
-      {/* Calendar — month/agenda (calendar + reminder occurrences + appointments)
-       *
-       * Entry: "ดูทั้งหมด" / calendar button on HomeScreen.
-       * CalendarScreen receives navigation callbacks for add/edit forms.
-       * tokenStorage + apiBaseUrl enable sync push/pull for calendar data.
-       */}
-      <Stack.Screen
-        name="Calendar"
-        options={{ title: t('calendar.navTitle'), headerBackTitle: t('general.back') }}
-      >
-        {({ navigation }) => (
-          <CalendarScreen
-            tokenStorage={tokenStorage}
-            apiBaseUrl={apiBaseUrl}
-            onAddAppointment={() =>
-              navigation.navigate('AppointmentForm', {})
-            }
-            onEditAppointment={(itemId: string) =>
-              navigation.navigate('AppointmentForm', { itemId })
-            }
-            onAddReminder={() =>
-              navigation.navigate('ReminderForm', {})
-            }
-            onEditReminder={(reminderId: string) =>
-              navigation.navigate('ReminderForm', { reminderId })
-            }
-            onAddCapture={(loggedAtDate: string) =>
-              navigation.navigate('Capture', buildAddCaptureParams(loggedAtDate))
-            }
-          />
-        )}
-      </Stack.Screen>
-
-      {/* AppointmentForm — add/edit ChecklistItem (category=appointment)
-       *
-       * Entry: CalendarScreen FAB or tapping an existing appointment.
-       * itemId present → edit mode (looks up calendarSyncStore.getChecklistItem).
+      {/* AppointmentForm — add/edit ChecklistItem (category=appointment).
+       * Stack-pushed over tabs from CalendarTabScreen.
        */}
       <Stack.Screen
         name="AppointmentForm"
@@ -422,10 +298,8 @@ export function RootNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps):
         }}
       </Stack.Screen>
 
-      {/* ReminderForm — add/edit Reminder with recurrenceRule (FLAG-4)
-       *
-       * Entry: CalendarScreen FAB or tapping an existing reminder.
-       * reminderId present → edit mode (looks up calendarSyncStore.getReminder).
+      {/* ReminderForm — add/edit Reminder (FLAG-4).
+       * Stack-pushed over tabs from CalendarTabScreen.
        */}
       <Stack.Screen
         name="ReminderForm"
@@ -452,17 +326,9 @@ export function RootNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps):
         }}
       </Stack.Screen>
 
-      {/* Settings — account/settings menu; home for logout (two levels deep).
-       * Entry: gear ⚙ in the Home header. Stock header provides the back button.
-       *
-       * Account Rights (Task 3):
-       *   apiBaseUrl — enables "Download my data" + "Delete my account" rows.
-       *   onSessionExpired — routes to Welcome when export/delete returns 401
-       *     (global session-expired handling — §2.3 E-20, §3.2 E-21).
-       *
-       * Edit pregnancy profile:
-       *   profileLifecycle — from profileSnapshot; gates the edit row (AC-2).
-       *   onEditPregnancy  — navigates to ProfileEdit (shown only when pregnant).
+      {/* Settings — account/settings menu.
+       * Entry: gear ⚙ in Calendar tab top bar (§3.3, §9 — replaces ☰ hamburger).
+       * Reads profileSnapshot from PregnancyProfileContext for lifecycle-gated rows.
        */}
       <Stack.Screen
         name="Settings"
@@ -479,9 +345,9 @@ export function RootNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps):
             onSessionExpired={() =>
               navigation.reset({ index: 0, routes: [{ name: 'Welcome' }] })
             }
-            profileLifecycle={profileSnapshot?.lifecycle ?? null}
+            profileLifecycle={snapshot?.lifecycle ?? null}
             onEditPregnancy={
-              profileSnapshot?.lifecycle === 'pregnant'
+              snapshot?.lifecycle === 'pregnant'
                 ? () => navigation.navigate('ProfileEdit')
                 : undefined
             }
@@ -489,16 +355,7 @@ export function RootNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps):
         )}
       </Stack.Screen>
 
-      {/* ProfileEdit — edit-pregnancy-profile host (Settings entry).
-       *
-       * AC-2: Only navigated to when lifecycle=pregnant (gate also in Settings row).
-       * AC-3: Performs a fresh GET on mount (snapshot lacks version+eddBasis — G-2).
-       * AC-7 / R-2: on PUT 200, goBack() to Settings (NOT reset-to-Home).
-       * AC-8: after goBack, Home re-GETs via useFocusEffect when it regains focus.
-       * AC-9: NO reanchor/notification reschedule on save.
-       * AC-13 (BLOCKING, SD-5): ALL four 401 paths route through performLogout teardown.
-       * AC-17: profile data held in ProfileEditScreen local state — NOT in route params.
-       */}
+      {/* ProfileEdit — edit-pregnancy-profile (AC-13 SD-5 teardown on 401). */}
       <Stack.Screen
         name="ProfileEdit"
         options={{ title: t('profile.editNavTitle'), headerBackTitle: t('general.back') }}
@@ -507,17 +364,8 @@ export function RootNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps):
           <ProfileEditScreen
             tokenStorage={tokenStorage}
             apiBaseUrl={apiBaseUrl}
-            // AC-15: navigation passed for beforeRemove dirty-guard registration.
             navigation={navigation}
-            // AC-7 / R-2: goBack to Settings on successful save.
-            // isDirtyRef is cleared by ProfileEditScreen before this is called,
-            // so the goBack() is NOT intercepted by the beforeRemove guard.
             onEditComplete={() => navigation.goBack()}
-            // AC-13 (BLOCKING, SD-5): ALL four 401 paths (GET no-token, GET server-401,
-            // PUT no-token, PUT server-401) run the FULL performLogout teardown before
-            // navigating to Welcome.  Reuses the exact runner from Home.onLogout (L242-257).
-            // ProfileEditScreen wraps this in handleSessionExpired which clears isDirtyRef
-            // first, so the navigation.reset below is NOT trapped by the guard.
             onSessionExpired={() => {
               void performLogout({
                 clearTokens: () => tokenStorage.clear(),
@@ -540,10 +388,8 @@ export function RootNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps):
         )}
       </Stack.Screen>
 
-      {/* ManageConsents — S8 Manage-Consents screen (PDPA ม.19 withdrawal).
-       * Entry: Settings > Manage Permissions (returning users).
-       * Lists all 6 consent types with toggle grant/withdraw.
-       * Withdrawal confirmation sheet shown for 4 of 6 types (§3.3.2).
+      {/* ManageConsents — S8 PDPA ม.19 withdrawal.
+       * Entry: Settings > Manage Permissions.
        */}
       <Stack.Screen
         name="ManageConsents"
@@ -558,12 +404,9 @@ export function RootNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps):
         )}
       </Stack.Screen>
 
-      {/* Suggestions — stage-scoped suggestion list (suggestion-flow-ui.md)
-       *
-       * Entry: SuggestionBanner "View all" link on HomeScreen.
-       * Props: gestationalWeek/stage/lifecycle from profileSnapshot.
-       * Actions: Start routes to kick count / supplies / calendar;
-       *          Snooze + Dismiss update the local suggestionStore.
+      {/* Suggestions — full stage-scoped suggestion list.
+       * Entry: SuggestionBanner "View all" in CalendarTabScreen.
+       * Props derived from profileSnapshot (PregnancyProfileContext).
        */}
       <Stack.Screen
         name="Suggestions"
@@ -584,43 +427,14 @@ export function RootNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps):
             gestationalWeek={kickProps.gestationalWeek}
             onBack={() => navigation.goBack()}
             onKickCount={() => navigation.navigate('KickCountHome')}
-            onSupplies={() => navigation.navigate('Supplies')}
-            onCalendar={() => navigation.navigate('Calendar')}
+            onSupplies={() => navigation.navigate('MainTabs')}
+            onCalendar={() => navigation.navigate('MainTabs')}
           />
         )}
       </Stack.Screen>
 
-      {/* DoctorPdf — Builder→Preview→Share screen for the doctor-summary PDF.
-       *
-       * Entry: "รายงานสำหรับแพทย์" shortcut button on HomeScreen.
-       * profile prop derives from profileSnapshot (HomeScreen.onProfileLoaded).
-       * No health data in route params (PDPA SD-9).
-       * Spec: pdf-doctor-ui.md §1–§5.
-       */}
-      <Stack.Screen
-        name="DoctorPdf"
-        options={{ headerShown: false }}
-      >
-        {({ navigation }) => (
-          <DoctorPdfScreen
-            tokenStorage={tokenStorage}
-            apiBaseUrl={apiBaseUrl}
-            profile={{
-              edd: kickProps.edd || '2999-12-31',
-              gestationalWeek: kickProps.gestationalWeek,
-              lifecycle: kickProps.lifecycle,
-            }}
-            onBack={() => navigation.goBack()}
-          />
-        )}
-      </Stack.Screen>
-
-      {/* Capture — Quick Capture / Self-log form (capture-ui.md).
-       *
-       * Entry: Day-Detail "Add" / Home shortcut / specific-context reminder.
-       * metricType param hides the type control (pre-set context).
-       * No health data in route params (PDPA SD-9).
-       * header: hidden (CaptureScreen renders its own header with Close + title).
+      {/* Capture — Quick Capture / Self-log form.
+       * Stack-pushed over tabs from CalendarTabScreen day-detail or Medication tab.
        */}
       <Stack.Screen
         name="Capture"
@@ -634,43 +448,13 @@ export function RootNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps):
         )}
       </Stack.Screen>
 
-      {/* MedicationPlans — Medication Plan Management (medication-plan-ui.md).
+      {/* ── Kick Count — stack-pushed over tabs ────────────────────────────────
        *
-       * Entry: bottom-nav tab at the same level as Calendar, Expenses, Supplies.
-       *   Wired via HomeScreen.onMedication (shortcut at the same tier as the
-       *   others) pending a future TabNavigator refactor.
-       * general_health gates Save → warm consent-nudge → persist on Grant.
-       * cloud_storage absent → local-save + "not synced" toast.
-       * No health data in route params (PDPA SD-9).
-       */}
-      <Stack.Screen
-        name="MedicationPlans"
-        options={{ title: t('medication.navTitle'), headerBackTitle: t('general.back') }}
-      >
-        {({ navigation }) => (
-          <MedicationPlanListScreen
-            tokenStorage={tokenStorage}
-            apiBaseUrl={apiBaseUrl}
-            onManageConsents={() => navigation.navigate('ManageConsents')}
-            onLogDose={(planId) =>
-              navigation.navigate('Capture', buildLogDoseParams(planId))
-            }
-          />
-        )}
-      </Stack.Screen>
-
-      {/* ── Kick Count ─────────────────────────────────────────────────────────
-       *
-       * B-1: All 5 KickCount screens registered.
-       * Props derived from profileSnapshot (set by HomeScreen.onProfileLoaded).
-       * kickProps uses safe defaults (gestationalWeek=0, consent=false) until
-       * the profile loads — this prevents accessing the feature before auth.
-       *
-       * Security: no health data in route params (K-8 PDPA). Profile data
-       * flows from HomeScreen → RootNavigator state → screen props only.
+       * Props derived from PregnancyProfileContext (kickProps).
+       * Security: no health data in route params (K-8 PDPA SD-9).
        */}
 
-      {/* SC-K0: KickCount entry / module home */}
+      {/* SC-K0: KickCount entry */}
       <Stack.Screen
         name="KickCountHome"
         options={{ title: t('kick.navTitle'), headerBackTitle: t('general.back') }}
@@ -703,14 +487,17 @@ export function RootNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps):
         )}
       </Stack.Screen>
 
-      {/* SC-K3: Post-finalize summary — reads sessionId from route.params */}
+      {/* SC-K3: Post-finalize summary */}
       <Stack.Screen
         name="KickCountSummary"
         component={KickCountSummaryScreen}
         options={{ title: t('kick.summaryHeadline'), headerBackTitle: t('general.back') }}
       />
 
-      {/* SC-K4: History list */}
+      {/* SC-K4: History list.
+       * Entry (postpartum): quiet history link in CalendarTabScreen (§4.3, direct entry).
+       * Entry (pregnant): from KickCountHome.
+       */}
       <Stack.Screen
         name="KickCountHistory"
         options={{ title: t('kick.historyNavTitle'), headerBackTitle: t('general.back') }}
@@ -725,12 +512,22 @@ export function RootNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps):
         )}
       </Stack.Screen>
 
-      {/* SC-K5: Session detail — reads sessionId from route.params */}
+      {/* SC-K5: Session detail */}
       <Stack.Screen
         name="KickCountDetail"
         component={KickCountDetailScreen}
         options={{ title: t('kick.detailNavTitle'), headerBackTitle: t('general.back') }}
       />
     </Stack.Navigator>
+  );
+}
+
+// ─── Public export ────────────────────────────────────────────────────────────
+
+export function RootNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps): React.JSX.Element {
+  return (
+    <PregnancyProfileProvider>
+      <StackNavigator tokenStorage={tokenStorage} apiBaseUrl={apiBaseUrl} />
+    </PregnancyProfileProvider>
   );
 }

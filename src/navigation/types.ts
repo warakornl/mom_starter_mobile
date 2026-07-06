@@ -6,19 +6,22 @@
  *   Login         — no params
  *   Register      — no params
  *   VerifyEmail   — email: address shown in check-inbox screen
- *   Home          — no params (dashboard; checks profile lifecycle on mount)
+ *   MainTabs      — no params; renders BottomTabNavigator (5 tabs; initial = Calendar)
  *   ProfileSetup  — no params (initial pregnancy profile setup — first-run or GET 404)
  *   BirthEvent    — profileVersion: current profile version (for If-Match header)
  *
  * Navigation flow:
- *   Login/VerifyEmail success → Home
- *   Home (GET 404 profile) → ProfileSetup (via onNeedsProfile callback)
- *   ProfileSetup complete → Home (via onSetupComplete callback + navigation.reset)
- *   Home T3 banner "ลูกคลอดแล้ว" → BirthEvent (via onBirthEvent(version))
- *   BirthEvent success → Home (via onBirthRecorded + navigation.reset)
- *   Home calendar button → Calendar
- *   Calendar → AppointmentForm (new: no params; edit: itemId)
- *   Calendar → ReminderForm   (new: no params; edit: reminderId)
+ *   Login/VerifyEmail success → MainTabs (Calendar tab opens by default)
+ *   CalendarTab (GET 404 profile) → ProfileSetup (via onNeedsProfile; tab bar suppressed)
+ *   ProfileSetup complete → MainTabs (via onSetupComplete callback + navigation.reset)
+ *   CalendarTab T3 banner "ลูกคลอดแล้ว" → BirthEvent (via onBirthEvent(version))
+ *   BirthEvent success → MainTabs (via onBirthRecorded + navigation.reset)
+ *   CalendarTab → AppointmentForm (stack-pushed over tabs)
+ *   CalendarTab → ReminderForm   (stack-pushed over tabs)
+ *
+ * Tabs (inside BottomTabNavigator — not separate stack routes):
+ *   Supplies, Expenses, Calendar, Report (DoctorPdf), Medication
+ *   These were formerly separate stack routes; they are now rendered as tabs.
  *
  * Deep-link carry-forward:
  *   VerifyEmail will also receive `pendingToken?: string` once Expo Linking
@@ -29,39 +32,37 @@ export type RootStackParamList = {
   Login: undefined;
   Register: undefined;
   VerifyEmail: { email: string; pendingToken?: string };
-  Home: undefined;
+
+  /**
+   * MainTabs — the 5-tab bottom navigator (BottomTabNavigator).
+   * Replaces the former 'Home' route. Contains: Supplies, Expenses,
+   * Calendar (initial, center), Report, Medication.
+   * Profile snapshot is hosted in PregnancyProfileContext above this route.
+   */
+  MainTabs: undefined;
+
   ProfileSetup: undefined;
   /** Birth event screen — records birth and transitions lifecycle to postpartum. */
   BirthEvent: { profileVersion: number };
-  /**
-   * Supplies screen — offline-first supply checklist (sync engine slice 1).
-   * Entry: shortcut button on HomeScreen.
-   */
-  Supplies: undefined;
-  /**
-   * Expenses screen — offline-first monthly expense ledger (expenses-feature).
-   * Entry: shortcut button on HomeScreen.
-   * amount stored as satang integer; displayed as ฿ with 2 decimals.
-   */
-  Expenses: undefined;
-  /**
-   * Calendar screen — month/agenda combining appointments + reminder occurrences.
-   * Entry: "ดูทั้งหมด" / calendar button on HomeScreen.
-   */
-  Calendar: undefined;
+
   /**
    * AppointmentForm — add/edit a ChecklistItem with category=appointment.
    * itemId present → edit mode; absent → create mode.
+   * Stack-pushed over the tabs from CalendarTabScreen.
    */
   AppointmentForm: { itemId?: string; defaultCategory?: string };
+
   /**
    * ReminderForm — add/edit a Reminder with recurrenceRule (FLAG-4 grammar).
    * reminderId present → edit mode; absent → create mode.
+   * Stack-pushed over the tabs from CalendarTabScreen.
    */
   ReminderForm: { reminderId?: string };
+
   /**
-   * Settings — account/settings menu. Home for logout (kept two levels deep so it
-   * can't be triggered by accident). Entry: gear ⚙ in the Home header.
+   * Settings — account/settings menu.
+   * Entry: gear ⚙ in the Calendar tab top bar (§3.3, §9 — replaces ☰ hamburger).
+   * Stack-pushed over the tabs.
    */
   Settings: undefined;
 
@@ -92,10 +93,10 @@ export type RootStackParamList = {
    */
   ManageConsents: undefined;
 
-  // ── Kick Count ──────────────────────────────────────────────────────────────
+  // ── Kick Count — stack-pushed over tabs ─────────────────────────────────────
   /**
-   * KickCountHome — SC-K0: module entry (wk≥32+pregnant only).
-   * Week gate and consent gate enforced inside the screen.
+   * KickCountHome — SC-K0: module entry.
+   * Entry (pregnant wk≥32): kick-count card in Calendar tab dashboard (§4.2).
    */
   KickCountHome: undefined;
   /**
@@ -110,7 +111,8 @@ export type RootStackParamList = {
   KickCountSummary: { sessionId: string };
   /**
    * KickCountHistory — SC-K4: history list of completed sessions.
-   * Accessible from SC-K0 and SC-K3; read-only for postpartum.
+   * Entry (postpartum): quiet history link in Calendar tab dashboard (§4.3, direct entry).
+   * Entry (pregnant): from KickCountHome.
    */
   KickCountHistory: undefined;
   /**
@@ -121,55 +123,22 @@ export type RootStackParamList = {
 
   /**
    * Suggestions — full stage-scoped suggestion list (suggestion-flow-ui.md).
-   * Entry: SuggestionBanner "View all" on HomeScreen.
+   * Entry: SuggestionBanner "View all" in Calendar tab dashboard.
    * Shows suggestion cards with Start / Snooze / Dismiss actions.
    */
   Suggestions: undefined;
 
   /**
-   * DoctorPdf — Builder→Preview→Share screen for the doctor-summary PDF.
-   * Entry: "รายงานสำหรับแพทย์" button on HomeScreen (both pregnant & postpartum).
-   * Spec: pdf-doctor-ui.md §1–§5.
-   * No health data in route params (PDPA SD-9).
-   */
-  DoctorPdf: undefined;
-
-  /**
    * Capture — Quick Capture / Self-log form (capture-ui.md).
-   * Entry: Day-Detail "Add" / Home shortcut / specific-context reminder.
+   * Entry: Day-Detail "Add" / specific-context reminder / Medication "Log dose".
+   * Stack-pushed over the tabs.
    *
-   * metricType: if present, type control is hidden and pre-set (self-log family).
-   *             if absent AND medicationPlanId absent, the type control is shown.
-   * loggedAtDate: YYYY-MM-DD of the day being logged (default = today).
-   * defaultTime:  HH:mm override (e.g. from a reminder occurrence time).
-   *              If absent: now on today / 12:00 on non-today (capture-ui §2).
-   * medicationPlanId: if present, type is pre-set to 'medication', the plan is
-   *              resolved verbatim (name/dose), and "taken" is the default status.
-   *              Absent → medication type may still be selected ad-hoc from the
-   *              type control (medicationPlanId will be null in that path).
-   *              AC-22: Slice 3 (reminders) will pass the occurrence's plan id
-   *              here; AC-22 client dedup is a render-time concern (Day-Detail).
-   *
-   * Security: NO health values in route params (PDPA SD-9). Plan ID is a UUID,
-   * not a drug name or dose. Name/dose are resolved from the in-memory store.
+   * Security: NO health values in route params (PDPA SD-9). Plan ID is a UUID.
    */
   Capture: {
     metricType?: import('../sync/syncTypes').SelfLogMetricType;
     loggedAtDate?: string;
     defaultTime?: string;
-    /**
-     * medicationPlanId — when present, Capture opens in medication-family mode
-     * with this plan pre-selected ("taken" default). Absent → type control shown.
-     * UUID only — no health data in route params (PDPA SD-9).
-     */
     medicationPlanId?: string;
   };
-
-  /**
-   * MedicationPlans — Medication Plan Management screen (medication-plan-ui.md).
-   * Entry: bottom-nav tab at the same level as Calendar, Expenses, Supplies.
-   * No params — health data never in route params (PDPA SD-9).
-   * general_health consent gates Save; cloud_storage gate → local-only toast.
-   */
-  MedicationPlans: undefined;
 };

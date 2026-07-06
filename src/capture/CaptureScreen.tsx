@@ -851,7 +851,7 @@ export function CaptureScreen({ tokenStorage, apiBaseUrl }: CaptureScreenProps):
           <View style={styles.savedActions}>
             <TouchableOpacity
               style={styles.savedSecondaryBtn}
-              onPress={() => navigation.navigate('Calendar')}
+              onPress={() => navigation.navigate('MainTabs')}
               accessibilityRole="button"
             >
               <Text style={styles.savedSecondaryBtnText}>{t('capture.viewCalendar')}</Text>

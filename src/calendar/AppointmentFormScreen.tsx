@@ -403,10 +403,13 @@ export function AppointmentFormScreen({
         style={[styles.pickerField, dateError ? styles.inputError : null]}
         onPress={openDatePicker}
         accessibilityRole="button"
-        accessibilityLabel={`${t('appointment.fieldDate')}: ${formatCivilDate(date, locale as Locale)}`}
+        accessibilityLabel={`${t('appointment.fieldDate')}: ${date ? formatCivilDate(date, locale as Locale) : t('appointment.datePlaceholder')}`}
       >
+        {/* DEF-01 fix: guard against blank date (ANC_PREFILL_DATE=OFF) — show
+            placeholder instead of calling formatCivilDate('') which produces garbled
+            output.  Blank date still fails validate() / required-field gate. */}
         <Text style={styles.pickerFieldText}>
-          {formatCivilDate(date, locale as Locale)}
+          {date ? formatCivilDate(date, locale as Locale) : t('appointment.datePlaceholder')}
         </Text>
         <Text style={styles.pickerChevron} accessibilityElementsHidden={true}>›</Text>
       </TouchableOpacity>

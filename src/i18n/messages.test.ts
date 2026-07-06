@@ -86,6 +86,8 @@ describe('catalog key presence', () => {
     'birth.errorNotFound', 'birth.errorGeneric', 'birth.errorOffline',
     'birth.delivery.vaginal', 'birth.delivery.cesarean',
     'birth.delivery.other', 'birth.delivery.prefer_not',
+    // Calendar home-shortcut button (self-descriptive label replacing 'calendar.viewAll')
+    'calendar.shortcutBtn',
   ];
 
   it('has all required keys with non-empty Thai values', () => {

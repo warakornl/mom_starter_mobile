@@ -904,7 +904,7 @@ export function HomeScreen({
               accessibilityRole="button"
               accessibilityLabel={t('calendar.navTitle')}
             >
-              <Text style={styles.calendarBtnText}>{t('calendar.viewAll')}</Text>
+              <Text style={styles.calendarBtnText}>{t('calendar.shortcutBtn')}</Text>
             </TouchableOpacity>
           )}
           {/* B-1: KickCount entry — postpartum always visible (no week gate) */}
@@ -1064,7 +1064,7 @@ export function HomeScreen({
             accessibilityRole="button"
             accessibilityLabel={t('calendar.navTitle')}
           >
-            <Text style={styles.calendarBtnText}>{t('calendar.viewAll')}</Text>
+            <Text style={styles.calendarBtnText}>{t('calendar.shortcutBtn')}</Text>
           </TouchableOpacity>
         )}
         {/* B-1: KickCount entry — wk≥32 gate via shouldShowModule */}

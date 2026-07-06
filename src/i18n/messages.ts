@@ -299,6 +299,8 @@ const th = {
   'calendar.loading': 'กำลังโหลด',
   'calendar.offline': 'ออฟไลน์ · แสดงข้อมูลในเครื่อง',
   'calendar.viewAll': 'ดูทั้งหมด',
+  /** Home-screen shortcut button: self-descriptive label naming the destination and daily-log. */
+  'calendar.shortcutBtn': 'ปฏิทินและบันทึกรายวัน ›',
   'calendar.addAppointment': '+ นัดหมายใหม่',
   'calendar.addReminder': '+ เตือนความจำใหม่',
   'calendar.addCapture': '+ บันทึกสุขภาพ',
@@ -1251,6 +1253,7 @@ const en: MsgShape = {
   'calendar.loading': 'Loading',
   'calendar.offline': 'Offline · showing local data',
   'calendar.viewAll': 'View all',
+  'calendar.shortcutBtn': 'Calendar & daily log ›',
   'calendar.addAppointment': '+ New appointment',
   'calendar.addReminder': '+ New reminder',
   'calendar.addCapture': '+ Log health',

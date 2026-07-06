@@ -101,6 +101,38 @@ export function localCivilToday(): string {
   return `${y}-${m}-${day}`;
 }
 
+// ─── ANC inverse helper (NET-NEW — Surface 2) ────────────────────────────────
+
+/**
+ * weekToTargetDate(edd, targetWeek) — inverse of computeGestationalAge.
+ *
+ * Computes the **civil date** when gestational week `targetWeek` begins:
+ *   nextTargetDate = edd − (40 − targetWeek) × 7 days
+ *
+ * The result is UNCLAMPED — it may be in the past or before the calendar year.
+ * Callers that need a floor (e.g. "today + 3 days" for the prefill) must clamp
+ * the result themselves (§1.2 item 3 — `nextANCDate` clamp for the form).
+ *
+ * Implemented on the existing `parseCivilDateMs` UTC-midnight primitive so
+ * DST shifts never affect the civil-date output. This is the ONLY new
+ * computation in gestationalAge.ts; the frozen `computeGestationalAge` is
+ * unchanged.
+ *
+ * @param edd        EDD as civil 'YYYY-MM-DD' (floating, no timezone)
+ * @param targetWeek Gestational week to map back to a civil date
+ * @returns          Civil 'YYYY-MM-DD' of the start of `targetWeek`, UNCLAMPED
+ */
+export function weekToTargetDate(edd: string, targetWeek: number): string {
+  const MS_PER_DAY = 86_400_000;
+  const eddMs = parseCivilDateMs(edd);
+  const targetMs = eddMs - (40 - targetWeek) * 7 * MS_PER_DAY;
+  const d = new Date(targetMs);
+  const y = d.getUTCFullYear();
+  const m = String(d.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(d.getUTCDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+}
+
 // ─── Main computation ─────────────────────────────────────────────────────────
 
 function clamp(v: number, lo: number, hi: number): number {

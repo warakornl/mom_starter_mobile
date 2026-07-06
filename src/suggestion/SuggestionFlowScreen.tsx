@@ -45,7 +45,7 @@ import {
 import { getOfferable } from './suggestionEngine';
 import { suggestionStore } from './suggestionStore';
 import { SUGGESTION_CATALOG } from './suggestionCatalog';
-import type { OfferableSuggestion, SuggestionKey, CaptureTarget, SuggestionCatalogEntry } from './types';
+import type { OfferableSuggestion, SuggestionKey, CaptureTarget, SuggestionCatalogEntry, AncFormPrefill } from './types';
 import type { Stage } from '../pregnancy/gestationalAge';
 import type { Lifecycle } from '../pregnancy/types';
 import { useT } from '../i18n/LanguageContext';
@@ -59,6 +59,19 @@ export interface SuggestionFlowScreenProps {
   stage: Stage | null;
   /** Current gestational week (only meaningful when pregnant). */
   gestationalWeek: number;
+  /**
+   * Estimated due date (EDD) as 'YYYY-MM-DD'.
+   * Required for the ANC cadence suggestion offerable predicate (§1.3 item 1).
+   * Optional for screens that do not use the ANC suggestion.
+   */
+  edd?: string | null;
+  /**
+   * True when the caller has determined that at least one non-done
+   * appointment/anc_visit exists in [today, nextTargetDate + WINDOW].
+   * Passed through to the SuggestionContext for the ANC offerable predicate
+   * (§1.3 item 4). Optional for backward-compat.
+   */
+  upcomingApptInWindow?: boolean;
   /** Navigate back. */
   onBack: () => void;
   /** Navigate to KickCountHome (for kick_count suggestions). */
@@ -67,6 +80,12 @@ export interface SuggestionFlowScreenProps {
   onSupplies?: () => void;
   /** Navigate to CalendarScreen (for appointment/medication suggestions). */
   onCalendar?: () => void;
+  /**
+   * Called when the ANC suggestion Start tap opens the pre-filled
+   * AppointmentFormScreen. The caller is responsible for rendering it.
+   * Receives the prefill payload for the form.
+   */
+  onAncStart?: (prefill: AncFormPrefill) => void;
 }
 
 // ─── Capture-type glyphs ─────────────────────────────────────────────────────

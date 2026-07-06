@@ -18,7 +18,7 @@
  * IEEE 754 representation noise while still catching integer-division bugs.
  */
 
-import { computeGestationalAge, civilDaysBetween } from './gestationalAge';
+import { computeGestationalAge, civilDaysBetween, weekToTargetDate } from './gestationalAge';
 import type { GestationalAge } from './gestationalAge';
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -239,5 +239,54 @@ describe('computeGestationalAge — display rules', () => {
   it('progress is 1 for daysPregnant >= 280 (clamped)', () => {
     expect(computeGestationalAge(eddForDaysPregnant(280), TODAY).progress).toBe(1);
     expect(computeGestationalAge(eddForDaysPregnant(308), TODAY).progress).toBe(1);
+  });
+});
+
+// ─── weekToTargetDate (Surface 2 — ANC inverse helper NET-NEW) ────────────────
+// Formula: nextTargetDate = edd − (40 − targetWeek) × 7 (civil, UNCLAMPED).
+// Built on parseCivilDateMs / civil arithmetic — no new date library.
+// Tests are golden vectors on (edd, targetWeek) tuples; they verify the civil-
+// date arithmetic is correct without embedding clinically-assumed week values.
+
+describe('weekToTargetDate — NET-NEW inverse (edd → targetDate for a given week)', () => {
+  // Golden vector 1: EDD = 2026-08-01, targetWeek = 40 (the EDD itself)
+  // edd − (40−40)×7 = edd − 0 = 2026-08-01
+  it('returns the EDD itself when targetWeek === 40', () => {
+    expect(weekToTargetDate('2026-08-01', 40)).toBe('2026-08-01');
+  });
+
+  // Golden vector 2: EDD = 2026-08-01, targetWeek = 36
+  // edd − (40−36)×7 = edd − 28 days
+  // 2026-08-01 − 28 days = 2026-07-04
+  it('returns edd minus (40-targetWeek)*7 days for targetWeek=36', () => {
+    expect(weekToTargetDate('2026-08-01', 36)).toBe('2026-07-04');
+  });
+
+  // Golden vector 3: EDD = 2026-08-01, targetWeek = 20
+  // edd − (40−20)×7 = edd − 140 days
+  // 2026-08-01 − 140 days: 31 Jul + 1 Aug = 31 days in Jul, so Aug-1 minus 140:
+  // Aug-1 is day 213 of 2026; 213 - 140 = day 73 = March 14 (2026 is not a leap year)
+  // 2026: Jan=31, Feb=28, Mar: day 73 = Jan(31)+Feb(28)+Mar(14)=73 → 2026-03-14
+  it('returns edd minus (40-targetWeek)*7 days for targetWeek=20', () => {
+    expect(weekToTargetDate('2026-08-01', 20)).toBe('2026-03-14');
+  });
+
+  // Golden vector 4: computed date before year start (EDD early in year, early target)
+  // EDD = 2026-03-01, targetWeek = 12
+  // edd − (40−12)×7 = edd − 196 days
+  // 2026-03-01 = day 60; 60 - 196 = day -136 in 2025
+  // 2025 has 365 days; day 365 - 136 + 1 = day 229 → 2025-08-17
+  // Jan=31, Feb=28 (2025 non-leap), Mar=31, Apr=30, May=31, Jun=30, Jul=31, Aug=17
+  // 31+28+31+30+31+30+31+17=229 ✓
+  it('returns a date that may be before the start of the year (UNCLAMPED)', () => {
+    expect(weekToTargetDate('2026-03-01', 12)).toBe('2025-08-17');
+  });
+
+  // Golden vector 5: EDD = 2026-08-01, targetWeek = 28
+  // edd − (40−28)×7 = edd − 84 days = 2026-08-01 − 84 days
+  // Aug-1 − 84: Aug has 31, back into Jul: 84-1=83 before Aug. Jul=31→83-31=52 before Jul.
+  // Jun=30→52-30=22 before Jun. May=31→22 more: May 31-22=May 9. So 2026-05-09.
+  it('returns edd minus (40-targetWeek)*7 days for targetWeek=28', () => {
+    expect(weekToTargetDate('2026-08-01', 28)).toBe('2026-05-09');
   });
 });

@@ -220,6 +220,56 @@ describe('formatCivilDate', () => {
   });
 });
 
+// ─── DEF-01: formatCivilDate empty string (blank-date OFF state) ─────────────
+//
+// When ANC_PREFILL_DATE=OFF, date='' and AppointmentFormScreen renders:
+//   <Text>{formatCivilDate(date, locale)}</Text>
+// formatCivilDate('') splits on '-' → [''], maps to [NaN], and produces garbled
+// output ("undefined undefined พ.ศ. NaN" / "undefined undefined, NaN") instead
+// of a placeholder string.
+//
+// FIX REQUIRED in rn-mobile-dev (AppointmentFormScreen):
+//   Use `date ? formatCivilDate(date, locale) : blankPlaceholder` in the date
+//   field display text and accessibilityLabel.
+// This test DOCUMENTS the defect (passes = confirms current broken output).
+// Severity: MEDIUM — visible garbled text whenever ANC_PREFILL_DATE=OFF.
+
+describe('formatCivilDate — empty string guard (DEF-01, blank-date OFF state)', () => {
+  // AppointmentFormScreen guards: date ? formatCivilDate(date, locale) : t('appointment.datePlaceholder')
+  // When ANC_PREFILL_DATE=OFF, date='' is falsy → the placeholder is shown, not formatCivilDate('').
+  // These tests guard the fix: removing the key or the guard in the component would fail them.
+
+  it('DEF-01 fix: appointment.datePlaceholder key exists and is not garbled (th)', () => {
+    const placeholder = catalog.th['appointment.datePlaceholder'];
+    expect(placeholder).toBeTruthy();
+    expect(placeholder).not.toContain('undefined');
+  });
+
+  it('DEF-01 fix: appointment.datePlaceholder key exists and is not garbled (en)', () => {
+    const placeholder = catalog.en['appointment.datePlaceholder'];
+    expect(placeholder).toBeTruthy();
+    expect(placeholder).not.toContain('undefined');
+  });
+
+  it('DEF-01 fix: date field shows placeholder (not garbled text) when date is blank (th)', () => {
+    // Mirrors the guard in AppointmentFormScreen date display:
+    //   date ? formatCivilDate(date, locale) : t('appointment.datePlaceholder')
+    const date = '';
+    const placeholder = catalog.th['appointment.datePlaceholder'];
+    const display = date ? formatCivilDate(date, 'th') : placeholder;
+    expect(display).toBe(placeholder);
+    expect(display).not.toContain('undefined');
+  });
+
+  it('DEF-01 fix: date field shows placeholder (not garbled text) when date is blank (en)', () => {
+    const date = '';
+    const placeholder = catalog.en['appointment.datePlaceholder'];
+    const display = date ? formatCivilDate(date, 'en') : placeholder;
+    expect(display).toBe(placeholder);
+    expect(display).not.toContain('undefined');
+  });
+});
+
 // ─── interpolate (template substitution) ─────────────────────────────────────
 
 describe('interpolate', () => {

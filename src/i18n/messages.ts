@@ -376,6 +376,8 @@ const th = {
   'appointment.category.checklist_task': 'งานในรายการ',
   'appointment.category.postpartum_check': 'ตรวจหลังคลอด',
   'appointment.noteFormatHint': 'สถานที่และแพทย์จะถูกบันทึกในช่องบันทึก',
+  /** DEF-01 fix: shown in date field when date is blank (ANC_PREFILL_DATE=OFF). */
+  'appointment.datePlaceholder': 'เลือกวันที่',
 
   // ── Reminders (เตือนความจำ) ───────────────────────────────────────────────────
   'reminder.navTitleNew': 'เตือนความจำใหม่',
@@ -1380,6 +1382,8 @@ const en: MsgShape = {
   'appointment.category.checklist_task': 'Checklist task',
   'appointment.category.postpartum_check': 'Postpartum check',
   'appointment.noteFormatHint': 'Location and doctor will be saved in the note field',
+  /** DEF-01 fix: shown in date field when date is blank (ANC_PREFILL_DATE=OFF). */
+  'appointment.datePlaceholder': 'Select date',
 
   // ── Reminders ─────────────────────────────────────────────────────────────────
   'reminder.navTitleNew': 'New reminder',

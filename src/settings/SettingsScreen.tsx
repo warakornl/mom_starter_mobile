@@ -91,6 +91,20 @@ interface SettingsScreenProps {
    * Optional for backwards-compat; defaults to onLogout behavior.
    */
   onSessionExpired?: () => void;
+  /**
+   * AC-2 — The current profile lifecycle, sourced from `profileSnapshot` in
+   * RootNavigator. Used to decide whether to show the "แก้ไขข้อมูลการตั้งครรภ์"
+   * row (shown ONLY when lifecycle === 'pregnant'; hidden for postpartum/ended/
+   * no-profile/unknown — fail-closed per §1.2).
+   * Optional — when absent the row is hidden (safe default for existing tests).
+   */
+  profileLifecycle?: import('../pregnancy/types').Lifecycle | null;
+  /**
+   * Navigate to ProfileEditScreen (edit-pregnancy-profile feature).
+   * Called on row tap; navigator pushes ProfileEdit onto the stack.
+   * Optional — when absent the row is hidden even if lifecycle=pregnant.
+   */
+  onEditPregnancy?: () => void;
 }
 
 // ─── Local logout helper ──────────────────────────────────────────────────────
@@ -127,6 +141,8 @@ export function SettingsScreen({
   onManageConsent,
   apiBaseUrl,
   onSessionExpired,
+  profileLifecycle,
+  onEditPregnancy,
 }: SettingsScreenProps): React.JSX.Element {
   const { t, locale } = useT();
 
@@ -481,6 +497,33 @@ export function SettingsScreen({
   return (
     <SafeAreaView style={styles.container} edges={['bottom']} testID="settings-screen">
       <ScrollView contentContainerStyle={styles.scrollContent}>
+
+        {/* ── Pregnancy section (AC-2: shown ONLY when lifecycle=pregnant) ──── */}
+        {/* §1.1: placed ABOVE Privacy section; §1.2: row hidden unless pregnant */}
+        {profileLifecycle === 'pregnant' && onEditPregnancy && (
+          <>
+            <Text style={styles.sectionLabel}>{t('settings.pregnancy')}</Text>
+            <TouchableOpacity
+              testID="settings-edit-pregnancy-btn"
+              style={styles.menuRow}
+              onPress={onEditPregnancy}
+              accessibilityRole="button"
+              accessibilityLabel={t('settings.editPregnancy')}
+            >
+              <View style={styles.menuRowIconWrap}>
+                {/* Calendar/pencil glyph — rose tint, matching download row style */}
+                <Text style={styles.menuRowIconText} accessibilityElementsHidden>
+                  {'✎'}
+                </Text>
+              </View>
+              <View style={styles.menuRowTextGroup}>
+                <Text style={styles.menuRowText}>{t('settings.editPregnancy')}</Text>
+                <Text style={styles.menuRowSubtext}>{t('settings.editPregnancySubtitle')}</Text>
+              </View>
+              <Text style={styles.menuRowChevron}>{'›'}</Text>
+            </TouchableOpacity>
+          </>
+        )}
 
         {/* ── Privacy & Consent section ─────────────────────────────────────── */}
         {(onManageConsent || showAccountRightsRows) && (

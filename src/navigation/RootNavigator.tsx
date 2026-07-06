@@ -427,8 +427,8 @@ function StackNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps): React
             gestationalWeek={kickProps.gestationalWeek}
             onBack={() => navigation.goBack()}
             onKickCount={() => navigation.navigate('KickCountHome')}
-            onSupplies={() => navigation.navigate('MainTabs')}
-            onCalendar={() => navigation.navigate('MainTabs')}
+            onSupplies={() => navigation.navigate('MainTabs', { screen: 'Supplies' })}
+            onCalendar={() => navigation.navigate('MainTabs', { screen: 'Calendar' })}
           />
         )}
       </Stack.Screen>

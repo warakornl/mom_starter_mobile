@@ -38,8 +38,13 @@ export type RootStackParamList = {
    * Replaces the former 'Home' route. Contains: Supplies, Expenses,
    * Calendar (initial, center), Report, Medication.
    * Profile snapshot is hosted in PregnancyProfileContext above this route.
+   *
+   * `screen` param allows deep-linking to a specific tab from outside
+   * the tab navigator (e.g. SuggestionFlowScreen's "Start" CTA that routes
+   * to the Supplies or Calendar tab).  Matches the React Navigation v6
+   * nested-navigator `navigate('MainTabs', { screen: 'Supplies' })` pattern.
    */
-  MainTabs: undefined;
+  MainTabs: { screen?: 'Supplies' | 'Expenses' | 'Calendar' | 'Report' | 'Medication' } | undefined;
 
   ProfileSetup: undefined;
   /** Birth event screen — records birth and transitions lifecycle to postpartum. */

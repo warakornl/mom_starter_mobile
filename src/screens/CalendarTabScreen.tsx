@@ -62,10 +62,12 @@ import { drainConsentQueue } from '../consent/consentSync';
 import { getOfferable } from '../suggestion/suggestionEngine';
 import { suggestionStore } from '../suggestion/suggestionStore';
 import { SuggestionBanner } from '../suggestion/SuggestionBanner';
-import type { SuggestionKey, CaptureTarget, OfferableSuggestion } from '../suggestion/types';
+import type { SuggestionKey, OfferableSuggestion } from '../suggestion/types';
 import { resolveCalendarDashboardSections } from './calendarDashboardSections';
 import { CalendarScreen } from '../calendar/CalendarScreen';
 import { buildAddCaptureParams } from '../calendar/calendarAddCaptureHandler';
+import { resolveSuggestionAction } from './calendarTabSuggestionRouting';
+import { buildCalendarTabSnapshot } from './calendarTabSnapshotBuilder';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -89,6 +91,17 @@ export interface CalendarTabScreenProps {
    * Bypasses KickCountHomeScreen — history-only entry point.
    */
   onKickCountHistory?: () => void;
+  /**
+   * Switch to the Supplies tab (suggestion banner CTA for captureTarget='supplies').
+   * Wired from BottomTabNavigator via tab navigation.
+   */
+  onSupplies?: () => void;
+  /**
+   * Switch to the Calendar tab capture flow (suggestion CTA for appointment /
+   * medication / self_log captureTargets). In practice the user is already on
+   * the Calendar tab, so this is a no-op scroll-to-top or refresh action.
+   */
+  onCalendar?: () => void;
   // Calendar sub-screen navigation (passed through to CalendarScreen):
   onAddAppointment?: () => void;
   onEditAppointment?: (itemId: string) => void;
@@ -513,6 +526,8 @@ export function CalendarTabScreen({
   onSuggestions,
   onKickCount,
   onKickCountHistory,
+  onSupplies,
+  onCalendar,
   onAddAppointment,
   onEditAppointment,
   onAddReminder,
@@ -563,31 +578,30 @@ export function CalendarTabScreen({
 
     if (result.ok) {
       const { profile } = result;
+      const todayCivil = localCivilToday();
       if (profile.lifecycle === 'postpartum' && profile.birthDate) {
         loadedBirthDate.current = profile.birthDate;
         loadedEdd.current = null;
         const pp = recomputeFromBirthDate(profile.birthDate);
         setState({ kind: 'postpartum', profile, pp });
         // Lift snapshot into PregnancyProfileContext so non-tab screens keep their props
-        setSnapshot({
-          gestationalWeek: 0,
-          edd: profile.edd,
-          todayCivil: localCivilToday(),
-          lifecycle: 'postpartum',
+        setSnapshot(buildCalendarTabSnapshot({
+          profile,
+          ga: null,
           generalHealthConsented: consentStore.isGranted('general_health'),
-        });
+          todayCivil,
+        }));
       } else {
         loadedEdd.current = profile.edd;
         loadedBirthDate.current = null;
         const ga = recomputeFromEdd(profile.edd);
         setState({ kind: 'pregnant', profile, ga });
-        setSnapshot({
-          gestationalWeek: ga.gestationalWeek,
-          edd: profile.edd,
-          todayCivil: localCivilToday(),
-          lifecycle: 'pregnant',
+        setSnapshot(buildCalendarTabSnapshot({
+          profile,
+          ga,
           generalHealthConsented: consentStore.isGranted('general_health'),
-        });
+          todayCivil,
+        }));
       }
     } else if (result.status === 404) {
       setState({ kind: 'needs-onboarding' });
@@ -703,16 +717,11 @@ export function CalendarTabScreen({
   const generalHealthGranted = consentStore.isGranted('general_health');
   void suggestionTick; // lint: tick is accessed via closure below
 
-  function resolveSuggestionAction(captureTarget: CaptureTarget): () => void {
-    switch (captureTarget) {
-      case 'kick_count': return () => onKickCount?.();
-      case 'supplies': return () => {};
-      case 'appointment':
-      case 'medication':
-      case 'self_log':
-      default: return () => {};
-    }
+  function handleResolveSuggestionAction(captureTarget: import('../suggestion/types').CaptureTarget): () => void {
+    return resolveSuggestionAction(captureTarget, { onKickCount, onSupplies, onCalendar });
   }
+
+
 
   function handleSuggestionDismiss(key: SuggestionKey): void {
     suggestionStore.dismiss(key);
@@ -781,7 +790,7 @@ export function CalendarTabScreen({
           {sections.showSuggestionBanner && ppTopSuggestion && (
             <SuggestionBanner
               topSuggestion={ppTopSuggestion}
-              onAction={resolveSuggestionAction(ppTopSuggestion.captureTarget)}
+              onAction={handleResolveSuggestionAction(ppTopSuggestion.captureTarget)}
               onDismiss={() => handleSuggestionDismiss(ppTopSuggestion.key)}
               onViewAll={onSuggestions}
             />
@@ -877,7 +886,7 @@ export function CalendarTabScreen({
         {sections.showSuggestionBanner && pregnantTopSuggestion && (
           <SuggestionBanner
             topSuggestion={pregnantTopSuggestion}
-            onAction={resolveSuggestionAction(pregnantTopSuggestion.captureTarget)}
+            onAction={handleResolveSuggestionAction(pregnantTopSuggestion.captureTarget)}
             onDismiss={() => handleSuggestionDismiss(pregnantTopSuggestion.key)}
             onViewAll={onSuggestions}
           />

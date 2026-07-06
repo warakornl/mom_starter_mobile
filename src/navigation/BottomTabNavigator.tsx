@@ -273,7 +273,7 @@ export function BottomTabNavigator({
 
       {/* Tab 3: Calendar (center) — dashboard + calendar grid ─────────────── */}
       <Tab.Screen name="Calendar">
-        {() => (
+        {({ navigation: tabNavigation }) => (
           <CalendarTabScreen
             tokenStorage={tokenStorage}
             apiBaseUrl={apiBaseUrl}
@@ -288,6 +288,8 @@ export function BottomTabNavigator({
             onSuggestions={() => navigation.navigate('Suggestions')}
             onKickCount={() => navigation.navigate('KickCountHome')}
             onKickCountHistory={() => navigation.navigate('KickCountHistory')}
+            onSupplies={() => tabNavigation.navigate('Supplies')}
+            onCalendar={() => tabNavigation.navigate('Calendar')}
             onAddAppointment={() =>
               navigation.navigate('AppointmentForm', {})
             }
@@ -306,20 +308,30 @@ export function BottomTabNavigator({
       </Tab.Screen>
 
       {/* Tab 4: Report (DoctorPdf) ──────────────────────────────────────── */}
+      {/* EDD loading guard: only pass real EDD once the Calendar GET has resolved
+          and written a snapshot into PregnancyProfileContext. Before that, show a
+          loading placeholder so DoctorPdfScreen never receives the bogus '2999-12-31'
+          sentinel that was previously injected when snapshot === null (reviewer §report-edd-guard). */}
       <Tab.Screen name="Report">
-        {() => (
-          <DoctorPdfScreen
-            tokenStorage={tokenStorage}
-            apiBaseUrl={apiBaseUrl}
-            profile={{
-              edd: kickProps.edd || '2999-12-31',
-              gestationalWeek: kickProps.gestationalWeek,
-              lifecycle: kickProps.lifecycle,
-            }}
-            // In tab context onBack is a no-op (no stack to go back in)
-            onBack={() => {}}
-          />
-        )}
+        {() =>
+          snapshot !== null ? (
+            <DoctorPdfScreen
+              tokenStorage={tokenStorage}
+              apiBaseUrl={apiBaseUrl}
+              profile={{
+                edd: snapshot.edd,
+                gestationalWeek: snapshot.gestationalWeek,
+                lifecycle: snapshot.lifecycle,
+              }}
+              // In tab context onBack is a no-op (no stack to go back in)
+              onBack={() => {}}
+            />
+          ) : (
+            <View style={reportLoadingStyles.container}>
+              <Text style={reportLoadingStyles.text}>กำลังโหลด…</Text>
+            </View>
+          )
+        }
       </Tab.Screen>
 
       {/* Tab 5: Medication ──────────────────────────────────────────────── */}
@@ -338,3 +350,19 @@ export function BottomTabNavigator({
     </Tab.Navigator>
   );
 }
+
+// ─── Report loading placeholder styles ────────────────────────────────────────
+
+const reportLoadingStyles = StyleSheet.create({
+  container: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FBF6F1',
+  },
+  text: {
+    fontFamily: 'IBMPlexSans-Regular',
+    fontSize: 16,
+    color: '#94818A',
+  },
+});

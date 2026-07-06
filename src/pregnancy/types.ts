@@ -222,12 +222,15 @@ export type GetProfileResult =
  *   `{ ok: true, profile, created: true }` — 201 (first-time creation)
  *   `{ ok: true, profile, created: false }` — 200 (update)
  *   `{ ok: false, status: 428 }` — If-Match header missing (update only)
- *   `{ ok: false, status: 409 }` — version mismatch (another device saved first)
+ *   `{ ok: false, status: 409, currentProfile }` — version mismatch; body = current
+ *     authoritative profile (G-4 mobile-internal type change; wire contract unchanged —
+ *     PregnancyProfileController.java L102-103 already returns e.getCurrentProfile()).
  *   `{ ok: false, status: 422 }` — validation error (EDD out of range, XOR violation)
  *   `{ ok: false, status: 403, code: 'consent_required' }` — general_health gate
  */
 export type PutProfileResult =
   | { ok: true; profile: PregnancyProfile; created: boolean }
+  | { ok: false; status: 409; code: string; message: string; currentProfile: PregnancyProfile | null }
   | PregnancyApiError;
 
 /**

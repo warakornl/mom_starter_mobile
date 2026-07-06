@@ -182,6 +182,26 @@ export function createPregnancyClient(baseUrl: string, fetchFn: FetchFn = fetch)
         return { ok: true, profile, created };
       }
 
+      // G-4: parse 409 body to expose currentProfile for AC-10 conflict reload.
+      // The server already returns the current authoritative profile in the 409 body
+      // (PregnancyProfileController.java L102-103: e.getCurrentProfile()).
+      // This is a mobile-internal addition — no wire-contract change required.
+      if (res.status === 409) {
+        let body: { code?: string; message?: string; currentProfile?: PregnancyProfile } = {};
+        try {
+          body = (await res.json()) as typeof body;
+        } catch {
+          // JSON parse failure is non-fatal — surface as bare 409 with null profile
+        }
+        return {
+          ok: false,
+          status: 409,
+          code: body.code ?? 'stale_version',
+          message: body.message ?? res.statusText,
+          currentProfile: body.currentProfile ?? null,
+        };
+      }
+
       return makeError(res.status, await parseError(res));
     },
 

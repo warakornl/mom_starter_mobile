@@ -201,8 +201,6 @@ const th = {
   'home.birthDateLine': 'คลอดวันที่ {date}',
   /** template: {pct} = integer 0–100 */
   'home.progressA11y': 'ความคืบหน้า {pct}%',
-  'home.pregnancyPlaceholder': 'ปฏิทินและบันทึกรายวัน — Slice ถัดไป',
-  'home.postpartumPlaceholder': 'ปฏิทินหลังคลอดและบันทึกรายวัน — Slice ถัดไป',
   'home.errorHeadline': 'เปิดข้อมูลในเครื่องไม่สำเร็จ',
   'home.errorSubline': 'ข้อมูลของคุณยังอยู่ในเครื่อง',
   'home.logout': 'ออกจากระบบ',
@@ -1158,8 +1156,6 @@ const en: MsgShape = {
   'home.daysSinceBirth': 'days since birth',
   'home.birthDateLine': 'Born {date}',
   'home.progressA11y': 'Progress {pct}%',
-  'home.pregnancyPlaceholder': 'Calendar and daily log — coming soon',
-  'home.postpartumPlaceholder': 'Postpartum calendar and daily log — coming soon',
   'home.errorHeadline': 'Could not load your data',
   'home.errorSubline': 'Your data is still on this device',
   'home.logout': 'Sign out',

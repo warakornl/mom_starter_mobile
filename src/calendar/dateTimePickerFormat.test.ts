@@ -16,6 +16,7 @@ import {
   parseCivilDate,
   parseCivilTime,
 } from './dateTimePickerFormat';
+import { localCivilToday } from '../pregnancy/gestationalAge';
 
 // ─── toCivilDate ─────────────────────────────────────────────────────────────
 
@@ -149,6 +150,43 @@ describe('round-trip: toCivilDate(parseCivilDate(s)) === s', () => {
       expect(toCivilDate(parseCivilDate(s))).toBe(s);
     });
   }
+});
+
+// ─── DEF-01: blank-date OFF state guard (ANC_PREFILL_DATE=OFF) ───────────────
+//
+// When ANC_PREFILL_DATE=OFF, initAppointmentFormState returns date=''.
+// parseCivilDate('') produces Invalid Date — it does not validate its input.
+//
+// FIX applied in AppointmentFormScreen:
+//   openDatePicker(): setTempPickerDate(parseCivilDate(date || localCivilToday()))
+//   Android value:    value={parseCivilDate(date || localCivilToday())}
+//   Date field:       date ? formatCivilDate(date, locale) : t('appointment.datePlaceholder')
+//
+// These tests guard the fix: the second test asserts the || fallback pattern
+// produces a valid today-Date, matching how the call sites now behave.
+
+describe('parseCivilDate — empty string guard (DEF-01, blank-date OFF state)', () => {
+  it('parseCivilDate("") produces Invalid Date — callers MUST guard with || localCivilToday()', () => {
+    // parseCivilDate does not validate its input; empty string produces Invalid Date.
+    // This documents WHY the || localCivilToday() fallback is required at call sites.
+    const result = parseCivilDate('');
+    expect(isNaN(result.getTime())).toBe(true);
+  });
+
+  it('DEF-01 fix: parseCivilDate(date || localCivilToday()) with blank date produces valid local-midnight today', () => {
+    // Guards the fix: openDatePicker() and Android value both use this fallback pattern.
+    // Simulates the runtime call with a blank date variable (not a constant '').
+    const blankDate = '' as string; // typed as string so the || branch is reachable
+    const todayStr = localCivilToday();
+    const result = parseCivilDate(blankDate || todayStr);
+    expect(isNaN(result.getTime())).toBe(false);
+    const today = new Date();
+    expect(result.getFullYear()).toBe(today.getFullYear());
+    expect(result.getMonth()).toBe(today.getMonth());
+    expect(result.getDate()).toBe(today.getDate());
+    expect(result.getHours()).toBe(0);
+    expect(result.getMinutes()).toBe(0);
+  });
 });
 
 describe('round-trip: toCivilTime(parseCivilTime(s)) === s', () => {

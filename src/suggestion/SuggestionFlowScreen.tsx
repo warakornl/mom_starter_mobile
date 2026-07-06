@@ -49,6 +49,8 @@ import type { OfferableSuggestion, SuggestionKey, CaptureTarget, SuggestionCatal
 import type { Stage } from '../pregnancy/gestationalAge';
 import type { Lifecycle } from '../pregnancy/types';
 import { useT } from '../i18n/LanguageContext';
+import { buildAncStartPayload } from './ancHandleStart';
+import { ANC_PREFILL_DATE } from './ancConfig';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -436,10 +438,13 @@ export function SuggestionFlowScreen({
   lifecycle,
   stage,
   gestationalWeek,
+  edd,
+  upcomingApptInWindow,
   onBack,
   onKickCount,
   onSupplies,
   onCalendar,
+  onAncStart,
 }: SuggestionFlowScreenProps): React.JSX.Element {
   const { t } = useT();
 
@@ -463,7 +468,7 @@ export function SuggestionFlowScreen({
   );
 
   const suggestions: OfferableSuggestion[] = getOfferable(
-    { lifecycle, stage, gestationalWeek, now: new Date() },
+    { lifecycle, stage, gestationalWeek, now: new Date(), edd, upcomingApptInWindow },
     suggestionStore.getState(),
   );
 
@@ -479,9 +484,32 @@ export function SuggestionFlowScreen({
   // ── Handlers ────────────────────────────────────────────────────────────
 
   function handleStart(key: SuggestionKey) {
+    // ── ANC cadence branch-on-KEY (Surface 4) ──────────────────────────────
+    // Branch on the specific key (NOT captureTarget) because the ANC cadence
+    // suggestion needs a pre-filled appointment form rather than the generic
+    // calendar screen. Only this key uses the re-arm mechanism + AncFormPrefill.
+    if (key === 'anc_next_checkup') {
+      const payload = buildAncStartPayload({
+        edd,
+        gestationalWeek,
+        now: new Date(),
+        ancPrefillDateEnabled: ANC_PREFILL_DATE,
+      });
+      if (payload) {
+        // resurfacesAt encodes the round-quiet window (LOAD-BEARING T00:00 parse
+        // in buildAncStartPayload — stores re-arm timestamp in LOCAL midnight).
+        suggestionStore.start(key, payload.resurfacesAt);
+        recompute();
+        onAncStart?.(payload.prefill);
+        return;
+      }
+      // Fallthrough when payload is null (edd missing, past last target):
+      // behave like a generic appointment tap so the mother is not stranded.
+    }
+
+    // ── Generic path (all non-ANC keys + ANC fallthrough) ──────────────────
     suggestionStore.start(key);
     recompute();
-    // Route to the relevant screen for this capture target
     const entry = suggestions.find((s) => s.key === key);
     if (!entry) return;
     switch (entry.captureTarget) {

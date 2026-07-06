@@ -294,3 +294,63 @@ describe('reminder.snooze.* keys (Task 5 — medication snooze chooser)', () => 
     expect(catalog.th['reminder.snooze.title']).toBe('เลื่อนเตือน');
   });
 });
+
+// ─── Bottom-tab navigation i18n keys (bottom-tab-navigation-design.md §1.1, §8.2) ─
+
+describe('tab navigation i18n keys — bottom-tab-nav', () => {
+  const TAB_KEYS: MessageKey[] = [
+    // Visible labels (spec §1.1)
+    'tab.supplies',
+    'tab.expenses',
+    'tab.calendar',
+    'tab.report',
+    'tab.medication',
+    // Accessibility labels (spec §8.2)
+    'tab.supplies.a11y',
+    'tab.expenses.a11y',
+    'tab.calendar.a11y',
+    'tab.report.a11y',
+    'tab.medication.a11y',
+    // Kick-count card and postpartum history link (spec §4.2, §4.3)
+    'kick.historyLink',
+    'kick.countCard',
+  ];
+
+  it('has all tab navigation keys with non-empty Thai values', () => {
+    for (const key of TAB_KEYS) {
+      expect(catalog.th[key]).toBeTruthy();
+    }
+  });
+
+  it('has all tab navigation keys with non-empty English values', () => {
+    for (const key of TAB_KEYS) {
+      expect(catalog.en[key]).toBeTruthy();
+    }
+  });
+
+  it('tab.calendar (th) is ปฏิทิน (owner decision §10 OQ-NAV-1)', () => {
+    expect(catalog.th['tab.calendar']).toBe('ปฏิทิน');
+  });
+
+  it('tab.supplies (th) is เตรียม (owner decision §10 OQ-NAV-2)', () => {
+    expect(catalog.th['tab.supplies']).toBe('เตรียม');
+  });
+
+  it('tab.calendar.a11y (th) includes ปฏิทิน (spec §8.2 — longer label for screen readers)', () => {
+    expect(catalog.th['tab.calendar.a11y']).toContain('ปฏิทิน');
+  });
+
+  it('tab.calendar.a11y is longer than tab.calendar (screen reader gets full description)', () => {
+    const visible = catalog.th['tab.calendar'];
+    const a11y = catalog.th['tab.calendar.a11y'];
+    expect(a11y.length).toBeGreaterThan(visible.length);
+  });
+
+  it('kick.historyLink (th) contains ประวัติ (postpartum history link text)', () => {
+    expect(catalog.th['kick.historyLink']).toContain('ประวัติ');
+  });
+
+  it('kick.countCard (th) is non-empty (kick-count card text for wk≥32 pregnant)', () => {
+    expect(catalog.th['kick.countCard'].length).toBeGreaterThan(0);
+  });
+});

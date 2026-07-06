@@ -19,7 +19,7 @@
  *   No tokens, no raw health measurements, no identifiers beyond EDD.
  */
 
-import React, { createContext, useContext } from 'react';
+import React, { createContext, useContext, useState, useCallback } from 'react';
 import type { Lifecycle } from './types';
 
 // ─── Snapshot shape ───────────────────────────────────────────────────────────
@@ -47,17 +47,73 @@ export interface ProfileSnapshot {
   generalHealthConsented: boolean;
 }
 
-// ─── Context ──────────────────────────────────────────────────────────────────
+// ─── Read-only context ────────────────────────────────────────────────────────
 
 const PregnancyProfileContext = createContext<ProfileSnapshot | null>(null);
 
-/** Provide the profile snapshot to all descendants. Used in RootNavigator. */
-export const PregnancyProfileProvider = PregnancyProfileContext.Provider;
+/**
+ * Setter context — provides a dispatcher to update the snapshot.
+ * Separated from the read context so that components that only read
+ * (KickCount*, Settings, DoctorPdf, Suggestions) don't re-render when
+ * the setter reference changes.
+ */
+const PregnancyProfileSetterContext = createContext<
+  ((snapshot: ProfileSnapshot) => void) | null
+>(null);
+
+// ─── Provider ─────────────────────────────────────────────────────────────────
+
+/**
+ * Combined provider that manages both the snapshot value AND the setter.
+ * Replaces the bare `PregnancyProfileContext.Provider` export so that
+ * RootNavigator can wrap the whole tree in one provider and CalendarTabScreen
+ * can update the snapshot without owning it as local state.
+ *
+ * Usage in RootNavigator:
+ *   <PregnancyProfileProvider>
+ *     <Stack.Navigator>...</Stack.Navigator>
+ *   </PregnancyProfileProvider>
+ *
+ * Security: only civil dates and numeric values stored (no tokens, no raw health).
+ */
+export function PregnancyProfileProvider({
+  children,
+}: {
+  children: React.ReactNode;
+}): React.JSX.Element {
+  const [snapshot, setSnapshot] = useState<ProfileSnapshot | null>(null);
+  const setter = useCallback((s: ProfileSnapshot) => setSnapshot(s), []);
+
+  return (
+    <PregnancyProfileSetterContext.Provider value={setter}>
+      <PregnancyProfileContext.Provider value={snapshot}>
+        {children}
+      </PregnancyProfileContext.Provider>
+    </PregnancyProfileSetterContext.Provider>
+  );
+}
+
+// ─── Hooks ────────────────────────────────────────────────────────────────────
 
 /**
  * Read the current profile snapshot.
- * Returns null before HomeScreen has loaded the profile (e.g. during auth flow).
+ * Returns null before CalendarTabScreen has loaded the profile (e.g. auth flow).
  */
 export function useProfileSnapshot(): ProfileSnapshot | null {
   return useContext(PregnancyProfileContext);
+}
+
+/**
+ * Get the setter to update the profile snapshot.
+ * Used by CalendarTabScreen after GET /v1/pregnancy-profile succeeds.
+ * Throws if called outside of PregnancyProfileProvider.
+ */
+export function useProfileSnapshotSetter(): (snapshot: ProfileSnapshot) => void {
+  const setter = useContext(PregnancyProfileSetterContext);
+  if (!setter) {
+    throw new Error(
+      'useProfileSnapshotSetter must be used within <PregnancyProfileProvider>',
+    );
+  }
+  return setter;
 }

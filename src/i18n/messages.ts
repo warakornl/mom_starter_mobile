@@ -1054,6 +1054,24 @@ const th = {
   // Delete error (§4.3 — reassurance first; stays signed in)
   'accountRights.delete.errorTitle': 'ลบบัญชีไม่สำเร็จ',
   'accountRights.delete.errorBody': 'ตรวจสอบการเชื่อมต่อแล้วลองใหม่ บัญชีของคุณยังคงอยู่',
+
+  // ── Bottom-tab navigation (bottom-tab-navigation-design.md §1.1, §8.2) ─────────
+  // Visible tab labels — short, lifecycle-neutral (spec §1.1 owner decisions baked in)
+  'tab.supplies': 'เตรียม',          // owner: short form (§10 OQ-NAV-2)
+  'tab.expenses': 'ค่าใช้จ่าย',
+  'tab.calendar': 'ปฏิทิน',          // center tab — initialRouteName (§10 OQ-NAV-1)
+  'tab.report': 'รายงาน',
+  'tab.medication': 'ยา',
+  // Accessibility labels — full names for screen readers (spec §8.2)
+  'tab.supplies.a11y': 'รายการเตรียมคลอด',
+  'tab.expenses.a11y': 'ค่าใช้จ่าย',
+  'tab.calendar.a11y': 'ปฏิทินและข้อมูลการตั้งครรภ์',
+  'tab.report.a11y': 'รายงานสำหรับแพทย์',
+  'tab.medication.a11y': 'แผนการใช้ยา',
+  // Kick-count card (pregnant wk≥32, spec §4.2) — warm & inviting, not clinical
+  'kick.countCard': 'ได้เวลานับลูกดิ้นแล้ว ›',
+  // Postpartum kick-count history link (spec §4.3) — always visible postpartum
+  'kick.historyLink': 'ดูประวัติการนับลูกดิ้น ›',
 };
 
 // ─── English catalog (must match th shape exactly) ────────────────────────────
@@ -1949,6 +1967,24 @@ const en: MsgShape = {
   // Delete error (§4.3 — reassurance first; stays signed in)
   'accountRights.delete.errorTitle': 'Account deletion failed',
   'accountRights.delete.errorBody': 'Check your connection and try again. Your account is still intact.',
+
+  // ── Bottom-tab navigation (bottom-tab-navigation-design.md §1.1, §8.2) ─────────
+  // Visible tab labels
+  'tab.supplies': 'Supplies',
+  'tab.expenses': 'Expenses',
+  'tab.calendar': 'Calendar',
+  'tab.report': 'Report',
+  'tab.medication': 'Meds',
+  // Accessibility labels — full names for screen readers (spec §8.2)
+  'tab.supplies.a11y': 'Birth Supplies Checklist',
+  'tab.expenses.a11y': 'Expenses',
+  'tab.calendar.a11y': 'Calendar and Pregnancy Overview',
+  'tab.report.a11y': 'Doctor Report',
+  'tab.medication.a11y': 'Medication Plans',
+  // Kick-count card (pregnant wk≥32, spec §4.2)
+  'kick.countCard': 'Time to count kicks ›',
+  // Postpartum kick-count history link (spec §4.3)
+  'kick.historyLink': 'View kick-count history ›',
 };
 
 // ─── Exports ──────────────────────────────────────────────────────────────────

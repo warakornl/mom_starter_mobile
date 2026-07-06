@@ -874,11 +874,6 @@ export function HomeScreen({
             />
           )}
           <PostpartumDayCard pp={pp} />
-          <View style={styles.placeholderCard}>
-            <Text style={styles.placeholderText}>
-              {t('home.postpartumPlaceholder')}
-            </Text>
-          </View>
           {onSupplies && (
             <TouchableOpacity
               testID="home-supplies-shortcut"
@@ -1039,9 +1034,6 @@ export function HomeScreen({
           )}
         </View>
 
-        <View style={styles.placeholderCard}>
-          <Text style={styles.placeholderText}>{t('home.pregnancyPlaceholder')}</Text>
-        </View>
         {onSupplies && (
           <TouchableOpacity
             testID="home-supplies-shortcut"
@@ -1184,20 +1176,6 @@ const styles = StyleSheet.create({
     lineHeight: 25,
     color: '#5F4A52',
     textAlign: 'center',
-  },
-
-  placeholderCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#EBE1D9',
-    padding: 24,
-    alignItems: 'center',
-  },
-  placeholderText: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 14,
-    color: '#94818A',
   },
 
   // Supplies shortcut link (soft, in-scroll)

@@ -533,7 +533,7 @@ export function AppointmentFormScreen({
         <DateTimePicker
           mode="date"
           display="default"
-          value={parseCivilDate(date)}
+          value={parseCivilDate(date || localCivilToday())}
           onChange={handleDateChangeAndroid}
         />
       )}

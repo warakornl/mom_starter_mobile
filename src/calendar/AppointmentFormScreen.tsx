@@ -311,7 +311,10 @@ export function AppointmentFormScreen({
   // ── Date picker handlers ───────────────────────────────────────────────────
 
   function openDatePicker() {
-    setTempPickerDate(parseCivilDate(date));
+    // DEF-01 fix: when date is blank (ANC_PREFILL_DATE=OFF), fall back to today so
+    // the picker opens at a valid position.  Does NOT write today into the field —
+    // date stays '' until the user confirms in the picker (required-field gate intact).
+    setTempPickerDate(parseCivilDate(date || localCivilToday()));
     setShowDatePicker(true);
   }
 

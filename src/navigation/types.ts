@@ -67,6 +67,19 @@ export type RootStackParamList = {
   AppointmentForm: { itemId?: string; defaultCategory?: string };
 
   /**
+   * AncAppointmentForm — AppointmentFormScreen opened from the ANC cadence
+   * suggestion Start tap, pre-filled with the AncFormPrefill payload.
+   *
+   * NO route params — the prefill is health-adjacent (computed from EDD) and
+   * must NOT go into route params (PDPA SD-9). RootNavigator holds the prefill
+   * in a useRef and injects it at the screen render level (same pattern as
+   * how kick-count screens receive edd/gestationalWeek from context, not params).
+   *
+   * INV-A4: nothing is written until the mother taps Save in the form.
+   */
+  AncAppointmentForm: undefined;
+
+  /**
    * ReminderForm — add/edit a Reminder with recurrenceRule (FLAG-4 grammar).
    * reminderId present → edit mode; absent → create mode.
    * Stack-pushed over the tabs from CalendarTabScreen.

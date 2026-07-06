@@ -39,7 +39,7 @@
  *   for all exit paths to ensure all health stores are cleared.
  */
 
-import React from 'react';
+import React, { useRef } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
@@ -47,6 +47,8 @@ import type { RootStackParamList } from './types';
 import type { TokenStorage } from '../auth/tokenStorage';
 import { localCivilToday } from '../pregnancy/gestationalAge';
 import { PregnancyProfileProvider, useProfileSnapshot } from '../pregnancy/PregnancyProfileContext';
+import type { AncFormPrefill } from '../suggestion/types';
+import { hasUpcomingAncApptInWindow } from '../suggestion/ancUpcomingApptSelector';
 
 import { WelcomeScreen } from '../screens/WelcomeScreen';
 import { LoginScreen } from '../auth/LoginScreen';
@@ -113,6 +115,16 @@ function StackNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps): React
     lifecycle: 'pregnant' as const,
     generalHealthConsented: false,
   };
+
+  /**
+   * FIX2 — PDPA SD-9: ANC prefill is health-adjacent (EDD-derived date, appointment
+   * category). It must NOT go into route params (which may be logged/serialised by
+   * navigation tooling). Instead we hold it in a useRef here and inject it at the
+   * AncAppointmentForm screen render level — the same pattern used for edd/week in
+   * kick-count screens. The ref is mutated synchronously before navigation.navigate()
+   * so it is always populated by the time the screen mounts.
+   */
+  const ancPrefillRef = useRef<AncFormPrefill | null>(null);
 
   return (
     <Stack.Navigator
@@ -415,28 +427,77 @@ function StackNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps): React
       {/* Suggestions — full stage-scoped suggestion list.
        * Entry: SuggestionBanner "View all" in HomeTabScreen (v2).
        * Props derived from profileSnapshot (PregnancyProfileContext).
+       *
+       * FIX2 — three previously missing props:
+       *   edd: from the profile snapshot (needed for ANC cadence offerable §1.3 item 1)
+       *   upcomingApptInWindow: computed from calendarSyncStore at render time
+       *     (§1.3 item 4 — "already has an appointment" suppression guard)
+       *   onAncStart: opens AncAppointmentForm with the prefill payload; the prefill
+       *     is held in ancPrefillRef (NOT in route params — PDPA SD-9).
        */}
       <Stack.Screen
         name="Suggestions"
         options={{ headerShown: false }}
       >
+        {({ navigation }) => {
+          // upcomingApptInWindow: computed from calendarSyncStore at render time
+          // so it reflects any appointments created since the last render.
+          const upcomingApptInWindow = hasUpcomingAncApptInWindow(
+            kickProps.edd || null,
+            kickProps.gestationalWeek,
+            calendarSyncStore.getActiveChecklistItems(),
+          );
+
+          return (
+            <SuggestionFlowScreen
+              lifecycle={kickProps.lifecycle}
+              stage={
+                kickProps.lifecycle === 'pregnant'
+                  ? (kickProps.gestationalWeek >= 28
+                      ? 'T3'
+                      : kickProps.gestationalWeek >= 14
+                        ? 'T2'
+                        : 'T1')
+                  : null
+              }
+              gestationalWeek={kickProps.gestationalWeek}
+              edd={kickProps.edd || null}
+              upcomingApptInWindow={upcomingApptInWindow}
+              onBack={() => navigation.goBack()}
+              onKickCount={() => navigation.navigate('KickCountHome')}
+              onSupplies={() => navigation.navigate('MainTabs', { screen: 'Supplies' })}
+              onCalendar={() => navigation.navigate('MainTabs', { screen: 'Calendar' })}
+              onAncStart={(prefill) => {
+                // PDPA SD-9: store prefill in ref (not route params) then navigate.
+                // The ref is set synchronously before navigate() so AncAppointmentForm
+                // always reads a fresh, non-null prefill on mount.
+                ancPrefillRef.current = prefill;
+                navigation.navigate('AncAppointmentForm');
+              }}
+            />
+          );
+        }}
+      </Stack.Screen>
+
+      {/* AncAppointmentForm — AppointmentFormScreen pre-filled from ANC suggestion.
+       *
+       * Entry: onAncStart callback in SuggestionFlowScreen.
+       * Prefill is provided via ancPrefillRef (PDPA SD-9 — no health data in params).
+       * The form opens in CREATE mode (isEdit=false, no existingItem).
+       * INV-A4: nothing is written until the mother taps Save.
+       * Cancel/back: 0 ChecklistItem / 0 Reminder enqueued.
+       */}
+      <Stack.Screen
+        name="AncAppointmentForm"
+        options={{ title: t('appointment.navTitleNew'), headerBackTitle: t('general.back') }}
+      >
         {({ navigation }) => (
-          <SuggestionFlowScreen
-            lifecycle={kickProps.lifecycle}
-            stage={
-              kickProps.lifecycle === 'pregnant'
-                ? (kickProps.gestationalWeek >= 28
-                    ? 'T3'
-                    : kickProps.gestationalWeek >= 14
-                      ? 'T2'
-                      : 'T1')
-                : null
-            }
-            gestationalWeek={kickProps.gestationalWeek}
-            onBack={() => navigation.goBack()}
-            onKickCount={() => navigation.navigate('KickCountHome')}
-            onSupplies={() => navigation.navigate('MainTabs', { screen: 'Supplies' })}
-            onCalendar={() => navigation.navigate('MainTabs', { screen: 'Calendar' })}
+          <AppointmentFormScreen
+            prefill={ancPrefillRef.current ?? undefined}
+            tokenStorage={tokenStorage}
+            apiBaseUrl={apiBaseUrl}
+            onSave={() => navigation.goBack()}
+            onCancel={() => navigation.goBack()}
           />
         )}
       </Stack.Screen>

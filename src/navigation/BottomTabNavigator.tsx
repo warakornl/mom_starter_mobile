@@ -38,7 +38,7 @@
  * Security: no health data in route params (PDPA SD-9).
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -114,6 +114,10 @@ export interface BottomTabNavigatorProps {
 function CustomTabBar({ state, navigation: tabNav }: BottomTabBarProps): React.JSX.Element {
   const { t } = useT();
 
+  // §8.5 focus ring: track keyboard/switch-control focused tab index.
+  // Uses TAB_BAR_TOKENS.focusRingColor (honey/700 #B96A28) for the ring border.
+  const [keyboardFocusedIndex, setKeyboardFocusedIndex] = useState<number | null>(null);
+
   return (
     <SafeAreaView
       edges={['bottom']}
@@ -125,6 +129,7 @@ function CustomTabBar({ state, navigation: tabNav }: BottomTabBarProps): React.J
           if (!config) return null;
 
           const isFocused = state.index === index;
+          const isKeyboardFocused = keyboardFocusedIndex === index;
 
           const label = t(config.labelKey);
           const a11yLabel = t(config.a11yKey);
@@ -152,8 +157,14 @@ function CustomTabBar({ state, navigation: tabNav }: BottomTabBarProps): React.J
           return (
             <TouchableOpacity
               key={route.key}
-              style={tabBarStyles.tabItem}
+              style={[
+                tabBarStyles.tabItem,
+                // §8.5: focus ring — visible when navigated via keyboard/switch control
+                isKeyboardFocused && tabBarStyles.tabItemFocused,
+              ]}
               onPress={onPress}
+              onFocus={() => setKeyboardFocusedIndex(index)}
+              onBlur={() => setKeyboardFocusedIndex(null)}
               accessibilityRole="button"
               accessibilityLabel={a11yLabel}
               accessibilityState={{ selected: isFocused }}
@@ -174,7 +185,12 @@ function CustomTabBar({ state, navigation: tabNav }: BottomTabBarProps): React.J
                   {config.iconGlyph}
                 </Text>
               )}
-              <Text style={[tabBarStyles.label, { color: labelColor }]}>
+              {/* §8.7 Dynamic Type: numberOfLines={2} + flexWrap allow large text to wrap
+               * cleanly rather than clip. "ค่าใช้จ่าย" wraps to two lines at 13pt. */}
+              <Text
+                style={[tabBarStyles.label, { color: labelColor }]}
+                numberOfLines={2}
+              >
                 {label}
               </Text>
             </TouchableOpacity>
@@ -193,7 +209,11 @@ const tabBarStyles = StyleSheet.create({
   },
   container: {
     flexDirection: 'row',
-    height: TAB_BAR_TOKENS.contentHeight,
+    // §8.7 Dynamic Type: paddingVertical replaces fixed height: 56 so the bar
+    // can grow when the OS text size is increased. minHeight preserves the
+    // 56dp content-height floor when text is at default size.
+    minHeight: TAB_BAR_TOKENS.contentHeight,
+    paddingVertical: 4,
     backgroundColor: TAB_BAR_TOKENS.background,
   },
   tabItem: {
@@ -201,7 +221,14 @@ const tabBarStyles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 44, // §8.3: ≥44dp touch target
-    paddingBottom: 4,
+    paddingVertical: 4,
+  },
+  // §8.5: visible focus ring for keyboard / switch-control navigation.
+  // Uses TAB_BAR_TOKENS.focusRingColor (honey/700 #B96A28) per design spec §8.5.
+  tabItemFocused: {
+    borderWidth: 2,
+    borderColor: TAB_BAR_TOKENS.focusRingColor,
+    borderRadius: 10,
   },
   icon: {
     fontSize: 20,
@@ -210,11 +237,12 @@ const tabBarStyles = StyleSheet.create({
   label: {
     fontFamily: 'IBMPlexSans-SemiBold',
     // §7.5 floor: min 12pt. Settled at 13pt — fits "หน้าหลัก" on one line;
-    // "ค่าใช้จ่าย" wraps cleanly to two lines with numberOfLines={2} (§8.7 FIX 5).
+    // "ค่าใช้จ่าย" wraps cleanly to 2 lines via numberOfLines={2} (§8.7).
     fontSize: 13,
     lineHeight: 17,
     marginTop: 2,
     textAlign: 'center',
+    flexShrink: 1, // §8.7: allow text to shrink / wrap with Dynamic Type
   },
   // Active disc: 52×52dp rose/600 filled disc (v2 §2.1 — moves with focus)
   activeDisc: {

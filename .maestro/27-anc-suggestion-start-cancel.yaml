@@ -1,0 +1,124 @@
+# 27-anc-suggestion-start-cancel.yaml
+# Flow: login → Home → suggestion banner → View all → SuggestionFlowScreen
+#       → ANC card → tap Start → AncAppointmentForm opens
+#       → tap Cancel → assert 0 new rows (no ChecklistItem, no Reminder)
+#
+# Verifies (on-device render path, jest-unreachable surfaces):
+#   INV-A4:    Start only writes local AsyncStorage (no row); Cancel = 0 ChecklistItems,
+#              0 Reminders — equivalent to INV-A4 in ancWiring.test.ts but via real UI
+#   ANC-AC-6:  Save NOT called → calendar row count unchanged
+#   ANC-AC-3:  AncAppointmentForm is the correct destination after Start
+#
+# LAUNCH-GATE (this flow is NOT run in CI — it is a pre-launch manual/device gate):
+#   - Z-16 sign-off required (ANC feature gated)
+#   - Same prerequisites as flow 26-anc-suggestion-start-save.yaml
+#   - Run BEFORE flow 26 so the calendar starts clean (or after completing 26 on a
+#     fresh account with no prior ANC appointment in the window)
+#
+# Prerequisites:
+#   - iOS Simulator running with dev build (ANC_PREFILL_DATE=true)
+#   - Backend running at localhost:8080
+#   - Account: dev@momstarter.local / DevTest-Password-2026 — auto-seeded + email-verified
+#   - Account has a pregnant profile at the right gestational week (run 03-pregnancy.yaml)
+#   - general_health consent granted
+#   - Calendar has a KNOWN starting state (ideally 0 anc_visit items) so the
+#     assertNotVisible at the end is a valid absence assertion
+#
+# Selector strategy: testID (id:) throughout — language-independent.
+
+appId: com.momstarter.app
+
+---
+
+- launchApp:
+    clearState: true
+
+# ─── Login ────────────────────────────────────────────────────────────────────
+
+- assertVisible:
+    id: welcome-login-btn
+- tapOn:
+    id: welcome-login-btn
+
+- tapOn:
+    id: login-email
+- clearText
+- inputText: dev@momstarter.local
+
+- tapOn:
+    id: login-password
+- clearText
+- inputText: "DevTest-Password-2026"
+
+- tapOn:
+    id: login-submit
+
+- extendedWaitUntil:
+    visible:
+      id: home-week-hero
+    timeout: 10000
+
+# ─── Navigate to SuggestionFlowScreen via suggestion banner ──────────────────
+
+- extendedWaitUntil:
+    visible:
+      id: suggestion-banner
+    timeout: 8000
+
+- tapOn:
+    id: suggestion-banner-view-all
+
+- extendedWaitUntil:
+    visible:
+      id: suggestion-flow-screen
+    timeout: 8000
+
+# ─── ANC card visible ─────────────────────────────────────────────────────────
+
+- assertVisible:
+    id: suggestion-card-anc_next_checkup
+
+# ─── Tap Start → AncAppointmentForm opens (INV-A4: no DB write yet) ──────────
+
+- tapOn:
+    id: suggestion-card-start-anc_next_checkup
+
+- extendedWaitUntil:
+    visible:
+      id: appointment-disclaimer-band
+    timeout: 8000
+
+# Confirm we are on the form (Start hand-off succeeded)
+- assertVisible:
+    id: appointment-cancel
+
+# ─── Tap Cancel (INV-A4: 0 ChecklistItems, 0 Reminders) ─────────────────────
+
+- tapOn:
+    id: appointment-cancel
+
+# We should be back at SuggestionFlowScreen (or navigation stack popped to Home)
+# Give navigation a moment to settle
+- extendedWaitUntil:
+    notVisible:
+      id: appointment-disclaimer-band
+    timeout: 6000
+
+# ─── Assert calendar has no new anc_visit item (INV-A4 / ANC-AC-6 cancel path) ─
+
+# Navigate to calendar
+- tapOn:
+    id: home-calendar-shortcut
+
+- extendedWaitUntil:
+    visible:
+      id: calendar-screen
+    timeout: 8000
+
+# The calendar must NOT contain a new anc_visit item created from this flow.
+# If the calendar started clean, no calendar-agenda-item with source=from_suggestion
+# should be present for the ANC target date.
+# NOTE: if there are pre-existing items (not from this flow), this assertion cannot
+# distinguish them — test isolation requires a clean-state account.
+- assertNotVisible:
+    id: calendar-agenda-item-anc-from-suggestion

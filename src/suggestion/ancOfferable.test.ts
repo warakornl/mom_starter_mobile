@@ -26,6 +26,7 @@ import {
   OFFER_LEAD_WEEKS,
   ANC_CATALOG_COPY,
   ANC_LOCK_SCREEN_TITLE,
+  ANC_APPOINTMENT_TITLE,
 } from './ancConfig';
 
 // ─── Test fixtures (parametrized — never golden-vector the specific week values) ─
@@ -200,7 +201,9 @@ const EN_DENYLIST = [
 ];
 
 describe('INV-A2: command/diagnosis denylist — ANC string corpus', () => {
-  // Collect all ANC-specific shipped strings
+  // Collect all ANC-specific shipped strings (INV-A2: full corpus — card headline,
+  // disclaimer, date labels both flags, source ribbon, reminder generic title,
+  // and the appointment-form prefill title "นัดตรวจครรภ์" / "Prenatal check-up").
   const allStrings: string[] = [
     ANC_CATALOG_COPY.title.th,
     ANC_CATALOG_COPY.title.en,
@@ -218,6 +221,10 @@ describe('INV-A2: command/diagnosis denylist — ANC string corpus', () => {
     ANC_CATALOG_COPY.sourceRibbon.en,
     ANC_LOCK_SCREEN_TITLE.th,
     ANC_LOCK_SCREEN_TITLE.en,
+    // ANC_APPOINTMENT_TITLE: prefilled in the appointment form (§3.3 / ANC-AC-3).
+    // Gap-fill: this shipped string was missing from the INV-A2 corpus check.
+    ANC_APPOINTMENT_TITLE.th,
+    ANC_APPOINTMENT_TITLE.en,
   ];
 
   it('no Thai denylist token appears in any ANC string (INV-A2)', () => {

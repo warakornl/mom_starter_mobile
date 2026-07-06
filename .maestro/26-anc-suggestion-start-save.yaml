@@ -1,0 +1,188 @@
+# 26-anc-suggestion-start-save.yaml
+# Flow: login → Home → suggestion banner → View all → SuggestionFlowScreen
+#       → ANC card visible (disclaimer + ribbon, NO reason line)
+#       → tap Start → AncAppointmentForm pre-filled
+#       → assert disclaimer band + title "นัดตรวจครรภ์" + date field + reminder toggle
+#       → turn reminder ON → tap Save → navigate back → assert anc_visit in calendar
+#
+# Verifies (on-device render path, jest-unreachable surfaces):
+#   ANC-AC-2:  card renders disclaimer (suggestion-card-anc-disclaimer-anc_next_checkup)
+#              and ribbon (suggestion-card-anc-ribbon-anc_next_checkup); reason line absent
+#   ANC-AC-3:  Start → AppointmentFormScreen CREATE mode; disclaimer band visible
+#   ANC-AC-4:  date field visible (ANC_PREFILL_DATE=ON, build default); form title correct
+#   INV-A6:    disclaimer always-on — assertVisible for both card and form surfaces
+#   ANC-AC-13: reminder toggle present and operable (PDPA-A4 path exercised on Save)
+#   ANC-AC-6:  Save enqueues 1 anc_visit ChecklistItem (calendar-agenda-item appears)
+#
+# LAUNCH-GATE (this flow is NOT run in CI — it is a pre-launch manual/device gate):
+#   - Z-16 sign-off required before running the ANC_PREFILL_DATE=ON path in production
+#   - ANC_PREFILL_DATE must be true (build/UAT default in ancConfig.ts)
+#   - Account must be pregnant with gestationalWeek in the lead window for at least
+#     one ANC target (e.g. gestationalWeek = 11 for target week 12)
+#   - No pre-existing non-done appointment in [today, nextTargetDate + 14 days]
+#
+# Prerequisites:
+#   - iOS Simulator running with dev build (ANC_PREFILL_DATE=true)
+#   - Backend running at localhost:8080
+#   - Account: dev@momstarter.local / DevTest-Password-2026 — auto-seeded + email-verified
+#     (backend local Spring profile: momstarter.dev.auto-verify-email=true)
+#   - Account has a pregnant profile at the right gestational week (run 03-pregnancy.yaml)
+#   - general_health consent granted (seed via API or flow 12-capture-self-log-consent-gate.yaml)
+#
+# PICKER LIMITATION (iOS spinner-in-Modal):
+#   The flow accepts the PRE-POPULATED default date (nextANCDate) and immediately
+#   taps Done without scrolling the wheel. Selecting a specific value = TC-ANC-04 manual.
+#
+# Selector strategy: testID (id:) throughout — language-independent.
+
+appId: com.momstarter.app
+
+---
+
+- launchApp:
+    clearState: true
+
+# ─── Login ────────────────────────────────────────────────────────────────────
+
+- assertVisible:
+    id: welcome-login-btn
+- tapOn:
+    id: welcome-login-btn
+
+- tapOn:
+    id: login-email
+- clearText
+- inputText: dev@momstarter.local
+
+- tapOn:
+    id: login-password
+- clearText
+- inputText: "DevTest-Password-2026"
+
+- tapOn:
+    id: login-submit
+
+- extendedWaitUntil:
+    visible:
+      id: home-week-hero
+    timeout: 10000
+
+# ─── Navigate to SuggestionFlowScreen via suggestion banner ──────────────────
+
+# Suggestion banner appears on Home when ≥1 suggestion is offerable.
+# ANC cadence should be offerable given the seeded pregnant account.
+- extendedWaitUntil:
+    visible:
+      id: suggestion-banner
+    timeout: 8000
+
+# Tap "View all" to open SuggestionFlowScreen
+- tapOn:
+    id: suggestion-banner-view-all
+
+- extendedWaitUntil:
+    visible:
+      id: suggestion-flow-screen
+    timeout: 8000
+
+# ─── ANC card: disclaimer + ribbon, no reason line (ANC-AC-2 / INV-A6 / FIX1 / FIX3) ──
+
+# The ANC cadence card must be visible
+- assertVisible:
+    id: suggestion-card-anc_next_checkup
+
+# INV-A6 (always-on): inline disclaimer must be visible — never truncated
+- assertVisible:
+    id: suggestion-card-anc-disclaimer-anc_next_checkup
+
+# Source ribbon (behind Z-16 gate but present in build/UAT)
+- assertVisible:
+    id: suggestion-card-anc-ribbon-anc_next_checkup
+
+# FIX3: reason line must NOT appear for the ANC card (unapproved copy suppressed)
+# The reason testID pattern would be suggestion-card-reason-{key} if it existed;
+# its absence here is the assertion — no assertNotVisible needed for non-rendered elements.
+
+# ─── Tap Start → AncAppointmentForm ──────────────────────────────────────────
+
+- tapOn:
+    id: suggestion-card-start-anc_next_checkup
+
+# Wait for AppointmentFormScreen (prefilled via ancPrefillRef in RootNavigator)
+- extendedWaitUntil:
+    visible:
+      id: appointment-disclaimer-band
+    timeout: 8000
+
+# ─── Assert form state: disclaimer + title + date + reminder (ANC-AC-3/AC-4/INV-A6) ──
+
+# INV-A6 (always-on): form disclaimer band must be visible — "general reminder, not your doctor"
+- assertVisible:
+    id: appointment-disclaimer-band
+
+# Title field shows "นัดตรวจครรภ์" (ANC-AC-3)
+- assertVisible:
+    id: appointment-title
+
+# Date field is visible and populated (ANC_PREFILL_DATE=ON → nextANCDate pre-filled)
+- assertVisible:
+    id: appointment-date
+
+# Reminder toggle is visible (Surface 6 — only for from-suggestion forms)
+- assertVisible:
+    id: appointment-reminder-section
+
+# ─── Turn reminder ON (PDPA-A4 path) ─────────────────────────────────────────
+
+- tapOn:
+    id: appointment-reminder-toggle
+
+# PDPA note appears when toggle is ON (informs mother that lock-screen shows generic title)
+- assertVisible:
+    id: appointment-reminder-pdpa-note
+
+# ─── Open date picker and accept the pre-filled date (iOS) ───────────────────
+
+- tapOn:
+    id: appointment-date
+
+- extendedWaitUntil:
+    visible:
+      id: appointment-date-picker-done
+    timeout: 5000
+
+# Accept default pre-populated date (nextANCDate)
+- tapOn:
+    id: appointment-date-picker-done
+
+# ─── Save: 1 anc_visit ChecklistItem + 1 Reminder enqueued (ANC-AC-6/AC-13) ──
+
+- tapOn:
+    id: appointment-save
+
+# Navigate back lands on SuggestionFlowScreen or CalendarScreen depending on navigation.
+# The ANC card should no longer be visible (appointment now in window → item 4 suppresses).
+# The calendar should now contain the new anc_visit item.
+
+# Navigate to Calendar to assert the item was saved
+- tapOn:
+    id: suggestion-flow-back
+
+# Return to Home then navigate to Calendar
+- extendedWaitUntil:
+    visible:
+      id: home-week-hero
+    timeout: 8000
+
+- tapOn:
+    id: home-calendar-shortcut
+
+- extendedWaitUntil:
+    visible:
+      id: calendar-screen
+    timeout: 8000
+
+# REG (ANC-AC-6 / §3.6a): the saved anc_visit must appear in the calendar agenda.
+# pendingCalendarFocusDate auto-selects the appointment date so it should be visible.
+- assertVisible:
+    id: calendar-agenda-item

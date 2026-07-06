@@ -45,6 +45,7 @@
  */
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   View,
   Text,
@@ -695,9 +696,22 @@ export function HomeScreen({
     }
   }, [tokenStorage, apiBaseUrl, onLogout, recomputeFromEdd, recomputeFromBirthDate]);
 
-  useEffect(() => {
-    void loadProfile();
-  }, [loadProfile]);
+  // AC-8 (edit-pregnancy-profile-behavior.md §4.2 G-1): force a fresh loadProfile
+  // re-GET whenever HomeScreen regains focus. This ensures that after the user edits
+  // their pregnancy profile from Settings and returns to Home (Settings → back → Home),
+  // the new EDD/GA is reflected immediately.
+  //
+  // The AppState→active path (L708-731 below) does NOT self-heal the stale EDD — it
+  // recomputes GA from the cached loadedEdd.current. useFocusEffect is the ONLY correct
+  // remedy that forces a fresh GET to update loadedEdd.current.
+  //
+  // useFocusEffect fires on every focus event including the initial mount, so the
+  // standalone mount useEffect is replaced by this (same first-load behaviour).
+  useFocusEffect(
+    useCallback(() => {
+      void loadProfile();
+    }, [loadProfile]),
+  );
 
   useEffect(() => {
     if (state.kind === 'needs-onboarding') {

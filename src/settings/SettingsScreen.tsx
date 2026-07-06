@@ -538,7 +538,10 @@ export function SettingsScreen({
             accessibilityRole="button"
             accessibilityLabel={t('consent.settings.manage_btn')}
           >
-            <Text style={styles.menuRowText}>{t('consent.settings.manage_btn')}</Text>
+            {/* flex:1 wrapper pushes the chevron to the right edge, matching all other rows */}
+            <View style={styles.menuRowTextGroup}>
+              <Text style={styles.menuRowText}>{t('consent.settings.manage_btn')}</Text>
+            </View>
             <Text style={styles.menuRowChevron}>›</Text>
           </TouchableOpacity>
         )}

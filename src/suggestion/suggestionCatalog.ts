@@ -24,6 +24,28 @@
 import type { SuggestionCatalogEntry } from './types';
 
 export const SUGGESTION_CATALOG: readonly SuggestionCatalogEntry[] = [
+  // ── ANC cadence (CK-B) ────────────────────────────────────────────────────
+
+  /**
+   * Recurring prenatal-appointment suggestion — cadence-driven, re-armable.
+   *
+   * The offerable predicate (§1.3) is handled in the engine (isAncCadenceOfferable)
+   * rather than via startWeek/endWeek, because the window depends on the dynamically
+   * computed nextTargetWeek from ANC_TARGET_WEEKS.
+   *
+   * Source: กรมอนามัย / RTCOG (ANC guidelines — behind Z-16 gate for the ribbon).
+   * ASSUMPTION: the target weeks in ANC_TARGET_WEEKS are pending Z-16 clinical sign-off.
+   */
+  {
+    key: 'anc_next_checkup',
+    captureTarget: 'appointment',
+    applicableLifecycles: ['pregnant'],
+    applicableStages: [], // all stages — the engine predicate handles the week window
+    evidenceStrength: 'STRONG',
+    source: 'กรมอนามัย/RTCOG',
+  },
+
+
   // ── T3 / week ≥ 28 ───────────────────────────────────────────────────────
 
   /**

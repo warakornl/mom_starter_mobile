@@ -28,6 +28,7 @@ import type {
   SuggestionContext,
   UserSuggestionState,
 } from './types';
+import { ANC_TARGET_WEEKS, OFFER_LEAD_WEEKS } from './ancConfig';
 
 // Evidence priority (lower = higher priority)
 const EVIDENCE_RANK: Record<string, number> = {
@@ -35,6 +36,44 @@ const EVIDENCE_RANK: Record<string, number> = {
   STRONG: 1,
   MODERATE: 2,
 };
+
+// ─── ANC cadence predicate (§1.3) ────────────────────────────────────────────
+
+/**
+ * Returns true iff the `anc_next_checkup` ANC cadence suggestion is offerable
+ * per §1.3 (all clauses must be true):
+ *
+ *   1. lifecycle = 'pregnant' AND edd != null
+ *   2. nextTargetWeek exists (gestationalWeek < max target)
+ *   3. gestationalWeek >= nextTargetWeek − OFFER_LEAD_WEEKS
+ *      (upper bound: gestationalWeek < nextTargetWeek always holds by definition
+ *       of nextTargetWeek = smallest target strictly > gestationalWeek)
+ *   4. No upcoming appointment in window (!upcomingApptInWindow)
+ *
+ * Note: items 5 (dismissed) and 6 (round-quiet) are handled by the existing
+ * state gate in getOfferable — this function only handles the ANC-specific items.
+ *
+ * INV-A1: inputs are lifecycle/gestationalWeek/edd (civil date metadata only).
+ * No symptom, vital, lab, or risk value enters this predicate.
+ */
+function isAncCadenceOfferable(ctx: SuggestionContext): boolean {
+  // Item 1: must be pregnant with a known EDD
+  if (ctx.lifecycle !== 'pregnant' || !ctx.edd) return false;
+
+  // Item 2: nextTargetWeek = smallest target strictly > gestationalWeek
+  const nextTargetWeek = ANC_TARGET_WEEKS.find((w) => w > ctx.gestationalWeek);
+  if (nextTargetWeek === undefined) return false; // past last target
+
+  // Item 3: offer window [nextTargetWeek − OFFER_LEAD_WEEKS, nextTargetWeek)
+  // Lower bound: gestationalWeek >= nextTargetWeek - OFFER_LEAD_WEEKS
+  // Upper bound: automatically satisfied since nextTargetWeek > gestationalWeek
+  if (ctx.gestationalWeek < nextTargetWeek - OFFER_LEAD_WEEKS) return false;
+
+  // Item 4: no upcoming appointment in window
+  if (ctx.upcomingApptInWindow) return false;
+
+  return true;
+}
 
 /**
  * Returns the ordered list of suggestions that should be shown to the user.
@@ -71,6 +110,14 @@ export function getOfferable(
       }
       if (entry.endWeek !== undefined && ctx.gestationalWeek >= entry.endWeek) {
         return false;
+      }
+
+      // ── ANC cadence additional predicate ───────────────────────────────────
+      // Must run BEFORE the state gate (before the early `!state → return true`)
+      // so the ANC-specific offerable conditions apply regardless of whether the
+      // mother has any prior state for this key.
+      if (entry.key === 'anc_next_checkup') {
+        if (!isAncCadenceOfferable(ctx)) return false;
       }
 
       // ── User state gate ─────────────────────────────────────────────────

@@ -93,7 +93,14 @@ export type SuggestionKey =
   | 'anc_t3_checkup'
   | 'supplies_checklist'
   | 'postnatal_checkup'
-  | 'baby_feeding_log';
+  | 'baby_feeding_log'
+  /**
+   * ANC cadence key — drives the recurring prenatal-appointment suggestion.
+   * Uses the re-arm mechanism (Surface 1) with resurfacesAt for per-round quiet.
+   * Product key: CK-B (solution-architect confirmed §9-F2).
+   * Stored in AsyncStorage — never rename this key.
+   */
+  | 'anc_next_checkup';
 
 /**
  * Evidence tier per suggestion-flow-ui.md §2.1 ribbon.

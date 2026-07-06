@@ -743,6 +743,22 @@ const th = {
   'suggestion.anc_t2_checkup.reason': 'ตรวจพัฒนาการลูกและสุขภาพของคุณ',
   'suggestion.anc_t3_checkup.title': 'นัดตรวจครรภ์ไตรมาส 3',
   'suggestion.anc_t3_checkup.reason': 'เตรียมพร้อมสำหรับการคลอดและตรวจท่าลูก',
+  /**
+   * ANC cadence suggestion (CK-B) — doctor-signed invitation copy (INV-A2/A5).
+   * These are the i18n keys for the SuggestionCard title+reason slot.
+   * The full card disclaimer, form disclaimer, and date labels live in ancConfig.ts
+   * as LocalizedContent (direct use — not keyed through i18n).
+   */
+  'suggestion.anc_next_checkup.title': 'ถึงช่วงที่แนะนำให้นัดตรวจครรภ์ครั้งถัดไปแล้ว — อยากเพิ่มนัดไหม?',
+  'suggestion.anc_next_checkup.reason': 'การฝากครรภ์ตามนัดช่วยให้คุณหมอติดตามพัฒนาการของลูกและสุขภาพของคุณได้ต่อเนื่อง',
+  // Reminder toggle (AppointmentFormScreen — Surface 6)
+  'appointment.reminder.toggleLabel': 'ตัวเตือน',
+  'appointment.reminder.lead': 'ก่อนนัด 1 วัน เวลา 18:00',
+  /**
+   * PDPA-A4 helper note — shown when reminder toggle is ON to set expectation
+   * that the lock-screen notification will use a generic title (not appointment name).
+   */
+  'appointment.reminder.lockScreenNote': 'การแจ้งเตือนบนหน้าจอล็อกจะแสดงชื่อทั่วไป (ไม่ใช่ชื่อนัด)',
   'suggestion.supplies_checklist.title': 'เตรียมของใช้ก่อนคลอด',
   'suggestion.supplies_checklist.reason': 'ช่วยให้พร้อมก่อนวันคลอดจะมาถึง',
   'suggestion.postnatal_checkup.title': 'นัดตรวจหลังคลอด',
@@ -1700,6 +1716,11 @@ const en: MsgShape = {
   'suggestion.anc_t2_checkup.reason': 'Tracks your baby\'s development and your health.',
   'suggestion.anc_t3_checkup.title': 'Third-trimester check-up',
   'suggestion.anc_t3_checkup.reason': 'Prepares you for birth and checks your baby\'s position.',
+  'suggestion.anc_next_checkup.title': "It may be time to schedule your next prenatal check-up — would you like to add an appointment?",
+  'suggestion.anc_next_checkup.reason': "Regular prenatal visits help your doctor monitor your baby's development and your health.",
+  'appointment.reminder.toggleLabel': 'Reminder',
+  'appointment.reminder.lead': '1 day before at 18:00',
+  'appointment.reminder.lockScreenNote': 'Lock-screen notification will show a generic title (not the appointment name)',
   'suggestion.supplies_checklist.title': 'Prepare birth supplies',
   'suggestion.supplies_checklist.reason': 'Helps you get ready before your due date arrives.',
   'suggestion.postnatal_checkup.title': 'Postnatal check-up',

@@ -204,6 +204,7 @@ describe('suggestionStore.loadFromStorage', () => {
       supplies_checklist: { key: 'supplies_checklist', status: 'dismissed', updatedAt: new Date().toISOString() },
       postnatal_checkup: { key: 'postnatal_checkup', status: 'dismissed', updatedAt: new Date().toISOString() },
       baby_feeding_log: { key: 'baby_feeding_log', status: 'dismissed', updatedAt: new Date().toISOString() },
+      anc_next_checkup: { key: 'anc_next_checkup', status: 'dismissed', updatedAt: new Date().toISOString() },
     };
     await storage.save(JSON.stringify({ kick_count_start: seeded['kick_count_start'] }));
 

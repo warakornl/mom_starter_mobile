@@ -66,6 +66,22 @@ export interface ProfileSetupScreenProps {
   onSetupComplete: (profile: PregnancyProfile) => void;
   /** Optional existing profile (for Edit mode — pre-fills fields). */
   existingProfile?: PregnancyProfile;
+  /**
+   * AC-13 (BLOCKING, SD-5): Called on BOTH no-token AND server-returned 401 from PUT.
+   * The caller (ProfileEditScreen, wired by RootNavigator) must run the full
+   * performLogout teardown (clearTokens + ALL health stores) THEN navigate to Welcome.
+   * Never leaving the user on the edit screen with health stores populated prevents
+   * cross-account PHI leak (SD-5).
+   * Optional — when absent (create flow) the legacy errorLogin message is shown instead
+   * so existing create-flow behaviour is unchanged.
+   */
+  onSessionExpired?: () => void;
+  /**
+   * AC-10 (R-3): Called when PUT returns 409 with the current authoritative profile.
+   * The edit host reloads the form to the latest server state and shows the conflict
+   * message. When absent (create flow), falls back to showing profile.errorConflict.
+   */
+  onConflict?: (currentProfile: PregnancyProfile) => void;
 }
 
 // ─── Input method ─────────────────────────────────────────────────────────────
@@ -119,6 +135,8 @@ export function ProfileSetupScreen({
   apiBaseUrl,
   onSetupComplete,
   existingProfile,
+  onSessionExpired,
+  onConflict,
 }: ProfileSetupScreenProps): React.JSX.Element {
   const { t, locale } = useT();
 
@@ -205,8 +223,15 @@ export function ProfileSetupScreen({
       const tokens = await tokenStorage.load();
       const accessToken = tokens?.accessToken;
       if (!accessToken) {
-        setErrorMsg(t('profile.errorLogin'));
         setSaving(false);
+        if (onSessionExpired) {
+          // AC-13 (BLOCKING, SD-5): no token = dead session → full performLogout teardown.
+          // Never show a stale error on a health screen — run teardown then Welcome.
+          onSessionExpired();
+        } else {
+          // Create flow (no onSessionExpired): legacy behaviour — show re-login prompt.
+          setErrorMsg(t('profile.errorLogin'));
+        }
         return;
       }
 
@@ -226,11 +251,28 @@ export function ProfileSetupScreen({
 
       if (result.ok) {
         onSetupComplete(result.profile);
+      } else if (result.status === 401) {
+        // AC-13 (BLOCKING, SD-5): server 401 on PUT = expired/invalid session.
+        // Run full teardown before navigating to Welcome.
+        if (onSessionExpired) {
+          onSessionExpired();
+        } else {
+          setErrorMsg(t('profile.errorGeneric'));
+        }
       } else {
         if (result.status === 403 && result.code === 'consent_required') {
           setErrorMsg(t('profile.errorConsentRequired'));
         } else if (result.status === 409) {
-          setErrorMsg(t('profile.errorConflict'));
+          // AC-10 (R-3): conflict with another device.
+          const conflictProfile =
+            (result as { currentProfile?: PregnancyProfile | null }).currentProfile ?? null;
+          if (onConflict && conflictProfile) {
+            // Edit flow: reload form to latest server state (R-3).
+            onConflict(conflictProfile);
+          } else {
+            // Create flow or missing body: show the conflict message.
+            setErrorMsg(t('profile.errorConflict'));
+          }
         } else if (result.status === 422) {
           setErrorMsg(t('profile.errorDateInvalid'));
         } else if (result.status === 428) {

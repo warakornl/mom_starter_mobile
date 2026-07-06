@@ -66,6 +66,19 @@ export type RootStackParamList = {
   Settings: undefined;
 
   /**
+   * ProfileEdit — edit-pregnancy-profile host screen.
+   *
+   * Entry: Settings > "แก้ไขข้อมูลการตั้งครรภ์" (shown only when lifecycle=pregnant).
+   * On mount: GETs a fresh profile (carries version + eddBasis, absent from snapshot).
+   * No params — the fresh-GET result is held in the host's local state (PDPA SD-9).
+   * On 200 save: goBack() to Settings (NOT reset-to-Home — AC-7 / R-2).
+   * On 401 (GET or PUT, no-token or server): performLogout teardown → Welcome (AC-13).
+   *
+   * See edit-pregnancy-profile-behavior.md §10.1 build mandates.
+   */
+  ProfileEdit: undefined;
+
+  /**
    * Consent — S3 first-run PDPA consent screen.
    * Entry: after VerifyEmail (new registrations only).
    * No params — uses tokenStorage from context / props.

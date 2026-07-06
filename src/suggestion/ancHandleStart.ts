@@ -48,14 +48,20 @@ export interface AncStartPayload {
   prefill: AncFormPrefill;
 }
 
-// ─── Helper: YYYY-MM-DD string for (now + n days) UTC-civil ──────────────────
+// ─── Helper: YYYY-MM-DD string for (now + n days) using LOCAL civil components ──
+//
+// DEF-02 fix: use LOCAL date components (getFullYear/Month/Date) rather than UTC
+// (getUTCFullYear/Month/Date).  Between 00:00–07:00 LOCAL at UTC+7, getUTC* returns
+// the PREVIOUS calendar day, causing the past-date clamp to fire a day late.
+// The spec defines "today" as the device-local civil date — matching localCivilToday()
+// and all other civil-date helpers in the app.
 
-function utcCivilDateString(now: Date, offsetDays: number): string {
+function localCivilDateString(now: Date, offsetDays: number): string {
   const ms = now.getTime() + offsetDays * 86_400_000;
   const d = new Date(ms);
-  const y = d.getUTCFullYear();
-  const m = String(d.getUTCMonth() + 1).padStart(2, '0');
-  const day = String(d.getUTCDate()).padStart(2, '0');
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
   return `${y}-${m}-${day}`;
 }
 
@@ -90,10 +96,11 @@ export function buildAncStartPayload(input: AncStartInput): AncStartPayload | nu
   const resurfacesAt = new Date(`${nextTargetDate}T00:00`).toISOString();
 
   // Compute the prefill date (clamped to today+PAST_CLAMP_DAYS when past)
-  const nowCivilDate = utcCivilDateString(now, 0);
+  // DEF-02 fix: use LOCAL civil convention so "today" matches the device-local date.
+  const nowCivilDate = localCivilDateString(now, 0);
   const isPast = nextTargetDate < nowCivilDate;
   const nextANCDate = isPast
-    ? utcCivilDateString(now, PAST_CLAMP_DAYS)
+    ? localCivilDateString(now, PAST_CLAMP_DAYS)
     : nextTargetDate;
 
   // Build the AncFormPrefill payload

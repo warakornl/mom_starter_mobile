@@ -70,6 +70,12 @@ interface ProfileHubScreenProps {
    * Only called when the edit-pregnancy row is shown (lifecycle=pregnant).
    */
   onEditPregnancy: () => void;
+  /**
+   * Navigate to SettingsScreen (root-stack push via navigation.navigate('Settings')).
+   * Wired from BottomTabNavigator the same way Home's onSettings is wired (§2
+   * feat-profile-header-settings-row). Optional — row hidden when not provided.
+   */
+  onSettings?: () => void;
 }
 
 // ─── Profile Summary Card ─────────────────────────────────────────────────────
@@ -101,6 +107,7 @@ export function ProfileHubScreen({
   onLogout,
   onSessionExpired,
   onEditPregnancy,
+  onSettings,
 }: ProfileHubScreenProps): React.JSX.Element {
   const { t, locale } = useT();
   const snapshot = useProfileSnapshot();
@@ -379,6 +386,35 @@ export function ProfileHubScreen({
             </View>
             <Text style={styles.deleteRowChevron}>›</Text>
           </TouchableOpacity>
+        )}
+
+        {/* ── SECTION: การตั้งค่า — Settings row (§2 feat-profile-header-settings-row) ─
+         * Placed above the destructive logout row so Settings is easily reachable
+         * from Profile without navigating to the Home tab's gear ⚙.
+         * onSettings is optional — row is hidden when not provided
+         * (same pattern as onManageConsent in SettingsScreen). */}
+        {onSettings != null && (
+          <>
+            <Text style={styles.sectionLabel}>{t('settings.title')}</Text>
+            <TouchableOpacity
+              testID={PROFILE_HUB_TESTIDS.settingsBtn}
+              style={styles.menuRow}
+              onPress={onSettings}
+              accessibilityRole="button"
+              accessibilityLabel={t('settings.navTitle')}
+              accessibilityHint={t('settings.navTitle')}
+            >
+              <View style={styles.menuRowIconWrap}>
+                <Text style={styles.menuRowIconText} accessibilityElementsHidden>
+                  {'⚙'}
+                </Text>
+              </View>
+              <View style={styles.menuRowTextGroup}>
+                <Text style={styles.menuRowText}>{t('settings.navTitle')}</Text>
+              </View>
+              <Text style={styles.menuRowChevron}>{'›'}</Text>
+            </TouchableOpacity>
+          </>
         )}
 
         {/* ── SECTION: บัญชี — Log out (always visible, §3.6) ─────────────── */}

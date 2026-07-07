@@ -1,0 +1,125 @@
+# 28-name-fields-edit.yaml
+# Flow: Profile Hub → แก้ไขข้อมูลส่วนตัว → enter mother first/last name + baby name
+#       → save → verify summary card shows "คุณแม่ <firstName>" (first-name only,
+#         PDPA minimization OQ-N-SEC2).
+#
+# ── LAUNCH-GATE ──────────────────────────────────────────────────────────────
+# This flow is a LAUNCH-GATE — it MUST pass on a real device or simulator with
+# the real backend before production release.  It is NOT run in CI.
+# See docs/api-spec/name-fields-design.md §7 / profile-tab-and-hub-ui.md §3.3.
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# Prerequisites:
+#   - Dev account dev@momstarter.local / DevTest-Password-2026 exists and is
+#     already logged in (run 01-login.yaml first, or chain after 03-pregnancy.yaml).
+#   - Account has a pregnancy profile already set (run 03-pregnancy.yaml first).
+#   - Backend running at localhost:8080 with --spring.profiles.active=local.
+#   - The slice/feat-name-fields-mobile branch is built into the dev app.
+#
+# What this flow verifies (on-device, cannot be covered by Jest unit tests):
+#   1. The ProfileHub "แก้ไขชื่อ / ข้อมูลส่วนตัว" row is visible and tappable.
+#   2. ProfileInfoEditScreen renders the 3 name input fields (mother first, last, baby).
+#   3. Typing Thai names and tapping Save calls PUT /pregnancy-profile with
+#      the Base64-encoded names and the stored edd (no-op-PUT pin).
+#   4. After a successful save, navigation returns to ProfileHub.
+#   5. The summary card shows "คุณแม่ สมหญิง" — first name ONLY (PDPA minimization).
+#      Last name and baby name must NOT appear on the card (OQ-N-SEC2).
+#
+# testIDs used:
+#   profile-hub-screen                  — ProfileHubScreen root
+#   profile-hub-edit-personal-info-btn  — "แก้ไขชื่อ / ข้อมูลส่วนตัว" row
+#   profile-info-edit-screen            — ProfileInfoEditScreen root
+#   profile-info-edit-first-name-input  — motherFirstName TextInput
+#   profile-info-edit-last-name-input   — motherLastName TextInput
+#   profile-info-edit-baby-name-input   — babyName TextInput
+#   profile-info-edit-save-btn          — Save button
+#   profile-hub-summary-card            — ProfileHub summary card
+
+appId: com.momstarter.app
+
+---
+
+# ── Step 1: Confirm we are on the app (logged in, home visible) ───────────────
+- extendedWaitUntil:
+    visible:
+      id: home-week-hero
+    timeout: 10000
+
+# ── Step 2: Navigate to Profile tab ──────────────────────────────────────────
+# Tap the Profile tab by its Thai accessibilityLabel
+# Spec: profile-tab-and-hub-ui.md §7.1
+- tapOn:
+    text: "โปรไฟล์"
+
+# Wait for ProfileHubScreen to appear
+- extendedWaitUntil:
+    visible:
+      id: profile-hub-screen
+    timeout: 10000
+
+# ── Step 3: Assert "แก้ไขชื่อ / ข้อมูลส่วนตัว" row is visible ─────────────
+# This row is lifecycle-agnostic — visible for both pregnant AND postpartum.
+# Spec: name-fields-design.md §4 / profile-tab-and-hub-ui.md §3.4
+- assertVisible:
+    id: profile-hub-edit-personal-info-btn
+
+# ── Step 4: Open ProfileInfoEditScreen ───────────────────────────────────────
+- tapOn:
+    id: profile-hub-edit-personal-info-btn
+
+# Wait for the name edit form to load (GET /pregnancy-profile completes)
+- extendedWaitUntil:
+    visible:
+      id: profile-info-edit-screen
+    timeout: 15000
+
+# ── Step 5: Enter mother first name ──────────────────────────────────────────
+# Using a Thai name to verify UTF-8 base64 encoding end-to-end
+# (nameFieldCipher.ts base64(utf8(name)) round-trip)
+- tapOn:
+    id: profile-info-edit-first-name-input
+- clearText
+- inputText: "สมหญิง"
+
+# ── Step 6: Enter mother last name ───────────────────────────────────────────
+- tapOn:
+    id: profile-info-edit-last-name-input
+- clearText
+- inputText: "สายน้ำ"
+
+# ── Step 7: Enter baby name (optional) ───────────────────────────────────────
+# Baby name is capturable anytime (pre/post birth — owner decision OQ-N-OWN3)
+- tapOn:
+    id: profile-info-edit-baby-name-input
+- clearText
+- inputText: "น้ำฟ้า"
+
+# ── Step 8: Save ──────────────────────────────────────────────────────────────
+# PUT /pregnancy-profile with Base64 name ciphers + stored edd (no-op-PUT pin)
+- tapOn:
+    id: profile-info-edit-save-btn
+
+# Wait for the save to complete and navigation to return to ProfileHub
+# onSaveComplete calls navigation.goBack() — ProfileHub becomes visible again
+- extendedWaitUntil:
+    visible:
+      id: profile-hub-screen
+    timeout: 15000
+
+# ── Step 9: Verify summary card shows first name only ────────────────────────
+# PDPA minimization (OQ-N-SEC2 / profile-tab-and-hub-ui.md §3.3):
+#   Card MUST show "คุณแม่ สมหญิง" — first name only.
+#   Last name "สายน้ำ" MUST NOT appear on the card.
+#   Baby name "น้ำฟ้า" MUST NOT appear on the card.
+- assertVisible:
+    id: profile-hub-summary-card
+- assertVisible:
+    text: "คุณแม่ สมหญิง"
+
+# Confirm last name does NOT appear on the summary card
+- assertNotVisible:
+    text: "สายน้ำ"
+
+# Confirm baby name does NOT appear on the summary card
+- assertNotVisible:
+    text: "น้ำฟ้า"

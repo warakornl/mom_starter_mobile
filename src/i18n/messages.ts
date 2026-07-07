@@ -232,6 +232,13 @@ const th = {
   'settings.title': 'ตั้งค่า',
   'settings.account': 'บัญชีผู้ใช้',
   'settings.privacy': 'ความเป็นส่วนตัวและการยินยอม',
+  // ── General section (language, app preferences) ───────────────────────────────
+  'settings.general': 'ทั่วไป',
+  'settings.language': 'ภาษา / Language',
+  /** Displayed on the right of the language row when locale=th */
+  'settings.languageValueTh': 'ไทย',
+  /** Displayed on the right of the language row when locale=en */
+  'settings.languageValueEn': 'English',
   // ── Edit pregnancy (settings section) ────────────────────────────────────────
   'settings.pregnancy': 'การตั้งครรภ์',
   'settings.editPregnancy': 'แก้ไขข้อมูลการตั้งครรภ์',
@@ -1248,6 +1255,11 @@ const en: MsgShape = {
   'settings.title': 'Settings',
   'settings.account': 'Account',
   'settings.privacy': 'Privacy & Permissions',
+  // ── General section (language, app preferences) ───────────────────────────────
+  'settings.general': 'General',
+  'settings.language': 'Language',
+  'settings.languageValueTh': 'ไทย',
+  'settings.languageValueEn': 'English',
   // ── Edit pregnancy (settings section) ────────────────────────────────────────
   'settings.pregnancy': 'Pregnancy',
   'settings.editPregnancy': 'Edit pregnancy profile',

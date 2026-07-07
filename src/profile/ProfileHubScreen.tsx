@@ -202,7 +202,21 @@ export function ProfileHubScreen({
   } = accountRights;
 
   return (
-    <SafeAreaView style={styles.container} edges={['bottom']} testID={PROFILE_HUB_TESTIDS.screen}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']} testID={PROFILE_HUB_TESTIDS.screen}>
+      {/* ── Inline header bar (§1 feat-profile-header-settings-row) ─────────── */}
+      {/* Tab screen: no react-navigation header (MainTabs has headerShown:false).
+          Modelled on HomeTabScreen topBar pattern + RootNavigator header tokens.
+          accessibilityRole="header" marks the title for screen readers (a11y §1). */}
+      <View style={styles.headerBar}>
+        <Text
+          style={styles.headerTitle}
+          testID={PROFILE_HUB_TESTIDS.screenHeader}
+          accessibilityRole="header"
+        >
+          {t('profile.title')}
+        </Text>
+      </View>
+
       <ScrollView contentContainerStyle={styles.scrollContent}>
 
         {/* ── Profile Summary Card ──────────────────────────────────────────── */}
@@ -418,6 +432,26 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FBF6F1',
   },
+
+  // ── Inline header bar (§1 feat-profile-header-settings-row) ──────────────────
+  // Mirrors RootNavigator headerStyle tokens: bg #FBF6F1, tint #3A2A30 (INK),
+  // IBMPlexSans-SemiBold. minHeight ≥ standard header height (44pt iOS, 56dp Android).
+  // No back button: Profile is a tab, not a pushed screen.
+  headerBar: {
+    minHeight: 56,
+    backgroundColor: '#FBF6F1',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: HAIRLINE_COLOR,
+    justifyContent: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+  },
+  headerTitle: {
+    fontFamily: 'IBMPlexSans-SemiBold',
+    fontSize: 18,
+    color: INK,
+  },
+
   scrollContent: {
     paddingHorizontal: 16,
     paddingTop: 16,

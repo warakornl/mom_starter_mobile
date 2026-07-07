@@ -144,7 +144,7 @@ export function SettingsScreen({
   profileLifecycle,
   onEditPregnancy,
 }: SettingsScreenProps): React.JSX.Element {
-  const { t, locale } = useT();
+  const { t, locale, setLocale } = useT();
 
   // ── Export state (§2 — EXPORT_ states) ──────────────────────────────────────
   const [exportPhase, setExportPhase] = useState<ExportPhase>('EXPORT_IDLE');
@@ -497,6 +497,27 @@ export function SettingsScreen({
   return (
     <SafeAreaView style={styles.container} edges={['bottom']} testID="settings-screen">
       <ScrollView contentContainerStyle={styles.scrollContent}>
+
+        {/* ── General section — language selector (feat-language-in-settings) ── */}
+        <Text style={styles.sectionLabel}>{t('settings.general')}</Text>
+        <TouchableOpacity
+          testID="settings-language-btn"
+          style={styles.menuRow}
+          onPress={() => setLocale(locale === 'th' ? 'en' : 'th')}
+          accessibilityRole="button"
+          accessibilityLabel={
+            locale === 'th'
+              ? 'ภาษา / Language — ตอนนี้ภาษาไทย · กดเพื่อเปลี่ยนเป็น English'
+              : 'ภาษา / Language — currently English · tap to switch to ไทย'
+          }
+        >
+          <View style={styles.menuRowTextGroup}>
+            <Text style={styles.menuRowText}>{t('settings.language')}</Text>
+          </View>
+          <Text style={styles.menuRowChevron}>
+            {locale === 'th' ? t('settings.languageValueTh') : t('settings.languageValueEn')}
+          </Text>
+        </TouchableOpacity>
 
         {/* ── Pregnancy section (AC-2: shown ONLY when lifecycle=pregnant) ──── */}
         {/* §1.1: placed ABOVE Privacy section; §1.2: row hidden unless pregnant */}

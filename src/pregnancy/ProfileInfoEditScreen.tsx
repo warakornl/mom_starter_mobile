@@ -20,6 +20,10 @@
  *   - PDPA identity PII: NEVER log decoded name values.
  *   - PDPA minimization (OQ-N-SEC2): full name visible ONLY inside this screen.
  *     ProfileHub summary shows first name only (ProfileSnapshot.motherFirstNameDecoded).
+ *
+ * Async orchestration lives in profileInfoEditRuntimeWiring.ts (runInfoEntryGet /
+ * runInfoSave) so it can be tested without mounting this component. This component
+ * is a thin shell: it owns React state, validation UI, and render only.
  */
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
@@ -38,17 +42,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import type { TokenStorage } from '../auth/tokenStorage';
 import { useT } from '../i18n/LanguageContext';
-import { createPregnancyClient } from './pregnancyApiClient';
-import { localCivilToday } from './gestationalAge';
 import {
-  resolveInfoEditGetOutcome,
-  resolveInfoEditPutOutcome,
+  runInfoEntryGet,
+  runInfoSave,
+} from './profileInfoEditRuntimeWiring';
+import type { InfoScreenState } from './profileInfoEditRuntimeWiring';
+import {
   validateNameInput,
-  buildFormStateFromProfile,
-  buildInfoEditPutInput,
 } from './profileInfoEditLogic';
 import type { NameFormState } from './profileInfoEditLogic';
-import type { PregnancyProfile } from './types';
 
 // ─── Props ─────────────────────────────────────────────────────────────────────
 
@@ -61,7 +63,7 @@ export interface ProfileInfoEditScreenProps {
    * Called after a successful PUT 200/201. Caller should navigate.goBack().
    * Passes the updated profile for optional snapshot refresh.
    */
-  onSaveComplete: (profile: PregnancyProfile) => void;
+  onSaveComplete: (profile: import('./types').PregnancyProfile) => void;
   /**
    * SD-5 (BLOCKING): Called on GET 401 or PUT 401 (no token or server-expired).
    * Caller MUST run the full performLogout teardown (clearTokens + ALL health stores)
@@ -69,16 +71,6 @@ export interface ProfileInfoEditScreenProps {
    */
   onSessionExpired: () => void;
 }
-
-// ─── Screen states ─────────────────────────────────────────────────────────────
-
-type ScreenState =
-  | { mode: 'loading' }
-  | { mode: 'show-form'; profile: PregnancyProfile }
-  | { mode: 'not-found' }
-  | { mode: 'error'; message: string }
-  | { mode: 'saving' }
-  | { mode: 'saved' };
 
 // ─── Component ─────────────────────────────────────────────────────────────────
 
@@ -91,7 +83,7 @@ export function ProfileInfoEditScreen({
   const { t } = useT();
 
   // ── State ──────────────────────────────────────────────────────────────────
-  const [screenState, setScreenState] = useState<ScreenState>({ mode: 'loading' });
+  const [screenState, setScreenState] = useState<InfoScreenState>({ mode: 'loading' });
   const [formState, setFormState] = useState<NameFormState>({
     motherFirstName: '',
     motherLastName: '',
@@ -113,73 +105,22 @@ export function ProfileInfoEditScreen({
   const [saveError, setSaveError] = useState<string | null>(null);
 
   // DEF-001 fix: carry a pending conflict message across the doEntryGet re-fetch.
-  // Direct setSaveError(conflictMsg) in handleSave is cleared by doEntryGet's
-  // synchronous setScreenState({ mode: 'loading' }) in the same React 18 batch
-  // (last-write-wins = null). Instead, store the message here and apply it AFTER
-  // the GET resolves to show-form (outside the batched synchronous prefix).
+  // Owned here; shared (by reference) with runInfoEntryGet and runInfoSave.
+  // See profileInfoEditRuntimeWiring.ts for the full DEF-001 explanation.
   const pendingErrorRef = useRef<string | null>(null);
 
   // ── Entry GET ──────────────────────────────────────────────────────────────
   const doEntryGet = useCallback(async () => {
-    // Consume any pending conflict message now (before async work).
-    // Applying it here (sync) would risk being batched with setScreenState({ mode:
-    // 'loading' }) and cleared. Instead, carry it to the show-form case below.
-    const pendingError = pendingErrorRef.current;
-    pendingErrorRef.current = null;
-
-    setScreenState({ mode: 'loading' });
-    // NOTE: setSaveError(null) is intentionally removed from here.
-    // Normal (no-conflict) entry: pendingError is null → setSaveError(null) runs in
-    //   the show-form case below, preserving the original stale-error clearing behavior.
-    // Conflict re-fetch: pendingError carries the message → applied in show-form below.
-
-    const tokens = await tokenStorage.load();
-    const accessToken = tokens?.accessToken;
-
-    if (!accessToken) {
-      // No token → treat as session expired (SD-5)
-      onSessionExpired();
-      return;
-    }
-
-    try {
-      const client = createPregnancyClient(apiBaseUrl);
-      const clientDate = localCivilToday();
-      const result = await client.getProfile(accessToken, clientDate);
-      const outcome = resolveInfoEditGetOutcome(result);
-
-      switch (outcome.type) {
-        case 'session-expired':
-          onSessionExpired();
-          return;
-
-        case 'show-form':
-          // Decode the name fields from wire format to display strings
-          // NEVER log the decoded values (PDPA identity PII)
-          setFormState(buildFormStateFromProfile(outcome.profile));
-          setScreenState({ mode: 'show-form', profile: outcome.profile });
-          // Apply pending conflict message (DEF-001 fix): if this re-fetch was
-          // triggered by a 409 conflict, pendingError holds the conflict message
-          // and is set here AFTER the GET await (outside the sync batch that
-          // triggered loading). On normal/fresh entry, pendingError is null —
-          // setSaveError(null) clears any stale generic error from a prior save.
-          setSaveError(pendingError);
-          return;
-
-        case 'not-found':
-          setScreenState({ mode: 'not-found' });
-          return;
-
-        case 'error':
-          setScreenState({ mode: 'error', message: t('profile.editLoadError') });
-          return;
-
-        default:
-          setScreenState({ mode: 'error', message: t('profile.editLoadError') });
-      }
-    } catch {
-      setScreenState({ mode: 'error', message: t('profile.editLoadError') });
-    }
+    await runInfoEntryGet({
+      tokenStorage,
+      apiBaseUrl,
+      pendingErrorRef,
+      loadErrorMessage: t('profile.editLoadError'),
+      onSessionExpired,
+      setScreenState,
+      setFormState,
+      setSaveError,
+    });
   }, [tokenStorage, apiBaseUrl, onSessionExpired, t]);
 
   useEffect(() => {
@@ -188,6 +129,8 @@ export function ProfileInfoEditScreen({
   }, []);
 
   // ── Validate fields ────────────────────────────────────────────────────────
+  // UI-level validation: updates per-field error state and returns overall validity.
+  // Stays in the component (uses setErrors + t, not in wiring scope).
   function validateAllFields(): boolean {
     const firstErr = validateNameInput(formState.motherFirstName);
     const lastErr = validateNameInput(formState.motherLastName);
@@ -205,64 +148,24 @@ export function ProfileInfoEditScreen({
   // ── Save ───────────────────────────────────────────────────────────────────
   const handleSave = useCallback(async () => {
     if (screenState.mode !== 'show-form') return;
-
     if (!validateAllFields()) return;
 
-    setSaveError(null);
-    setScreenState({ mode: 'saving' });
-
-    const tokens = await tokenStorage.load();
-    const accessToken = tokens?.accessToken;
-
-    if (!accessToken) {
-      // No token → session expired (SD-5)
-      onSessionExpired();
-      return;
-    }
-
-    // Capture profile now (from show-form state, before we transition to saving)
-    const activeProfile = screenState.profile;
-
-    try {
-      const client = createPregnancyClient(apiBaseUrl);
-      const clientDate = localCivilToday();
-      const body = buildInfoEditPutInput(activeProfile, formState);
-      const ifMatch = String(activeProfile.version);
-
-      const result = await client.putProfile(body, accessToken, ifMatch, clientDate);
-      const outcome = resolveInfoEditPutOutcome(result);
-
-      switch (outcome.type) {
-        case 'saved':
-          onSaveComplete(outcome.profile);
-          return;
-
-        case 'session-expired':
-          onSessionExpired();
-          return;
-
-        case 'conflict':
-          // DEF-001 fix: store conflict message in ref so doEntryGet can apply
-          // it AFTER the re-fetch resolves to show-form. Calling setSaveError
-          // here would be cleared by doEntryGet's synchronous setScreenState
-          // ({ mode: 'loading' }) in the same React 18 auto-batch (last-write-
-          // wins = null). The ref survives the async boundary safely.
-          pendingErrorRef.current = t('profileInfo.error.conflict');
-          void doEntryGet();
-          return;
-
-        case 'precondition':
-        case 'generic-error':
-          setSaveError(t('profileInfo.error.generic'));
-          setScreenState({ mode: 'show-form', profile: activeProfile });
-          return;
-      }
-    } catch {
-      setSaveError(t('profileInfo.error.generic'));
-      setScreenState({ mode: 'show-form', profile: activeProfile });
-    }
+    await runInfoSave({
+      tokenStorage,
+      apiBaseUrl,
+      screenState,
+      formState,
+      pendingErrorRef,
+      conflictMessage: t('profileInfo.error.conflict'),
+      genericErrorMessage: t('profileInfo.error.generic'),
+      onSessionExpired,
+      onSaveComplete,
+      setScreenState,
+      setSaveError,
+      runEntryGet: doEntryGet,
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [screenState, formState, tokenStorage, apiBaseUrl, onSessionExpired, onSaveComplete, t]);
+  }, [screenState, formState, tokenStorage, apiBaseUrl, onSessionExpired, onSaveComplete, t, doEntryGet]);
 
   // ── Render helpers ─────────────────────────────────────────────────────────
 

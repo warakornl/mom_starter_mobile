@@ -445,6 +445,12 @@ const th = {
   'calendar.indicator.due': 'มีรายการรอดำเนินการ',
   'calendar.indicator.done': 'ทำครบทุกรายการ',
   'calendar.syncError': 'ซิงค์ไม่สำเร็จ · ลองอีกครั้ง',
+  /**
+   * Kick-count agenda row label — calendar day detail (feat-kickcount-in-calendar).
+   * template: {count} = movementCount integer.
+   * Security K-8: displayed to the owner only; never logged.
+   */
+  'calendar.kickCount.label': 'นับลูกดิ้น: {count} ครั้ง',
 
   // ── Appointments (นัดหมาย) ────────────────────────────────────────────────────
   'appointment.navTitleNew': 'นัดหมายใหม่',
@@ -1510,6 +1516,8 @@ const en: MsgShape = {
   'calendar.indicator.due': 'Has pending items',
   'calendar.indicator.done': 'All done',
   'calendar.syncError': 'Sync failed — try again',
+  /** Kick-count agenda row label (feat-kickcount-in-calendar). {count} = movementCount. */
+  'calendar.kickCount.label': 'Kick count: {count}',
 
   // ── Appointments ──────────────────────────────────────────────────────────────
   'appointment.navTitleNew': 'New appointment',

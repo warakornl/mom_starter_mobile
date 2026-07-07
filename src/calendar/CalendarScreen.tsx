@@ -62,7 +62,7 @@ import {
 } from 'react-native';
 import { v4 as uuidv4 } from 'uuid';
 import { useT } from '../i18n/LanguageContext';
-import { formatCivilDate } from '../i18n/messages';
+import { formatCivilDate, formatYearMonth } from '../i18n/messages';
 import { calendarSyncStore } from '../sync/calendarSyncStore';
 import { createCalendarSyncClient } from '../sync/syncClient';
 import { executePush } from '../sync/pushOrchestrator';
@@ -818,7 +818,7 @@ export function CalendarScreen({
   // ── Render ──────────────────────────────────────────────────────────────────
 
   const [displayY, displayM] = displayMonth.split('-').map(Number);
-  const monthLabel = formatCivilDate(`${displayMonth}`, locale);
+  const monthLabel = formatYearMonth(displayMonth.slice(0, 7), locale);
 
   return (
     <SafeAreaView testID="calendar-screen" style={styles.container}>

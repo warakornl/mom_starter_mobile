@@ -79,7 +79,7 @@ import {
   isValidCivilDate,
 } from './expensesScreenHandlers';
 import { toCivilDate, parseCivilDate } from '../calendar/dateTimePickerFormat';
-import { formatCivilDate } from '../i18n/messages';
+import { formatCivilDate, formatYearMonth } from '../i18n/messages';
 import type { Locale } from '../auth/types';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -777,7 +777,7 @@ const breakdownStyles = StyleSheet.create({
 // ─── Main screen ──────────────────────────────────────────────────────────────
 
 export function ExpensesScreen({ tokenStorage, apiBaseUrl }: ExpensesScreenProps): React.JSX.Element {
-  const { t } = useT();
+  const { t, locale } = useT();
 
   // Month navigation: defaults to current civil month
   const now = new Date();
@@ -1037,14 +1037,8 @@ export function ExpensesScreen({ tokenStorage, apiBaseUrl }: ExpensesScreenProps
   const currentMonth = new Date().getMonth() + 1;
   const isCurrentMonth = viewYear === currentYear && viewMonth === currentMonth;
 
-  const MONTH_NAMES_TH = [
-    'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
-    'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม',
-  ];
-  const MONTH_NAMES_EN = [
-    'January', 'February', 'March', 'April', 'May', 'June',
-    'July', 'August', 'September', 'October', 'November', 'December',
-  ];
+  // yyyyMm string used for locale-aware month+year label (matches CalendarScreen pattern)
+  const viewYyyyMm = `${viewYear}-${String(viewMonth).padStart(2, '0')}`;
 
   // ─── Render ────────────────────────────────────────────────────────────────
 
@@ -1103,8 +1097,7 @@ export function ExpensesScreen({ tokenStorage, apiBaseUrl }: ExpensesScreenProps
                 <Text style={styles.monthNavArrow}>‹</Text>
               </TouchableOpacity>
               <Text style={styles.monthLabel}>
-                {MONTH_NAMES_TH[viewMonth - 1]} {MONTH_NAMES_EN[viewMonth - 1]}{' '}
-                <Text style={styles.yearLabel}>{viewYear}</Text>
+                {formatYearMonth(viewYyyyMm, locale as Locale)}
               </Text>
               <TouchableOpacity
                 onPress={nextMonth}

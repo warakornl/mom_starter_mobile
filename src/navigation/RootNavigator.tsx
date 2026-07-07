@@ -631,10 +631,15 @@ function StackNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps): React
         )}
       </Stack.Screen>
 
-      {/* SC-K1: Active counting screen */}
+      {/* SC-K1: Active counting screen.
+       * headerShown was previously false; native header now enabled (kick.navTitle)
+       * so Counting has exactly ONE header matching the History/Detail pattern.
+       * The header is minimal/non-intrusive — it sits above the timer+count,
+       * does not crowd the prominent count number or elapsed timer.
+       */}
       <Stack.Screen
         name="KickCountCounting"
-        options={{ headerShown: false }}
+        options={{ title: t('kick.navTitle'), headerBackTitle: t('general.back') }}
       >
         {() => (
           <KickCountCountingScreen
@@ -647,11 +652,15 @@ function StackNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps): React
         )}
       </Stack.Screen>
 
-      {/* SC-K3: Post-finalize summary */}
+      {/* SC-K3: Post-finalize summary.
+       * Title changed from kick.summaryHeadline to kick.navTitle for consistency:
+       * all three entry-group screens (Home, Counting, Summary) now share the same
+       * header title "นับลูกดิ้น" via kick.navTitle — matching History/Detail pattern.
+       */}
       <Stack.Screen
         name="KickCountSummary"
         component={KickCountSummaryScreen}
-        options={{ title: t('kick.summaryHeadline'), headerBackTitle: t('general.back') }}
+        options={{ title: t('kick.navTitle'), headerBackTitle: t('general.back') }}
       />
 
       {/* SC-K4: History list.

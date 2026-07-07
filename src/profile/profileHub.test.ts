@@ -1,14 +1,20 @@
 /**
- * profileHub.test.ts — TDD: ProfileHubScreen structural tests (RED → GREEN).
+ * profileHub.test.ts — TDD: ProfileHubScreen pure-logic tests (no RNTL).
  *
- * Tests that can run in a pure-node jest environment (no RNTL):
+ * Tests that can run in a pure-node jest environment:
  *  1. ProfileHubScreen is exported as a function
  *  2. profileHubTestIds exports the expected testID constants
- *  3. catalog has all required profile hub i18n keys (including the specific
- *     profile.logout.message key that is NOT home.logoutMessage)
- *  4. Verify that the module uses the correct logout message key
- *  5. ProfileHub uses profile.logout.message (NOT home.logoutMessage) for the
- *     logout confirmation dialog body — §3.6 binding requirement
+ *  3. Catalog string check: profile.logout.message is a consequence statement
+ *     (NOT home.logoutMessage which is a yes/no question)
+ *  4. buildPostpartumSummaryText — pure helper for the postpartum summary card
+ *     (spec §3.3/§10.2): asserts computePostpartumAge is used, i18n keys are
+ *     called correctly, and null birthDate falls back gracefully.
+ *  5. buildLogoutAlertConfig — pure Alert-config builder: asserts the correct
+ *     message key + confirm onPress wiring (behavioral, not catalog-string only).
+ *  6. Section i18n keys present in catalog.th
+ *
+ * On-device behavioral gap (RNTL required): confirm the component actually renders
+ * the postpartum text and triggers confirmLogout on the logout row tap — deferred.
  */
 
 // ── React Native and dependency mocks ──────────────────────────────────────────

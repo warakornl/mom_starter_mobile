@@ -38,6 +38,19 @@ export const MONTHS: Record<Locale, string[]> = {
   ],
 };
 
+// ─── Weekday short labels (calendar header row, Sun-first) ────────────────────
+//
+// Used by CalendarScreen's day-of-week header row.
+// Week starts Sunday (index 0) to match the calendar grid's monthStartDow.
+// EN: 3-letter abbreviations — at fontSize 12 in a 1/7-width column each column
+// is ≥44px on all supported widths (≥320px screen), which comfortably holds
+// 3-letter text (~21px max). Prefer 3-letter for clarity over 2-letter.
+
+export const WEEKDAYS: Record<Locale, string[]> = {
+  th: ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'],
+  en: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'],
+};
+
 // ─── Date formatter (no "วันที่" prefix) ─────────────────────────────────────
 
 /**
@@ -314,8 +327,11 @@ const th = {
   'profile.section.account': 'บัญชี',
   // Loading skeleton a11y label
   'profile.loading': 'กำลังโหลดข้อมูลโปรไฟล์',
-  // Summary card fallback name (Thai-first display label; no clinical translation needed)
+  // Summary card fallback name — shown on the card when no name is entered
   'profile.summary.fallbackName': 'คุณแม่',
+  // Summary card lifecycle badge texts
+  'profile.summary.badgePregnant': 'ตั้งครรภ์',
+  'profile.summary.badgePostpartum': 'หลังคลอด',
   // Summary card — postpartum day count (spec §3.3/§10.2); {n} = postpartumDays
   'profile.summary.postpartumDays': '{n} วันหลังคลอด',
   // Summary card — postpartum fallback when birthDate is absent
@@ -1416,8 +1432,12 @@ const en: MsgShape = {
   'profile.section.accountData': 'Account & Data',
   'profile.section.account': 'Account',
   'profile.loading': 'Loading profile',
-  // Thai-first display label — use same Thai string in en locale (§13.1 "no en value")
-  'profile.summary.fallbackName': 'คุณแม่',
+  // Summary card fallback name — shown when no name is entered
+  // Owner override (2026-07): English mode uses English (overrides §13.1 Thai-first note)
+  'profile.summary.fallbackName': 'Mom',
+  // Summary card lifecycle badge texts
+  'profile.summary.badgePregnant': 'Pregnant',
+  'profile.summary.badgePostpartum': 'Postpartum',
   // Summary card — postpartum day count; {n} = postpartumDays
   'profile.summary.postpartumDays': '{n} days postpartum',
   // Summary card — postpartum fallback when birthDate is absent
@@ -1434,7 +1454,8 @@ const en: MsgShape = {
   'profile.infoEdit.rowSubtitle': "Mother's name and baby's name",
 
   // Summary card mother first-name display — {name} replaced with decoded motherFirstName
-  'profile.summary.motherFirstName': 'คุณแม่ {name}',
+  // Owner override (2026-07): English mode uses English (overrides §13.1 Thai-first note)
+  'profile.summary.motherFirstName': 'Mom {name}',
 
   // ── ProfileInfoEditScreen ─────────────────────────────────────────────────────
   'profileInfo.navTitle': 'Edit personal info',

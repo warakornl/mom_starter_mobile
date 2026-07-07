@@ -15,7 +15,7 @@
  * (re-derived from this catalog) retain the same Thai copy.
  */
 
-import { catalog, MONTHS, formatCivilDate, formatYearMonth, interpolate } from './messages';
+import { catalog, MONTHS, WEEKDAYS, formatCivilDate, formatYearMonth, interpolate } from './messages';
 import type { MessageKey } from './messages';
 
 // ─── Key presence ─────────────────────────────────────────────────────────────
@@ -445,6 +445,135 @@ describe('tab navigation i18n keys — bottom-tab-nav v2', () => {
 
   it('kick.countCard (th) is non-empty (kick-count card text for wk≥32 pregnant)', () => {
     expect(catalog.th['kick.countCard'].length).toBeGreaterThan(0);
+  });
+});
+
+// ─── WEEKDAYS constant (locale-aware calendar weekday headers) ────────────────
+//
+// Leak: CalendarScreen hardcoded ['อา','จ','อ','พ','พฤ','ศ','ส'] — stays Thai in EN.
+// Fix: export WEEKDAYS: Record<Locale, string[]> from messages.ts and use in CalendarScreen.
+// Decision: 3-letter EN abbreviations ('Sun'–'Sat') at fontSize 12 fit the 1/7-width
+// column on all supported device widths (≥320px → ≥44px/col >> ~21px 3-char text).
+
+describe('WEEKDAYS constant (locale-aware weekday headers)', () => {
+  it('WEEKDAYS is exported from messages', () => {
+    expect(WEEKDAYS).toBeDefined();
+  });
+
+  it('WEEKDAYS.th has exactly 7 entries starting Sunday', () => {
+    expect(WEEKDAYS.th).toHaveLength(7);
+    expect(WEEKDAYS.th[0]).toBe('อา');
+  });
+
+  it('WEEKDAYS.en has exactly 7 entries starting Sunday', () => {
+    expect(WEEKDAYS.en).toHaveLength(7);
+    expect(WEEKDAYS.en[0]).toBe('Sun');
+  });
+
+  it('WEEKDAYS.th order matches calendar: อา จ อ พ พฤ ศ ส', () => {
+    expect(WEEKDAYS.th).toEqual(['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส']);
+  });
+
+  it('WEEKDAYS.en uses 3-letter abbreviations: Sun Mon Tue Wed Thu Fri Sat', () => {
+    expect(WEEKDAYS.en).toEqual(['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']);
+  });
+
+  it('WEEKDAYS.en contains no Thai characters (no leak in EN mode)', () => {
+    const enJoined = WEEKDAYS.en.join('');
+    // Thai character range U+0E00–U+0E7F
+    expect(/[ก-๙]/.test(enJoined)).toBe(false);
+  });
+
+  it('WEEKDAYS.th contains Thai characters (correct for TH mode)', () => {
+    const thJoined = WEEKDAYS.th.join('');
+    expect(/[ก-๙]/.test(thJoined)).toBe(true);
+  });
+});
+
+// ─── profile.summary EN values (Leak #3 fix) ─────────────────────────────────
+//
+// EN catalog had profile.summary.fallbackName = 'คุณแม่' and
+// profile.summary.motherFirstName = 'คุณแม่ {name}' — both leaked Thai in EN mode.
+// Fix: EN fallbackName → 'Mom', EN motherFirstName → 'Mom {name}'.
+
+describe('profile.summary EN values — English (not Thai) in EN locale', () => {
+  it('profile.summary.fallbackName (en) is "Mom" (not Thai)', () => {
+    expect(catalog.en['profile.summary.fallbackName']).toBe('Mom');
+  });
+
+  it('profile.summary.motherFirstName (en) is "Mom {name}" (not Thai)', () => {
+    expect(catalog.en['profile.summary.motherFirstName']).toBe('Mom {name}');
+  });
+
+  it('profile.summary.fallbackName (en) contains no Thai characters', () => {
+    expect(/[ก-๙]/.test(catalog.en['profile.summary.fallbackName'])).toBe(false);
+  });
+
+  it('profile.summary.motherFirstName (en) contains no Thai characters', () => {
+    expect(/[ก-๙]/.test(catalog.en['profile.summary.motherFirstName'])).toBe(false);
+  });
+
+  it('profile.summary.fallbackName (th) is still "คุณแม่" (unchanged)', () => {
+    expect(catalog.th['profile.summary.fallbackName']).toBe('คุณแม่');
+  });
+
+  it('profile.summary.motherFirstName (th) still contains {name} placeholder', () => {
+    expect(catalog.th['profile.summary.motherFirstName']).toContain('{name}');
+  });
+});
+
+// ─── profile.summary badge i18n keys (EN locale leak sweep) ──────────────────
+//
+// ProfileHubScreen had badgeText = 'ตั้งครรภ์' / 'หลังคลอด' hardcoded.
+// Fix: route through profile.summary.badgePregnant / profile.summary.badgePostpartum.
+
+describe('profile.summary badge keys — EN locale no Thai leak', () => {
+  it('profile.summary.badgePregnant (th) is "ตั้งครรภ์"', () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    expect((catalog.th as any)['profile.summary.badgePregnant']).toBe('ตั้งครรภ์');
+  });
+
+  it('profile.summary.badgePregnant (en) is "Pregnant" — no Thai', () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const val = (catalog.en as any)['profile.summary.badgePregnant'] as string;
+    expect(val).toBe('Pregnant');
+    expect(/[ก-๙]/.test(val)).toBe(false);
+  });
+
+  it('profile.summary.badgePostpartum (th) is "หลังคลอด"', () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    expect((catalog.th as any)['profile.summary.badgePostpartum']).toBe('หลังคลอด');
+  });
+
+  it('profile.summary.badgePostpartum (en) is "Postpartum" — no Thai', () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const val = (catalog.en as any)['profile.summary.badgePostpartum'] as string;
+    expect(val).toBe('Postpartum');
+    expect(/[ก-๙]/.test(val)).toBe(false);
+  });
+});
+
+// ─── profile.weekDisplay EN locale (ProfileHub week label leak) ───────────────
+//
+// ProfileHubScreen had `สัปดาห์ที่ ${gestationalWeek}` hardcoded.
+// Fix: use t('profile.weekDisplay', { n: gestationalWeek }).
+
+describe('profile.weekDisplay — EN locale produces English (not Thai)', () => {
+  it('profile.weekDisplay (en) template is "Week {n}" (English)', () => {
+    expect(catalog.en['profile.weekDisplay']).toBe('Week {n}');
+  });
+
+  it('profile.weekDisplay (en) with interpolation produces "Week 12" in EN', () => {
+    const template = catalog.en['profile.weekDisplay'];
+    const result = interpolate(template, { n: 12 });
+    expect(result).toBe('Week 12');
+    expect(/[ก-๙]/.test(result)).toBe(false);
+  });
+
+  it('profile.weekDisplay (th) with interpolation produces Thai "สัปดาห์ที่ 12" in TH', () => {
+    const template = catalog.th['profile.weekDisplay'];
+    const result = interpolate(template, { n: 12 });
+    expect(result).toBe('สัปดาห์ที่ 12');
   });
 });
 

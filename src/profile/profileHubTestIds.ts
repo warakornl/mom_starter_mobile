@@ -18,6 +18,13 @@ export const PROFILE_HUB_TESTIDS = {
   /** Edit-pregnancy row (shown only when lifecycle=pregnant). */
   editPregnancyBtn: 'profile-hub-edit-pregnancy-btn',
 
+  /**
+   * Edit personal info row — lifecycle-agnostic (pregnant AND postpartum).
+   * Navigates to ProfileInfoEditScreen to edit mother first/last name + baby name.
+   * Spec: profile-tab-and-hub-ui.md §3.4 / name-fields-design.md §3.4
+   */
+  editPersonalInfoBtn: 'profile-hub-edit-personal-info-btn',
+
   /** Download-my-data row (PDPA ม.30). */
   downloadDataBtn: 'profile-hub-download-data-btn',
 

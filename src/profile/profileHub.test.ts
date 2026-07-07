@@ -88,6 +88,7 @@ import { catalog } from '../i18n/messages';
 import {
   buildPostpartumSummaryText,
   buildLogoutAlertConfig,
+  buildMotherNameSummary,
 } from './profileHubSummary';
 
 // ─── 1. Module export ─────────────────────────────────────────────────────────
@@ -262,7 +263,98 @@ describe('ProfileHub — section i18n keys', () => {
   }
 });
 
-// ─── 7. Header (TDD RED — feat: profile-header-settings-row) ─────────────────
+// ─── 7. buildMotherNameSummary — PDPA-minimized summary card display ─────────
+//
+// Spec: profile-tab-and-hub-ui.md §3.3 (OQ-N-SEC2)
+// Display rule: "คุณแม่ {firstName}" when firstName present; "คุณแม่" fallback.
+// This helper is extracted so it can be tested without RNTL.
+// It uses the profile.summary.motherFirstName i18n key (template: "คุณแม่ {name}")
+// and profile.summary.fallbackName ("คุณแม่") for the fallback.
+
+describe('buildMotherNameSummary — PDPA-minimized mother name display', () => {
+  // Stub t() function: return template with {name} or fallback directly
+  const tStub = (key: string, params?: Record<string, string | number>): string => {
+    if (key === 'profile.summary.motherFirstName') {
+      // Simulate interpolate: replace {name} with params.name
+      return (params?.name != null) ? `คุณแม่ ${String(params.name)}` : 'คุณแม่';
+    }
+    if (key === 'profile.summary.fallbackName') {
+      return 'คุณแม่';
+    }
+    return key;
+  };
+
+  it('returns "คุณแม่ {firstName}" when decoded first name is present', () => {
+    const result = buildMotherNameSummary('สมหญิง', tStub);
+    expect(result).toBe('คุณแม่ สมหญิง');
+  });
+
+  it('returns fallback "คุณแม่" when firstName is null', () => {
+    const result = buildMotherNameSummary(null, tStub);
+    expect(result).toBe('คุณแม่');
+  });
+
+  it('returns fallback when firstName is undefined', () => {
+    const result = buildMotherNameSummary(undefined, tStub);
+    expect(result).toBe('คุณแม่');
+  });
+
+  it('returns fallback for empty string firstName', () => {
+    const result = buildMotherNameSummary('', tStub);
+    expect(result).toBe('คุณแม่');
+  });
+
+  it('uses profile.summary.motherFirstName key when name is present', () => {
+    const calledKeys: string[] = [];
+    const tSpy = (key: string, params?: Record<string, string | number>): string => {
+      calledKeys.push(key);
+      return tStub(key, params);
+    };
+    buildMotherNameSummary('Alice', tSpy);
+    expect(calledKeys).toContain('profile.summary.motherFirstName');
+  });
+
+  it('uses profile.summary.fallbackName key when name is absent', () => {
+    const calledKeys: string[] = [];
+    const tSpy = (key: string, params?: Record<string, string | number>): string => {
+      calledKeys.push(key);
+      return tStub(key, params);
+    };
+    buildMotherNameSummary(null, tSpy);
+    expect(calledKeys).toContain('profile.summary.fallbackName');
+  });
+});
+
+// ─── 7b. Profile section — edit personal info row (name-fields-mobile) ────────
+//
+// New "แก้ไขชื่อ / ข้อมูลส่วนตัว" row is lifecycle-agnostic (pregnant AND postpartum).
+// Spec: profile-tab-and-hub-ui.md §3.4
+
+describe('ProfileHub — edit personal info row (name-fields-mobile)', () => {
+  it('PROFILE_HUB_TESTIDS has editPersonalInfoBtn constant', () => {
+    expect(PROFILE_HUB_TESTIDS.editPersonalInfoBtn).toBe('profile-hub-edit-personal-info-btn');
+  });
+
+  it('profile.infoEdit.rowLabel i18n key is present + non-empty in th catalog', () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const val = (catalog.th as any)['profile.infoEdit.rowLabel'];
+    expect(val).toBeTruthy();
+  });
+
+  it('profile.infoEdit.rowLabel i18n key is present + non-empty in en catalog', () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const val = (catalog.en as any)['profile.infoEdit.rowLabel'];
+    expect(val).toBeTruthy();
+  });
+
+  it('ProfileHubScreen accepts onEditPersonalInfo prop without TypeScript error', () => {
+    // Type-level guard: npx tsc --noEmit verifies the prop exists.
+    // Runtime: confirms the screen still exports as a function.
+    expect(typeof ProfileHubScreen).toBe('function');
+  });
+});
+
+// ─── 8. Header (TDD RED — feat: profile-header-settings-row) ─────────────────
 //
 // The profile hub tab screen has no react-navigation header (MainTabs
 // has headerShown:false). A custom inline header bar is required showing

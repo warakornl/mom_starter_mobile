@@ -43,7 +43,7 @@ import { DeleteAccountSheet } from '../accountRights/DeleteAccountSheet';
 import { PROFILE_HUB_TESTIDS } from './profileHubTestIds';
 import { formatCivilDate } from '../i18n/messages';
 import type { Locale } from '../auth/types';
-import { buildPostpartumSummaryText, buildLogoutAlertConfig } from './profileHubSummary';
+import { buildPostpartumSummaryText, buildLogoutAlertConfig, buildMotherNameSummary } from './profileHubSummary';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -76,6 +76,14 @@ interface ProfileHubScreenProps {
    * feat-profile-header-settings-row). Optional — row hidden when not provided.
    */
   onSettings?: () => void;
+  /**
+   * Navigate to ProfileInfoEditScreen (root-stack push).
+   * Lifecycle-agnostic: shown for BOTH pregnant and postpartum profiles.
+   * Wired from BottomTabNavigator: `() => navigation.navigate('ProfileInfoEdit')`.
+   * Optional — row hidden when not provided (same pattern as onSettings).
+   * Spec: profile-tab-and-hub-ui.md §3.4 / name-fields-design.md §3.4
+   */
+  onEditPersonalInfo?: () => void;
 }
 
 // ─── Profile Summary Card ─────────────────────────────────────────────────────
@@ -108,6 +116,7 @@ export function ProfileHubScreen({
   onSessionExpired,
   onEditPregnancy,
   onSettings,
+  onEditPersonalInfo,
 }: ProfileHubScreenProps): React.JSX.Element {
   const { t, locale } = useT();
   const snapshot = useProfileSnapshot();
@@ -143,6 +152,11 @@ export function ProfileHubScreen({
     let mainText = '';
     let subText: string | null = null;
 
+    // PDPA minimization (OQ-N-SEC2): show first name only on the card.
+    // buildMotherNameSummary handles the fallback to "คุณแม่" when absent.
+    // NEVER log snapshot.motherFirstNameDecoded (PDPA identity PII).
+    const motherNameDisplay = buildMotherNameSummary(snapshot.motherFirstNameDecoded, t);
+
     if (isPregnant) {
       badgeText = 'ตั้งครรภ์';
       badgeStyle = styles.badgePregnant;
@@ -175,6 +189,8 @@ export function ProfileHubScreen({
             <Text style={[styles.badgeText, badgeTextStyle]}>{badgeText}</Text>
           </View>
         ) : null}
+        {/* Mother name display (PDPA minimization: first name only) */}
+        <Text style={styles.summaryMotherName}>{motherNameDisplay}</Text>
         <Text style={styles.summaryMainText}>{mainText}</Text>
         {subText ? (
           <Text style={styles.summarySubText}>{subText}</Text>
@@ -229,30 +245,55 @@ export function ProfileHubScreen({
         {/* ── Profile Summary Card ──────────────────────────────────────────── */}
         {renderSummaryCard()}
 
-        {/* ── SECTION: โปรไฟล์ — Edit pregnancy (pregnant-only, §3.4) ──────── */}
-        {/* OQ-PROFILE-2: hide entire section when not pregnant (§12) */}
+        {/* ── SECTION: โปรไฟล์ — Profile rows ──────────────────────────────── */}
+        {/* Show section when at least one row is visible (edit pregnancy OR edit personal info). */}
+        {(isPregnant || onEditPersonalInfo != null) && (
+          <Text style={styles.sectionLabel}>{t('profile.section.profile')}</Text>
+        )}
+
+        {/* Edit pregnancy — pregnant-only (§3.4 / OQ-PROFILE-2) */}
         {isPregnant && (
-          <>
-            <Text style={styles.sectionLabel}>{t('profile.section.profile')}</Text>
-            <TouchableOpacity
-              testID={PROFILE_HUB_TESTIDS.editPregnancyBtn}
-              style={styles.menuRow}
-              onPress={onEditPregnancy}
-              accessibilityRole="button"
-              accessibilityLabel={t('settings.editPregnancy')}
-            >
-              <View style={styles.menuRowIconWrap}>
-                <Text style={styles.menuRowIconText} accessibilityElementsHidden>
-                  {'✎'}
-                </Text>
-              </View>
-              <View style={styles.menuRowTextGroup}>
-                <Text style={styles.menuRowText}>{t('settings.editPregnancy')}</Text>
-                <Text style={styles.menuRowSubtext}>{t('profile.editPregnancy.subtitle')}</Text>
-              </View>
-              <Text style={styles.menuRowChevron}>{'›'}</Text>
-            </TouchableOpacity>
-          </>
+          <TouchableOpacity
+            testID={PROFILE_HUB_TESTIDS.editPregnancyBtn}
+            style={styles.menuRow}
+            onPress={onEditPregnancy}
+            accessibilityRole="button"
+            accessibilityLabel={t('settings.editPregnancy')}
+          >
+            <View style={styles.menuRowIconWrap}>
+              <Text style={styles.menuRowIconText} accessibilityElementsHidden>
+                {'✎'}
+              </Text>
+            </View>
+            <View style={styles.menuRowTextGroup}>
+              <Text style={styles.menuRowText}>{t('settings.editPregnancy')}</Text>
+              <Text style={styles.menuRowSubtext}>{t('profile.editPregnancy.subtitle')}</Text>
+            </View>
+            <Text style={styles.menuRowChevron}>{'›'}</Text>
+          </TouchableOpacity>
+        )}
+
+        {/* Edit personal info — LIFECYCLE-AGNOSTIC (pregnant AND postpartum — §3.4) */}
+        {/* Shows mother/baby name edit; hidden only when the prop is not wired */}
+        {onEditPersonalInfo != null && (
+          <TouchableOpacity
+            testID={PROFILE_HUB_TESTIDS.editPersonalInfoBtn}
+            style={styles.menuRow}
+            onPress={onEditPersonalInfo}
+            accessibilityRole="button"
+            accessibilityLabel={t('profile.infoEdit.rowLabel')}
+          >
+            <View style={styles.menuRowIconWrap}>
+              <Text style={styles.menuRowIconText} accessibilityElementsHidden>
+                {'👤'}
+              </Text>
+            </View>
+            <View style={styles.menuRowTextGroup}>
+              <Text style={styles.menuRowText}>{t('profile.infoEdit.rowLabel')}</Text>
+              <Text style={styles.menuRowSubtext}>{t('profile.infoEdit.rowSubtitle')}</Text>
+            </View>
+            <Text style={styles.menuRowChevron}>{'›'}</Text>
+          </TouchableOpacity>
         )}
 
         {/* ── SECTION: บัญชีและข้อมูล — Account rights (§3.5) ─────────────── */}
@@ -526,6 +567,13 @@ const styles = StyleSheet.create({
   },
   badgePostpartumText: {
     color: '#3D6647', // sage/700
+  },
+  // Mother name display (PDPA minimization: first name only on card — OQ-N-SEC2)
+  summaryMotherName: {
+    fontSize: 14,
+    fontFamily: 'IBMPlexSans-Regular',
+    color: INK_SOFT,
+    marginBottom: 6,
   },
   summaryMainText: {
     fontSize: 20,

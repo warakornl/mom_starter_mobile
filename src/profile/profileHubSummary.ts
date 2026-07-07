@@ -43,6 +43,37 @@ export function buildPostpartumSummaryText(
   return t('profile.summary.postpartumDays', { n: postpartumDays });
 }
 
+// ─── Mother name summary display ─────────────────────────────────────────────
+
+/**
+ * Build the mother-name display string for the ProfileHub summary card.
+ *
+ * PDPA minimization (OQ-N-SEC2 / profile-tab-and-hub-ui.md §3.3):
+ *   Shows FIRST NAME ONLY on the card ("คุณแม่ <firstName>").
+ *   Full name (first + last) is shown ONLY inside ProfileInfoEditScreen.
+ *
+ * Algorithm:
+ *   - If motherFirstNameDecoded is present and non-empty: use template
+ *     t('profile.summary.motherFirstName', { name: firstName })
+ *     which resolves to "คุณแม่ {name}" → "คุณแม่ สมหญิง".
+ *   - Otherwise: fall back to t('profile.summary.fallbackName') = "คุณแม่".
+ *
+ * NEVER log the motherFirstNameDecoded parameter (PDPA identity PII).
+ *
+ * @param motherFirstNameDecoded  Decoded first name from ProfileSnapshot,
+ *                                or null/undefined when name is not set.
+ * @param t                       Translation function from useT().
+ */
+export function buildMotherNameSummary(
+  motherFirstNameDecoded: string | null | undefined,
+  t: TFn,
+): string {
+  if (motherFirstNameDecoded == null || motherFirstNameDecoded.trim() === '') {
+    return t('profile.summary.fallbackName');
+  }
+  return t('profile.summary.motherFirstName', { name: motherFirstNameDecoded });
+}
+
 // ─── Logout Alert config builder ─────────────────────────────────────────────
 
 /**

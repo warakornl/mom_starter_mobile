@@ -43,6 +43,7 @@ import { DeleteAccountSheet } from '../accountRights/DeleteAccountSheet';
 import { PROFILE_HUB_TESTIDS } from './profileHubTestIds';
 import { formatCivilDate } from '../i18n/messages';
 import type { Locale } from '../auth/types';
+import { buildPostpartumSummaryText, buildLogoutAlertConfig } from './profileHubSummary';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -112,21 +113,11 @@ export function ProfileHubScreen({
   });
 
   // ── Logout confirm dialog (§3.6, §10.4) ─────────────────────────────────────
-  // Uses profile.logout.message (consequence statement) — NOT home.logoutMessage
-  // (which is a yes/no question). See §3.6 binding requirement.
+  // Uses buildLogoutAlertConfig (pure, tested) — which enforces profile.logout.message
+  // (consequence statement) and binds onPress directly to the injected onLogout.
+  // See §3.6 binding requirement.
   function confirmLogout(): void {
-    Alert.alert(
-      t('home.logoutTitle'),
-      t('profile.logout.message'),
-      [
-        { text: t('home.logoutCancel'), style: 'cancel' },
-        {
-          text: t('home.logoutConfirm'),
-          style: 'destructive',
-          onPress: onLogout,
-        },
-      ],
-    );
+    Alert.alert(...buildLogoutAlertConfig(t, onLogout));
   }
 
   // ── Lifecycle gating ─────────────────────────────────────────────────────────
@@ -157,16 +148,10 @@ export function ProfileHubScreen({
       badgeText = 'หลังคลอด';
       badgeStyle = styles.badgePostpartum;
       badgeTextStyle = styles.badgePostpartumText;
-      // postpartumDays = days since birth
-      const birthDate = 'birthDate' in snapshot ? (snapshot as { birthDate?: string }).birthDate : undefined;
-      if (birthDate) {
-        const birth = new Date(birthDate);
-        const today = new Date();
-        const days = Math.floor((today.getTime() - birth.getTime()) / (1000 * 60 * 60 * 24));
-        mainText = `${days} วันหลังคลอด`;
-      } else {
-        mainText = 'หลังคลอด';
-      }
+      // Spec §3.3/§10.2: use computePostpartumAge via buildPostpartumSummaryText
+      // so day count is byte-identical to server and HomeTabScreen.
+      // snapshot.birthDate is populated by calendarTabSnapshotBuilder from profile.birthDate.
+      mainText = buildPostpartumSummaryText(snapshot.birthDate, snapshot.todayCivil, t);
     } else {
       // Unknown lifecycle or snapshot with no recognized lifecycle
       mainText = t('profile.summary.fallbackName');

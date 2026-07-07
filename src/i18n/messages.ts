@@ -312,6 +312,10 @@ const th = {
   'profile.loading': 'กำลังโหลดข้อมูลโปรไฟล์',
   // Summary card fallback name (Thai-first display label; no clinical translation needed)
   'profile.summary.fallbackName': 'คุณแม่',
+  // Summary card — postpartum day count (spec §3.3/§10.2); {n} = postpartumDays
+  'profile.summary.postpartumDays': '{n} วันหลังคลอด',
+  // Summary card — postpartum fallback when birthDate is absent
+  'profile.summary.postpartumFallback': 'หลังคลอด',
   // Edit pregnancy row subtitle — distinct from settings.editPregnancySubtitle (§13.1)
   'profile.editPregnancy.subtitle': 'แก้ไข EDD และรายละเอียดการตั้งครรภ์',
   // Download data row
@@ -1357,6 +1361,10 @@ const en: MsgShape = {
   'profile.loading': 'Loading profile',
   // Thai-first display label — use same Thai string in en locale (§13.1 "no en value")
   'profile.summary.fallbackName': 'คุณแม่',
+  // Summary card — postpartum day count; {n} = postpartumDays
+  'profile.summary.postpartumDays': '{n} days postpartum',
+  // Summary card — postpartum fallback when birthDate is absent
+  'profile.summary.postpartumFallback': 'Postpartum',
   'profile.editPregnancy.subtitle': 'Edit EDD and pregnancy details',
   'profile.downloadData.label': 'Download my data',
   'profile.downloadData.subtitle': 'Article 30',

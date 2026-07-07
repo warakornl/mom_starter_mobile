@@ -22,7 +22,7 @@
  *     ProfileHub summary shows first name only (ProfileSnapshot.motherFirstNameDecoded).
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -112,10 +112,26 @@ export function ProfileInfoEditScreen({
   // Inline error shown below save button (conflict, generic)
   const [saveError, setSaveError] = useState<string | null>(null);
 
+  // DEF-001 fix: carry a pending conflict message across the doEntryGet re-fetch.
+  // Direct setSaveError(conflictMsg) in handleSave is cleared by doEntryGet's
+  // synchronous setScreenState({ mode: 'loading' }) in the same React 18 batch
+  // (last-write-wins = null). Instead, store the message here and apply it AFTER
+  // the GET resolves to show-form (outside the batched synchronous prefix).
+  const pendingErrorRef = useRef<string | null>(null);
+
   // ── Entry GET ──────────────────────────────────────────────────────────────
   const doEntryGet = useCallback(async () => {
+    // Consume any pending conflict message now (before async work).
+    // Applying it here (sync) would risk being batched with setScreenState({ mode:
+    // 'loading' }) and cleared. Instead, carry it to the show-form case below.
+    const pendingError = pendingErrorRef.current;
+    pendingErrorRef.current = null;
+
     setScreenState({ mode: 'loading' });
-    setSaveError(null);
+    // NOTE: setSaveError(null) is intentionally removed from here.
+    // Normal (no-conflict) entry: pendingError is null → setSaveError(null) runs in
+    //   the show-form case below, preserving the original stale-error clearing behavior.
+    // Conflict re-fetch: pendingError carries the message → applied in show-form below.
 
     const tokens = await tokenStorage.load();
     const accessToken = tokens?.accessToken;
@@ -142,6 +158,12 @@ export function ProfileInfoEditScreen({
           // NEVER log the decoded values (PDPA identity PII)
           setFormState(buildFormStateFromProfile(outcome.profile));
           setScreenState({ mode: 'show-form', profile: outcome.profile });
+          // Apply pending conflict message (DEF-001 fix): if this re-fetch was
+          // triggered by a 409 conflict, pendingError holds the conflict message
+          // and is set here AFTER the GET await (outside the sync batch that
+          // triggered loading). On normal/fresh entry, pendingError is null —
+          // setSaveError(null) clears any stale generic error from a prior save.
+          setSaveError(pendingError);
           return;
 
         case 'not-found':
@@ -220,9 +242,12 @@ export function ProfileInfoEditScreen({
           return;
 
         case 'conflict':
-          // Re-fetch to get the latest profile and reset form
-          setSaveError(t('profileInfo.error.conflict'));
-          setScreenState({ mode: 'show-form', profile: activeProfile });
+          // DEF-001 fix: store conflict message in ref so doEntryGet can apply
+          // it AFTER the re-fetch resolves to show-form. Calling setSaveError
+          // here would be cleared by doEntryGet's synchronous setScreenState
+          // ({ mode: 'loading' }) in the same React 18 auto-batch (last-write-
+          // wins = null). The ref survives the async boundary safely.
+          pendingErrorRef.current = t('profileInfo.error.conflict');
           void doEntryGet();
           return;
 

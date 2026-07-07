@@ -230,6 +230,8 @@ const th = {
   'home.logoutConfirm': 'ออกจากระบบ',
   'home.settingsA11y': 'ตั้งค่า',
   'settings.title': 'ตั้งค่า',
+  /** Navigation-row label used in Profile Hub → opens SettingsScreen (§2 feat-profile-header-settings-row). */
+  'settings.navTitle': 'การตั้งค่า / Settings',
   'settings.account': 'บัญชีผู้ใช้',
   'settings.privacy': 'ความเป็นส่วนตัวและการยินยอม',
   // ── General section (language, app preferences) ───────────────────────────────
@@ -304,6 +306,8 @@ const th = {
   'profile.editDiscardConfirm': 'ทิ้ง',
 
   // ── Profile Hub screen (profile-tab-and-hub-ui.md v1.1 §13.1) ────────────────
+  /** Inline header bar title — bilingual fixed label (§1 feat-profile-header-settings-row). */
+  'profile.title': 'โปรไฟล์ / Profile',
   // Section headers
   'profile.section.profile': 'โปรไฟล์',
   'profile.section.accountData': 'บัญชีและข้อมูล',
@@ -1287,6 +1291,8 @@ const en: MsgShape = {
   'home.logoutConfirm': 'Sign out',
   'home.settingsA11y': 'Settings',
   'settings.title': 'Settings',
+  /** Navigation-row label used in Profile Hub → opens SettingsScreen (§2 feat-profile-header-settings-row). */
+  'settings.navTitle': 'การตั้งค่า / Settings',
   'settings.account': 'Account',
   'settings.privacy': 'Privacy & Permissions',
   // ── General section (language, app preferences) ───────────────────────────────
@@ -1355,6 +1361,8 @@ const en: MsgShape = {
   'profile.editDiscardConfirm': 'Discard',
 
   // ── Profile Hub screen (profile-tab-and-hub-ui.md v1.1 §13.1) ────────────────
+  /** Inline header bar title — bilingual fixed label (§1 feat-profile-header-settings-row). */
+  'profile.title': 'โปรไฟล์ / Profile',
   'profile.section.profile': 'Profile',
   'profile.section.accountData': 'Account & Data',
   'profile.section.account': 'Account',

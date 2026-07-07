@@ -9,6 +9,12 @@ export const PROFILE_HUB_TESTIDS = {
   /** Root SafeAreaView of ProfileHubScreen. */
   screen: 'profile-hub-screen',
 
+  /** Inline header bar title text (§1 feat-profile-header-settings-row). */
+  screenHeader: 'profile-hub-header',
+
+  /** Settings navigation row — opens SettingsScreen (§2 feat-profile-header-settings-row). */
+  settingsBtn: 'profile-hub-settings-btn',
+
   /** Edit-pregnancy row (shown only when lifecycle=pregnant). */
   editPregnancyBtn: 'profile-hub-edit-pregnancy-btn',
 

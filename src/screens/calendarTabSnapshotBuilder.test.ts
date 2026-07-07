@@ -188,7 +188,20 @@ describe('buildCalendarTabSnapshot — pregnant path', () => {
       todayCivil: '2026-07-06',
       lifecycle: 'pregnant',
       generalHealthConsented: true,
+      birthDate: null,
     });
+  });
+
+  it('pregnant snapshot has birthDate null (no birth event yet)', () => {
+    const profile = makePregnantProfile({ birthDate: null });
+    const ga = makeGestationalAge(20);
+    const result = buildCalendarTabSnapshot({
+      profile,
+      ga,
+      generalHealthConsented: true,
+      todayCivil: '2026-07-06',
+    });
+    expect(result.birthDate).toBeNull();
   });
 });
 
@@ -242,10 +255,35 @@ describe('buildCalendarTabSnapshot — postpartum path', () => {
       todayCivil: '2026-03-01',
       lifecycle: 'postpartum',
       generalHealthConsented: true,
+      birthDate: '2026-01-20',
     });
   });
 
-  it('no snapshot field is undefined or null', () => {
+  it('postpartum snapshot includes birthDate from profile', () => {
+    const profile = makePostpartumProfile({ birthDate: '2026-02-05' });
+    const result = buildCalendarTabSnapshot({
+      profile,
+      ga: null,
+      generalHealthConsented: true,
+      todayCivil: '2026-03-15',
+    });
+    expect(result.birthDate).toBe('2026-02-05');
+  });
+
+  it('postpartum snapshot with absent birthDate has birthDate null (defensive)', () => {
+    // birthDate missing on profile — builder must not propagate undefined
+    const profile = makePostpartumProfile({ birthDate: null });
+    const result = buildCalendarTabSnapshot({
+      profile,
+      ga: null,
+      generalHealthConsented: true,
+      todayCivil: '2026-03-01',
+    });
+    expect(result.birthDate).toBeNull();
+  });
+
+  it('no snapshot field is undefined — postpartum (birthDate is string, not null)', () => {
+    // makePostpartumProfile has birthDate: '2026-01-20' (non-null)
     const profile = makePostpartumProfile();
     const snapshot = buildCalendarTabSnapshot({
       profile,
@@ -253,9 +291,10 @@ describe('buildCalendarTabSnapshot — postpartum path', () => {
       generalHealthConsented: true,
       todayCivil: '2026-03-01',
     });
-    for (const [key, value] of Object.entries(snapshot)) {
+    for (const [_key, value] of Object.entries(snapshot)) {
       expect(value).not.toBeUndefined();
-      expect(value).not.toBeNull();
     }
+    // birthDate is explicitly provided for postpartum, so it is a string not null
+    expect(snapshot.birthDate).toBe('2026-01-20');
   });
 });

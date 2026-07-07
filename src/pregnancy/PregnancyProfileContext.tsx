@@ -45,6 +45,15 @@ export interface ProfileSnapshot {
    * inside each screen.
    */
   generalHealthConsented: boolean;
+  /**
+   * Civil birth date "YYYY-MM-DD" — present and non-null when lifecycle is
+   * 'postpartum' and the server returned a birthDate.  null for pregnant
+   * profiles and for postpartum profiles where the server did not supply one.
+   *
+   * Security: civil date only — no PHI beyond what is already in the snapshot.
+   * NEVER passed via route params (PDPA SD-9); stays inside context.
+   */
+  birthDate?: string | null;
 }
 
 // ─── Read-only context ────────────────────────────────────────────────────────

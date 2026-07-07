@@ -79,6 +79,10 @@ jest.mock('../accountRights/DeleteAccountSheet', () => ({
 import { ProfileHubScreen } from './ProfileHubScreen';
 import { PROFILE_HUB_TESTIDS } from './profileHubTestIds';
 import { catalog } from '../i18n/messages';
+import {
+  buildPostpartumSummaryText,
+  buildLogoutAlertConfig,
+} from './profileHubSummary';
 
 // ─── 1. Module export ─────────────────────────────────────────────────────────
 
@@ -133,7 +137,108 @@ describe('ProfileHub — logout message uses profile.logout.message (§3.6)', ()
   });
 });
 
-// ─── 4. Section i18n keys reachable ──────────────────────────────────────────
+// ─── 4. buildPostpartumSummaryText — pure postpartum day count helper ─────────
+//
+// This function is extracted from ProfileHubScreen's renderSummaryCard() so the
+// postpartum-branch computation can be unit-tested without RNTL rendering.
+// Spec §3.3 / §10.2: postpartum card MUST show "X วันหลังคลอด" computed via
+// computePostpartumAge(birthDate, todayCivil) — NOT raw new Date() arithmetic.
+
+describe('buildPostpartumSummaryText — postpartum day count (spec §3.3/§10.2)', () => {
+  // Minimal t() stub: returns '{n} วันหลังคลอด' for profile.summary.postpartumDays
+  // and 'หลังคลอด' for profile.summary.postpartumFallback.
+  // This is intentionally minimal — the full i18n system is exercised at runtime.
+  const tStub = (key: string, params?: Record<string, unknown>): string => {
+    if (key === 'profile.summary.postpartumDays') {
+      return `${String(params?.n ?? '')} วันหลังคลอด`;
+    }
+    if (key === 'profile.summary.postpartumFallback') {
+      return 'หลังคลอด';
+    }
+    return key;
+  };
+
+  it('computes correct day count via computePostpartumAge (not raw new Date())', () => {
+    // Birth 10 days before today → expect "10 วันหลังคลอด"
+    const birthDate = '2026-06-25';
+    const todayCivil = '2026-07-05';
+    const result = buildPostpartumSummaryText(birthDate, todayCivil, tStub);
+    expect(result).toBe('10 วันหลังคลอด');
+  });
+
+  it('returns fallback when birthDate is null', () => {
+    const result = buildPostpartumSummaryText(null, '2026-07-05', tStub);
+    expect(result).toBe('หลังคลอด');
+  });
+
+  it('returns fallback when birthDate is undefined', () => {
+    const result = buildPostpartumSummaryText(undefined, '2026-07-05', tStub);
+    expect(result).toBe('หลังคลอด');
+  });
+
+  it('returns 0 วันหลังคลอด on birth day itself', () => {
+    const today = '2026-07-05';
+    const result = buildPostpartumSummaryText(today, today, tStub);
+    expect(result).toBe('0 วันหลังคลอด');
+  });
+
+  it('uses profile.summary.postpartumDays i18n key (not hardcoded string)', () => {
+    // Stub that records which key was called
+    const calledKeys: string[] = [];
+    const tSpy = (key: string, params?: Record<string, unknown>): string => {
+      calledKeys.push(key);
+      return tStub(key, params);
+    };
+    buildPostpartumSummaryText('2026-07-01', '2026-07-05', tSpy);
+    expect(calledKeys).toContain('profile.summary.postpartumDays');
+  });
+
+  it('uses profile.summary.postpartumFallback i18n key when no birthDate', () => {
+    const calledKeys: string[] = [];
+    const tSpy = (key: string, params?: Record<string, unknown>): string => {
+      calledKeys.push(key);
+      return tStub(key, params);
+    };
+    buildPostpartumSummaryText(null, '2026-07-05', tSpy);
+    expect(calledKeys).toContain('profile.summary.postpartumFallback');
+  });
+});
+
+// ─── 5. buildLogoutAlertConfig — pure Alert config builder (nit-2 fix) ────────
+//
+// The confirm-logout behavior is extracted so it can be asserted in the pure
+// node harness.  Prior tests only checked catalog strings (what the message
+// SAYS), not the config wiring (which key is used, what onPress is bound to).
+
+describe('buildLogoutAlertConfig — confirms profile.logout.message + onPress wiring', () => {
+  const tStub = (key: string): string => key; // return key as-is for assertions
+
+  it('uses profile.logout.message (NOT home.logoutMessage) as dialog body', () => {
+    const onLogout = jest.fn();
+    const [_title, message] = buildLogoutAlertConfig(tStub, onLogout);
+    expect(message).toBe('profile.logout.message');
+  });
+
+  it('confirm button onPress is exactly the injected onLogout fn', () => {
+    const onLogout = jest.fn();
+    const [_title, _message, buttons] = buildLogoutAlertConfig(tStub, onLogout);
+    const confirmBtn = (buttons ?? []).find(
+      (b: { style?: string }) => b.style === 'destructive',
+    ) as { onPress?: () => void; style?: string } | undefined;
+    expect(confirmBtn?.onPress).toBe(onLogout);
+  });
+
+  it('cancel button has style cancel', () => {
+    const onLogout = jest.fn();
+    const [_title, _message, buttons] = buildLogoutAlertConfig(tStub, onLogout);
+    const cancelBtn = (buttons ?? []).find(
+      (b: { style?: string }) => b.style === 'cancel',
+    );
+    expect(cancelBtn).toBeDefined();
+  });
+});
+
+// ─── 6. Section i18n keys reachable ──────────────────────────────────────────
 
 describe('ProfileHub — section i18n keys', () => {
   const SECTION_KEYS = [

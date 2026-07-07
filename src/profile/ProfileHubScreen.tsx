@@ -159,15 +159,15 @@ export function ProfileHubScreen({
     const motherNameDisplay = buildMotherNameSummary(snapshot.motherFirstNameDecoded, t);
 
     if (isPregnant) {
-      badgeText = 'ตั้งครรภ์';
+      badgeText = t('profile.summary.badgePregnant');
       badgeStyle = styles.badgePregnant;
       badgeTextStyle = styles.badgePregnantText;
-      mainText = `สัปดาห์ที่ ${snapshot.gestationalWeek}`;
+      mainText = t('profile.weekDisplay', { n: snapshot.gestationalWeek });
       if (snapshot.edd) {
-        subText = `กำหนดคลอด ${formatCivilDate(snapshot.edd, locale as Locale)}`;
+        subText = t('profile.eddPreviewPrefix', { date: formatCivilDate(snapshot.edd, locale as Locale) });
       }
     } else if (isPostpartum) {
-      badgeText = 'หลังคลอด';
+      badgeText = t('profile.summary.badgePostpartum');
       badgeStyle = styles.badgePostpartum;
       badgeTextStyle = styles.badgePostpartumText;
       // Spec §3.3/§10.2: use computePostpartumAge via buildPostpartumSummaryText

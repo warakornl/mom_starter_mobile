@@ -1,18 +1,20 @@
 /**
  * tabNavigatorConfig.test.ts — TDD tests for tab navigator pure config.
  *
- * v2 update (bottom-tab-navigation-design.md v2.1):
- *   Tab order: Supplies → Expenses → Home (center) → Calendar → Medication
+ * v2 update (bottom-tab-navigation-design.md v2.1 → 6-tab, +Profile):
+ *   Tab order: Supplies → Expenses → Home → Calendar → Medication → Profile
  *   initialRouteName = 'Home' (was 'Calendar', OQ-NAV-1 owner re-decision)
- *   Center tab is 'Home' (house icon, always visible home dashboard)
+ *   Home at index 2 (house icon, always visible home dashboard)
  *   'Report' tab removed — Doctor Report accessed via Home tab row → root-stack screen
- *   Active disc: isFocused on ALL 5 tabs (was permanent-center-only in v1)
+ *   Profile added as 6th tab (far right, after Medication)
+ *   Active disc: isFocused on ALL 6 tabs (OQ-NAV-3). isCenter is now a
+ *   vestigial spatial marker (all false) — no longer drives the disc.
  *
  * Tests:
- *   - 5 tabs in correct v2 order
+ *   - 6 tabs in correct v2 order (Profile 6th)
  *   - initialRouteName = 'Home'
  *   - Home is at center index 2
- *   - only Home has isCenter = true
+ *   - isCenter is vestigial: no tab has isCenter = true (disc keyed on isFocused)
  *   - each tab carries required i18n key fields
  *   - Home a11y key follows spec §8.2
  *   - Calendar a11y key follows spec §8.2 (simplified — Calendar tab now grid-only)
@@ -24,13 +26,13 @@ import { TAB_CONFIGS, INITIAL_TAB, CENTER_TAB_INDEX } from './tabNavigatorConfig
 // ─── Tab count and order ──────────────────────────────────────────────────────
 
 describe('tabNavigatorConfig — tab structure (v2)', () => {
-  it('defines exactly 5 tabs', () => {
-    expect(TAB_CONFIGS).toHaveLength(5);
+  it('defines exactly 6 tabs', () => {
+    expect(TAB_CONFIGS).toHaveLength(6);
   });
 
-  it('tab order is Supplies → Expenses → Home → Calendar → Medication (v2 §1.1)', () => {
+  it('tab order is Supplies → Expenses → Home → Calendar → Medication → Profile (v2 §1.1, +Profile)', () => {
     const names = TAB_CONFIGS.map((c) => c.name);
-    expect(names).toEqual(['Supplies', 'Expenses', 'Home', 'Calendar', 'Medication']);
+    expect(names).toEqual(['Supplies', 'Expenses', 'Home', 'Calendar', 'Medication', 'Profile']);
   });
 
   it('does NOT include a Report tab (Doctor Report removed from tab bar in v2)', () => {
@@ -58,7 +60,7 @@ describe('tabNavigatorConfig — initial route (v2)', () => {
 // ─── Center tab ───────────────────────────────────────────────────────────────
 
 describe('tabNavigatorConfig — center tab (v2)', () => {
-  it('CENTER_TAB_INDEX is 2 (position 3 of 5, zero-indexed — same position, now Home)', () => {
+  it('CENTER_TAB_INDEX is 2 (position 3 of 6, zero-indexed — Home)', () => {
     expect(CENTER_TAB_INDEX).toBe(2);
   });
 
@@ -66,15 +68,14 @@ describe('tabNavigatorConfig — center tab (v2)', () => {
     expect(TAB_CONFIGS[CENTER_TAB_INDEX].name).toBe('Home');
   });
 
-  it('only the Home tab has isCenter = true (v2: center = Home)', () => {
+  it('no tab has isCenter = true (v2 OQ-NAV-3: active disc is isFocused-based, isCenter vestigial)', () => {
     const centerTabs = TAB_CONFIGS.filter((c) => c.isCenter);
-    expect(centerTabs).toHaveLength(1);
-    expect(centerTabs[0].name).toBe('Home');
+    expect(centerTabs).toHaveLength(0);
   });
 
-  it('all non-Home tabs have isCenter = false', () => {
+  it('all 6 tabs have isCenter = false (vestigial marker; disc keyed on isFocused)', () => {
     const nonCenter = TAB_CONFIGS.filter((c) => !c.isCenter);
-    expect(nonCenter).toHaveLength(4);
+    expect(nonCenter).toHaveLength(6);
     for (const tab of nonCenter) {
       expect(tab.isCenter).toBe(false);
     }
@@ -102,6 +103,12 @@ describe('tabNavigatorConfig — a11y key references (v2 §8.2)', () => {
   it('Medication a11y key is tab.medication.a11y', () => {
     const m = TAB_CONFIGS.find((c) => c.name === 'Medication')!;
     expect(m.a11yKey).toBe('tab.medication.a11y');
+  });
+
+  it('Profile a11y key is tab.profile.a11y (6th tab)', () => {
+    const p = TAB_CONFIGS.find((c) => c.name === 'Profile')!;
+    expect(p.a11yKey).toBe('tab.profile.a11y');
+    expect(p.labelKey).toBe('tab.profile');
   });
 });
 

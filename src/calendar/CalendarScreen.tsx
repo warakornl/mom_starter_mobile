@@ -62,7 +62,7 @@ import {
 } from 'react-native';
 import { v4 as uuidv4 } from 'uuid';
 import { useT } from '../i18n/LanguageContext';
-import { formatCivilDate, formatYearMonth, interpolate } from '../i18n/messages';
+import { formatCivilDate, formatYearMonth, interpolate, WEEKDAYS } from '../i18n/messages';
 import { kickCountSyncStore } from '../kickCount/kickCountSyncStore';
 import { getKickCountSessionsForDate } from './kickCountAgenda';
 import { calendarSyncStore } from '../sync/calendarSyncStore';
@@ -867,7 +867,7 @@ export function CalendarScreen({
 
         {/* ── Day-of-week headers ───────────────────────────────────────── */}
         <View style={styles.dowRow}>
-          {['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'].map((d) => (
+          {WEEKDAYS[locale].map((d) => (
             <Text key={d} style={styles.dowLabel}>
               {d}
             </Text>

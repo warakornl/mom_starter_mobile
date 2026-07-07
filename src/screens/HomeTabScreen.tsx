@@ -10,7 +10,7 @@
  *      their props — critical because initialRouteName='Home' means this screen
  *      mounts first and owns the full snapshot-population path.
  *   3. Renders dashboard sections per §3.3 (NO CalendarScreen embedded — v2):
- *        - Top bar: [TH|EN] toggle · ⚙ gear (spec §3.2)
+ *        - Top bar: ⚙ gear (spec §3.2; language toggle moved to Settings)
  *        - Pregnant wk<32: stage banner → consent nudge* → suggestion† → progress → days-to-due
  *        - Pregnant wk≥32: stage banner → consent nudge* → kick-count card → suggestion† → progress → days-to-due
  *        - Postpartum: pp banner → PostpartumDayCard → consent nudge* → suggestion† → history link
@@ -124,45 +124,6 @@ const STAGE_GLYPHS: Record<Stage, string> = {
   T2: '🌿',
   T3: '🌳',
 };
-
-// ─── Language toggle (spec §3.2 — lives on Home top bar only) ─────────────────
-
-function LangToggle(): React.JSX.Element {
-  const { locale, setLocale } = useT();
-  const label = locale === 'th' ? 'EN' : 'ไทย';
-  const a11y = locale === 'th' ? 'Switch to English' : 'เปลี่ยนเป็นภาษาไทย';
-  return (
-    <TouchableOpacity
-      style={toggleStyles.btn}
-      onPress={() => setLocale(locale === 'th' ? 'en' : 'th')}
-      accessibilityRole="button"
-      accessibilityLabel={a11y}
-      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-    >
-      <Text style={toggleStyles.text}>{label}</Text>
-    </TouchableOpacity>
-  );
-}
-
-const toggleStyles = StyleSheet.create({
-  btn: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 999,
-    borderWidth: 1,
-    borderColor: '#EBE1D9',
-    backgroundColor: '#FFFFFF',
-    minHeight: 34,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  text: {
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 13,
-    color: '#5F4A52',
-    letterSpacing: 0.3,
-  },
-});
 
 // ─── Progress bar ─────────────────────────────────────────────────────────────
 
@@ -675,13 +636,12 @@ export function HomeTabScreen({
     return () => sub.remove();
   }, [recomputeFromEdd, recomputeFromBirthDate, tokenStorage, apiBaseUrl]);
 
-  // ─── Top bar (all states, spec §3.2) ──────────────────────────────────────
+  // ─── Top bar (all states, spec §3.2 — gear only; language toggle moved to Settings) ─
 
   function renderTopBar(): React.JSX.Element {
     return (
       <View style={styles.topBar}>
         <View style={styles.topBarSpacer} />
-        <LangToggle />
         <TouchableOpacity
           style={styles.gearBtn}
           onPress={onSettings}
@@ -930,7 +890,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FBF6F1',
   },
-  // Top bar: [spacer] [TH|EN] [⚙] — right-aligned (spec §3.2)
+  // Top bar: [spacer] [⚙] — gear right-aligned; language toggle moved to Settings (feat-language-in-settings)
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',

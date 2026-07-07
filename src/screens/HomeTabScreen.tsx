@@ -10,9 +10,9 @@
  *      their props — critical because initialRouteName='Home' means this screen
  *      mounts first and owns the full snapshot-population path.
  *   3. Renders dashboard sections per §3.3 (NO CalendarScreen embedded — v2):
- *        - Pregnant wk<32: stage banner → consent nudge* → suggestion† → progress → days-to-due
- *        - Pregnant wk≥32: stage banner → consent nudge* → kick-count card → suggestion† → progress → days-to-due
- *        - Postpartum: pp banner → PostpartumDayCard → consent nudge* → suggestion† → history link
+ *        - Pregnant wk<32: stage banner → suggestion† → progress → days-to-due
+ *        - Pregnant wk≥32: stage banner → kick-count card → suggestion† → progress → days-to-due
+ *        - Postpartum: pp banner → PostpartumDayCard → suggestion† → history link
  *      All followed by the Doctor Report entry row (spec §3.3, always visible).
  *   4. Screen states (§6A): loading skeleton, error+retry, needs-onboarding → reset to ProfileSetup.
  *
@@ -23,7 +23,6 @@
  *   onLogout             → performLogout + reset to Welcome (session expiry / no-token)
  *   onNeedsProfile       → reset to ProfileSetup (GET 404; tab bar suppressed)
  *   onBirthEvent(v)      → navigate to BirthEvent (T3 only)
- *   onSettings           → navigate to Settings
  *   onSuggestions        → navigate to Suggestions
  *   onKickCount          → navigate to KickCountHome (pregnant wk≥32 card tapped)
  *   onKickCountHistory   → navigate directly to KickCountHistory (postpartum link)
@@ -81,8 +80,6 @@ export interface HomeTabScreenProps {
   onNeedsProfile: () => void;
   /** Navigate to BirthEvent (T3 only). Passes current profile version for If-Match header. */
   onBirthEvent: (profileVersion: number) => void;
-  /** Navigate to SettingsScreen (consent nudge banners; gear removed — Settings now reachable from Profile hub). */
-  onSettings: () => void;
   /** Navigate to SuggestionFlowScreen ("View all" from suggestion banner). */
   onSuggestions?: () => void;
   /** Navigate to KickCountHomeScreen (pregnant wk≥32 card tapped, spec §4.2). */
@@ -515,7 +512,6 @@ export function HomeTabScreen({
   onLogout,
   onNeedsProfile,
   onBirthEvent,
-  onSettings,
   onSuggestions,
   onKickCount,
   onKickCountHistory,
@@ -720,20 +716,6 @@ export function HomeTabScreen({
           {/* Postpartum banner + PostpartumDayCard (hero pair, spec §3.3) */}
           <PostpartumBanner profile={profile} pp={pp} />
           {sections.showPostpartumDayCard && <PostpartumDayCard pp={pp} />}
-          {/* Consent nudge (compliance-critical, mutually exclusive with suggestion) */}
-          {sections.showConsentNudge && (
-            <TouchableOpacity
-              testID="consent-home-health-logging-nudge-banner"
-              style={styles.consentNudgeBanner}
-              onPress={onSettings}
-              accessibilityRole="button"
-              accessibilityLabel={t('consent.home.health_nudge_banner')}
-            >
-              <Text style={styles.consentNudgeBannerText}>
-                {t('consent.home.health_nudge_banner')}
-              </Text>
-            </TouchableOpacity>
-          )}
           {/* Suggestion banner (only when consented + offerable) */}
           {sections.showSuggestionBanner && ppTopSuggestion && (
             <SuggestionBanner
@@ -795,20 +777,6 @@ export function HomeTabScreen({
             ga={ga}
             onBirthEvent={() => onBirthEvent(profile.version)}
           />
-        )}
-        {/* Consent nudge (compliance-critical, floats above kick-count card) */}
-        {sections.showConsentNudge && (
-          <TouchableOpacity
-            testID="consent-home-health-logging-nudge-banner"
-            style={styles.consentNudgeBanner}
-            onPress={onSettings}
-            accessibilityRole="button"
-            accessibilityLabel={t('consent.home.health_nudge_banner')}
-          >
-            <Text style={styles.consentNudgeBannerText}>
-              {t('consent.home.health_nudge_banner')}
-            </Text>
-          </TouchableOpacity>
         )}
         {/* Kick-count card (pregnant wk≥32, no consent gate, spec §4.2) */}
         {sections.showKickCountCard && (
@@ -936,20 +904,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#5F4A52', // ink/soft
     textDecorationLine: 'underline',
-  },
-
-  // Consent limited-mode nudge banner
-  consentNudgeBanner: {
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    backgroundColor: '#A8505A', // rose/600
-    borderRadius: 10,
-    alignItems: 'center',
-  },
-  consentNudgeBannerText: {
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 14,
-    color: '#FFFFFF',
   },
 
   errorContainer: {

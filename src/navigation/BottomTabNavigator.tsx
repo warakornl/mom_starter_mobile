@@ -340,7 +340,6 @@ export function BottomTabNavigator({
             onBirthEvent={(profileVersion) =>
               navigation.navigate('BirthEvent', { profileVersion })
             }
-            onSettings={() => navigation.navigate('Settings')}
             onSuggestions={() => navigation.navigate('Suggestions')}
             onKickCount={() => navigation.navigate('KickCountHome')}
             onKickCountHistory={() => navigation.navigate('KickCountHistory')}
@@ -397,8 +396,7 @@ export function BottomTabNavigator({
        * Receives handleLogout (shared SD-5 teardown runner — PDPA §8.2).
        * onEditPregnancy navigates to ProfileEdit (root-stack screen).
        * onSessionExpired runs full teardown then resets to Welcome (SD-5).
-       * onSettings mirrors Home tab wiring: navigation.navigate('Settings')
-       *   (§2 feat-profile-header-settings-row).
+       * onSettings: navigation.navigate('Settings') (§2 feat-profile-header-settings-row).
        * Security: no health data in route params (PDPA SD-9). */}
       <Tab.Screen name="Profile">
         {() => (

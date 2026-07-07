@@ -8,7 +8,7 @@
  */
 
 export { TabChecklistIcon } from './TabChecklistIcon';
-export { TabWalletIcon } from './TabWalletIcon';
+export { TabCoinsIcon } from './TabCoinsIcon';
 export { TabHomeIcon } from './TabHomeIcon';
 export { TabCalendarIcon } from './TabCalendarIcon';
 export { TabPillIcon } from './TabPillIcon';

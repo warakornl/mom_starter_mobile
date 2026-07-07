@@ -59,7 +59,7 @@ import type { TabConfig } from './tabNavigatorConfig';
 import { useT } from '../i18n/LanguageContext';
 import {
   TabChecklistIcon,
-  TabWalletIcon,
+  TabCoinsIcon,
   TabHomeIcon,
   TabCalendarIcon,
   TabPillIcon,
@@ -114,7 +114,7 @@ const Tab = createBottomTabNavigator<TabParamList>();
  */
 const ICON_MAP: Record<TabConfig['iconName'], React.FC<{ color: string; size: number }>> = {
   supplies:   TabChecklistIcon,
-  expenses:   TabWalletIcon,
+  expenses:   TabCoinsIcon,
   home:       TabHomeIcon,
   calendar:   TabCalendarIcon,
   medication: TabPillIcon,

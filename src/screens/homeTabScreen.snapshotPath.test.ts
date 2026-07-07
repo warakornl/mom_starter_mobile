@@ -81,7 +81,7 @@ jest.mock('../icons', () => ({
   StageT3Icon: 'StageT3Icon',
   PostpartumStageIcon: 'PostpartumStageIcon',
   TabChecklistIcon: 'TabChecklistIcon',
-  TabWalletIcon: 'TabWalletIcon',
+  TabCoinsIcon: 'TabCoinsIcon',
   TabHomeIcon: 'TabHomeIcon',
   TabCalendarIcon: 'TabCalendarIcon',
   TabPillIcon: 'TabPillIcon',

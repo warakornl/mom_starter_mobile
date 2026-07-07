@@ -59,6 +59,7 @@ import { executePush } from '../sync/pushOrchestrator';
 import type { KickCountDraft } from './kickCountTypes';
 import type { TokenStorage } from '../auth/tokenStorage';
 import { SafetyStrip } from './KickCountHomeScreen';
+import { timerStyleTokens } from './kickCountTimerStyleTokens';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -621,17 +622,17 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 40,
   },
-  // Timer
+  // Timer — prominent secondary (strong secondary stat, NOT the hero counter)
   timerText: {
-    fontSize: 20,
-    fontFamily: 'monospace', // IBM Plex Mono equivalent
-    color: '#6B6B6B',
+    fontSize: timerStyleTokens.timerFontSize, // 32 pt (was 20) — clearly readable secondary
+    fontFamily: 'monospace', // IBM Plex Mono equivalent — keeps mm:ss aligned
+    color: timerStyleTokens.timerColor, // #3D3D3D (was #6B6B6B) — readable ink, darker but not hero-dark
     textAlign: 'center',
     marginTop: 16,
   },
   timerLabel: {
-    fontSize: 13,
-    color: '#9B9B9B',
+    fontSize: timerStyleTokens.timerLabelFontSize, // 14 pt (was 13) — slightly easier to read
+    color: timerStyleTokens.timerLabelColor, // #6B6B6B (was #9B9B9B) — ink/soft, less faint
     textAlign: 'center',
     marginBottom: 16,
   },

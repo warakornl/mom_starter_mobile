@@ -5,7 +5,7 @@
  *   K-5b / INV-K2: the ONLY thing that changes between count=3 and count=10
  *     is the number displayed in the progress counter. No color, icon, animation,
  *     sound, or other UI element changes when reaching/passing 10.
- *   INV-K3: "จบเซสชัน" is ALWAYS enabled (B1) — never disabled, never hidden,
+ *   INV-K3: "เสร็จสิ้น" is ALWAYS enabled (B1) — never disabled, never hidden,
  *     never highlighted when count reaches 10.
  *   K-5d: safety strip text is static, generic, no "10" or time window.
  *   INV-K6: safety strip + disclaimer appear every render.
@@ -523,7 +523,7 @@ export function KickCountCountingScreen({
       {/* ── Safety strip (K-5d always-on) ──────────────────────────────────────── */}
       <SafetyStrip t={t} />
 
-      {/* ── Bottom action bar (B1: "จบเซสชัน" always-on, always enabled) ───────── */}
+      {/* ── Bottom action bar (B1: "เสร็จสิ้น" always-on, always enabled) ───────── */}
       <View style={styles.bottomBar}>
         <TouchableOpacity
           style={styles.cancelBottomBtn}
@@ -536,7 +536,7 @@ export function KickCountCountingScreen({
         </TouchableOpacity>
 
         {/*
-          B1: "จบเซสชัน" ALWAYS enabled — never disabled, never hidden.
+          B1: "เสร็จสิ้น" ALWAYS enabled — never disabled, never hidden.
           Not highlighted/animated when count reaches 10 (INV-K3).
         */}
         <TouchableOpacity

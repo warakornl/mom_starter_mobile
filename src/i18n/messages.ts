@@ -592,14 +592,14 @@ const th = {
   'kick.tapLabel': 'แตะเมื่อรู้สึกดิ้น',
   'kick.tapSublabel': 'กดทุกครั้งที่รู้สึกลูกดิ้น',
   'kick.undoBtn': '−1  แก้การนับล่าสุด',
-  'kick.endSessionBtn': 'จบเซสชัน',
+  'kick.endSessionBtn': 'เสร็จสิ้น',
   'kick.cancelBtn': 'ยกเลิก',
   /** K-5b: SR label — "นับได้ N ครั้ง" no "/10" no "goal" */
   /** template: {n} = current count */
   'kick.progressA11y': 'นับได้ {n} ครั้ง',
   /** template: {n} = current count */
   'kick.tapA11y': 'แตะเมื่อรู้สึกดิ้น ตอนนี้นับได้ {n} ครั้งแล้ว',
-  'kick.endSessionA11y': 'จบเซสชัน บันทึกการนับครั้งนี้',
+  'kick.endSessionA11y': 'เสร็จสิ้นการนับ บันทึกการนับครั้งนี้',
   'kick.cancelA11y': 'ยกเลิก ทิ้งการนับครั้งนี้',
   'kick.undoA11y': 'แก้การนับล่าสุด ลบ 1 ครั้ง',
   /** template: {time} = elapsed time string, {n} = count */
@@ -1651,11 +1651,11 @@ const en: MsgShape = {
   'kick.tapLabel': 'Tap when you feel a movement',
   'kick.tapSublabel': 'Tap every time you feel baby move',
   'kick.undoBtn': '−1  Undo last count',
-  'kick.endSessionBtn': 'End Session',
+  'kick.endSessionBtn': 'Done',
   'kick.cancelBtn': 'Cancel',
   'kick.progressA11y': '{n} movements recorded',
   'kick.tapA11y': 'Tap when you feel a movement. {n} movements recorded so far.',
-  'kick.endSessionA11y': 'End session, save this count',
+  'kick.endSessionA11y': 'Done counting, save this count',
   'kick.cancelA11y': 'Cancel, discard this count',
   'kick.undoA11y': 'Undo last count, subtract 1',
   'kick.timerA11y': 'Time elapsed: {time}',

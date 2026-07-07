@@ -447,3 +447,29 @@ describe('tab navigation i18n keys — bottom-tab-nav v2', () => {
     expect(catalog.th['kick.countCard'].length).toBeGreaterThan(0);
   });
 });
+
+// ─── Kick-count endSession rename (slice/feat-kickcount-header-rename) ─────────
+
+describe('kick.endSessionBtn rename: จบเซสชัน → เสร็จสิ้น', () => {
+  it('kick.endSessionBtn (th) is เสร็จสิ้น (label-only rename, INV-K3 behavior unchanged)', () => {
+    expect(catalog.th['kick.endSessionBtn']).toBe('เสร็จสิ้น');
+  });
+
+  it('kick.endSessionBtn (en) is Done', () => {
+    expect(catalog.en['kick.endSessionBtn']).toBe('Done');
+  });
+
+  it('kick.endSessionA11y (th) contains เสร็จสิ้น (not จบเซสชัน)', () => {
+    expect(catalog.th['kick.endSessionA11y']).toContain('เสร็จสิ้น');
+    expect(catalog.th['kick.endSessionA11y']).not.toContain('จบเซสชัน');
+  });
+
+  it('kick.endSessionA11y (en) contains Done counting (updated a11y label)', () => {
+    expect(catalog.en['kick.endSessionA11y'].toLowerCase()).toContain('done counting');
+  });
+
+  it('kick.navTitle exists in both locales (used as header title for Home/Counting/Summary)', () => {
+    expect(catalog.th['kick.navTitle']).toBeTruthy();
+    expect(catalog.en['kick.navTitle']).toBeTruthy();
+  });
+});

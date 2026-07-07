@@ -10,7 +10,6 @@
  *      their props — critical because initialRouteName='Home' means this screen
  *      mounts first and owns the full snapshot-population path.
  *   3. Renders dashboard sections per §3.3 (NO CalendarScreen embedded — v2):
- *        - Top bar: ⚙ gear (spec §3.2; language toggle moved to Settings)
  *        - Pregnant wk<32: stage banner → consent nudge* → suggestion† → progress → days-to-due
  *        - Pregnant wk≥32: stage banner → consent nudge* → kick-count card → suggestion† → progress → days-to-due
  *        - Postpartum: pp banner → PostpartumDayCard → consent nudge* → suggestion† → history link
@@ -82,7 +81,7 @@ export interface HomeTabScreenProps {
   onNeedsProfile: () => void;
   /** Navigate to BirthEvent (T3 only). Passes current profile version for If-Match header. */
   onBirthEvent: (profileVersion: number) => void;
-  /** Navigate to SettingsScreen (gear ⚙ in top bar, spec §3.2). */
+  /** Navigate to SettingsScreen (consent nudge banners; gear removed — Settings now reachable from Profile hub). */
   onSettings: () => void;
   /** Navigate to SuggestionFlowScreen ("View all" from suggestion banner). */
   onSuggestions?: () => void;
@@ -636,31 +635,11 @@ export function HomeTabScreen({
     return () => sub.remove();
   }, [recomputeFromEdd, recomputeFromBirthDate, tokenStorage, apiBaseUrl]);
 
-  // ─── Top bar (all states, spec §3.2 — gear only; language toggle moved to Settings) ─
-
-  function renderTopBar(): React.JSX.Element {
-    return (
-      <View style={styles.topBar}>
-        <View style={styles.topBarSpacer} />
-        <TouchableOpacity
-          style={styles.gearBtn}
-          onPress={onSettings}
-          accessibilityRole="button"
-          accessibilityLabel={t('home.settingsA11y')}
-          testID="home-tab-settings-btn"
-        >
-          <Text style={styles.gearIcon}>⚙</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
   // ─── Loading (§6A state 1: tab bar visible) ───────────────────────────────
 
   if (state.kind === 'loading') {
     return (
       <SafeAreaView style={styles.container}>
-        {renderTopBar()}
         <View style={styles.content}>
           <Skeleton />
         </View>
@@ -673,7 +652,6 @@ export function HomeTabScreen({
   if (state.kind === 'error') {
     return (
       <SafeAreaView style={styles.container}>
-        {renderTopBar()}
         <View style={styles.errorContainer}>
           <Text style={styles.errorHeadline}>{t('home.errorHeadline')}</Text>
           <Text style={styles.errorSubline}>{t('home.errorSubline')}</Text>
@@ -696,7 +674,6 @@ export function HomeTabScreen({
   if (state.kind === 'needs-onboarding') {
     return (
       <SafeAreaView style={styles.container}>
-        {renderTopBar()}
         <View style={styles.content}>
           <Skeleton />
         </View>
@@ -738,7 +715,6 @@ export function HomeTabScreen({
 
     return (
       <SafeAreaView style={styles.container}>
-        {renderTopBar()}
         {/* Constraint §6B: only simple card/row components — no VirtualizedList/CalendarScreen */}
         <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
           {/* Postpartum banner + PostpartumDayCard (hero pair, spec §3.3) */}
@@ -810,7 +786,6 @@ export function HomeTabScreen({
 
   return (
     <SafeAreaView style={styles.container}>
-      {renderTopBar()}
       {/* Constraint §6B: only simple card/row components — no VirtualizedList/CalendarScreen */}
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
         {/* Stage banner (T1/T2/T3) */}
@@ -889,27 +864,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#FBF6F1',
-  },
-  // Top bar: [spacer] [⚙] — gear right-aligned; language toggle moved to Settings (feat-language-in-settings)
-  topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 24,
-    paddingTop: 12,
-    paddingBottom: 4,
-  },
-  topBarSpacer: { flex: 1 },
-  gearBtn: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginLeft: 4,
-  },
-  gearIcon: {
-    fontSize: 20,
-    color: '#5F4A52',
   },
   scroll: { flex: 1 },
   scrollContent: { padding: 24, gap: 16 },

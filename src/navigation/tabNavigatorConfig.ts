@@ -1,18 +1,28 @@
 /**
  * tabNavigatorConfig.ts — pure tab navigator configuration data.
  *
- * Defines the 5-tab IA per bottom-tab-navigation-design.md v2.1 §1.1 and §8.2.
+ * Defines the 6-tab IA per:
+ *   - bottom-tab-navigation-design.md v2.1 §1.1 and §8.2 (5-tab baseline)
+ *   - profile-tab-and-hub-ui.md v1.1 §1.1, §6.1, §7.1 (6th tab addition)
+ *
  * This file contains no React or navigation imports so it can be unit-tested
  * in a pure Node environment.
  *
- * v2 Owner decisions baked in (§10 resolved decisions):
+ * v2 Owner decisions:
  *   - OQ-NAV-1: initialRouteName = 'Home' (was 'Calendar'; dashboard moved to Home)
- *   - OQ-NAV-3: Active highlight = moving disc across ALL 5 tabs (isFocused, not isCenter)
+ *   - OQ-NAV-3: Active highlight = moving disc across ALL tabs (isFocused, not isCenter)
  *   - OQ-NAV-4: Doctor Report removed from tab bar; accessed from Home tab row → root stack
  *   - OQ-NAV-5: Supplies label = 'ของใช้' (was 'เตรียม'; lifecycle-neutral)
  *
- * Tab order (v2):
- *   1 Supplies  2 Expenses  3 Home (center)  4 Calendar  5 Medication
+ * v3 changes (profile-tab-and-hub-ui.md v1.1):
+ *   - 6th tab: Profile (far right, after Medication) — icon/person-outline placeholder
+ *   - Home isCenter: false (was true at index 2 of 5; now left-of-center at index 2 of 6)
+ *   - TabConfig.name union extended with 'Profile'
+ *   - Label fit decision: 13pt retained — "โปรไฟล์" fits in 65dp column without clipping;
+ *     "ค่าใช้จ่าย" wraps to 2 lines (existing behavior with numberOfLines={2}).
+ *
+ * Tab order (v3):
+ *   1 Supplies  2 Expenses  3 Home  4 Calendar  5 Medication  6 Profile
  *
  * Icon strategy: icon glyph strings are Unicode emoji/characters used as
  * placeholders because the project does not yet have a vector icon library.
@@ -25,7 +35,7 @@ import type { MessageKey } from '../i18n/messages';
 
 export interface TabConfig {
   /** React Navigation route name (matches TabParamList). */
-  name: 'Supplies' | 'Expenses' | 'Home' | 'Calendar' | 'Medication';
+  name: 'Supplies' | 'Expenses' | 'Home' | 'Calendar' | 'Medication' | 'Profile';
   /** i18n key for the visible tab label (short form). */
   labelKey: MessageKey;
   /** i18n key for the screen-reader accessibility label (full form, spec §8.2). */
@@ -44,10 +54,10 @@ export interface TabConfig {
 // ─── Tab definitions ──────────────────────────────────────────────────────────
 
 /**
- * Ordered list of 5 tab configurations (v2).
- * Order: Supplies (1) · Expenses (2) · Home (3, center) · Calendar (4) · Medication (5).
+ * Ordered list of 6 tab configurations (v3).
+ * Order: Supplies (1) · Expenses (2) · Home (3) · Calendar (4) · Medication (5) · Profile (6).
  *
- * §8.1: Screen reader order follows left-to-right visual order 1→5.
+ * §8.1: Screen reader order follows left-to-right visual order 1→6.
  */
 export const TAB_CONFIGS: TabConfig[] = [
   {
@@ -69,7 +79,8 @@ export const TAB_CONFIGS: TabConfig[] = [
     labelKey: 'tab.home',
     a11yKey: 'tab.home.a11y',
     iconGlyph: '🏠',
-    isCenter: true,
+    // was center at index 2 of 5; now left-of-center at index 2 of 6
+    isCenter: false,
   },
   {
     name: 'Calendar',
@@ -83,6 +94,15 @@ export const TAB_CONFIGS: TabConfig[] = [
     labelKey: 'tab.medication',
     a11yKey: 'tab.medication.a11y',
     iconGlyph: '💊',
+    isCenter: false,
+  },
+  {
+    // v3: 6th tab — Profile Hub (profile-tab-and-hub-ui.md §6.1, §2.4)
+    // icon/person-outline placeholder — replace with vector library glyph before ship
+    name: 'Profile',
+    labelKey: 'tab.profile',
+    a11yKey: 'tab.profile.a11y',
+    iconGlyph: '👤',
     isCenter: false,
   },
 ];

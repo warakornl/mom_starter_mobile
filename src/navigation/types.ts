@@ -45,7 +45,7 @@ export type RootStackParamList = {
    * to the Supplies or Calendar tab). Matches the React Navigation v6
    * nested-navigator `navigate('MainTabs', { screen: 'Supplies' })` pattern.
    */
-  MainTabs: { screen?: 'Supplies' | 'Expenses' | 'Home' | 'Calendar' | 'Medication' } | undefined;
+  MainTabs: { screen?: 'Supplies' | 'Expenses' | 'Home' | 'Calendar' | 'Medication' | 'Profile' } | undefined;
 
   /**
    * DoctorReport — root-stack screen hosting DoctorPdfScreen (v2 §8A).

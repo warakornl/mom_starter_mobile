@@ -1,10 +1,11 @@
 /**
- * BottomTabNavigator — the 5-tab bottom navigation bar.
+ * BottomTabNavigator — the 6-tab bottom navigation bar.
  *
- * Implements bottom-tab-navigation-design.md v2.1 §1–§8.
+ * Implements bottom-tab-navigation-design.md v2.1 §1–§8 +
+ * profile-tab-and-hub-ui.md v1.1 (6th tab: Profile).
  *
- * Tab order (spec §1.1, v2):
- *   1 Supplies  2 Expenses  3 Home (center, initial)  4 Calendar  5 Medication
+ * Tab order (spec §1.1, v3):
+ *   1 Supplies  2 Expenses  3 Home  4 Calendar  5 Medication  6 Profile
  *
  * initialRouteName = 'Home' (§10 OQ-NAV-1 — owner decision; was 'Calendar').
  *
@@ -62,6 +63,7 @@ import { CalendarScreen } from '../calendar/CalendarScreen';
 import { SuppliesScreen } from '../supplies/SuppliesScreen';
 import { ExpensesScreen } from '../expenses/ExpensesScreen';
 import { MedicationPlanListScreen } from '../medication/MedicationPlanListScreen';
+import { ProfileHubScreen } from '../profile/ProfileHubScreen';
 import { buildAddCaptureParams } from '../calendar/calendarAddCaptureHandler';
 import { buildLogDoseParams } from '../medication/logDoseParams';
 import { calendarSyncStore } from '../sync/calendarSyncStore';
@@ -79,15 +81,17 @@ import { selfLogSyncStore } from '../selfLog/selfLogSyncStore';
 import { medicationPlanSyncStore } from '../medication/medicationPlanSyncStore';
 import { medicationLogSyncStore } from '../medication/medicationLogSyncStore';
 
-// ─── Tab param list (v2) ──────────────────────────────────────────────────────
+// ─── Tab param list (v3 — 6 tabs) ────────────────────────────────────────────
 
 export type TabParamList = {
   Supplies: undefined;
   Expenses: undefined;
-  /** Home — center tab; hosts dashboard + snapshot-population path. */
+  /** Home — tab 3 (left-of-center in 6-tab bar); dashboard + snapshot-population. */
   Home: undefined;
   Calendar: undefined;
   Medication: undefined;
+  /** Profile — tab 6 (far right); Profile Hub screen (§6.1). */
+  Profile: undefined;
 };
 
 const Tab = createBottomTabNavigator<TabParamList>();
@@ -383,6 +387,27 @@ export function BottomTabNavigator({
             onLogDose={(planId) =>
               navigation.navigate('Capture', buildLogDoseParams(planId))
             }
+          />
+        )}
+      </Tab.Screen>
+
+      {/* Tab 6: Profile — Profile Hub screen (profile-tab-and-hub-ui.md v1.1) ─
+       * Owns: profile summary, edit-pregnancy (pregnant-only), download data
+       * (ม.30), delete account (ม.33), logout.
+       * Receives handleLogout (shared SD-5 teardown runner — PDPA §8.2).
+       * onEditPregnancy navigates to ProfileEdit (root-stack screen).
+       * onSessionExpired runs full teardown then resets to Welcome (SD-5).
+       * Security: no health data in route params (PDPA SD-9). */}
+      <Tab.Screen name="Profile">
+        {() => (
+          <ProfileHubScreen
+            tokenStorage={tokenStorage}
+            apiBaseUrl={apiBaseUrl}
+            onLogout={handleLogout}
+            onSessionExpired={() =>
+              navigation.reset({ index: 0, routes: [{ name: 'Welcome' }] })
+            }
+            onEditPregnancy={() => navigation.navigate('ProfileEdit')}
           />
         )}
       </Tab.Screen>

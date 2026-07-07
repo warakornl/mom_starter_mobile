@@ -58,15 +58,20 @@ export function buildCalendarTabSnapshot({
       todayCivil,
       lifecycle: 'postpartum',
       generalHealthConsented,
+      // Thread the civil birth date so ProfileHubScreen can call computePostpartumAge.
+      // null when profile has no birthDate (defensive — server always sends it postpartum).
+      birthDate: profile.birthDate ?? null,
     };
   }
 
-  // Pregnant: use client-derived ga.gestationalWeek (not advisory profile value)
+  // Pregnant: use client-derived ga.gestationalWeek (not advisory profile value).
+  // birthDate is null — no birth event has occurred yet.
   return {
     gestationalWeek: ga?.gestationalWeek ?? 0,
     edd: profile.edd,
     todayCivil,
     lifecycle: 'pregnant',
     generalHealthConsented,
+    birthDate: null,
   };
 }

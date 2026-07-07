@@ -411,6 +411,7 @@ export function BottomTabNavigator({
             }
             onEditPregnancy={() => navigation.navigate('ProfileEdit')}
             onSettings={() => navigation.navigate('Settings')}
+            onEditPersonalInfo={() => navigation.navigate('ProfileInfoEdit')}
           />
         )}
       </Tab.Screen>

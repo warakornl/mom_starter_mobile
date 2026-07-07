@@ -107,6 +107,19 @@ export type RootStackParamList = {
   ProfileEdit: undefined;
 
   /**
+   * ProfileInfoEdit — edit mother first/last name + optional baby name.
+   *
+   * Entry: ProfileHubScreen > "แก้ไขชื่อ / ข้อมูลส่วนตัว" row (lifecycle-agnostic).
+   * On mount: GETs a fresh profile (name cipher fields absent from snapshot).
+   * No params — PDPA SD-9: no health/name data in route params.
+   * On 200 save: goBack() to ProfileHub; the hub summary refreshes on focus via snapshot.
+   * On 401 (GET or PUT): performLogout teardown → Welcome (SD-5).
+   *
+   * See name-fields-design.md §3.4 / profile-tab-and-hub-ui.md §3.4.
+   */
+  ProfileInfoEdit: undefined;
+
+  /**
    * Consent — S3 first-run PDPA consent screen.
    * Entry: after VerifyEmail (new registrations only).
    * No params — uses tokenStorage from context / props.

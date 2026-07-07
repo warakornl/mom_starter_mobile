@@ -56,6 +56,7 @@ import { RegisterScreen } from '../auth/RegisterScreen';
 import { VerifyEmailScreen } from '../auth/VerifyEmailScreen';
 import { ProfileSetupScreen } from '../pregnancy/ProfileSetupScreen';
 import { ProfileEditScreen } from '../pregnancy/ProfileEditScreen';
+import { ProfileInfoEditScreen } from '../pregnancy/ProfileInfoEditScreen';
 import { BirthEventScreen } from '../pregnancy/BirthEventScreen';
 import { AppointmentFormScreen } from '../calendar/AppointmentFormScreen';
 import { ReminderFormScreen } from '../calendar/ReminderFormScreen';
@@ -387,6 +388,42 @@ function StackNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps): React
             apiBaseUrl={apiBaseUrl}
             navigation={navigation}
             onEditComplete={() => navigation.goBack()}
+            onSessionExpired={() => {
+              void performLogout({
+                clearTokens: () => tokenStorage.clear(),
+                resetSupplyStore: () => supplySyncStore.reset(),
+                resetKickCountStore: () => kickCountSyncStore.reset(),
+                resetCalendarStore: () => calendarSyncStore.reset(),
+                resetSelfLogStore: () => selfLogSyncStore.reset(),
+                resetMedicationPlanStore: () => medicationPlanSyncStore.reset(),
+                resetMedicationLogStore: () => medicationLogSyncStore.reset(),
+                resetConsentStore: () => consentStore.reset(),
+                resetConsentQueue: () => resetConsentQueue(),
+                resetSuggestionStore: () => suggestionStore.reset(),
+                resetExpensesStore: () => expensesSyncStore.reset(),
+                clearKickCountDraft: () => clearDraft(),
+                onComplete: () =>
+                  navigation.reset({ index: 0, routes: [{ name: 'Welcome' }] }),
+              });
+            }}
+          />
+        )}
+      </Stack.Screen>
+
+      {/* ProfileInfoEdit — edit mother first/last name + baby name (lifecycle-agnostic).
+       * Entry: ProfileHubScreen > "แก้ไขชื่อ / ข้อมูลส่วนตัว" row.
+       * AC-13 / SD-5: GET 401 and PUT 401 run full performLogout teardown.
+       * SD-9: no name/health data in route params (screen GETs fresh on mount).
+       */}
+      <Stack.Screen
+        name="ProfileInfoEdit"
+        options={{ title: t('profileInfo.navTitle'), headerBackTitle: t('general.back') }}
+      >
+        {({ navigation }) => (
+          <ProfileInfoEditScreen
+            tokenStorage={tokenStorage}
+            apiBaseUrl={apiBaseUrl}
+            onSaveComplete={() => navigation.goBack()}
             onSessionExpired={() => {
               void performLogout({
                 clearTokens: () => tokenStorage.clear(),

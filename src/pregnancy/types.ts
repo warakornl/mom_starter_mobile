@@ -38,6 +38,21 @@ export type EddBasis = 'due_date' | 'current_week';
  * api-contract §"Gestational-age":
  *   `edd`          — YYYY-MM-DD civil date (zoneless)
  *   `currentWeek`  — completed-N weeks (1–42); server derives edd = today + (280 − N×7)
+ *
+ * Name fields (api-contract.md L681, name-fields-design.md Decision 4):
+ *   All three name fields are additive optional on the existing DTO.
+ *   Wire type = Base64 ciphertext string (MVP no-op cipher — base64(utf8(name))).
+ *   NULL-vs-absent PUT semantics (api-contract L576 scoped exception):
+ *     - absent key (undefined in TS)  → leave stored value UNCHANGED
+ *     - present value (base64 string) → set/replace stored value
+ *     - explicit null                 → clear the column to NULL
+ *   A PUT carrying ANY name key (value or null) is a REAL mutation that persists
+ *   and bumps `version` even when `edd` is unchanged (the OQ-9 no-op exception).
+ *
+ *   AAD (appsec — name-fields-design.md Decision 2 RULING 2b):
+ *     These are ROW-PER-ACCOUNT fields. When the real FieldCipher/AES-GCM path
+ *     lands, recordId MUST equal accountId (NOT the profile row id) for all three.
+ *     See nameFieldCipher.ts for the code-constant registry comment.
  */
 export interface PregnancyProfileInput {
   /** Zoneless civil due date YYYY-MM-DD. Required when eddBasis = due_date. */
@@ -47,6 +62,26 @@ export interface PregnancyProfileInput {
    * Server derives edd from this + X-Client-Date (UTC fallback).
    */
   currentWeek?: number;
+  /**
+   * Mother first name — client-encrypted identity PII (Option A no-op cipher).
+   * Base64 ciphertext string (MVP: base64(utf8(name))).
+   * absent = leave unchanged; null = clear to NULL; string = set/replace.
+   * NEVER log this value (PDPA identity PII).
+   */
+  motherFirstName?: string | null;
+  /**
+   * Mother last name — client-encrypted identity PII (Option A no-op cipher).
+   * Same encoding and semantics as motherFirstName.
+   * NEVER log this value (PDPA identity PII).
+   */
+  motherLastName?: string | null;
+  /**
+   * Baby name — client-encrypted identity PII (Option A no-op cipher).
+   * Capturable anytime (pre- or post-birth — owner decision OQ-N-OWN3 RESOLVED).
+   * Same encoding and semantics as motherFirstName.
+   * NEVER log this value (PDPA identity PII).
+   */
+  babyName?: string | null;
 }
 
 // ─── POST /pregnancy-profile/birth-event — request ───────────────────────────
@@ -192,6 +227,35 @@ export interface PregnancyProfile extends GestationalAgeSnapshot {
    * Client recomputes locally; this is advisory only.
    */
   postpartumDay?: number | null;
+
+  // ── Name fields (identity PII — client-encrypted, Option A no-op MVP) ────────
+  // api-contract.md L681-683 / name-fields-design.md Decision 4
+  // Wire format: Base64 ciphertext (MVP: base64(utf8(name))).
+  // Present when the user has set the field; absent/null when not set.
+  // PDPA MINIMIZATION: never log, never pass in route params (SD-9).
+
+  /**
+   * Mother first name — Base64 ciphertext.
+   * Decode with decodeNameFromWire() before display.
+   * NEVER log this value (PDPA identity PII).
+   */
+  motherFirstName?: string | null;
+
+  /**
+   * Mother last name — Base64 ciphertext.
+   * Decode with decodeNameFromWire() before display.
+   * Full name (first + last) shown ONLY inside ProfileInfoEditScreen (OQ-N-SEC2).
+   * NEVER log this value (PDPA identity PII).
+   */
+  motherLastName?: string | null;
+
+  /**
+   * Baby name — Base64 ciphertext.
+   * Decode with decodeNameFromWire() before display.
+   * Shown on postpartum summary card.
+   * NEVER log this value (PDPA identity PII).
+   */
+  babyName?: string | null;
 }
 
 // ─── API result shapes (discriminated unions) ─────────────────────────────────

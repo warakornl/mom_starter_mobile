@@ -14,6 +14,12 @@ export const SETTINGS_TESTIDS = {
   /** The root SafeAreaView of SettingsScreen. */
   screen: 'settings-screen',
 
+  /**
+   * Language-selector row in the General section (feat-language-in-settings).
+   * Shows the current language value on the right; toggles TH↔EN on tap.
+   */
+  languageBtn: 'settings-language-btn',
+
   /** Edit-pregnancy row (shown only when lifecycle=pregnant, AC-2). */
   editPregnancyBtn: 'settings-edit-pregnancy-btn',
 

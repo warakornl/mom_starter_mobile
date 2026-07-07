@@ -37,6 +37,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useT } from '../i18n/LanguageContext';
 import type { TokenStorage } from '../auth/tokenStorage';
+import { T } from '../theme/tokens';
 import { useProfileSnapshot } from '../pregnancy/PregnancyProfileContext';
 import { useAccountRights } from '../accountRights/useAccountRights';
 import { DeleteAccountSheet } from '../accountRights/DeleteAccountSheet';
@@ -260,11 +261,7 @@ export function ProfileHubScreen({
             accessibilityRole="button"
             accessibilityLabel={t('settings.editPregnancy')}
           >
-            <View style={styles.menuRowIconWrap}>
-              <Text style={styles.menuRowIconText} accessibilityElementsHidden>
-                {'✎'}
-              </Text>
-            </View>
+            {/* Tell 1D: menuRowIconWrap removed — row is [textGroup] [chevron] */}
             <View style={styles.menuRowTextGroup}>
               <Text style={styles.menuRowText}>{t('settings.editPregnancy')}</Text>
               <Text style={styles.menuRowSubtext}>{t('profile.editPregnancy.subtitle')}</Text>
@@ -283,11 +280,7 @@ export function ProfileHubScreen({
             accessibilityRole="button"
             accessibilityLabel={t('profile.infoEdit.rowLabel')}
           >
-            <View style={styles.menuRowIconWrap}>
-              <Text style={styles.menuRowIconText} accessibilityElementsHidden>
-                {'👤'}
-              </Text>
-            </View>
+            {/* Tell 1D: menuRowIconWrap removed — row is [textGroup] [chevron] */}
             <View style={styles.menuRowTextGroup}>
               <Text style={styles.menuRowText}>{t('profile.infoEdit.rowLabel')}</Text>
               <Text style={styles.menuRowSubtext}>{t('profile.infoEdit.rowSubtitle')}</Text>
@@ -319,11 +312,7 @@ export function ProfileHubScreen({
             }
             accessibilityLiveRegion={isExportInProgress ? 'polite' : 'none'}
           >
-            <View style={styles.menuRowIconWrap}>
-              <Text style={styles.menuRowIconText} accessibilityElementsHidden>
-                {'↓'}
-              </Text>
-            </View>
+            {/* Tell 1D: menuRowIconWrap removed — row is [textGroup] [chevron/spinner] */}
             <View style={styles.menuRowTextGroup}>
               <Text style={styles.menuRowText}>{t('profile.downloadData.label')}</Text>
               <Text style={styles.menuRowSubtext}>
@@ -412,11 +401,7 @@ export function ProfileHubScreen({
                 : 'Delete my account, permanently removes your account with no recovery'
             }
           >
-            <View style={styles.deleteRowIconWrap}>
-              <Text style={styles.deleteRowIconText} accessibilityElementsHidden>
-                {'🗑'}
-              </Text>
-            </View>
+            {/* Tell 1D: deleteRowIconWrap removed — destructive signal via text + chevron color */}
             <View style={styles.menuRowTextGroup}>
               <Text style={[styles.menuRowText, styles.deleteRowLabelText]}>
                 {t('profile.deleteAccount.label')}
@@ -445,11 +430,7 @@ export function ProfileHubScreen({
               accessibilityLabel={t('settings.navTitle')}
               accessibilityHint={t('settings.navTitle')}
             >
-              <View style={styles.menuRowIconWrap}>
-                <Text style={styles.menuRowIconText} accessibilityElementsHidden>
-                  {'⚙'}
-                </Text>
-              </View>
+              {/* Tell 1D: menuRowIconWrap removed — row is [textGroup] [chevron] */}
               <View style={styles.menuRowTextGroup}>
                 <Text style={styles.menuRowText}>{t('settings.navTitle')}</Text>
               </View>
@@ -538,9 +519,9 @@ const styles = StyleSheet.create({
   // ── Profile Summary Card (§3.3) ─────────────────────────────────────────────
   summaryCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    borderRadius: T.cardRadius,   // Tell 2: 16→8
     borderWidth: 1,
-    borderColor: HAIRLINE_COLOR,
+    borderColor: T.hairline,      // updated to new hairline token
     padding: 16,
     minHeight: 80,
     marginBottom: 16,
@@ -608,47 +589,41 @@ const styles = StyleSheet.create({
     backgroundColor: SKELETON_COLOR,
   },
 
-  // ── Section labels (§3.2) ────────────────────────────────────────────────────
+  // ── Section labels (§3.2, Tell 7) ────────────────────────────────────────────
+  // Unified: 11pt SemiBold UPPERCASE #5F4A52 (inkSoft, ~7.6:1 WCAG AAA on bg).
+  // Previously fontSize:13, color:#94818A (~3.4:1 — WCAG fail at 11pt).
   sectionLabel: {
-    fontSize: 13,
-    color: INK_FAINT,
+    fontFamily: T.sectionLabelFontFamily,
+    fontSize: T.sectionLabelFontSize,
+    lineHeight: 16,
+    letterSpacing: T.sectionLabelLetterSpacing,
+    textTransform: 'uppercase',
+    color: T.sectionLabelColor,   // #5F4A52 unified UP from #94818A
     marginBottom: 8,
     marginLeft: 4,
     marginTop: 16,
   },
 
   // ── Shared menu row (§3.2 — same as SettingsScreen menuRow) ─────────────────
+  // Tell 2: borderRadius 12→8, shadow removed, borderColor (hairline) added.
+  // Tell 1D: menuRowIconWrap + menuRowIconText removed from here and JSX.
   menuRow: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    borderRadius: T.cardRadius,   // Tell 2: 12→8
     paddingVertical: 14,
     paddingHorizontal: 16,
     minHeight: 56,
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 8,
-    elevation: 1,
-    shadowColor: INK,
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    shadowOffset: { width: 0, height: 1 },
+    borderWidth: 1,
+    borderColor: T.hairline,      // Tell 2: hairline replaces elevation shadow
+    // elevation, shadowColor, shadowOpacity, shadowRadius, shadowOffset REMOVED
   },
   menuRowInProgress: {
     backgroundColor: SURFACE_PAGE_SUNK,
   },
-  menuRowIconWrap: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    backgroundColor: ROSE_50,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  menuRowIconText: {
-    fontSize: 16,
-    color: ROSE_700,
-  },
+  // Tell 1D: menuRowIconWrap + menuRowIconText deleted from StyleSheet
   menuRowTextGroup: {
     flex: 1,
   },
@@ -669,13 +644,16 @@ const styles = StyleSheet.create({
   },
 
   // ── Logout row (§3.6, §7.2 — minHeight 52dp) ────────────────────────────────
+  // Tell 2: borderRadius 12→8, add borderColor (hairline) for visual separation.
   logoutRow: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    borderRadius: T.cardRadius,   // Tell 2: 12→8
     paddingVertical: 16,
     paddingHorizontal: 16,
     minHeight: 52,   // intentional carry-over from Settings logout row spec §7.2
     justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: T.hairline,      // Tell 2: shadow → hairline border
   },
   logoutText: {
     color: ROSE_700,
@@ -684,19 +662,8 @@ const styles = StyleSheet.create({
   },
 
   // ── Delete row (§3.5 — rose/700 destructive styling) ──────────────────────────
-  deleteRowIconWrap: {
-    width: 32,
-    height: 32,
-    borderRadius: 8,
-    backgroundColor: '#FEF2F2', // warm red tint
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  deleteRowIconText: {
-    fontSize: 15,
-    color: '#C0392B',
-  },
+  // Tell 1D: deleteRowIconWrap + deleteRowIconText removed.
+  // Destructive signal carried by rose/700 label text + chevron color (spec §8.2).
   deleteRowLabelText: {
     color: ROSE_700,
   },
@@ -711,7 +678,7 @@ const styles = StyleSheet.create({
     backgroundColor: HONEY_100,
     borderWidth: 1,
     borderColor: HONEY_BORDER,
-    borderRadius: 12,
+    borderRadius: T.cardRadius,   // Tell 2: 12→8
     padding: 14,
     marginBottom: 8,
   },
@@ -762,8 +729,8 @@ const styles = StyleSheet.create({
   export404Card: {
     backgroundColor: SURFACE_PAGE_SUNK,
     borderWidth: 1,
-    borderColor: HAIRLINE_COLOR,
-    borderRadius: 12,
+    borderColor: T.hairline,      // updated to new hairline token
+    borderRadius: T.cardRadius,   // Tell 2: 12→8
     padding: 14,
     marginBottom: 8,
     alignItems: 'center',

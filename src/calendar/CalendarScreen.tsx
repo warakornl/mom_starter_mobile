@@ -62,7 +62,9 @@ import {
 } from 'react-native';
 import { v4 as uuidv4 } from 'uuid';
 import { useT } from '../i18n/LanguageContext';
-import { formatCivilDate, formatYearMonth } from '../i18n/messages';
+import { formatCivilDate, formatYearMonth, interpolate } from '../i18n/messages';
+import { kickCountSyncStore } from '../kickCount/kickCountSyncStore';
+import { getKickCountSessionsForDate } from './kickCountAgenda';
 import { calendarSyncStore } from '../sync/calendarSyncStore';
 import { createCalendarSyncClient } from '../sync/syncClient';
 import { executePush } from '../sync/pushOrchestrator';
@@ -571,6 +573,20 @@ export function CalendarScreen({
 
   const selectedItems = getItemsForDate(selectedDate);
 
+  // Kick-count sessions for the selected day.
+  // refreshKey keeps this in sync with the calendar store refresh cycle
+  // (same pattern as checklistMap / occurrenceMap above).
+  // Security (K-8): NEVER log movementCount or any session field.
+  const kickCountItems = useMemo(
+    () => getKickCountSessionsForDate(
+      kickCountSyncStore.getActiveSessions(),
+      selectedDate,
+      bucketCivilDay,
+    ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [selectedDate, refreshKey],
+  );
+
   // Monthly grid
   const days = useMemo(() => monthDays(displayMonth), [displayMonth]);
   const startDow = useMemo(() => monthStartDow(displayMonth), [displayMonth]);
@@ -962,7 +978,7 @@ export function CalendarScreen({
         </View>
 
         {/* ── Agenda list ──────────────────────────────────────────────── */}
-        {selectedItems.length === 0 ? (
+        {selectedItems.length === 0 && kickCountItems.length === 0 ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyText}>{t('calendar.empty')}</Text>
           </View>
@@ -1039,6 +1055,30 @@ export function CalendarScreen({
             );
           })
         )}
+
+        {/* ── Kick-count rows ───────────────────────────────────────────
+            Shown only when the selected day has ≥1 completed session.
+            Display is read-only (no navigation — SD-9: no health in route params).
+            Security (K-8): movementCount is displayed to the owner only; never logged.
+            testID="calendar-kickcount-item" — used by Maestro / jest queries. */}
+        {kickCountItems.map((kc) => (
+          <View
+            key={kc.id}
+            testID="calendar-kickcount-item"
+            style={styles.agendaItem}
+            accessibilityLabel={interpolate(t('calendar.kickCount.label'), { count: kc.movementCount })}
+          >
+            <View style={[styles.agendaDot, styles.dotViolet]} />
+            <View style={styles.agendaContent}>
+              <Text style={styles.agendaTitle}>
+                {interpolate(t('calendar.kickCount.label'), { count: kc.movementCount })}
+              </Text>
+              {kc.timeLabel.length > 0 && (
+                <Text style={styles.agendaTime}>{kc.timeLabel}</Text>
+              )}
+            </View>
+          </View>
+        ))}
       </ScrollView>
 
       {/* JIT consent nudge — shown when mark-done is gated by absent general_health (MR-E1/AC-12).
@@ -1174,6 +1214,8 @@ const styles = StyleSheet.create({
   dotRose: { backgroundColor: '#A8505A' },
   dotTeal: { backgroundColor: '#3B8C8C' },
   dotSage: { backgroundColor: '#4A7A56' },
+  /** Kick-count dot — violet, distinct from rose/teal/sage (feat-kickcount-in-calendar). */
+  dotViolet: { backgroundColor: '#7B5EA7' },
 
   todayBtn: {
     alignSelf: 'center',

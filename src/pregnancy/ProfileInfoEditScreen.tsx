@@ -203,7 +203,7 @@ export function ProfileInfoEditScreen({
   if (screenState.mode === 'loading') {
     return (
       <SafeAreaView style={styles.container} testID="profile-info-edit-loading">
-        <ActivityIndicator size="large" color="#E91E8C" style={styles.loadingSpinner} />
+        <ActivityIndicator size="large" color={ROSE} style={styles.loadingSpinner} />
         <Text style={styles.loadingText}>{t('profile.editLoading')}</Text>
       </SafeAreaView>
     );
@@ -321,6 +321,11 @@ export function ProfileInfoEditScreen({
   );
 }
 
+// ─── Theme constants ───────────────────────────────────────────────────────────
+// Rose palette (design-system.md §1): matches ProfileSetupScreen primaryBtn tokens.
+const ROSE = '#A8505A';         // rose/600 — primary button fill
+const ROSE_DISABLED = '#DDA0A6'; // rose/300 — disabled button fill
+
 // ─── Styles ────────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
@@ -354,7 +359,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 20,
     paddingVertical: 10,
     paddingHorizontal: 20,
-    backgroundColor: '#E91E8C',
+    backgroundColor: ROSE,
     borderRadius: 8,
     alignSelf: 'center',
   },
@@ -415,7 +420,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   saveBtn: {
-    backgroundColor: '#E91E8C',
+    backgroundColor: ROSE,
     paddingVertical: 14,
     borderRadius: 12,
     alignItems: 'center',
@@ -423,7 +428,7 @@ const styles = StyleSheet.create({
     minHeight: 50,
   },
   saveBtnDisabled: {
-    backgroundColor: '#F9A8D4',
+    backgroundColor: ROSE_DISABLED,
   },
   saveBtnText: {
     color: '#FFFFFF',

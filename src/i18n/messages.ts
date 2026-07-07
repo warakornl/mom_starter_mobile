@@ -303,6 +303,30 @@ const th = {
   'profile.editDiscardCancel': 'ยกเลิก',
   'profile.editDiscardConfirm': 'ทิ้ง',
 
+  // ── Profile Hub screen (profile-tab-and-hub-ui.md v1.1 §13.1) ────────────────
+  // Section headers
+  'profile.section.profile': 'โปรไฟล์',
+  'profile.section.accountData': 'บัญชีและข้อมูล',
+  'profile.section.account': 'บัญชี',
+  // Loading skeleton a11y label
+  'profile.loading': 'กำลังโหลดข้อมูลโปรไฟล์',
+  // Summary card fallback name (Thai-first display label; no clinical translation needed)
+  'profile.summary.fallbackName': 'คุณแม่',
+  // Edit pregnancy row subtitle — distinct from settings.editPregnancySubtitle (§13.1)
+  'profile.editPregnancy.subtitle': 'แก้ไข EDD และรายละเอียดการตั้งครรภ์',
+  // Download data row
+  'profile.downloadData.label': 'ดาวน์โหลดข้อมูลของฉัน',
+  'profile.downloadData.subtitle': 'PDPA ม.30',
+  // Delete account row
+  'profile.deleteAccount.label': 'ลบบัญชีของฉัน',
+  'profile.deleteAccount.subtitle': 'ถาวร ไม่สามารถกู้คืนได้',
+  /**
+   * Logout confirm dialog body — consequence statement (§3.6, §7.5).
+   * NOT home.logoutMessage ("คุณต้องการออกจากระบบใช่ไหม?") — that is a yes/no question.
+   * This key states the data-clearing consequence as the 3rd destructive signal.
+   */
+  'profile.logout.message': 'ระบบจะล้างข้อมูลทั้งหมดในอุปกรณ์นี้',
+
   // ── Supplies (เตรียมคลอด) ─────────────────────────────────────────────────────
   'supplies.navTitle': 'รายการเตรียมคลอด',
   'supplies.empty': 'ยังไม่มีรายการ · เพิ่มสิ่งของที่ต้องเตรียม',
@@ -1109,12 +1133,18 @@ const th = {
   'tab.home': 'หน้าหลัก',            // v2 CENTER tab — dashboard + settings + report entry
   'tab.calendar': 'ปฏิทิน',          // v2: grid-only (no dashboard above it)
   'tab.medication': 'ยา',
+  // v3: 6th tab — Profile (profile-tab-and-hub-ui.md v1.1 §6.1, §13.1)
+  'tab.profile': 'โปรไฟล์',
+  /** Short-label fallback for 12pt-clipping scenario — §2.2 decision tree only */
+  'tab.profile.short': 'ฉัน',
   // Accessibility labels — full names for screen readers (spec §8.2)
   'tab.supplies.a11y': 'รายการของใช้สำหรับคุณแม่',   // v2: updated per OQ-NAV-5
   'tab.expenses.a11y': 'ค่าใช้จ่าย',
   'tab.home.a11y': 'หน้าหลักและข้อมูลการตั้งครรภ์',  // v2 center tab (§8.2)
   'tab.calendar.a11y': 'ปฏิทิน',                      // v2: simplified (grid-only)
   'tab.medication.a11y': 'แผนการใช้ยา',
+  // v3: Profile tab a11y (§7.1, §7.4 — full form, always used regardless of visible label)
+  'tab.profile.a11y': 'โปรไฟล์และบัญชี',
   // Doctor Report entry row in Home tab scroll (spec §3.3)
   'home.doctorReport': 'รายงานสำหรับแพทย์ ›',
   // Kick-count card (pregnant wk≥32, spec §4.2) — warm & inviting, not clinical
@@ -1319,6 +1349,20 @@ const en: MsgShape = {
   'profile.editDiscardBody': 'Unsaved changes will be lost',
   'profile.editDiscardCancel': 'Keep editing',
   'profile.editDiscardConfirm': 'Discard',
+
+  // ── Profile Hub screen (profile-tab-and-hub-ui.md v1.1 §13.1) ────────────────
+  'profile.section.profile': 'Profile',
+  'profile.section.accountData': 'Account & Data',
+  'profile.section.account': 'Account',
+  'profile.loading': 'Loading profile',
+  // Thai-first display label — use same Thai string in en locale (§13.1 "no en value")
+  'profile.summary.fallbackName': 'คุณแม่',
+  'profile.editPregnancy.subtitle': 'Edit EDD and pregnancy details',
+  'profile.downloadData.label': 'Download my data',
+  'profile.downloadData.subtitle': 'Article 30',
+  'profile.deleteAccount.label': 'Delete my account',
+  'profile.deleteAccount.subtitle': 'Permanent, cannot be undone',
+  'profile.logout.message': 'This will clear all data on this device',
 
   // ── Supplies ──────────────────────────────────────────────────────────────────
   'supplies.navTitle': 'Supply checklist',
@@ -2038,12 +2082,17 @@ const en: MsgShape = {
   'tab.home': 'Home',               // v2 CENTER tab
   'tab.calendar': 'Calendar',
   'tab.medication': 'Meds',
+  // v3: 6th tab — Profile (§6.1, §13.1)
+  'tab.profile': 'Profile',
+  'tab.profile.short': 'Me',
   // Accessibility labels — full names for screen readers (spec §8.2)
   'tab.supplies.a11y': 'Baby Supplies List',            // v2: updated per OQ-NAV-5
   'tab.expenses.a11y': 'Expenses',
   'tab.home.a11y': 'Home and Pregnancy Overview',       // v2 center tab (§8.2)
   'tab.calendar.a11y': 'Calendar',                      // v2: simplified (grid-only)
   'tab.medication.a11y': 'Medication Plans',
+  // v3: Profile tab a11y (§7.1)
+  'tab.profile.a11y': 'Profile and Account',
   // Doctor Report entry row in Home tab scroll
   'home.doctorReport': 'Doctor report ›',
   // Kick-count card (pregnant wk≥32, spec §4.2)

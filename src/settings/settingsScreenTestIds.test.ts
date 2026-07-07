@@ -1,29 +1,37 @@
 /**
  * settingsScreenTestIds.test.ts — TDD contract tests for SettingsScreen testID constants.
  *
- * Rationale: SettingsScreen cannot be rendered in the node jest environment (no
- * react-native mocks).  This suite instead verifies the exported testID constants
- * that the component uses, giving E2E authors a stable, typed contract and catching
- * renames that would silently break automation.
+ * POST-MIGRATION (profile-tab-and-hub-ui.md §5.3 Step 3):
+ *   Settings now only contains language + manage-consent rows.
+ *   Rows that moved to ProfileHubScreen:
+ *     editPregnancyBtn → PROFILE_HUB_TESTIDS.editPregnancyBtn
+ *     downloadDataBtn  → PROFILE_HUB_TESTIDS.downloadDataBtn
+ *     deleteAccountBtn → PROFILE_HUB_TESTIDS.deleteAccountBtn
+ *     logout           → PROFILE_HUB_TESTIDS.logout
  *
- * Consent row chevron fix (slice/fix-consent-chevron):
- *   The consent row testID constant is asserted here so any future JSX refactor that
- *   touches that row is forced to revisit the contract.
+ * Rationale: SettingsScreen cannot be rendered in the node jest environment.
+ * This suite instead verifies the exported testID constants so E2E authors have
+ * a stable, typed contract and any rename is caught at compile time.
  */
 
-import {
-  SETTINGS_TESTIDS,
-} from './settingsScreenTestIds';
+import { SETTINGS_TESTIDS } from './settingsScreenTestIds';
+import { PROFILE_HUB_TESTIDS } from '../profile/profileHubTestIds';
 
 // ─── Naming convention ────────────────────────────────────────────────────────
-// All SettingsScreen testIDs follow the pattern  settings-<noun>-<action>
-// so automated tests can filter by the "settings-" prefix.
 
 describe('SETTINGS_TESTIDS — naming convention', () => {
   it('every testID starts with "settings-"', () => {
     Object.values(SETTINGS_TESTIDS).forEach((id) => {
       expect(id).toMatch(/^settings-/);
     });
+  });
+});
+
+// ─── Language row ─────────────────────────────────────────────────────────────
+
+describe('SETTINGS_TESTIDS.languageBtn', () => {
+  it('is settings-language-btn', () => {
+    expect(SETTINGS_TESTIDS.languageBtn).toBe('settings-language-btn');
   });
 });
 
@@ -35,18 +43,34 @@ describe('SETTINGS_TESTIDS.manageConsentBtn', () => {
   });
 });
 
-// ─── Other row testIDs (regression guard) ────────────────────────────────────
+// ─── Migrated rows are now in ProfileHub ─────────────────────────────────────
+// These assertions confirm where the moved rows live — prevents regressions
+// where a row would be silently deleted from both screens.
 
-describe('SETTINGS_TESTIDS — row completeness', () => {
-  it('includes editPregnancyBtn', () => {
-    expect(SETTINGS_TESTIDS.editPregnancyBtn).toBe('settings-edit-pregnancy-btn');
+describe('PROFILE_HUB_TESTIDS — migrated rows from Settings (§5.3)', () => {
+  it('PROFILE_HUB_TESTIDS has editPregnancyBtn (moved from Settings)', () => {
+    expect(PROFILE_HUB_TESTIDS.editPregnancyBtn).toBe('profile-hub-edit-pregnancy-btn');
   });
 
-  it('includes downloadDataBtn', () => {
-    expect(SETTINGS_TESTIDS.downloadDataBtn).toBe('settings-download-data-btn');
+  it('PROFILE_HUB_TESTIDS has downloadDataBtn (moved from Settings)', () => {
+    expect(PROFILE_HUB_TESTIDS.downloadDataBtn).toBe('profile-hub-download-data-btn');
   });
 
-  it('includes deleteAccountBtn', () => {
-    expect(SETTINGS_TESTIDS.deleteAccountBtn).toBe('settings-delete-account-btn');
+  it('PROFILE_HUB_TESTIDS has deleteAccountBtn (moved from Settings)', () => {
+    expect(PROFILE_HUB_TESTIDS.deleteAccountBtn).toBe('profile-hub-delete-account-btn');
+  });
+
+  it('PROFILE_HUB_TESTIDS has logout (moved from Settings)', () => {
+    expect(PROFILE_HUB_TESTIDS.logout).toBe('profile-hub-logout');
+  });
+});
+
+// ─── PROFILE_HUB_TESTIDS naming convention ────────────────────────────────────
+
+describe('PROFILE_HUB_TESTIDS — naming convention', () => {
+  it('every testID starts with "profile-hub-"', () => {
+    Object.values(PROFILE_HUB_TESTIDS).forEach((id) => {
+      expect(id).toMatch(/^profile-hub-/);
+    });
   });
 });

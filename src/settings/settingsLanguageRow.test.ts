@@ -2,6 +2,11 @@
  * settingsLanguageRow.test.ts — TDD contract tests for the language row in
  * SettingsScreen (slice/feat-language-in-settings).
  *
+ * POST-MIGRATION (profile-tab-and-hub-ui.md §5.3):
+ *   Settings now only contains language toggle + manage-consent.
+ *   Export/delete/logout/editPregnancy rows moved to ProfileHubScreen.
+ *   Mocks for those dependencies are removed.
+ *
  * These tests cover three aspects that can run in the pure-node jest environment:
  *
  *  1. SETTINGS_TESTIDS has a `languageBtn` constant that follows the naming
@@ -16,10 +21,6 @@
  *
  *  3. SettingsScreen module exports a named component function (structural smoke
  *     test — follows the homeTabScreen.snapshotPath.test.ts pattern).
- *
- * Note: full component rendering and tap-to-toggle tests require React Native
- * Testing Library and are kept separate (the component cannot be rendered in a
- * pure-node ts-jest environment without a bundler).
  */
 
 // ─── React Native stubs (required before SettingsScreen import) ───────────────
@@ -48,42 +49,6 @@ jest.mock('expo-secure-store', () => ({
   getItemAsync: jest.fn(() => Promise.resolve(null)),
   setItemAsync: jest.fn(() => Promise.resolve()),
   deleteItemAsync: jest.fn(() => Promise.resolve()),
-}));
-
-// Stub all settings-screen dependencies that load native modules.
-jest.mock('../auth/performLogout', () => ({ performLogout: jest.fn() }));
-jest.mock('../sync/supplySyncStore', () => ({ supplySyncStore: { reset: jest.fn() } }));
-jest.mock('../kickCount/kickCountSyncStore', () => ({ kickCountSyncStore: { reset: jest.fn() } }));
-jest.mock('../sync/calendarSyncStore', () => ({ calendarSyncStore: { reset: jest.fn() } }));
-jest.mock('../kickCount/kickCountDraftStore', () => ({ clearDraft: jest.fn() }));
-jest.mock('../consent/consentStore', () => ({ consentStore: { reset: jest.fn() } }));
-jest.mock('../consent/consentSync', () => ({ resetConsentQueue: jest.fn() }));
-jest.mock('../suggestion/suggestionStore', () => ({ suggestionStore: { reset: jest.fn() } }));
-jest.mock('../expenses/expensesSyncStore', () => ({ expensesSyncStore: { reset: jest.fn() } }));
-jest.mock('../selfLog/selfLogSyncStore', () => ({ selfLogSyncStore: { reset: jest.fn() } }));
-jest.mock('../medication/medicationPlanSyncStore', () => ({ medicationPlanSyncStore: { reset: jest.fn() } }));
-jest.mock('../medication/medicationLogSyncStore', () => ({ medicationLogSyncStore: { reset: jest.fn() } }));
-jest.mock('./sessionExpiredRunner', () => ({ buildSessionExpiredRunner: jest.fn() }));
-jest.mock('../accountRights/exportOrchestration', () => ({ runExport: jest.fn() }));
-jest.mock('../accountRights/accountApiClient', () => ({ createAccountApiClient: jest.fn() }));
-jest.mock('../accountRights/accountExportFileService', () => ({
-  createProductionAccountExportFileService: jest.fn(),
-}));
-jest.mock('../accountRights/deleteFlowLogic', () => ({ runDeleteGate: jest.fn() }));
-jest.mock('../accountRights/deviceAuthAdapter', () => ({
-  createRealDeviceAuthAdapter: jest.fn(),
-}));
-jest.mock('../accountRights/DeleteAccountSheet', () => ({
-  DeleteAccountSheet: 'DeleteAccountSheet',
-}));
-jest.mock('../accountRights/accountRightsController', () => ({
-  SESSION_EXPIRED_CODE: 'session_expired',
-  isSessionExpiredCode: jest.fn(() => false),
-  resolveExportOutcome: jest.fn(),
-  acquireDeleteLock: jest.fn(),
-  releaseDeleteLock: jest.fn(),
-  mapExport401: jest.fn((x: unknown) => x),
-  mapDelete401: jest.fn((x: unknown) => x),
 }));
 
 // ─── Imports ──────────────────────────────────────────────────────────────────

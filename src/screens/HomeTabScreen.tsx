@@ -68,6 +68,13 @@ import type { SuggestionKey, OfferableSuggestion } from '../suggestion/types';
 import { resolveCalendarDashboardSections } from './calendarDashboardSections';
 import { resolveSuggestionAction } from './calendarTabSuggestionRouting';
 import { loadProfileIntoSnapshot } from './homeTabSnapshotLoader';
+import { T } from '../theme/tokens';
+import {
+  StageT1Icon,
+  StageT2Icon,
+  StageT3Icon,
+  PostpartumStageIcon,
+} from '../icons';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -113,12 +120,13 @@ type ScreenState =
   | { kind: 'needs-onboarding' }
   | { kind: 'error'; message: string };
 
-// ─── Stage glyph helpers ──────────────────────────────────────────────────────
+// ─── Stage icon helpers ───────────────────────────────────────────────────────
+// Replaced emoji STAGE_GLYPHS with SVG icon components (Tell 1B, spec §2).
 
-const STAGE_GLYPHS: Record<Stage, string> = {
-  T1: '🌱',
-  T2: '🌿',
-  T3: '🌳',
+const STAGE_ICONS: Record<Stage, React.FC<{ color: string; size: number }>> = {
+  T1: StageT1Icon,
+  T2: StageT2Icon,
+  T3: StageT3Icon,
 };
 
 // ─── Progress bar ─────────────────────────────────────────────────────────────
@@ -179,7 +187,7 @@ function StageBanner({
   const { t, locale } = useT();
   const stage = ga.currentStage;
   const stageName = t(`stage.${stage}` as 'stage.T1' | 'stage.T2' | 'stage.T3');
-  const stageGlyph = STAGE_GLYPHS[stage];
+  const StageIcon = STAGE_ICONS[stage];
 
   const weekLabel = ga.suppressDayDisplay
     ? t('home.weekDisplay', { n: ga.displayedWeek })
@@ -206,9 +214,8 @@ function StageBanner({
       accessibilityRole="text"
       accessibilityLabel={bannerA11yLabel}
     >
-      <View style={bannerStyles.glyphDisc} accessibilityElementsHidden={true}>
-        <Text style={bannerStyles.glyph}>{stageGlyph}</Text>
-      </View>
+      {/* Tell 1B: SVG stage icon replaces emoji glyphDisc (spec §2) */}
+      <StageIcon color="#A8505A" size={28} />
       <View style={bannerStyles.textCol}>
         <View style={bannerStyles.stageLine} accessibilityElementsHidden={true}>
           <Text style={bannerStyles.stageLabel}>{stageName}</Text>
@@ -252,23 +259,13 @@ const bannerStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
+    borderRadius: T.cardRadius,    // Tell 2: 20→8
     borderWidth: 1,
     borderColor: '#EBE1D9',
     padding: 16,
     gap: 12,
   },
-  glyphDisc: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
-    backgroundColor: '#FBEDEE',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-    marginTop: 2,
-  },
-  glyph: { fontSize: 22, lineHeight: 28 },
+  // Tell 1B: glyphDisc + glyph removed (SVG icon renders directly in row)
   textCol: { flex: 1, gap: 4 },
   stageLine: {
     flexDirection: 'row',
@@ -291,7 +288,9 @@ const bannerStyles = StyleSheet.create({
   },
   deliveryChip: {
     backgroundColor: '#F4D9DC',
-    borderRadius: 999,
+    borderRadius: T.cardRadius,   // Tell 4: 999→8 mandatory T.cardRadius (spec §1.2)
+    borderWidth: 1,
+    borderColor: T.hairline,      // Tell 6: hairline border (spec §1.2 single-source)
     paddingHorizontal: 10,
     paddingVertical: 2,
   },
@@ -347,9 +346,8 @@ function PostpartumBanner({ profile, pp }: { profile: PregnancyProfile; pp: Post
       accessibilityRole="text"
       accessibilityLabel={`${stageLabel} — ${ageLabel}`}
     >
-      <View style={ppBannerStyles.glyphDisc} accessibilityElementsHidden={true}>
-        <Text style={ppBannerStyles.glyph}>{'🍃'}</Text>
-      </View>
+      {/* Tell 1C: SVG PostpartumStageIcon replaces emoji glyphDisc (spec §2) */}
+      <PostpartumStageIcon color="#4C6B57" size={28} />
       <View style={ppBannerStyles.textCol}>
         <Text style={ppBannerStyles.stageLabel} accessibilityElementsHidden={true}>{stageLabel}</Text>
         <Text style={ppBannerStyles.ageLabel}>{ageLabel}</Text>
@@ -367,23 +365,14 @@ const ppBannerStyles = StyleSheet.create({
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#EBF2EC',
-    borderRadius: 20,
+    backgroundColor: '#EBF2EC',   // sage/50 — semantic status color, NOT changed
+    borderRadius: T.cardRadius,   // Tell 2: 20→8
     borderWidth: 1,
     borderColor: '#C3D9C6',
     padding: 16,
     gap: 12,
   },
-  glyphDisc: {
-    width: 42,
-    height: 42,
-    borderRadius: 14,
-    backgroundColor: '#C3D9C6',
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexShrink: 0,
-  },
-  glyph: { fontSize: 22, lineHeight: 28 },
+  // Tell 1C: glyphDisc + glyph removed (PostpartumStageIcon renders directly)
   textCol: { flex: 1, gap: 4 },
   stageLabel: {
     fontFamily: 'IBMPlexSans-SemiBold',
@@ -424,24 +413,24 @@ function PostpartumDayCard({ pp }: { pp: PostpartumAge }): React.JSX.Element {
 const ppCardStyles = StyleSheet.create({
   card: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
+    borderRadius: T.cardRadius,   // Tell 2: 20→8
     borderWidth: 1,
     borderColor: '#C3D9C6',
     padding: 24,
-    alignItems: 'center',
+    alignItems: 'flex-start',     // Tell 3: center→left-align
   },
   number: {
-    fontFamily: 'IBMPlexMono-Medium',
-    fontSize: 56,
-    lineHeight: 68,
-    color: '#3D6647',
+    fontFamily: T.heroFontFamily, // Tell 3: IBMPlexMono-Medium→IBMPlexSans-SemiBold
+    fontSize: T.heroFontSize,     // Tell 3: 56→28
+    lineHeight: 36,               // Tell 3: 68→36
+    color: '#3D6647',             // sage/700 — semantic, unchanged
   },
   label: {
     fontFamily: 'IBMPlexSans-Regular',
     fontSize: 16,
     lineHeight: 25,
     color: '#4A7A56',
-    textAlign: 'center',
+    // Tell 3: textAlign: 'center' removed (inherits flex-start from card)
   },
 });
 
@@ -489,7 +478,7 @@ function DoctorReportRow({ onPress }: { onPress: () => void }): React.JSX.Elemen
 const reportRowStyles = StyleSheet.create({
   card: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    borderRadius: T.cardRadius,   // Tell 2: 16→8
     borderWidth: 1,
     borderColor: '#EBE1D9',
     minHeight: 52,
@@ -839,24 +828,28 @@ const styles = StyleSheet.create({
 
   section: { gap: 8 },
   sectionLabel: {
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 15,
-    lineHeight: 22,
-    color: '#5F4A52',
+    fontFamily: T.sectionLabelFontFamily,         // Tell 7: unified to IBMPlexSans-SemiBold
+    fontSize: T.sectionLabelFontSize,             // Tell 7: 15→11
+    lineHeight: 16,
+    letterSpacing: T.sectionLabelLetterSpacing,   // Tell 7: 0→0.8
+    textTransform: 'uppercase',                   // Tell 7: uppercase (not in token per RN type constraints)
+    color: T.sectionLabelColor,                   // Tell 7: #5F4A52 (already correct — kept)
+    marginTop: 16,
+    marginBottom: 8,
   },
 
   daysCard: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 20,
+    borderRadius: T.cardRadius,   // Tell 2: 20→8
     borderWidth: 1,
     borderColor: '#EBE1D9',
     padding: 24,
-    alignItems: 'center',
+    alignItems: 'flex-start',     // Tell 3: center→left-align
   },
   daysNumber: {
-    fontFamily: 'IBMPlexMono-Medium',
-    fontSize: 56,
-    lineHeight: 68,
+    fontFamily: T.heroFontFamily, // Tell 3: IBMPlexMono-Medium→IBMPlexSans-SemiBold
+    fontSize: T.heroFontSize,     // Tell 3: 56→28
+    lineHeight: 36,               // Tell 3: 68→36
     color: '#3A2A30',
   },
   daysLabel: {
@@ -864,22 +857,21 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 25,
     color: '#5F4A52',
-    textAlign: 'center',
+    // Tell 3: textAlign: 'center' removed (inherits flex-start from daysCard)
   },
   overdueLabel: {
     fontFamily: 'IBMPlexSans-Regular',
     fontSize: 16,
     lineHeight: 25,
     color: '#5F4A52',
-    textAlign: 'center',
   },
 
-  // Kick-count card (pregnant wk≥32, spec §4.2 — rose/50 bg, warm and inviting)
+  // Kick-count card (pregnant wk≥32, spec §4.2) — Tell 6: rose/50→white surface
   kickCountCard: {
-    backgroundColor: '#FBEDEE', // rose/50
-    borderRadius: 16,
+    backgroundColor: '#FFFFFF',     // Tell 6: rose/50→white surface
+    borderRadius: T.cardRadius,     // Tell 6: 16→8 (mandatory T.cardRadius per spec §1.2)
     borderWidth: 1,
-    borderColor: '#F4D9DC', // rose/100
+    borderColor: T.hairline,        // Tell 6: rose/100→T.hairline (mandatory per spec §1.2)
     padding: 16,
     alignItems: 'center',
     minHeight: 44,

@@ -57,6 +57,37 @@ jest.mock('../suggestion/SuggestionBanner', () => ({
   SuggestionBanner: 'SuggestionBanner',
 }));
 
+// Stub react-native-svg: transitively imported via src/icons (Phase 1 Clean redesign).
+// The pure-node test environment cannot load native SVG modules.
+jest.mock('react-native-svg', () => {
+  const mkComponent = (name: string) => name;
+  return {
+    default: mkComponent('Svg'),
+    Svg: mkComponent('Svg'),
+    Path: mkComponent('Path'),
+    Circle: mkComponent('Circle'),
+    Rect: mkComponent('Rect'),
+    Line: mkComponent('Line'),
+    G: mkComponent('G'),
+    Ellipse: mkComponent('Ellipse'),
+  };
+});
+
+// Stub src/icons (Phase 1 Clean redesign): SVG components replace emoji glyphs.
+// HomeTabScreen now imports StageT1/T2/T3Icon + PostpartumStageIcon.
+jest.mock('../icons', () => ({
+  StageT1Icon: 'StageT1Icon',
+  StageT2Icon: 'StageT2Icon',
+  StageT3Icon: 'StageT3Icon',
+  PostpartumStageIcon: 'PostpartumStageIcon',
+  TabChecklistIcon: 'TabChecklistIcon',
+  TabWalletIcon: 'TabWalletIcon',
+  TabHomeIcon: 'TabHomeIcon',
+  TabCalendarIcon: 'TabCalendarIcon',
+  TabPillIcon: 'TabPillIcon',
+  TabPersonIcon: 'TabPersonIcon',
+}));
+
 // Stub expo-secure-store (used by LanguageContext for locale persistence).
 jest.mock('expo-secure-store', () => ({
   getItemAsync: jest.fn(() => Promise.resolve(null)),

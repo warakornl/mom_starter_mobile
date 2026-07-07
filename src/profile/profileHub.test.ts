@@ -261,3 +261,59 @@ describe('ProfileHub — section i18n keys', () => {
     });
   }
 });
+
+// ─── 7. Header (TDD RED — feat: profile-header-settings-row) ─────────────────
+//
+// The profile hub tab screen has no react-navigation header (MainTabs
+// has headerShown:false). A custom inline header bar is required showing
+// the title "โปรไฟล์ / Profile".
+
+describe('ProfileHub — header bar (§1 feat-profile-header-settings-row)', () => {
+  it('PROFILE_HUB_TESTIDS has screenHeader constant = "profile-hub-header"', () => {
+    expect(PROFILE_HUB_TESTIDS.screenHeader).toBe('profile-hub-header');
+  });
+
+  it('profile.title i18n key is present + non-empty in th catalog', () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const val = (catalog.th as any)['profile.title'];
+    expect(val).toBeTruthy();
+  });
+
+  it('profile.title i18n key is present + non-empty in en catalog (locale parity)', () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const val = (catalog.en as any)['profile.title'];
+    expect(val).toBeTruthy();
+  });
+});
+
+// ─── 8. Settings row (TDD RED — feat: profile-header-settings-row) ───────────
+//
+// A Settings menu row is added to the Profile hub so the user can reach
+// SettingsScreen from the Profile tab without using the gear ⚙ on Home.
+
+describe('ProfileHub — Settings row (§2 feat-profile-header-settings-row)', () => {
+  it('PROFILE_HUB_TESTIDS has settingsBtn constant = "profile-hub-settings-btn"', () => {
+    expect(PROFILE_HUB_TESTIDS.settingsBtn).toBe('profile-hub-settings-btn');
+  });
+
+  it('settings.navTitle i18n key is present + non-empty in th catalog', () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const val = (catalog.th as any)['settings.navTitle'];
+    expect(val).toBeTruthy();
+  });
+
+  it('settings.navTitle i18n key is present + non-empty in en catalog (locale parity)', () => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const val = (catalog.en as any)['settings.navTitle'];
+    expect(val).toBeTruthy();
+  });
+
+  it('ProfileHubScreen is still a function after onSettings prop is added', () => {
+    // Type-level guard: `npx tsc --noEmit` would fail if the onSettings prop were
+    // absent from ProfileHubScreenProps while BottomTabNavigator passes it.
+    // Runtime: confirms module still exports a component after the change.
+    // Full behavioral assertion (RNTL: row press → onSettings called) is deferred
+    // to the QA test phase — same pattern as logout-row RNTL deferral above.
+    expect(typeof ProfileHubScreen).toBe('function');
+  });
+});

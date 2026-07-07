@@ -15,7 +15,7 @@
  * (re-derived from this catalog) retain the same Thai copy.
  */
 
-import { catalog, MONTHS, formatCivilDate, interpolate } from './messages';
+import { catalog, MONTHS, formatCivilDate, formatYearMonth, interpolate } from './messages';
 import type { MessageKey } from './messages';
 
 // ─── Key presence ─────────────────────────────────────────────────────────────
@@ -299,6 +299,41 @@ describe('interpolate', () => {
 
   it('English template substitution', () => {
     expect(interpolate('Week {n}', { n: 20 })).toBe('Week 20');
+  });
+});
+
+// ─── formatYearMonth (calendar month-header + PDF month picker) ───────────────
+//
+// Used by CalendarScreen month header and DoctorPdfScreen month picker.
+// Must omit the day — only month name + year.
+//   th → "<ThaiMonth> พ.ศ. <CE+543>"   (Buddhist Era, no day)
+//   en → "<Month> <year>"               (no day, no comma)
+
+describe('formatYearMonth', () => {
+  it('th: June 2026 → "มิถุนายน พ.ศ. 2569" (no leading day)', () => {
+    expect(formatYearMonth('2026-06', 'th')).toBe('มิถุนายน พ.ศ. 2569');
+  });
+
+  it('en: June 2026 → "June 2026" (no day, no comma)', () => {
+    expect(formatYearMonth('2026-06', 'en')).toBe('June 2026');
+  });
+
+  it('th: January 2026 → "มกราคม พ.ศ. 2569"', () => {
+    expect(formatYearMonth('2026-01', 'th')).toBe('มกราคม พ.ศ. 2569');
+  });
+
+  it('th: December 2025 → "ธันวาคม พ.ศ. 2568" (BE year boundary)', () => {
+    expect(formatYearMonth('2025-12', 'th')).toBe('ธันวาคม พ.ศ. 2568');
+  });
+
+  it('en: December 2025 → "December 2025"', () => {
+    expect(formatYearMonth('2025-12', 'en')).toBe('December 2025');
+  });
+
+  it('slice(0,7) of YYYY-MM-01 gives same result as YYYY-MM (calendar displayMonth usage)', () => {
+    // CalendarScreen: displayMonth is always YYYY-MM-01; .slice(0,7) → YYYY-MM
+    expect(formatYearMonth('2026-06-01'.slice(0, 7), 'th')).toBe('มิถุนายน พ.ศ. 2569');
+    expect(formatYearMonth('2026-06-01'.slice(0, 7), 'en')).toBe('June 2026');
   });
 });
 

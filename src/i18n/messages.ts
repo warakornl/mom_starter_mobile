@@ -56,6 +56,25 @@ export function formatCivilDate(isoDate: string, locale: Locale): string {
   return `${MONTHS.en[m - 1]} ${d}, ${y}`;
 }
 
+// ─── Month-year formatter (no day) ───────────────────────────────────────────
+
+/**
+ * Format a "YYYY-MM" string for display without a day component.
+ *   th → "MMMM พ.ศ. YYYY+543"  (e.g. "มิถุนายน พ.ศ. 2569")
+ *   en → "MMMM YYYY"            (e.g. "June 2026")
+ *
+ * Used by:
+ *   - CalendarScreen month header (YYYY-MM-01 → .slice(0,7) → YYYY-MM)
+ *   - DoctorPdfScreen month picker (via re-export in pdfReport/monthYearFormatter.ts)
+ */
+export function formatYearMonth(yyyyMm: string, locale: Locale): string {
+  const [y, m] = yyyyMm.split('-').map(Number);
+  if (locale === 'th') {
+    return `${MONTHS.th[m - 1]} พ.ศ. ${y + 543}`;
+  }
+  return `${MONTHS.en[m - 1]} ${y}`;
+}
+
 // ─── Template interpolation ───────────────────────────────────────────────────
 
 /**

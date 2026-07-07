@@ -335,6 +335,49 @@ const th = {
    */
   'profile.logout.message': 'ระบบจะล้างข้อมูลทั้งหมดในอุปกรณ์นี้',
 
+  // ── ProfileInfoEdit row in ProfileHub ────────────────────────────────────────
+  // Lifecycle-agnostic row (pregnant AND postpartum) — name-fields-design.md §3.4
+  // Row label in the Profile section of ProfileHubScreen
+  'profile.infoEdit.rowLabel': 'แก้ไขชื่อ / ข้อมูลส่วนตัว',
+  'profile.infoEdit.rowSubtitle': 'ชื่อคุณแม่และชื่อลูก',
+
+  // Summary card mother first-name display (PDPA minimization: first name only on card)
+  // Template: "คุณแม่ {name}" — {name} replaced with decoded motherFirstName
+  // Falls back to profile.summary.fallbackName ("คุณแม่") when name is absent.
+  'profile.summary.motherFirstName': 'คุณแม่ {name}',
+
+  // ── ProfileInfoEditScreen (name fields — identity PII, PDPA §2.5) ─────────────
+  // Screen title and subtitle
+  'profileInfo.navTitle': 'แก้ไขข้อมูลส่วนตัว',
+  'profileInfo.subtitle': 'ชื่อจะแสดงเฉพาะในแอปของคุณ',
+
+  // Field labels (all optional)
+  'profileInfo.field.motherFirstName': 'ชื่อ (คุณแม่)',
+  'profileInfo.field.motherLastName': 'นามสกุล',
+  'profileInfo.field.babyName': 'ชื่อลูก',
+  'profileInfo.field.optional': '(ไม่บังคับ)',
+
+  // Input placeholders
+  'profileInfo.placeholder.motherFirstName': 'ชื่อจริง',
+  'profileInfo.placeholder.motherLastName': 'นามสกุล',
+  'profileInfo.placeholder.babyName': 'ชื่อลูก',
+
+  // Validation — max 100 chars (api-contract: client trims + enforces ≤100)
+  'profileInfo.validation.nameTooLong': 'ชื่อต้องไม่เกิน 100 ตัวอักษร',
+
+  // Save button states
+  'profileInfo.save': 'บันทึก',
+  'profileInfo.saving': 'กำลังบันทึก...',
+  'profileInfo.saved': 'บันทึกแล้ว',
+
+  // Error messages (401 = SD-5 logout; 409 = version conflict)
+  'profileInfo.error.login': 'กรุณาเข้าสู่ระบบใหม่',
+  'profileInfo.error.conflict': 'มีการอัปเดตจากอุปกรณ์อื่น กรุณาลองอีกครั้ง',
+  'profileInfo.error.generic': 'บันทึกไม่สำเร็จในขณะนี้',
+
+  // Privacy note displayed below the form (PDPA minimization — user reassurance)
+  'profileInfo.note.optional': 'ไม่บังคับ — ชื่อจะแสดงเฉพาะในแอปของคุณ',
+
   // ── Supplies (เตรียมคลอด) ─────────────────────────────────────────────────────
   'supplies.navTitle': 'รายการเตรียมคลอด',
   'supplies.empty': 'ยังไม่มีรายการ · เพิ่มสิ่งของที่ต้องเตรียม',
@@ -1379,6 +1422,32 @@ const en: MsgShape = {
   'profile.deleteAccount.label': 'Delete my account',
   'profile.deleteAccount.subtitle': 'Permanent, cannot be undone',
   'profile.logout.message': 'This will clear all data on this device',
+
+  // ── ProfileInfoEdit row in ProfileHub ────────────────────────────────────────
+  'profile.infoEdit.rowLabel': 'Edit name / Personal info',
+  'profile.infoEdit.rowSubtitle': "Mother's name and baby's name",
+
+  // Summary card mother first-name display — {name} replaced with decoded motherFirstName
+  'profile.summary.motherFirstName': 'คุณแม่ {name}',
+
+  // ── ProfileInfoEditScreen ─────────────────────────────────────────────────────
+  'profileInfo.navTitle': 'Edit personal info',
+  'profileInfo.subtitle': 'Names are shown only in your app',
+  'profileInfo.field.motherFirstName': 'First name (Mother)',
+  'profileInfo.field.motherLastName': 'Last name',
+  'profileInfo.field.babyName': "Baby's name",
+  'profileInfo.field.optional': '(optional)',
+  'profileInfo.placeholder.motherFirstName': 'Enter first name',
+  'profileInfo.placeholder.motherLastName': 'Enter last name',
+  'profileInfo.placeholder.babyName': "Enter baby's name",
+  'profileInfo.validation.nameTooLong': 'Name must be 100 characters or fewer',
+  'profileInfo.save': 'Save',
+  'profileInfo.saving': 'Saving...',
+  'profileInfo.saved': 'Saved',
+  'profileInfo.error.login': 'Please sign in again',
+  'profileInfo.error.conflict': 'Updated on another device — please try again',
+  'profileInfo.error.generic': 'Could not save right now',
+  'profileInfo.note.optional': 'Optional — names are shown only in your app',
 
   // ── Supplies ──────────────────────────────────────────────────────────────────
   'supplies.navTitle': 'Supply checklist',

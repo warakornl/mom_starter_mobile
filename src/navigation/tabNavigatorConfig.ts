@@ -24,9 +24,11 @@
  * Tab order (v3):
  *   1 Supplies  2 Expenses  3 Home  4 Calendar  5 Medication  6 Profile
  *
- * Icon strategy: icon glyph strings are Unicode emoji/characters used as
- * placeholders because the project does not yet have a vector icon library.
- * They match the required silhouettes per design-system.md §4.
+ * Icon strategy: stable string key `iconName` maps to SVG components in
+ * CustomTabBar (BottomTabNavigator.tsx). This file stays pure-Node — no React
+ * or SVG imports — so unit tests run without a DOM. The iconName→component
+ * mapping (ICON_MAP) lives in the view layer only.
+ * Spec: minimal-redesign-clean-spec.md §2 Tell 1 Fix A
  */
 
 import type { MessageKey } from '../i18n/messages';
@@ -40,8 +42,13 @@ export interface TabConfig {
   labelKey: MessageKey;
   /** i18n key for the screen-reader accessibility label (full form, spec §8.2). */
   a11yKey: MessageKey;
-  /** Icon glyph / placeholder text (24dp rendered via Text). */
-  iconGlyph: string;
+  /**
+   * Icon name key — maps to an SVG component in CustomTabBar's ICON_MAP.
+   * Pure string union keeps this file free of React/SVG imports (pure-Node invariant).
+   * View layer (BottomTabNavigator.tsx) owns the iconName→component mapping.
+   * Spec: minimal-redesign-clean-spec.md §2 Tell 1 Fix A
+   */
+  iconName: 'supplies' | 'expenses' | 'home' | 'calendar' | 'medication' | 'profile';
   /**
    * True for the center Home tab — marks positional identity in the tab bar.
    * NOTE v2: `isCenter` is now a spatial/identity marker only. The active disc
@@ -64,21 +71,21 @@ export const TAB_CONFIGS: TabConfig[] = [
     name: 'Supplies',
     labelKey: 'tab.supplies',
     a11yKey: 'tab.supplies.a11y',
-    iconGlyph: '✓',
+    iconName: 'supplies',
     isCenter: false,
   },
   {
     name: 'Expenses',
     labelKey: 'tab.expenses',
     a11yKey: 'tab.expenses.a11y',
-    iconGlyph: '฿',
+    iconName: 'expenses',
     isCenter: false,
   },
   {
     name: 'Home',
     labelKey: 'tab.home',
     a11yKey: 'tab.home.a11y',
-    iconGlyph: '🏠',
+    iconName: 'home',
     // was center at index 2 of 5; now left-of-center at index 2 of 6
     isCenter: false,
   },
@@ -86,23 +93,22 @@ export const TAB_CONFIGS: TabConfig[] = [
     name: 'Calendar',
     labelKey: 'tab.calendar',
     a11yKey: 'tab.calendar.a11y',
-    iconGlyph: '📅',
+    iconName: 'calendar',
     isCenter: false,
   },
   {
     name: 'Medication',
     labelKey: 'tab.medication',
     a11yKey: 'tab.medication.a11y',
-    iconGlyph: '💊',
+    iconName: 'medication',
     isCenter: false,
   },
   {
     // v3: 6th tab — Profile Hub (profile-tab-and-hub-ui.md §6.1, §2.4)
-    // icon/person-outline placeholder — replace with vector library glyph before ship
     name: 'Profile',
     labelKey: 'tab.profile',
     a11yKey: 'tab.profile.a11y',
-    iconGlyph: '👤',
+    iconName: 'profile',
     isCenter: false,
   },
 ];

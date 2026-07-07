@@ -55,7 +55,16 @@ import type { RootStackParamList } from './types';
 import type { TokenStorage } from '../auth/tokenStorage';
 import { useProfileSnapshot } from '../pregnancy/PregnancyProfileContext';
 import { TAB_CONFIGS, TAB_BAR_TOKENS, INITIAL_TAB } from './tabNavigatorConfig';
+import type { TabConfig } from './tabNavigatorConfig';
 import { useT } from '../i18n/LanguageContext';
+import {
+  TabChecklistIcon,
+  TabWalletIcon,
+  TabHomeIcon,
+  TabCalendarIcon,
+  TabPillIcon,
+  TabPersonIcon,
+} from '../icons';
 import { localCivilToday } from '../pregnancy/gestationalAge';
 
 import { HomeTabScreen } from '../screens/HomeTabScreen';
@@ -95,6 +104,22 @@ export type TabParamList = {
 };
 
 const Tab = createBottomTabNavigator<TabParamList>();
+
+// ─── Icon map — iconName → SVG component ─────────────────────────────────────
+
+/**
+ * ICON_MAP maps each tab's iconName string key to its SVG component.
+ * Lives in the view layer (not tabNavigatorConfig.ts) so React + SVG imports
+ * stay out of the pure-Node config file. See spec §2 Tell 1 Fix A.
+ */
+const ICON_MAP: Record<TabConfig['iconName'], React.FC<{ color: string; size: number }>> = {
+  supplies:   TabChecklistIcon,
+  expenses:   TabWalletIcon,
+  home:       TabHomeIcon,
+  calendar:   TabCalendarIcon,
+  medication: TabPillIcon,
+  profile:    TabPersonIcon,
+};
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -180,14 +205,10 @@ function CustomTabBar({ state, navigation: tabNav }: BottomTabBarProps): React.J
                   style={tabBarStyles.activeDisc}
                   accessibilityElementsHidden={true}
                 >
-                  <Text style={[tabBarStyles.icon, { color: iconColor }]}>
-                    {config.iconGlyph}
-                  </Text>
+                  {React.createElement(ICON_MAP[config.iconName], { color: '#FFFFFF', size: 24 })}
                 </View>
               ) : (
-                <Text style={[tabBarStyles.icon, { color: iconColor }]}>
-                  {config.iconGlyph}
-                </Text>
+                React.createElement(ICON_MAP[config.iconName], { color: '#5F4A52', size: 24 })
               )}
               {/* §8.7 Dynamic Type: numberOfLines={2} + flexWrap allow large text to wrap
                * cleanly rather than clip. "ค่าใช้จ่าย" wraps to two lines at 13pt. */}

@@ -73,6 +73,7 @@ import { CaptureScreen } from '../capture/CaptureScreen';
 import { DoctorPdfScreen } from '../pdfReport/DoctorPdfScreen';
 import { BottomTabNavigator } from './BottomTabNavigator';
 import { useT } from '../i18n/LanguageContext';
+import { DOCTOR_REPORT_ROUTE_OPTIONS } from './doctorReportRouteOptions';
 
 // ── Logout deps for SD-5 teardown (used by ProfileEditScreen) ─────────────────
 import { performLogout } from '../auth/performLogout';
@@ -536,7 +537,7 @@ function StackNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps): React
        */}
       <Stack.Screen
         name="DoctorReport"
-        options={{ title: t('pdf.screen.builderTitle'), headerBackTitle: t('general.back') }}
+        options={DOCTOR_REPORT_ROUTE_OPTIONS}
       >
         {({ navigation: stackNav }) => {
           // §report-edd-guard

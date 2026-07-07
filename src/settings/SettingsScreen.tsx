@@ -1,17 +1,16 @@
 /**
- * SettingsScreen — the account/settings menu.
+ * SettingsScreen — language and consent-management only.
  *
- * STEP 0 REFACTOR (profile-tab-and-hub-ui.md §5.3):
- *   The ~250 lines of export/delete orchestration previously in this file have
- *   been extracted into `useAccountRights` (src/accountRights/useAccountRights.ts).
- *   This component now CONSUMES that hook. Behavior is IDENTICAL to the pre-refactor
- *   version — all export/delete/logout/session-expired paths are unchanged.
+ * After Step-3 migration (profile-tab-and-hub-ui.md §5.3):
+ *   Logout, download-data, delete-account, and edit-pregnancy rows now live in
+ *   ProfileHubScreen (tab 6).  Settings renders exactly two sections:
+ *   - ทั่วไป: language toggle (ภาษาไทย ↔ English)
+ *   - ความเป็นส่วนตัว: Manage consent → ManageConsentsScreen (when onManageConsent
+ *     prop is provided)
  *
- * POST-MIGRATION (Step 3):
- *   Logout, download-data, delete-account, and edit-pregnancy rows have been
- *   moved to ProfileHubScreen (tab 6). Settings now only contains:
- *   - Language toggle (ทั่วไป section)
- *   - Manage consent → ManageConsentsScreen (ความเป็นส่วนตัว section)
+ * Props carried for backwards-compat with RootNavigator wiring but unused here:
+ *   tokenStorage, onLogout, apiBaseUrl, onSessionExpired,
+ *   profileLifecycle, onEditPregnancy.
  *
  * PDPA: tokenStorage.load() is called only at action time. No PII in logs.
  */

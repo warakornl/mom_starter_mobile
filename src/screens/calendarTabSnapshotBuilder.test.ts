@@ -298,3 +298,95 @@ describe('buildCalendarTabSnapshot — postpartum path', () => {
     expect(snapshot.birthDate).toBe('2026-01-20');
   });
 });
+
+// ─── motherFirstNameDecoded — name-fields feature (PDPA minimization) ─────────
+// Spec: name-fields-design.md §3.4 / profile-tab-and-hub-ui.md OQ-N-SEC2
+// PDPA minimization: only the decoded first name goes into the snapshot
+// (not last name, not baby name — full name only inside ProfileInfoEditScreen).
+
+describe('buildCalendarTabSnapshot — motherFirstNameDecoded field', () => {
+  const ALICE_B64 = Buffer.from('Alice', 'utf8').toString('base64');
+  const THAI_B64 = Buffer.from('สมหญิง', 'utf8').toString('base64');
+
+  it('includes motherFirstNameDecoded in snapshot when profile has motherFirstName', () => {
+    const profile = makePregnantProfile({ motherFirstName: ALICE_B64 });
+    const ga = makeGestationalAge(20);
+    const snapshot = buildCalendarTabSnapshot({
+      profile,
+      ga,
+      generalHealthConsented: true,
+      todayCivil: '2026-07-07',
+    });
+    expect(snapshot.motherFirstNameDecoded).toBe('Alice');
+  });
+
+  it('decodes Thai UTF-8 mother first name correctly', () => {
+    const profile = makePregnantProfile({ motherFirstName: THAI_B64 });
+    const ga = makeGestationalAge(20);
+    const snapshot = buildCalendarTabSnapshot({
+      profile,
+      ga,
+      generalHealthConsented: true,
+      todayCivil: '2026-07-07',
+    });
+    expect(snapshot.motherFirstNameDecoded).toBe('สมหญิง');
+  });
+
+  it('omits motherFirstNameDecoded from snapshot when profile has no motherFirstName', () => {
+    // Option A: only include the field when non-null (backward-compat with toEqual tests)
+    const profile = makePregnantProfile({ motherFirstName: null });
+    const ga = makeGestationalAge(20);
+    const snapshot = buildCalendarTabSnapshot({
+      profile,
+      ga,
+      generalHealthConsented: true,
+      todayCivil: '2026-07-07',
+    });
+    // motherFirstNameDecoded should be absent (undefined) when profile has no name
+    expect(snapshot.motherFirstNameDecoded).toBeUndefined();
+  });
+
+  it('omits motherFirstNameDecoded when motherFirstName is undefined', () => {
+    const profile = makePregnantProfile();
+    // makePregnantProfile does not set motherFirstName → undefined
+    const ga = makeGestationalAge(20);
+    const snapshot = buildCalendarTabSnapshot({
+      profile,
+      ga,
+      generalHealthConsented: true,
+      todayCivil: '2026-07-07',
+    });
+    expect(snapshot.motherFirstNameDecoded).toBeUndefined();
+  });
+
+  it('works the same for postpartum lifecycle', () => {
+    const profile = makePostpartumProfile({ motherFirstName: THAI_B64 });
+    const snapshot = buildCalendarTabSnapshot({
+      profile,
+      ga: null,
+      generalHealthConsented: true,
+      todayCivil: '2026-07-07',
+    });
+    expect(snapshot.motherFirstNameDecoded).toBe('สมหญิง');
+  });
+
+  it('does NOT include motherLastName or babyName in snapshot (PDPA minimization)', () => {
+    const profile = makePregnantProfile({
+      motherFirstName: ALICE_B64,
+      motherLastName: Buffer.from('Smith', 'utf8').toString('base64'),
+      babyName: Buffer.from('Bob', 'utf8').toString('base64'),
+    });
+    const ga = makeGestationalAge(20);
+    const snapshot = buildCalendarTabSnapshot({
+      profile,
+      ga,
+      generalHealthConsented: true,
+      todayCivil: '2026-07-07',
+    });
+    // Only first name goes into context snapshot (PDPA minimization)
+    expect(snapshot.motherFirstNameDecoded).toBe('Alice');
+    // No last name, no baby name in the snapshot
+    expect((snapshot as unknown as Record<string, unknown>).motherLastNameDecoded).toBeUndefined();
+    expect((snapshot as unknown as Record<string, unknown>).babyNameDecoded).toBeUndefined();
+  });
+});

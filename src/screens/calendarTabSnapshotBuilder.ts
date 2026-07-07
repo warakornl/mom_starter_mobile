@@ -24,6 +24,7 @@
 import type { PregnancyProfile } from '../pregnancy/types';
 import type { GestationalAge } from '../pregnancy/gestationalAge';
 import type { ProfileSnapshot } from '../pregnancy/PregnancyProfileContext';
+import { decodeNameFromWire } from '../pregnancy/nameFieldCipher';
 
 export interface BuildSnapshotParams {
   /** Server-authoritative profile from GET /v1/pregnancy-profile. */
@@ -51,8 +52,14 @@ export function buildCalendarTabSnapshot({
   generalHealthConsented,
   todayCivil,
 }: BuildSnapshotParams): ProfileSnapshot {
+  // Decode the mother first name for summary-card display (PDPA minimization: first name only).
+  // Only the decoded value is put into the snapshot; last name + baby name stay out of context.
+  // Option A: omit the key entirely when name is null/absent (backward-compat with toEqual tests).
+  // NEVER log the decoded value (PDPA identity PII).
+  const motherFirstNameDecoded = decodeNameFromWire(profile.motherFirstName);
+
   if (profile.lifecycle === 'postpartum') {
-    return {
+    const snap: ProfileSnapshot = {
       gestationalWeek: 0,
       edd: profile.edd,
       todayCivil,
@@ -62,11 +69,16 @@ export function buildCalendarTabSnapshot({
       // null when profile has no birthDate (defensive — server always sends it postpartum).
       birthDate: profile.birthDate ?? null,
     };
+    // Only include when non-null (Option A — avoids breaking existing exact-shape toEqual tests)
+    if (motherFirstNameDecoded !== null) {
+      snap.motherFirstNameDecoded = motherFirstNameDecoded;
+    }
+    return snap;
   }
 
   // Pregnant: use client-derived ga.gestationalWeek (not advisory profile value).
   // birthDate is null — no birth event has occurred yet.
-  return {
+  const snap: ProfileSnapshot = {
     gestationalWeek: ga?.gestationalWeek ?? 0,
     edd: profile.edd,
     todayCivil,
@@ -74,4 +86,9 @@ export function buildCalendarTabSnapshot({
     generalHealthConsented,
     birthDate: null,
   };
+  // Only include when non-null (Option A — avoids breaking existing exact-shape toEqual tests)
+  if (motherFirstNameDecoded !== null) {
+    snap.motherFirstNameDecoded = motherFirstNameDecoded;
+  }
+  return snap;
 }

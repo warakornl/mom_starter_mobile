@@ -54,6 +54,22 @@ export interface ProfileSnapshot {
    * NEVER passed via route params (PDPA SD-9); stays inside context.
    */
   birthDate?: string | null;
+
+  /**
+   * Decoded mother first name — present when the server returned a motherFirstName
+   * Base64 ciphertext; absent (undefined) when the field is not set.
+   *
+   * PDPA minimization (OQ-N-SEC2 / profile-tab-and-hub-ui.md §3.3):
+   *   Only the FIRST NAME goes into the context snapshot for summary-card display.
+   *   The FULL NAME (first + last) is shown ONLY inside ProfileInfoEditScreen.
+   *   Baby name and last name are NEVER stored in the snapshot.
+   *
+   * Security: decoded plaintext identity PII — handled like birthDate.
+   *   NEVER pass via route params (SD-9).
+   *   NEVER log this value (PDPA identity PII).
+   *   Stays inside context; consumed only by ProfileHubScreen for display.
+   */
+  motherFirstNameDecoded?: string | null;
 }
 
 // ─── Read-only context ────────────────────────────────────────────────────────

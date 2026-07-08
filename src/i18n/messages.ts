@@ -682,6 +682,29 @@ const th = {
   /** template: {n} = week */
   'kick.detailWeekValue': 'สัปดาห์ {n}',
 
+  // ── Kick-count history chart + date-range picker (SC-K4 chart feature) ────────
+  /** Section label above the chart. */
+  'kick.chartTitle': 'ลูกดิ้นรายวัน',
+  /** Label for the date-range picker row. */
+  'kick.chartDateRange': 'ช่วงวันที่',
+  /** "From" picker label. */
+  'kick.chartFrom': 'จาก',
+  /** "To" picker label. */
+  'kick.chartTo': 'ถึง',
+  /** Quick preset chip — 7 days. */
+  'kick.chart7d': '7 วัน',
+  /** Quick preset chip — 14 days. */
+  'kick.chart14d': '14 วัน',
+  /** Quick preset chip — 30 days. */
+  'kick.chart30d': '30 วัน',
+  /** Empty-state message when no sessions in the selected range. */
+  'kick.chartEmpty': 'ยังไม่มีข้อมูลในช่วงนี้',
+  /**
+   * A11y label for the chart View.
+   * template: {n} = number of days, {max} = highest daily total.
+   */
+  'kick.chartA11y': 'กราฟจำนวนลูกดิ้นรายวัน {n} วัน สูงสุด {max} ครั้ง',
+
   // ── Consent (PDPA ม.26 / ม.20) ────────────────────────────────────────────────
   // Keys per first-run-consent.md §6 + consent-copy.md (v1.0 DRAFT — lawyer review pending §Z-2).
   // Text version tag: "v1.0-th" (Thai) / "v1.0-en" (English).
@@ -1723,6 +1746,18 @@ const en: MsgShape = {
   'kick.detailNoteLabel': 'My notes',
   'kick.detailExportPdf': 'Export to doctor PDF',
   'kick.detailWeekValue': 'Week {n}',
+
+  // ── Kick-count history chart + date-range picker (SC-K4 chart feature) ────────
+  'kick.chartTitle': 'Daily kicks',
+  'kick.chartDateRange': 'Date range',
+  'kick.chartFrom': 'From',
+  'kick.chartTo': 'To',
+  'kick.chart7d': '7 days',
+  'kick.chart14d': '14 days',
+  'kick.chart30d': '30 days',
+  'kick.chartEmpty': 'No data for this period',
+  /** template: {n} = number of days, {max} = highest daily total */
+  'kick.chartA11y': 'Daily kick count chart, {n} days, max {max} movements',
 
   // ── Consent (PDPA) ───────────────────────────────────────────────────────────
   // English translations of Thai consent copy (consent-copy.md v1.0 DRAFT).

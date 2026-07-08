@@ -209,8 +209,10 @@ export function KickCountHistoryScreen({
       const clampedTo = clampToDate(raw, today);
       // fromDate must be ≤ toDate
       const clampedFrom = clampFromDate(fromDate, clampedTo);
+      // Enforce max span: pull from forward when span > MAX_RANGE_DAYS (to stays)
+      const spanned = enforceMaxSpan(clampedFrom, clampedTo);
       setToDate(clampedTo);
-      setFromDate(clampedFrom);
+      setFromDate(spanned);
     },
     [fromDate, today],
   );

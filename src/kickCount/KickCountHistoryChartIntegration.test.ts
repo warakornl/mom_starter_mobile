@@ -63,6 +63,7 @@ import {
   buildDefaultToDate,
   clampToDate,
   clampFromDate,
+  enforceMaxSpan,
   MAX_RANGE_DAYS,
   filterSessionsToRange,
 } from './kickCountHistoryChartHelpers';
@@ -245,5 +246,59 @@ describe('kickCountHistoryChartHelpers — filterSessionsToRange', () => {
     const sessions = [makeSession('2026-06-01T10:00')];
     const result = filterSessionsToRange(sessions, '2026-07-01', '2026-07-07');
     expect(result).toHaveLength(0);
+  });
+});
+
+// ─── 8. handleToPickerChange must apply enforceMaxSpan (source guard) ─────────
+//
+// Reviewer repro: To=today−30 → From=today−396 (clamped to 366) → To=today
+// ⇒ span 396 without fix.  The to-path must call enforceMaxSpan so the span
+// stays ≤ MAX_RANGE_DAYS.  This test is RED before the fix.
+
+describe('KickCountHistoryScreen — handleToPickerChange applies enforceMaxSpan (source guard)', () => {
+  it('handleToPickerChange calls enforceMaxSpan(clampedFrom, clampedTo) on the to-path', () => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const fs = require('fs') as typeof import('fs');
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const path = require('path') as typeof import('path');
+    const src = fs.readFileSync(
+      path.join(__dirname, 'KickCountHistoryScreen.tsx'),
+      'utf8',
+    );
+    // The to-path must mirror the from-path and clamp the span; without this
+    // call the handler can produce spans > MAX_RANGE_DAYS.
+    expect(src).toContain('enforceMaxSpan(clampedFrom, clampedTo)');
+  });
+});
+
+// ─── 9. to-path clamp composition caps 402-day span at MAX_RANGE_DAYS ────────
+//
+// Exercises the exact composition the fixed handleToPickerChange uses:
+//   const clampedTo  = clampToDate(raw, today);
+//   const clampedFrom = clampFromDate(fromDate, clampedTo);
+//   const spanned    = enforceMaxSpan(clampedFrom, clampedTo);   ← the fix
+// With an input that would produce ~402 days without the guard.
+
+describe('kickCountHistoryChartHelpers — to-path clamp composition caps span', () => {
+  it('enforceMaxSpan(clampFromDate(from, clampedTo), clampedTo) caps a 402-day span to ≤ MAX_RANGE_DAYS', () => {
+    const today = '2026-07-08';
+    // farPastFrom is ~402 days before today (well beyond MAX_RANGE_DAYS=366)
+    const farPastFrom = '2025-06-01';
+
+    // Simulate the to-path: user picks to=today, from is already far in the past
+    const clampedTo = clampToDate(today, today);          // today — not clamped
+    const clampedFrom = clampFromDate(farPastFrom, clampedTo); // farPastFrom — ≤ to, unchanged
+
+    // Without enforceMaxSpan the span exceeds MAX_RANGE_DAYS (proving the bug)
+    const rawFromMs = new Date(clampedFrom + 'T00:00:00Z').getTime();
+    const toMs = new Date(clampedTo + 'T00:00:00Z').getTime();
+    const rawDiffDays = (toMs - rawFromMs) / (1000 * 60 * 60 * 24);
+    expect(rawDiffDays).toBeGreaterThan(MAX_RANGE_DAYS);
+
+    // With enforceMaxSpan the span is capped (the fix)
+    const spanned = enforceMaxSpan(clampedFrom, clampedTo);
+    const fixedFromMs = new Date(spanned + 'T00:00:00Z').getTime();
+    const fixedDiffDays = (toMs - fixedFromMs) / (1000 * 60 * 60 * 24);
+    expect(fixedDiffDays).toBeLessThanOrEqual(MAX_RANGE_DAYS);
   });
 });

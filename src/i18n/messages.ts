@@ -2283,19 +2283,19 @@ const en: MsgShape = {
   'kick.historyLink': 'View kick-count history ›',
 
   // ── Baby Size Comparison — Home Section ───────────────────────────────────────
-  // EN translations pending G-size-1 legal EN sign-off (licensed Thai lawyer +
-  // clinical reviewer, separate language review — NOT auto-translate).
-  // Shipped for UAT. Final EN sign-off is a production launch-gate.
+  // EN disclaimer strings: LEGAL-APPROVED verbatim (G-size-1 advisory sign-off 2026-07-10).
+  // Licensed-lawyer review still recommended before wide public launch.
+  // DO NOT change the 3 disclaimer VALUES below without going back through legal.
   'home.babySizeSectionLabel': 'BABY SIZE',
   'home.babyYourBabySectionLabel': 'YOUR BABY',
   'home.babySizeSizeInfo': 'About ~{length} cm long · ~{weight}',
   'home.babySizeSizeInfoLengthOnly': 'About ~{length} cm long',
   'home.babyWarmNote': 'Every day of growth is a gift',
-  // pending G-size-1 legal EN sign-off
+  // LEGAL-APPROVED verbatim (G-size-1 advisory sign-off 2026-07-10). DO NOT paraphrase.
   'home.babySizeDisclaimer': 'Approximate averages · general info, not medical advice · every baby is different',
-  // pending G-size-1 legal EN sign-off
+  // LEGAL-APPROVED verbatim (G-size-1 advisory sign-off 2026-07-10). DO NOT paraphrase.
   'home.babySizeFullDisclaimer': 'The sizes and weights shown are approximate averages for each stage of pregnancy, provided for general information and enjoyment as you follow your baby\'s development. This is not a medical diagnosis or medical advice. Every baby grows differently, and that can be perfectly normal. If you have any questions or concerns about your pregnancy or your baby, please consult your doctor or healthcare provider.',
-  // pending G-size-1 legal EN sign-off
+  // LEGAL-APPROVED verbatim (G-size-1 advisory sign-off 2026-07-10). DO NOT paraphrase.
   'home.babyPostpartumDisclaimer': 'Your baby\'s age is calculated from the birth date you entered, for general information only. This is not a developmental assessment or medical advice. Every child develops differently. If you have any concerns, please consult your doctor or healthcare provider.',
   'home.babySizeDisclaimerLink': 'Full disclaimer',
   'home.babySizeDisclaimerModalTitle': 'Important information',

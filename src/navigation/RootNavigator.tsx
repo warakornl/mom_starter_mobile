@@ -54,6 +54,8 @@ import { WelcomeScreen } from '../screens/WelcomeScreen';
 import { LoginScreen } from '../auth/LoginScreen';
 import { RegisterScreen } from '../auth/RegisterScreen';
 import { VerifyEmailScreen } from '../auth/VerifyEmailScreen';
+import { ForgotPasswordScreen } from '../auth/ForgotPasswordScreen';
+import { ResetPasswordScreen, resetStrings } from '../auth/ResetPasswordScreen';
 import { ProfileSetupScreen } from '../pregnancy/ProfileSetupScreen';
 import { ProfileEditScreen } from '../pregnancy/ProfileEditScreen';
 import { ProfileInfoEditScreen } from '../pregnancy/ProfileInfoEditScreen';
@@ -67,6 +69,7 @@ import { KickCountSummaryScreen } from '../kickCount/KickCountSummaryScreen';
 import { KickCountHistoryScreen } from '../kickCount/KickCountHistoryScreen';
 import { KickCountDetailScreen } from '../kickCount/KickCountDetailScreen';
 import { calendarSyncStore } from '../sync/calendarSyncStore';
+import { resetTokenStore, clearResetToken } from '../deepLink/resetDeepLink';
 import { ConsentScreen } from '../screens/ConsentScreen';
 import { ManageConsentsScreen } from '../screens/ManageConsentsScreen';
 import { SuggestionFlowScreen } from '../suggestion/SuggestionFlowScreen';
@@ -157,10 +160,98 @@ function StackNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps): React
             onSuccess={() =>
               navigation.reset({ index: 0, routes: [{ name: 'MainTabs' }] })
             }
-            onForgotPassword={() => {
-              // TODO: navigate('ForgotPassword') — carry-forward (S5 not yet built)
-            }}
+            onForgotPassword={() => navigation.navigate('ForgotPassword')}
             onCreateAccount={() => navigation.navigate('Register')}
+          />
+        )}
+      </Stack.Screen>
+
+      {/* ForgotPassword (S5) — email entry for password reset.
+       *
+       * Route: ForgotPassword (root stack, unauthenticated).
+       * Params: { prefillEmail?: string } — optional email from LoginScreen.
+       * No token material in params (MI-1). Deep-link for this screen is not
+       * needed; deep-link target is ResetPassword (see below + App.tsx).
+       *
+       * onDone: "Back to sign in" from confirmation → Login.
+       * onBackToLogin: native back / header back → Login (goBack()).
+       */}
+      <Stack.Screen
+        name="ForgotPassword"
+        options={{ title: t('forgot.navTitle'), headerBackTitle: '' }}
+      >
+        {({ route, navigation }) => (
+          <ForgotPasswordScreen
+            apiBaseUrl={apiBaseUrl}
+            prefillEmail={route.params?.prefillEmail}
+            onDone={() => navigation.navigate('Login')}
+            onBackToLogin={() => navigation.goBack()}
+          />
+        )}
+      </Stack.Screen>
+
+      {/* ResetPassword — set new password via deep-link token.
+       *
+       * Route: ResetPassword (root stack, unauthenticated, no params — MI-1).
+       * Token is held in `resetTokenStore` (module-level ref, SD-9 pattern),
+       * NOT in route params. App.tsx sets resetTokenStore.current before
+       * navigating here; we read it at render time (same as ancPrefillRef).
+       *
+       * MI-5 token lifecycle:
+       *   - success: clearResetToken() before performLogout + Login
+       *   - 410: clearResetToken() + navigate to ForgotPassword
+       *   - unmount: the ref is module-level; caller clears as above
+       *
+       * MI-7 post-success teardown: on 204, handleResetPassword already calls
+       * tokenStorage.clear(). The full SD-5 teardown (all health stores) is
+       * performed here via performLogout, matching the existing onSessionExpired
+       * pattern in ProfileEditScreen / ProfileInfoEditScreen.
+       */}
+      <Stack.Screen
+        name="ResetPassword"
+        options={{ title: t('reset.navTitle'), headerBackTitle: '', headerBackVisible: false }}
+      >
+        {({ navigation }) => (
+          <ResetPasswordScreen
+            apiBaseUrl={apiBaseUrl}
+            tokenStorage={tokenStorage}
+            // MI-1: token injected from module-level ref, NOT route param
+            token={resetTokenStore.current}
+            onSuccess={() => {
+              // MI-5: clear the token ref before teardown
+              clearResetToken();
+              // MI-7 / SEC-INV-4: reset revoked ALL devices server-side.
+              // Run the full SD-5 performLogout teardown so the local DEK/
+              // SecureStore and ALL health stores are wiped (not just the
+              // refresh token). Then navigate to Login + show successToast.
+              void performLogout({
+                clearTokens: () => tokenStorage.clear(),
+                resetSupplyStore: () => supplySyncStore.reset(),
+                resetKickCountStore: () => kickCountSyncStore.reset(),
+                resetCalendarStore: () => calendarSyncStore.reset(),
+                resetSelfLogStore: () => selfLogSyncStore.reset(),
+                resetMedicationPlanStore: () => medicationPlanSyncStore.reset(),
+                resetMedicationLogStore: () => medicationLogSyncStore.reset(),
+                resetConsentStore: () => consentStore.reset(),
+                resetConsentQueue: () => resetConsentQueue(),
+                resetSuggestionStore: () => suggestionStore.reset(),
+                resetExpensesStore: () => expensesSyncStore.reset(),
+                clearKickCountDraft: () => clearDraft(),
+                onComplete: () =>
+                  navigation.reset({
+                    index: 0,
+                    routes: [{ name: 'Login' }],
+                  }),
+              });
+            }}
+            onRequestNewLink={() => {
+              // MI-5: 410 → clear token, navigate to ForgotPassword
+              clearResetToken();
+              navigation.reset({
+                index: 0,
+                routes: [{ name: 'ForgotPassword' }],
+              });
+            }}
           />
         )}
       </Stack.Screen>

@@ -40,8 +40,10 @@
 // it on Hermes, which silently broke every create handler). See src/polyfills/crypto.ts.
 import './src/polyfills/crypto';
 
-import React, { useMemo } from 'react';
+import React, { useMemo, useEffect } from 'react';
+import { Linking } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
+import { createNavigationContainerRef } from '@react-navigation/core';
 import { StatusBar } from 'expo-status-bar';
 import * as SecureStore from 'expo-secure-store';
 
@@ -52,6 +54,17 @@ import { LanguageProvider } from './src/i18n/LanguageContext';
 import { consentStore } from './src/consent/consentStore';
 import { configureConsentQueueStorage, restoreConsentQueue } from './src/consent/consentSync';
 import { suggestionStore } from './src/suggestion/suggestionStore';
+import type { RootStackParamList } from './src/navigation/types';
+import { parseResetTokenFromUrl, setResetToken } from './src/deepLink/resetDeepLink';
+
+// ─── Navigation ref (for imperative navigation from deep-link handler) ─────────
+//
+// PDPA SD-9 / MI-1: The navigation ref allows the deep-link handler (below) to
+// navigate to ResetPassword without putting the token in route params. The token
+// is stored in resetTokenStore (src/deepLink/resetDeepLink.ts) before navigate()
+// is called, then read by StackNavigator at render time — the same pattern as
+// ancPrefillRef in RootNavigator.
+export const navigationRef = createNavigationContainerRef<RootStackParamList>();
 
 // ─── Consent persistence setup (B1 + B2) ─────────────────────────────────────
 //
@@ -94,9 +107,53 @@ export default function App(): React.JSX.Element {
   // receives the same instance via RootNavigator props.
   const tokenStorage = useMemo(() => new SecureTokenStorage(), []);
 
+  // ─── Deep-link handler — reset-password (NET-NEW, spec §4 / MI-1…MI-5) ────────
+  //
+  // Handles both cold-start (getInitialURL) and warm-start (url event) deep-links.
+  // Security guarantees:
+  //   MI-2: The raw URL is NEVER logged. Only the extracted token is passed to
+  //         setResetToken(), and setResetToken() does NOT log it.
+  //   MI-1: The token goes into resetTokenStore (module-level ref), NOT route params.
+  //   MI-4: The token is never written to AsyncStorage/SecureStore/MMKV.
+  //
+  // Expo Go caveat (spec §4.3): Cold-start deep-links and HTTPS universal links
+  // are NOT fully exercisable in Expo Go for a standalone custom scheme. Reliable
+  // deep-link interception requires a dev build (expo prebuild / EAS dev client).
+  // Plan UAT deep-link testing on a dev build, not Expo Go.
+  useEffect(() => {
+    function handleUrl(url: string | null): void {
+      if (!url) return;
+      // MI-2: NEVER log `url` — it contains the token in the query string.
+      const token = parseResetTokenFromUrl(url);
+      if (token) {
+        // MI-1: Store token in module-level ref, NOT in route params.
+        setResetToken(token);
+        // Navigate after setting the ref (same synchronous pattern as ancPrefillRef).
+        if (navigationRef.isReady()) {
+          navigationRef.navigate('ResetPassword');
+        }
+      }
+      // No-op for non-reset-password URLs (verify deep-link carries forward separately).
+    }
+
+    // Cold start: app was launched BY the deep-link.
+    Linking.getInitialURL()
+      .then(handleUrl)
+      .catch(() => {
+        // getInitialURL failure is non-fatal — normal flow continues.
+      });
+
+    // Warm start: app was already running when the link was opened.
+    const subscription = Linking.addEventListener('url', ({ url }) => handleUrl(url));
+
+    return () => {
+      subscription.remove();
+    };
+  }, []);
+
   return (
     <LanguageProvider>
-      <NavigationContainer>
+      <NavigationContainer ref={navigationRef}>
         <StatusBar style="dark" backgroundColor="#FBF6F1" />
         <RootNavigator
           tokenStorage={tokenStorage}

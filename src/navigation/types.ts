@@ -35,6 +35,29 @@ export type RootStackParamList = {
   VerifyEmail: { email: string; pendingToken?: string };
 
   /**
+   * ForgotPassword (S5) — email-entry screen for password reset.
+   *
+   * prefillEmail: optional email from LoginScreen's current field value
+   * (convenience — mother doesn't retype; no security impact).
+   *
+   * Auth: unauthenticated. No token params.
+   */
+  ForgotPassword: { prefillEmail?: string } | undefined;
+
+  /**
+   * ResetPassword — set-new-password screen reached via email deep-link.
+   *
+   * SD-9 / MI-1 / appsec F-1 ratified: NO route params carry the reset token.
+   * The token is held in a module-level useRef in RootNavigator (ancPrefillRef
+   * pattern) and injected at render time. This prevents the token from entering
+   * React Navigation's serialised state, debug tooling breadcrumbs, or any
+   * persisted storage. Route params here remain undefined.
+   *
+   * Auth: unauthenticated.
+   */
+  ResetPassword: undefined;
+
+  /**
    * MainTabs — the 5-tab bottom navigator (BottomTabNavigator).
    * Replaces the former 'Home' route. Contains: Supplies, Expenses,
    * Home (center, initial), Calendar, Medication.

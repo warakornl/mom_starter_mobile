@@ -118,4 +118,29 @@ describe('resetTokenStore', () => {
     clearResetToken();
     expect(resetTokenStore.current).toBeUndefined();
   });
+
+  // ── MI-5 unmount cleanup ──────────────────────────────────────────────────
+
+  /**
+   * MI-5: the reset token MUST be cleared on ResetPasswordScreen unmount so
+   * that Android hardware-back (or any navigation.pop) doesn't leave a live
+   * token in the module store.
+   *
+   * ResetPasswordScreen wires `useEffect(() => () => clearResetToken(), [])`.
+   * This test verifies the invariant: calling clearResetToken() (what the
+   * cleanup does) wipes resetTokenStore.current regardless of the exit path.
+   */
+  it('MI-5 unmount cleanup: clearResetToken wipes the token on screen removal', () => {
+    setResetToken('deeplink-tok-from-email');
+    // Simulate the useEffect cleanup that fires when ResetPasswordScreen unmounts
+    clearResetToken();
+    expect(resetTokenStore.current).toBeUndefined();
+  });
+
+  it('MI-5 unmount cleanup is idempotent — safe to call with no token set', () => {
+    // Token already cleared (e.g. success path cleared it before unmount fires)
+    expect(resetTokenStore.current).toBeUndefined();
+    expect(() => clearResetToken()).not.toThrow();
+    expect(resetTokenStore.current).toBeUndefined();
+  });
 });

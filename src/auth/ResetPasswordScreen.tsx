@@ -57,6 +57,7 @@ import { createAuthClient } from './authApiClient';
 import type { TokenStorage } from './tokenStorage';
 import { InMemoryTokenStorage } from './tokenStorage';
 import { useT } from '../i18n/LanguageContext';
+import { clearResetToken } from '../deepLink/resetDeepLink';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -128,6 +129,12 @@ export function ResetPasswordScreen({
       setOutcome({ kind: 'missing_token' });
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── MI-5 unmount cleanup: clear the reset token when the screen goes away ─────
+  // Ensures Android hardware-back (or any navigation pop/replace/reset) cannot
+  // leave a live token in the module store.  The success and 410 paths already
+  // call clearResetToken() before this fires; the cleanup is idempotent (safe).
+  useEffect(() => () => clearResetToken(), []);
 
   // ─── Handlers ──────────────────────────────────────────────────────────────
 

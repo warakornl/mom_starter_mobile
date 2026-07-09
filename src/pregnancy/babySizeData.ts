@@ -76,7 +76,8 @@ export const BABY_SIZE_DATA: BabySizeEntry[] = [
   { week: 14, nameTh: 'แอปเปิ้ล',       nameEn: 'Apple',         lengthCm: '8.5',  weightG: 43,   weightIsKg: false, iconKey: 'apple' },
   { week: 15, nameTh: 'แอปเปิ้ล',       nameEn: 'Apple',         lengthCm: '10',   weightG: 70,   weightIsKg: false, iconKey: 'apple' },
   { week: 16, nameTh: 'อโวคาโด',        nameEn: 'Avocado',       lengthCm: '11.5', weightG: 100,  weightIsKg: false, iconKey: 'avocado' },
-  { week: 17, nameTh: 'ลูกแพร์',        nameEn: 'Pear',          lengthCm: '12',   weightG: 140,  weightIsKg: false, iconKey: 'pear' },
+  // wk17 13cm per research pass (BabyCenter); [clinician to confirm]
+  { week: 17, nameTh: 'ลูกแพร์',        nameEn: 'Pear',          lengthCm: '13',   weightG: 140,  weightIsKg: false, iconKey: 'pear' },
   { week: 18, nameTh: 'มะม่วง',         nameEn: 'Mango',         lengthCm: '14',   weightG: 190,  weightIsKg: false, iconKey: 'mango' },
   { week: 19, nameTh: 'มะม่วง',         nameEn: 'Mango',         lengthCm: '15',   weightG: 240,  weightIsKg: false, iconKey: 'mango' },
   { week: 20, nameTh: 'กล้วยหอม',       nameEn: 'Banana',        lengthCm: '25',   weightG: 300,  weightIsKg: false, iconKey: 'banana' },

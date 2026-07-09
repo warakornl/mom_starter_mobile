@@ -269,8 +269,11 @@ export function BabySizeSection(props: BabySizeSectionProps): React.JSX.Element 
             </Text>
           </TouchableOpacity>
 
-          {/* Reserved 16dp — future G-size-2 source ribbon. DO NOT FILL. */}
-          <View style={{ height: 16 }} accessibilityElementsHidden={true} />
+          {/* Source ribbon — pregnant variant only (size numbers; postpartum has no numbers). */}
+          {/* [source/year to confirm before prod: research pass = BabyCenter Fetal Growth Chart; year 2024 pending confirmation on the cited page] */}
+          <Text style={babySizeStyles.sourceRibbon} accessibilityElementsHidden={true}>
+            {t('home.babySizeSourceRibbon')}
+          </Text>
         </View>
 
         <DisclaimerModal
@@ -332,7 +335,7 @@ export function BabySizeSection(props: BabySizeSectionProps): React.JSX.Element 
           </Text>
         </TouchableOpacity>
 
-        {/* Reserved 16dp — future G-size-2 source ribbon. DO NOT FILL. */}
+        {/* 16dp spacer — postpartum has no size numbers, so no source ribbon here. */}
         <View style={{ height: 16 }} accessibilityElementsHidden={true} />
       </View>
 
@@ -404,6 +407,19 @@ const babySizeStyles = StyleSheet.create({
     lineHeight: 19,
     color: '#5F4A52',
     marginTop: 8,
+  },
+  /**
+   * sourceRibbon — G-size-2 research pass source attribution.
+   * Pregnant variant only (postpartum has no size numbers).
+   * Color: #5F4A52 (inkSoft, ~7.6:1 AAA). Font: 11pt Regular.
+   * NEVER use #94818A (withdrawn per design-reviewer B1 — too low contrast for small text).
+   */
+  sourceRibbon: {
+    fontFamily: 'IBMPlexSans-Regular',
+    fontSize: 11,
+    lineHeight: 16,
+    color: '#5F4A52',
+    marginTop: 4,
   },
   /**
    * disclaimerLinkRow — ≥44dp tap target (design B3).

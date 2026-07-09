@@ -88,6 +88,19 @@ describe('catalog key presence', () => {
     'birth.delivery.other', 'birth.delivery.prefer_not',
     // Calendar home-shortcut button (self-descriptive label replacing 'calendar.viewAll')
     'calendar.shortcutBtn',
+    // Forgot Password (S5) — §9 key list
+    'forgot.navTitle', 'forgot.title', 'forgot.subtitle',
+    'forgot.emailLabel', 'forgot.emailPlaceholder', 'forgot.emailHint',
+    'forgot.submit', 'forgot.confirmTitle', 'forgot.confirmBody',
+    'forgot.resend', 'forgot.backToLogin',
+    'forgot.rateLimited', 'forgot.offline', 'forgot.serverError',
+    // Reset Password — §9 key list
+    'reset.navTitle', 'reset.title',
+    'reset.newPasswordLabel', 'reset.confirmLabel',
+    'reset.passwordHint', 'reset.revokeNotice', 'reset.submit',
+    'reset.successToast', 'reset.tokenInvalid', 'reset.requestNewLink',
+    'reset.linkMissing', 'reset.passwordTooShort', 'reset.passwordBreached',
+    'reset.mismatch', 'reset.rateLimited', 'reset.offline', 'reset.serverError',
   ];
 
   it('has all required keys with non-empty Thai values', () => {
@@ -173,6 +186,72 @@ describe('auth string invariants (guards existing test assertions)', () => {
 
   it('verify.tokenInvalid (th) is non-empty', () => {
     expect(catalog.th['verify.tokenInvalid'].length).toBeGreaterThan(0);
+  });
+
+  // ── Forgot-password non-enumeration invariant (SEC-INV-1 / MI-9) ─────────────
+  it('forgot.confirmBody (th) is NON-ENUMERATING — must not contain บัญชี', () => {
+    // The bare token 'บัญชี' subsumes 'ไม่พบบัญชี', 'ไม่มีบัญชี', 'มีบัญชี'.
+    // Copy must be identical regardless of whether the email has an account.
+    expect(catalog.th['forgot.confirmBody']).not.toContain('บัญชี');
+  });
+
+  it('forgot.confirmBody (en) is non-enumerating — unconditional neutral voice', () => {
+    const copy = catalog.en['forgot.confirmBody'].toLowerCase();
+    expect(copy).not.toContain('if an account');
+    expect(copy).not.toContain('no account');
+    expect(copy).not.toContain('not registered');
+  });
+
+  it('forgot.rateLimited (th) does not expose attempt counters', () => {
+    // SEC-INV-7: must not mention numeric counter or lockout duration.
+    const copy = catalog.th['forgot.rateLimited'];
+    expect(copy).toBeTruthy();
+    expect(copy).not.toMatch(/\d+ ครั้ง/);
+  });
+
+  it('reset.tokenInvalid (th) is one generic message — no wrong/expired/used distinction', () => {
+    // SEC-INV-2: single generic text.
+    const copy = catalog.th['reset.tokenInvalid'];
+    expect(copy).toBeTruthy();
+    expect(copy.length).toBeGreaterThan(0);
+  });
+
+  it('reset.revokeNotice (th) warns about all-device sign-out (SEC-INV-4)', () => {
+    // Must warn user their devices will be signed out.
+    const copy = catalog.th['reset.revokeNotice'];
+    expect(copy).toBeTruthy();
+    // Should mention device/all-device logout context
+    expect(copy.length).toBeGreaterThan(10);
+  });
+
+  // Th↔En parity: all forgot.* and reset.* keys present in both locales
+  it('all forgot.* keys are non-empty in both th and en', () => {
+    const forgotKeys = [
+      'forgot.navTitle', 'forgot.title', 'forgot.subtitle',
+      'forgot.emailLabel', 'forgot.emailPlaceholder', 'forgot.emailHint',
+      'forgot.submit', 'forgot.confirmTitle', 'forgot.confirmBody',
+      'forgot.resend', 'forgot.backToLogin',
+      'forgot.rateLimited', 'forgot.offline', 'forgot.serverError',
+    ] as const;
+    for (const key of forgotKeys) {
+      expect(catalog.th[key]).toBeTruthy();
+      expect(catalog.en[key]).toBeTruthy();
+    }
+  });
+
+  it('all reset.* keys are non-empty in both th and en', () => {
+    const resetKeys = [
+      'reset.navTitle', 'reset.title',
+      'reset.newPasswordLabel', 'reset.confirmLabel',
+      'reset.passwordHint', 'reset.revokeNotice', 'reset.submit',
+      'reset.successToast', 'reset.tokenInvalid', 'reset.requestNewLink',
+      'reset.linkMissing', 'reset.passwordTooShort', 'reset.passwordBreached',
+      'reset.mismatch', 'reset.rateLimited', 'reset.offline', 'reset.serverError',
+    ] as const;
+    for (const key of resetKeys) {
+      expect(catalog.th[key]).toBeTruthy();
+      expect(catalog.en[key]).toBeTruthy();
+    }
   });
 });
 

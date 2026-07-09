@@ -1286,6 +1286,52 @@ const th = {
    * [source/year to confirm before prod: research pass = BabyCenter Fetal Growth Chart; year 2024 pending confirmation on the cited page]
    */
   'home.babySizeSourceRibbon': 'ข้อมูลอ้างอิงโดยประมาณ: BabyCenter Fetal Growth Chart, 2024',
+
+  // ── Auth: Forgot Password (S5) ───────────────────────────────────────────────
+  // NON-ENUMERATION (§E/C7 SEC-INV-1): confirmBody MUST NOT contain 'บัญชี'
+  // to avoid hinting whether the email has an account (unit-tested in messages.test.ts
+  // and forgotPasswordScreenLogic.test.ts).
+  'forgot.navTitle': 'ลืมรหัสผ่าน',
+  'forgot.title': 'ลืมรหัสผ่าน',
+  'forgot.subtitle': 'กรอกอีเมลของคุณ แล้วเราจะส่งลิงก์สำหรับตั้งรหัสผ่านใหม่ให้',
+  'forgot.emailLabel': 'อีเมล',
+  'forgot.emailPlaceholder': 'you@example.com',
+  'forgot.emailHint': 'ตรวจอีเมลอีกครั้งนะคะ',
+  'forgot.submit': 'ส่งลิงก์รีเซ็ต',
+  'forgot.confirmTitle': 'ตรวจกล่องอีเมลของคุณ',
+  /**
+   * SEC-INV-1 NON-ENUMERATING: must NOT contain 'บัญชี' (subsumes ไม่พบบัญชี/ไม่มีบัญชี/มีบัญชี).
+   * Enforced by test: forgot.confirmBody (th) not.toContain('บัญชี').
+   */
+  'forgot.confirmBody': 'เราได้ส่งลิงก์รีเซ็ตรหัสผ่านไปยังอีเมลของคุณแล้ว โปรดตรวจกล่องอีเมล (รวมถึงโฟลเดอร์สแปม)',
+  'forgot.resend': 'ส่งลิงก์อีกครั้ง',
+  'forgot.backToLogin': 'กลับไปหน้าเข้าสู่ระบบ',
+  'forgot.rateLimited': 'ส่งบ่อยเกินไป · ลองใหม่ภายหลัง',
+  'forgot.offline': 'คุณออฟไลน์อยู่',
+  'forgot.serverError': 'มีบางอย่างผิดพลาดทางฝั่งเรา · ลองอีกครั้ง',
+
+  // ── Auth: Reset Password ──────────────────────────────────────────────────────
+  // SEC-INV-2: tokenInvalid is ONE generic message — never explains wrong/expired/used.
+  // SEC-INV-6: 422/429/network/server_error keep the user on screen with the same token.
+  'reset.navTitle': 'ตั้งรหัสผ่านใหม่',
+  'reset.title': 'ตั้งรหัสผ่านใหม่',
+  'reset.newPasswordLabel': 'รหัสผ่านใหม่',
+  'reset.confirmLabel': 'ยืนยันรหัสผ่านใหม่',
+  'reset.passwordHint': 'อย่างน้อย 8 ตัวอักษร',
+  /** SEC-INV-4: shown pre-submit so the logged-out-everywhere outcome is not a surprise. */
+  'reset.revokeNotice': 'เมื่อตั้งรหัสใหม่ คุณจะถูกออกจากระบบทุกอุปกรณ์ และต้องเข้าสู่ระบบใหม่',
+  'reset.submit': 'บันทึกรหัสผ่านใหม่',
+  'reset.successToast': 'ตั้งรหัสใหม่สำเร็จ · เข้าสู่ระบบด้วยรหัสใหม่',
+  /** SEC-INV-2: one generic message — never distinguishes wrong/expired/used. */
+  'reset.tokenInvalid': 'ลิงก์นี้ใช้ไม่ได้หรือหมดอายุ — ขอลิงก์ใหม่อีกครั้ง',
+  'reset.requestNewLink': 'ขอลิงก์ใหม่',
+  'reset.linkMissing': 'ลิงก์ไม่ถูกต้อง — ขอลิงก์ใหม่อีกครั้ง',
+  'reset.passwordTooShort': 'รหัสผ่านสั้นเกินไป · อย่างน้อย 8 ตัวอักษร',
+  'reset.passwordBreached': 'รหัสผ่านนี้ไม่ปลอดภัย · ลองรหัสอื่น',
+  'reset.mismatch': 'รหัสผ่านทั้งสองช่องไม่ตรงกัน',
+  'reset.rateLimited': 'ลองใหม่ภายหลัง',
+  'reset.offline': 'คุณออฟไลน์อยู่',
+  'reset.serverError': 'มีบางอย่างผิดพลาดทางฝั่งเรา · ลองอีกครั้ง',
 };
 
 // ─── English catalog (must match th shape exactly) ────────────────────────────
@@ -2307,6 +2353,45 @@ const en: MsgShape = {
   'home.babySizeDisclaimerModalTitle': 'Important information',
   // [source/year to confirm before prod: research pass = BabyCenter Fetal Growth Chart; year 2024 pending confirmation on the cited page]
   'home.babySizeSourceRibbon': 'Approximate reference data: BabyCenter Fetal Growth Chart, 2024',
+
+  // ── Auth: Forgot Password (S5) ───────────────────────────────────────────────
+  // NON-ENUMERATION: confirmBody must NOT hint at whether the email has an account.
+  'forgot.navTitle': 'Forgot password',
+  'forgot.title': 'Forgot your password?',
+  'forgot.subtitle': "Enter your email and we'll send you a reset link.",
+  'forgot.emailLabel': 'Email',
+  'forgot.emailPlaceholder': 'you@example.com',
+  'forgot.emailHint': 'Please check the email address.',
+  'forgot.submit': 'Send reset link',
+  'forgot.confirmTitle': 'Check your inbox',
+  /**
+   * SEC-INV-1 NON-ENUMERATING: unconditional neutral statement — same whether or not the email has an account.
+   */
+  'forgot.confirmBody': "We've sent a password-reset link to your email. Please check your inbox (including spam).",
+  'forgot.resend': 'Resend link',
+  'forgot.backToLogin': 'Back to sign in',
+  'forgot.rateLimited': 'Too many requests — please try again later.',
+  'forgot.offline': "You're offline",
+  'forgot.serverError': 'Something went wrong on our end — try again.',
+
+  // ── Auth: Reset Password ──────────────────────────────────────────────────────
+  'reset.navTitle': 'Reset password',
+  'reset.title': 'Set a new password',
+  'reset.newPasswordLabel': 'New password',
+  'reset.confirmLabel': 'Confirm new password',
+  'reset.passwordHint': 'At least 8 characters',
+  'reset.revokeNotice': "Setting a new password signs you out on all devices; you'll need to sign in again.",
+  'reset.submit': 'Save new password',
+  'reset.successToast': 'Password updated — sign in with your new password.',
+  'reset.tokenInvalid': 'This link is invalid or expired — request a new one.',
+  'reset.requestNewLink': 'Request a new link',
+  'reset.linkMissing': "This link isn't valid — request a new one.",
+  'reset.passwordTooShort': 'Password too short — at least 8 characters.',
+  'reset.passwordBreached': "This password isn't safe — please choose another.",
+  'reset.mismatch': "The two passwords don't match.",
+  'reset.rateLimited': 'Please try again later.',
+  'reset.offline': "You're offline",
+  'reset.serverError': 'Something went wrong on our end — try again.',
 };
 
 // ─── Exports ──────────────────────────────────────────────────────────────────

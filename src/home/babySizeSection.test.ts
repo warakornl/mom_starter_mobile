@@ -143,6 +143,21 @@ describe('S2 content denylist (legal §7.1 — fail-closed)', () => {
   // Banned tokens — EN (case-insensitive)
   const bannedEn = ['normal', 'healthy', 'on track'];
 
+  // Representative babySizeSectionHelpers age strings (all ranges)
+  const mkPpForDenylist = (days: number) => ({
+    postpartumDays: days,
+    postpartumWeek: Math.floor(days / 7),
+    postpartumDay: ((days % 7) + 7) % 7,
+  });
+  const ageSampleDays = [0, 1, 3, 6, 7, 10, 14, 28, 30, 45, 60];
+  const ageLabelsTh = ageSampleDays.map((d) => formatPostpartumAgeForSection(mkPpForDenylist(d), 'th'));
+  const ageLabelsEn = ageSampleDays.map((d) => formatPostpartumAgeForSection(mkPpForDenylist(d), 'en'));
+
+  // Pregnant variant a11y label template static parts (week/length filled dynamically,
+  // but the fixed prefix words are the risk surface for S2 tokens)
+  const pregnantA11yPrefixTh = 'ขนาดลูกน้อย โดยเฉลี่ยสัปดาห์ที่';
+  const pregnantA11yPrefixEn = 'Baby size: on average at week';
+
   // Content strings (NOT disclaimers):
   const contentStringsTh: string[] = [
     ...BABY_SIZE_DATA.map((e) => e.nameTh),
@@ -151,6 +166,12 @@ describe('S2 content denylist (legal §7.1 — fail-closed)', () => {
     catalog.th['home.babyWarmNote'],
     catalog.th['home.babySizeSizeInfo'],
     catalog.th['home.babySizeSizeInfoLengthOnly'],
+    // Source ribbon (G-size-2) — pregnant variant
+    catalog.th['home.babySizeSourceRibbon'],
+    // babySizeSectionHelpers age strings (postpartum a11y = ageLabel directly)
+    ...ageLabelsTh,
+    // Pregnant variant a11y prefix (static word surface)
+    pregnantA11yPrefixTh,
   ];
 
   const contentStringsEn: string[] = [
@@ -160,6 +181,12 @@ describe('S2 content denylist (legal §7.1 — fail-closed)', () => {
     catalog.en['home.babyWarmNote'],
     catalog.en['home.babySizeSizeInfo'],
     catalog.en['home.babySizeSizeInfoLengthOnly'],
+    // Source ribbon (G-size-2) — pregnant variant
+    catalog.en['home.babySizeSourceRibbon'],
+    // babySizeSectionHelpers age strings (postpartum a11y = ageLabel directly)
+    ...ageLabelsEn,
+    // Pregnant variant a11y prefix (static word surface)
+    pregnantA11yPrefixEn,
   ];
 
   it('no banned TH token in any content string (S2 — fail-closed)', () => {
@@ -332,4 +359,46 @@ describe('i18n parity: all baby-size keys in both TH and EN', () => {
       expect((enVal as string).length).toBeGreaterThan(0);
     });
   }
+});
+
+// ─── Postpartum a11y label de-dup (mobile-reviewer nit) ─────────────────────
+// The postpartum a11y label must equal ageLabel directly — NOT "ลูกน้อยของคุณ
+// ${ageLabel}" which would double "ลูกน้อย" (TH) or "Baby" (EN).
+
+describe('postpartum a11y label de-dup', () => {
+  const mkPp2 = (days: number) => ({
+    postpartumDays: days,
+    postpartumWeek: Math.floor(days / 7),
+    postpartumDay: ((days % 7) + 7) % 7,
+  });
+
+  const sampleDays = [0, 1, 7, 30];
+
+  it.each(sampleDays)(
+    'TH ageLabel for %d days does NOT start with "ลูกน้อยของคุณ ลูกน้อย" (no dup)',
+    (days) => {
+      const ageLabel = formatPostpartumAgeForSection(mkPp2(days), 'th');
+      // The old a11y was "ลูกน้อยของคุณ " + ageLabel.
+      // Since ageLabel starts with "ลูกน้อย", the old form duplicated it.
+      const oldForm = `ลูกน้อยของคุณ ${ageLabel}`;
+      expect(oldForm).toContain('ลูกน้อย');
+      // ageLabel itself (the new a11y) must NOT contain the doubled form
+      expect(ageLabel).not.toContain('ลูกน้อยของคุณ ลูกน้อย');
+      expect(ageLabel).not.toContain('ลูกน้อย ลูกน้อย');
+    },
+  );
+
+  it.each(sampleDays)(
+    'EN ageLabel for %d days does NOT start with "Your baby Baby" (no dup)',
+    (days) => {
+      const ageLabel = formatPostpartumAgeForSection(mkPp2(days), 'en');
+      // The old a11y was "Your baby " + ageLabel.
+      // Since ageLabel starts with "Baby", the old form duplicated it.
+      const oldForm = `Your baby ${ageLabel}`;
+      expect(oldForm.toLowerCase()).toContain('baby');
+      // ageLabel itself (the new a11y) must NOT contain the doubled form
+      expect(ageLabel.toLowerCase()).not.toMatch(/your baby baby/i);
+      expect(ageLabel.toLowerCase()).not.toMatch(/baby baby/i);
+    },
+  );
 });

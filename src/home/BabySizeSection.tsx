@@ -291,10 +291,10 @@ export function BabySizeSection(props: BabySizeSectionProps): React.JSX.Element 
   const { pp } = props;
   const ageLabel = formatPostpartumAgeForSection(pp, locale);
 
-  // a11y label for postpartum
-  const ppA11yLabel = locale === 'th'
-    ? `ลูกน้อยของคุณ ${ageLabel}`
-    : `Your baby ${ageLabel}`;
+  // a11y label for postpartum — use ageLabel directly.
+  // ageLabel already contains "ลูกน้อย…" (th) / "Baby…" (en), so no prefix
+  // needed. Prefixing "ลูกน้อยของคุณ" + ageLabel would duplicate "ลูกน้อย".
+  const ppA11yLabel = ageLabel;
 
   return (
     <>

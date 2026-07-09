@@ -319,6 +319,7 @@ describe('i18n parity: all baby-size keys in both TH and EN', () => {
     'home.babyPostpartumDisclaimer',
     'home.babySizeDisclaimerLink',
     'home.babySizeDisclaimerModalTitle',
+    'home.babySizeSourceRibbon',
   ] as const;
 
   for (const key of requiredKeys) {

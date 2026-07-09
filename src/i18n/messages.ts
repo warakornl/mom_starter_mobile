@@ -1280,6 +1280,12 @@ const th = {
   /** "ดูเพิ่มเติม" link — opens full-form disclaimer modal (≥44dp tap target) */
   'home.babySizeDisclaimerLink': 'ดูเพิ่มเติม',
   'home.babySizeDisclaimerModalTitle': 'ข้อมูลสำคัญ',
+  /**
+   * Source ribbon — pregnant variant only (size numbers). Postpartum has no numbers.
+   * G-size-2 research pass: source = BabyCenter Fetal Growth Chart.
+   * [source/year to confirm before prod: research pass = BabyCenter Fetal Growth Chart; year 2024 pending confirmation on the cited page]
+   */
+  'home.babySizeSourceRibbon': 'ข้อมูลอ้างอิงโดยประมาณ: BabyCenter Fetal Growth Chart, 2024',
 };
 
 // ─── English catalog (must match th shape exactly) ────────────────────────────
@@ -2299,6 +2305,8 @@ const en: MsgShape = {
   'home.babyPostpartumDisclaimer': 'Your baby\'s age is calculated from the birth date you entered, for general information only. This is not a developmental assessment or medical advice. Every child develops differently. If you have any concerns, please consult your doctor or healthcare provider.',
   'home.babySizeDisclaimerLink': 'Full disclaimer',
   'home.babySizeDisclaimerModalTitle': 'Important information',
+  // [source/year to confirm before prod: research pass = BabyCenter Fetal Growth Chart; year 2024 pending confirmation on the cited page]
+  'home.babySizeSourceRibbon': 'Approximate reference data: BabyCenter Fetal Growth Chart, 2024',
 };
 
 // ─── Exports ──────────────────────────────────────────────────────────────────

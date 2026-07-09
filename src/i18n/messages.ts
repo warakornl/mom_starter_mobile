@@ -1247,6 +1247,39 @@ const th = {
   'kick.countCard': 'ได้เวลานับลูกดิ้นแล้ว ›',
   // Postpartum kick-count history link (spec §4.3) — always visible postpartum
   'kick.historyLink': 'ดูประวัติการนับลูกดิ้น ›',
+
+  // ── Baby Size Comparison — Home Section (baby-size-home-section.md) ───────────
+  // Design §7.7 — new i18n keys. Fruit names live in babySizeData.ts (static table).
+  // S2 invariant: NO health-status words (ปกติ/ผิดปกติ/สุขภาพดี/สมส่วน/ตามเกณฑ์) here.
+  // S6/S7 invariant: these strings MUST NOT be used in ad/product/feeding paths.
+  'home.babySizeSectionLabel': 'ขนาดลูกน้อย',
+  'home.babyYourBabySectionLabel': 'ลูกน้อยของคุณ',
+  /** template: {length} = numeric cm value (without ~). Component adds ~. */
+  'home.babySizeSizeInfo': 'ยาวประมาณ ~{length} ซม. · ~{weight}',
+  /** wks 5–7: weight omitted (legal S2 — <1g reads clinical) */
+  'home.babySizeSizeInfoLengthOnly': 'ยาวประมาณ ~{length} ซม.',
+  /** Postpartum warm note — no medical claims, no milestone references */
+  'home.babyWarmNote': 'แต่ละวันที่เติบโตคือของขวัญ',
+  /**
+   * Pregnant short-form disclaimer — VERBATIM from legal §4 short-form.
+   * Always-on in the pregnant variant (S5). Color #5F4A52, 13pt.
+   * DO NOT paraphrase. DO NOT reduce to < 13pt.
+   */
+  'home.babySizeDisclaimer': 'ค่าเฉลี่ยโดยประมาณ · เพื่อข้อมูลทั่วไป ไม่ใช่คำแนะนำทางการแพทย์ · ทารกแต่ละคนต่างกัน',
+  /**
+   * Pregnant full-form disclaimer — VERBATIM from legal §4 full-form.
+   * Shown in modal opened by "ดูเพิ่มเติม". G-size-1 launch-gate applies.
+   */
+  'home.babySizeFullDisclaimer': 'ขนาดและน้ำหนักที่แสดงเป็น ค่าเฉลี่ยโดยประมาณ ตามช่วงอายุครรภ์ เพื่อเป็นข้อมูลทั่วไปและความเพลิดเพลินในการติดตามพัฒนาการเท่านั้น ไม่ใช่การวินิจฉัยหรือคำแนะนำทางการแพทย์ ทารกแต่ละคนเติบโตแตกต่างกันได้ตามปกติ หากมีข้อสงสัยหรือกังวลเกี่ยวกับครรภ์หรือลูกน้อย โปรดปรึกษาแพทย์หรือผู้ให้บริการด้านสุขภาพของคุณ',
+  /**
+   * Postpartum disclaimer — VERBATIM from legal §4 ฉบับหลังคลอด.
+   * Always-on in the postpartum variant (S5). Same text for inline + modal.
+   * Milk Code highest-risk element per legal §2 CR-1. DO NOT abbreviate.
+   */
+  'home.babyPostpartumDisclaimer': 'อายุของลูกคำนวณจากวันเกิดที่คุณบันทึก เพื่อเป็นข้อมูลทั่วไป ไม่ใช่การประเมินพัฒนาการหรือคำแนะนำทางการแพทย์ พัฒนาการของเด็กแต่ละคนแตกต่างกันได้ หากมีข้อกังวล โปรดปรึกษาแพทย์หรือผู้ให้บริการด้านสุขภาพ',
+  /** "ดูเพิ่มเติม" link — opens full-form disclaimer modal (≥44dp tap target) */
+  'home.babySizeDisclaimerLink': 'ดูเพิ่มเติม',
+  'home.babySizeDisclaimerModalTitle': 'ข้อมูลสำคัญ',
 };
 
 // ─── English catalog (must match th shape exactly) ────────────────────────────
@@ -2248,6 +2281,24 @@ const en: MsgShape = {
   'kick.countCard': 'Time to count kicks ›',
   // Postpartum kick-count history link (spec §4.3)
   'kick.historyLink': 'View kick-count history ›',
+
+  // ── Baby Size Comparison — Home Section ───────────────────────────────────────
+  // EN translations pending G-size-1 legal EN sign-off (licensed Thai lawyer +
+  // clinical reviewer, separate language review — NOT auto-translate).
+  // Shipped for UAT. Final EN sign-off is a production launch-gate.
+  'home.babySizeSectionLabel': 'BABY SIZE',
+  'home.babyYourBabySectionLabel': 'YOUR BABY',
+  'home.babySizeSizeInfo': 'About ~{length} cm long · ~{weight}',
+  'home.babySizeSizeInfoLengthOnly': 'About ~{length} cm long',
+  'home.babyWarmNote': 'Every day of growth is a gift',
+  // pending G-size-1 legal EN sign-off
+  'home.babySizeDisclaimer': 'Approximate averages · general info, not medical advice · every baby is different',
+  // pending G-size-1 legal EN sign-off
+  'home.babySizeFullDisclaimer': 'The sizes and weights shown are approximate averages for each stage of pregnancy, provided for general information and enjoyment as you follow your baby\'s development. This is not a medical diagnosis or medical advice. Every baby grows differently, and that can be perfectly normal. If you have any questions or concerns about your pregnancy or your baby, please consult your doctor or healthcare provider.',
+  // pending G-size-1 legal EN sign-off
+  'home.babyPostpartumDisclaimer': 'Your baby\'s age is calculated from the birth date you entered, for general information only. This is not a developmental assessment or medical advice. Every child develops differently. If you have any concerns, please consult your doctor or healthcare provider.',
+  'home.babySizeDisclaimerLink': 'Full disclaimer',
+  'home.babySizeDisclaimerModalTitle': 'Important information',
 };
 
 // ─── Exports ──────────────────────────────────────────────────────────────────

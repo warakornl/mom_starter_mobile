@@ -75,6 +75,7 @@ import {
   StageT3Icon,
   PostpartumStageIcon,
 } from '../icons';
+import { BabySizeSection } from '../home/BabySizeSection';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -705,6 +706,9 @@ export function HomeTabScreen({
           {/* Postpartum banner + PostpartumDayCard (hero pair, spec §3.3) */}
           <PostpartumBanner profile={profile} pp={pp} />
           {sections.showPostpartumDayCard && <PostpartumDayCard pp={pp} />}
+          {/* Baby size section — postpartum variant (always visible postpartum, design §1.2) */}
+          {/* S6/S7: pp value MUST NOT be wired into any ad/product/feeding path (legal §5 CR-1) */}
+          <BabySizeSection variant="postpartum" pp={pp} />
           {/* Suggestion banner (only when consented + offerable) */}
           {sections.showSuggestionBanner && ppTopSuggestion && (
             <SuggestionBanner
@@ -766,6 +770,11 @@ export function HomeTabScreen({
             ga={ga}
             onBirthEvent={() => onBirthEvent(profile.version)}
           />
+        )}
+        {/* Baby size section — pregnant variant (visible wk≥5, hidden wk<5, design §1.1) */}
+        {/* S6/S7: ga value MUST NOT be wired into any ad/product/feeding path (legal §5 CR-1) */}
+        {ga.gestationalWeek >= 5 && (
+          <BabySizeSection variant="pregnant" ga={ga} />
         )}
         {/* Kick-count card (pregnant wk≥32, no consent gate, spec §4.2) */}
         {sections.showKickCountCard && (

@@ -55,7 +55,8 @@ import { LoginScreen } from '../auth/LoginScreen';
 import { RegisterScreen } from '../auth/RegisterScreen';
 import { VerifyEmailScreen } from '../auth/VerifyEmailScreen';
 import { ForgotPasswordScreen } from '../auth/ForgotPasswordScreen';
-import { ResetPasswordScreen, resetStrings } from '../auth/ResetPasswordScreen';
+import { ResetPasswordScreen } from '../auth/ResetPasswordScreen';
+import { setPendingLoginSuccessToast } from '../auth/loginSuccessToast';
 import { ProfileSetupScreen } from '../pregnancy/ProfileSetupScreen';
 import { ProfileEditScreen } from '../pregnancy/ProfileEditScreen';
 import { ProfileInfoEditScreen } from '../pregnancy/ProfileInfoEditScreen';
@@ -237,11 +238,16 @@ function StackNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps): React
                 resetSuggestionStore: () => suggestionStore.reset(),
                 resetExpensesStore: () => expensesSyncStore.reset(),
                 clearKickCountDraft: () => clearDraft(),
-                onComplete: () =>
+                onComplete: () => {
+                  // §3.3 success toast: seed LoginScreen's on-mount banner
+                  // before resetting the stack so the message is ready when
+                  // the screen mounts.  Uses the active locale via t().
+                  setPendingLoginSuccessToast(t('reset.successToast'));
                   navigation.reset({
                     index: 0,
                     routes: [{ name: 'Login' }],
-                  }),
+                  });
+                },
               });
             }}
             onRequestNewLink={() => {

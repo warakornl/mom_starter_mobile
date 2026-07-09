@@ -12,7 +12,7 @@
  *   hairline      #EBE1D9   Dividers
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -34,6 +34,7 @@ import {
 import { InMemoryTokenStorage, type TokenStorage } from './tokenStorage';
 import { createAuthClient } from './authApiClient';
 import { useT } from '../i18n/LanguageContext';
+import { takePendingLoginSuccessToast } from './loginSuccessToast';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -84,6 +85,16 @@ export function LoginScreen({
   // Async state
   const [loading, setLoading] = useState(false);
   const [outcome, setOutcome] = useState<SignInOutcome | null>(null);
+
+  // §3.3 success banner — seeded from the cleared-on-read pending store when
+  // LoginScreen mounts after a successful password reset.  The store is written
+  // by RootNavigator's performLogout onComplete just before navigation.reset,
+  // so the message is always available by the time this effect runs.
+  const [successBanner, setSuccessBanner] = useState<string | null>(null);
+  useEffect(() => {
+    const msg = takePendingLoginSuccessToast();
+    if (msg) setSuccessBanner(msg);
+  }, []);
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const authClient = useMemo(() => createAuthClient(apiBaseUrl), [apiBaseUrl]);
@@ -154,6 +165,18 @@ export function LoginScreen({
         contentContainerStyle={styles.scroll}
         keyboardShouldPersistTaps="handled"
       >
+        {/* §3.3 reset-success banner — shown once on mount after password reset */}
+        {successBanner !== null && (
+          <View
+            style={styles.successBanner}
+            accessibilityRole="alert"
+            accessibilityLiveRegion="polite"
+            testID="login-success-banner"
+          >
+            <Text style={styles.successBannerText}>{successBanner}</Text>
+          </View>
+        )}
+
         {showOffline && (
           <View style={styles.offlineStrip} accessibilityLiveRegion="polite">
             <Text style={styles.offlineText}>{t('login.offline')}</Text>
@@ -421,6 +444,20 @@ const styles = StyleSheet.create({
     fontFamily: 'IBMPlexSans-Regular',
     fontSize: 14,
     color: '#5F4A52',
+  },
+
+  successBanner: {
+    backgroundColor: '#EAF5EC',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#A8D5B0',
+    padding: 12,
+    marginBottom: 12,
+  },
+  successBannerText: {
+    fontFamily: 'IBMPlexSans-Regular',
+    fontSize: 14,
+    color: '#2D6A35',
   },
 
   offlineStrip: {

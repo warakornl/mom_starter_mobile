@@ -48,6 +48,7 @@ import { consentStore } from '../consent/consentStore';
 import { consentQueue } from '../consent/consentSync';
 import { useT } from '../i18n/LanguageContext';
 import type { Locale } from '../auth/types';
+import { T } from '../theme/tokens';
 
 // ─── Consent text version ─────────────────────────────────────────────────────
 
@@ -340,8 +341,8 @@ export function ConsentScreen({
                 }
               }}
               disabled={isSubmitting}
-              trackColor={{ false: '#EBE1D9', true: '#A8505A' }}
-              thumbColor="#FFFFFF"
+              trackColor={{ false: T.color.surface.divider, true: T.color.accent.interactive }}
+              thumbColor={T.color.surface.base}
               accessibilityLabel={`${t('consent.cloud_storage.title')}, ${cloudStorageGranted ? 'เปิดอยู่' : 'ปิดอยู่'}`}
               accessibilityRole="switch"
             />
@@ -404,7 +405,7 @@ export function ConsentScreen({
           accessibilityLabel={t('consent.screen.continue_btn')}
         >
           {isSubmitting ? (
-            <ActivityIndicator color="#FFFFFF" size="small" />
+            <ActivityIndicator color={T.button.primary.text} size="small" />
           ) : (
             <Text style={styles.continueBtnLabel}>
               {t('consent.screen.continue_btn')}
@@ -481,12 +482,12 @@ export function ConsentScreen({
   );
 }
 
-// ─── Styles (design-system.md tokens) ────────────────────────────────────────
+// ─── Styles — ALL values from T.* tokens; NO inline hex ──────────────────────
 
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#FBF6F1', // bg/warm-milk
+    backgroundColor: T.color.surface.base,             // #FBF6F1
   },
   scroll: {
     padding: 20,
@@ -495,93 +496,104 @@ const styles = StyleSheet.create({
 
   // Title / subtitle
   displayTitle: {
-    fontFamily: 'IBMPlexSans-SemiBold',
+    fontFamily: T.type.display.fontFamily,              // Sarabun-SemiBold
     fontSize: 28,
-    lineHeight: 38,
-    color: '#3A2A30', // ink
-    marginBottom: 8,
+    lineHeight: 45,                                     // ~1.6× Thai
+    color: T.color.text.heading,                        // #4A2230 roselle-900
+    marginBottom: T.spacing[2],                         // 8dp
+    letterSpacing: 0,
   },
   subtitle: {
-    fontSize: 16,
-    lineHeight: 24,
-    color: '#5F4A52', // ink/soft
-    marginBottom: 24,
+    fontFamily: T.type.body.fontFamily,                 // Sarabun-Regular
+    fontSize: T.type.body.size,                         // 15sp
+    lineHeight: T.type.body.lineHeight,                 // 25
+    color: T.color.text.primary,                        // #7A3A52 roselle-700 (NOT #5F4A52)
+    marginBottom: T.spacing[6],                         // 24dp
+    letterSpacing: 0,
   },
 
   // Card (both items)
   card: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: T.color.surface.subtle,            // #F5EDE6 ivory-200 (NOT white)
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#EBE1D9', // hairline
-    padding: 16,
-    marginBottom: 16,
+    borderColor: T.color.surface.divider,               // #E8DDD5 (NOT #EBE1D9)
+    padding: T.spacing[4],                              // 16dp
+    marginBottom: T.spacing[4],                         // 16dp
     elevation: 1,
-    shadowColor: '#3A2A30',
+    shadowColor: T.color.text.heading,                  // #4A2230 (NOT raw #3A2A30)
     shadowOpacity: 0.04,
     shadowRadius: 4,
     shadowOffset: { width: 0, height: 1 },
   },
   cardGranted: {
-    backgroundColor: '#EBF2EC', // sage/50 wash
-    borderColor: '#C8DFcc', // sage/100
+    backgroundColor: T.color.surface.wash.jade,         // #E4EDE7 jade-100 (NOT sage #EBF2EC)
+    borderColor: T.color.surface.divider,               // #E8DDD5
   },
   cardTitle: {
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 18,
-    lineHeight: 28,
-    color: '#3A2A30',
-    marginTop: 4,
-    marginBottom: 6,
+    fontFamily: T.type.heading2.fontFamily,             // Sarabun-SemiBold
+    fontSize: T.type.heading2.size,                     // 20sp (was 18)
+    lineHeight: T.type.heading2.lineHeight,             // 33
+    color: T.color.text.heading,                        // #4A2230
+    marginTop: T.spacing[1],                            // 4dp
+    marginBottom: T.spacing[1],                         // 4dp (was 6)
+    letterSpacing: 0,
   },
   cardBody: {
-    fontSize: 16,
-    lineHeight: 24,
-    color: '#5F4A52',
-    marginBottom: 6,
+    fontFamily: T.type.body.fontFamily,                 // Sarabun-Regular
+    fontSize: T.type.body.size,                         // 15sp
+    lineHeight: T.type.body.lineHeight,                 // 25
+    color: T.color.text.primary,                        // #7A3A52 roselle-700 (NOT #5F4A52)
+    marginBottom: T.spacing[1],                         // 4dp (was 6)
+    letterSpacing: 0,
   },
+  // DESIGN-REVIEWER GATE: cardCaption MUST use type.caption (13sp) + text.primary (7.70:1)
   cardCaption: {
-    fontSize: 13,
-    lineHeight: 20,
-    color: '#94818A', // ink/faint
-    marginBottom: 12,
+    fontFamily: T.type.caption.fontFamily,              // Sarabun-Regular
+    fontSize: T.type.caption.size,                      // 13sp
+    lineHeight: T.type.caption.lineHeight,              // 21
+    color: T.color.text.primary,                        // #7A3A52 roselle-700 (NOT banned #94818A)
+    marginBottom: T.spacing[3],                         // 12dp
+    letterSpacing: 0,
   },
 
-  // Status marks
+  // Status marks — decorative (accessibilityElementsHidden)
   markDue: {
     fontSize: 18,
-    color: '#9A7E86', // status/due
-    marginBottom: 4,
+    color: T.color.text.primary,                        // #7A3A52 roselle-700
+    marginBottom: T.spacing[1],                         // 4dp
   },
   markGranted: {
     fontSize: 18,
-    color: '#4A7A56', // sage/600
-    marginBottom: 4,
+    color: T.color.text.botanical,                      // #2F5042 jade-800 (NOT sage #4A7A56)
+    marginBottom: T.spacing[1],                         // 4dp
   },
 
   // Grant button (general_health item 1)
   grantBtn: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: T.color.surface.subtle,            // #F5EDE6 ivory-200 (NOT white)
     borderWidth: 1.5,
-    borderColor: '#A8505A', // rose/600
-    borderRadius: 8,
+    borderColor: T.color.accent.interactive,            // #9A5F0A amber-700 (NOT #A8505A)
+    borderRadius: T.radius.sm,                          // 6dp (was 8)
     paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingHorizontal: T.spacing[4],                    // 16dp
     alignItems: 'center',
-    minHeight: 48,
+    minHeight: 52,                                      // ≥52dp touch target
     justifyContent: 'center',
   },
   grantBtnGranted: {
-    backgroundColor: '#EBF2EC', // sage/50
-    borderColor: '#4A7A56', // sage/600
+    backgroundColor: T.color.surface.wash.jade,         // jade-100 (NOT sage #EBF2EC)
+    borderColor: T.color.text.botanical,                // jade-800 (NOT sage #4A7A56)
   },
   grantBtnLabel: {
-    fontWeight: '700',
-    fontSize: 16,
-    color: '#A8505A', // rose/600
+    fontFamily: T.type.label.fontFamily,                // Sarabun-SemiBold
+    fontSize: T.type.label.size,                        // 15sp
+    lineHeight: T.type.label.lineHeight,                // 25
+    color: T.color.text.primary,                        // #7A3A52 roselle-700 (NOT #A8505A)
+    letterSpacing: 0,
   },
   grantBtnLabelGranted: {
-    color: '#3D6647', // sage/700
+    color: T.color.text.botanical,                      // jade-800 (NOT sage #3D6647)
   },
 
   // cloud_storage toggle row
@@ -589,133 +601,157 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: T.spacing[2],                         // 8dp
   },
   cloudStorageTextGroup: {
     flex: 1,
   },
   offNote: {
-    fontSize: 13,
-    color: '#94818A',
-    fontStyle: 'italic',
+    fontFamily: T.type.caption.fontFamily,              // Sarabun-Regular
+    fontSize: T.type.caption.size,                      // 13sp
+    lineHeight: T.type.caption.lineHeight,              // 21
+    color: T.color.text.primary,                        // #7A3A52 (NOT banned #94818A)
+    letterSpacing: 0,
   },
 
   // Policy row
   policyRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: T.spacing[4],                         // 16dp
   },
   caption: {
-    fontSize: 13,
-    color: '#94818A',
+    fontFamily: T.type.caption.fontFamily,              // Sarabun-Regular
+    fontSize: T.type.caption.size,                      // 13sp
+    lineHeight: T.type.caption.lineHeight,              // 21
+    color: T.color.text.primary,                        // #7A3A52 (NOT banned #94818A)
+    letterSpacing: 0,
   },
   policyLink: {
-    fontSize: 13,
-    color: '#A8505A',
-    fontWeight: '700',
+    fontFamily: T.type.caption.fontFamily,              // Sarabun-Regular
+    fontSize: T.type.caption.size,                      // 13sp
+    lineHeight: T.type.caption.lineHeight,              // 21
+    color: T.color.accent.interactive,                  // amber-700 (NOT #A8505A)
+    letterSpacing: 0,
   },
 
   // Error panel
   errorPanel: {
-    backgroundColor: '#F5F0ED', // surface/page-sunk approximation
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 12,
+    backgroundColor: T.color.surface.subtle,            // #F5EDE6 (NOT #F5F0ED)
+    borderRadius: T.radius.sm,                          // 6dp
+    padding: T.spacing[3],                              // 12dp
+    marginBottom: T.spacing[3],                         // 12dp
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
   errorPanelText: {
     flex: 1,
-    fontSize: 14,
-    color: '#5F4A52',
+    fontFamily: T.type.body.fontFamily,                 // Sarabun-Regular
+    fontSize: T.type.body.size,                         // 15sp
+    lineHeight: T.type.body.lineHeight,                 // 25
+    color: T.color.text.primary,                        // #7A3A52 (NOT #5F4A52)
+    letterSpacing: 0,
   },
   retryBtn: {
-    marginLeft: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
+    marginLeft: T.spacing[3],                           // 12dp
+    paddingHorizontal: T.spacing[3],                    // 12dp
+    paddingVertical: T.spacing[1],                      // 4dp (was 6)
+    borderRadius: T.radius.sm,                          // 6dp (was 6)
     borderWidth: 1,
-    borderColor: '#A8505A',
+    borderColor: T.color.text.primary,                  // #7A3A52 (NOT #A8505A)
   },
   retryBtnLabel: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#A8505A',
+    fontFamily: T.type.label.fontFamily,                // Sarabun-SemiBold
+    fontSize: T.type.body.size,                         // 15sp
+    color: T.color.text.primary,                        // #7A3A52 (NOT #A8505A)
+    letterSpacing: 0,
   },
 
-  // Continue button
+  // Continue button — amber-700 CTA
   continueBtn: {
-    backgroundColor: '#A8505A', // rose/600
-    borderRadius: 10,
-    minHeight: 52,
+    backgroundColor: T.button.primary.bg,               // #9A5F0A amber-700 (NOT #A8505A)
+    borderRadius: T.button.primary.radius,              // 14dp
+    minHeight: T.button.primary.height,                 // 52dp
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+    marginBottom: T.spacing[3],                         // 12dp
   },
   continueBtnDisabled: {
     opacity: 0.6,
   },
   continueBtnLabel: {
-    fontWeight: '700',
-    fontSize: 16,
-    color: '#FFFFFF',
+    fontFamily: T.type.label.fontFamily,                // Sarabun-SemiBold
+    fontSize: T.type.label.size,                        // 15sp
+    lineHeight: T.type.label.lineHeight,                // 25
+    color: T.button.primary.text,                       // #FBF6F1 (NOT raw #FFFFFF)
+    letterSpacing: 0,
   },
 
   // Health required note
   healthRequiredNote: {
-    fontSize: 14,
-    color: '#5F4A52',
+    fontFamily: T.type.body.fontFamily,                 // Sarabun-Regular
+    fontSize: T.type.body.size,                         // 15sp
+    lineHeight: T.type.body.lineHeight,                 // 25
+    color: T.color.text.primary,                        // #7A3A52 (NOT #5F4A52)
     textAlign: 'center',
-    marginBottom: 8,
+    marginBottom: T.spacing[2],                         // 8dp
+    letterSpacing: 0,
   },
 
-  // Change later note
+  // Change later note — PDPA trust marker
   changeLaterNote: {
-    fontSize: 13,
-    color: '#94818A',
+    fontFamily: T.type.caption.fontFamily,              // Sarabun-Regular
+    fontSize: T.type.caption.size,                      // 13sp
+    lineHeight: T.type.caption.lineHeight,              // 21
+    color: T.color.text.primary,                        // #7A3A52 roselle-700 (NOT banned #94818A)
     textAlign: 'center',
+    letterSpacing: 0,
   },
 
   // Skip sheet (bottom sheet modal)
   sheetOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(58, 42, 48, 0.4)',
+    backgroundColor: 'rgba(58, 42, 48, 0.4)',           // overlay — not a color token
     justifyContent: 'flex-end',
   },
   sheet: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 24,
+    backgroundColor: T.color.surface.subtle,            // #F5EDE6 (NOT white)
+    borderTopLeftRadius: T.radius.lg,                   // 20dp
+    borderTopRightRadius: T.radius.lg,                  // 20dp
+    padding: T.spacing[6],                              // 24dp
     paddingBottom: 40,
   },
   sheetTitle: {
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 18,
-    lineHeight: 28,
-    color: '#3A2A30',
-    marginBottom: 12,
+    fontFamily: T.type.heading2.fontFamily,             // Sarabun-SemiBold
+    fontSize: T.type.heading2.size,                     // 20sp
+    lineHeight: T.type.heading2.lineHeight,             // 33
+    color: T.color.text.heading,                        // #4A2230 (NOT raw #3A2A30)
+    marginBottom: T.spacing[3],                         // 12dp
+    letterSpacing: 0,
   },
   sheetBody: {
-    fontSize: 16,
-    lineHeight: 24,
-    color: '#5F4A52',
-    marginBottom: 24,
+    fontFamily: T.type.body.fontFamily,                 // Sarabun-Regular
+    fontSize: T.type.body.size,                         // 15sp
+    lineHeight: T.type.body.lineHeight,                 // 25
+    color: T.color.text.primary,                        // #7A3A52 (NOT #5F4A52)
+    marginBottom: T.spacing[6],                         // 24dp
+    letterSpacing: 0,
   },
   sheetPrimaryBtn: {
-    backgroundColor: '#A8505A',
-    borderRadius: 10,
-    minHeight: 52,
+    backgroundColor: T.button.primary.bg,               // amber-700 (NOT #A8505A)
+    borderRadius: T.button.primary.radius,              // 14dp
+    minHeight: T.button.primary.height,                 // 52dp
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+    marginBottom: T.spacing[3],                         // 12dp
   },
   sheetPrimaryBtnLabel: {
-    fontWeight: '700',
-    fontSize: 16,
-    color: '#FFFFFF',
+    fontFamily: T.type.label.fontFamily,                // Sarabun-SemiBold
+    fontSize: T.type.label.size,                        // 15sp
+    lineHeight: T.type.label.lineHeight,                // 25
+    color: T.button.primary.text,                       // #FBF6F1
+    letterSpacing: 0,
   },
   sheetQuietBtn: {
     alignItems: 'center',
@@ -723,8 +759,10 @@ const styles = StyleSheet.create({
     minHeight: 48,
   },
   sheetQuietBtnLabel: {
-    fontWeight: '700',
-    fontSize: 16,
-    color: '#8E3A44', // rose/700
+    fontFamily: T.type.label.fontFamily,                // Sarabun-SemiBold
+    fontSize: T.type.label.size,                        // 15sp
+    lineHeight: T.type.label.lineHeight,                // 25
+    color: T.color.text.primary,                        // #7A3A52 (NOT old rose/700 #8E3A44)
+    letterSpacing: 0,
   },
 });

@@ -55,6 +55,7 @@ import { medicationLogSyncStore } from '../medication/medicationLogSyncStore';
 import { medicationPlanSyncStore } from '../medication/medicationPlanSyncStore';
 import { decodeNameFromWire } from './nameFieldCipher';
 import { localCivilToday } from './gestationalAge';
+import type { Lifecycle } from './types';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -85,6 +86,12 @@ export interface PregnancySummaryScreenProps {
   onSetEdd?: () => void;
   /** Navigate back. */
   onBack?: () => void;
+  /**
+   * B4 loss gate (rollout spec §3): when 'ended', forward-looking notes
+   * (partialNote = "you're still pregnant") are suppressed.
+   * GAP-2 fail-safe: null → not 'ended'; never defaults to 'pregnant'.
+   */
+  lifecycle?: Lifecycle | null;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -97,6 +104,7 @@ export function PregnancySummaryScreen({
   hospitalDischargeDate,
   onSetEdd,
   onBack,
+  lifecycle,
 }: PregnancySummaryScreenProps): React.JSX.Element {
   const { t, locale } = useT();
   const [showFullDisclaimer, setShowFullDisclaimer] = useState(false);
@@ -137,7 +145,7 @@ export function PregnancySummaryScreen({
   function renderSectionLabel(label: string): React.JSX.Element {
     return (
       <Text style={styles.sectionLabel} accessibilityRole="header">
-        {label.toUpperCase()}
+        {label}
       </Text>
     );
   }
@@ -328,9 +336,9 @@ export function PregnancySummaryScreen({
           </TouchableOpacity>
         </View>
 
-        {/* Partial note: still pregnant */}
-        {birthDate == null && (
-          <Text style={styles.partialNote}>
+        {/* Partial note: still pregnant — suppressed in loss state (B4 rollout §3) */}
+        {birthDate == null && lifecycle !== 'ended' && (
+          <Text style={styles.partialNote} testID="pregnancy-summary-partial-note">
             {t('pregnancySummary.partialNote')}
           </Text>
         )}
@@ -401,12 +409,12 @@ function resolveDeliveryTypeLabel(
   return key != null ? t(key) : deliveryType;
 }
 
-// ─── Styles (Clean: flat, no shadow, T tokens) ────────────────────────────────
+// ─── Styles — ห้องแม่ Phase 2 B4: full semantic T.* migration ────────────────
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FBF6F1',
+    backgroundColor: T.color.surface.base,
   },
 
   // Nav bar
@@ -416,15 +424,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: T.hairline,
-    backgroundColor: '#FBF6F1',
+    borderBottomColor: T.color.surface.divider,
+    backgroundColor: T.color.surface.base,
   },
   navTitle: {
     flex: 1,
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 17,
-    lineHeight: 24,
-    color: '#3A2A30',
+    fontFamily: T.type.bodyLarge.fontFamily,
+    fontSize: T.type.bodyLarge.size,
+    lineHeight: T.type.bodyLarge.lineHeight,
+    color: T.color.text.heading,
     textAlign: 'center',
   },
   backBtn: {
@@ -434,9 +442,9 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   backBtnText: {
-    fontFamily: 'IBMPlexSans-Regular',
+    fontFamily: T.type.body.fontFamily,
     fontSize: 24,
-    color: '#3A2A30',
+    color: T.color.text.heading,
   },
 
   // Scroll content
@@ -445,70 +453,69 @@ const styles = StyleSheet.create({
     gap: 12,
   },
 
-  // Disclaimer (G-PS-a — always-on)
+  // Disclaimer (G-PS-a — always-on, PDPA trust marker — legible roselle-700)
   disclaimerBox: {
-    backgroundColor: '#F5EDE8',
-    borderRadius: T.cardRadius,
+    backgroundColor: T.color.surface.subtle,
+    borderRadius: T.radius.md,
     borderWidth: 1,
-    borderColor: T.hairline,
+    borderColor: T.color.surface.divider,
     padding: 12,
     gap: 4,
-    // Note: flat (no shadow, no elevation) per Clean design
   },
   disclaimerText: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 13,
-    lineHeight: 20,
-    color: '#5F4A52',
+    fontFamily: T.type.caption.fontFamily,
+    fontSize: T.type.caption.size,
+    lineHeight: T.type.caption.lineHeight,
+    color: T.color.text.primary,
   },
   // "ดูเพิ่มเติม" link — standalone TouchableOpacity ≥44dp
-  // NOT inside accessibilityRole="text" parent (a11y requirement)
   disclaimerLink: {
     minHeight: 44,
     justifyContent: 'center',
     alignSelf: 'flex-start',
   },
   disclaimerLinkText: {
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 13,
-    lineHeight: 20,
-    color: '#9B1C35',
+    fontFamily: T.type.label.fontFamily,
+    fontSize: T.type.caption.size,
+    lineHeight: T.type.caption.lineHeight,
+    color: T.color.text.primary,
+    textDecorationLine: 'underline',
   },
 
-  // Partial note
+  // Partial note (suppressed in loss state — see lifecycle prop)
   partialNote: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 13,
-    lineHeight: 20,
-    color: '#5F4A52',
+    fontFamily: T.type.caption.fontFamily,
+    fontSize: T.type.caption.size,
+    lineHeight: T.type.caption.lineHeight,
+    color: T.color.text.primary,
     textAlign: 'center',
   },
 
-  // Section label (T tokens — Clean)
+  // Section labels — T.type.label, botanical, NO uppercase
   sectionLabel: {
-    fontFamily: T.sectionLabelFontFamily,
-    fontSize: T.sectionLabelFontSize,
-    letterSpacing: T.sectionLabelLetterSpacing,
-    color: T.sectionLabelColor,
+    fontFamily: T.type.label.fontFamily,
+    fontSize: T.type.label.size,
+    lineHeight: T.type.label.lineHeight,
+    letterSpacing: T.type.label.letterSpacing,
+    color: T.color.text.botanical,
     marginTop: 8,
     marginBottom: 4,
   },
 
   // Trimester section
   trimesterSection: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: T.cardRadius,
+    backgroundColor: T.color.surface.subtle,
+    borderRadius: T.radius.md,
     borderWidth: 1,
-    borderColor: T.hairline,
+    borderColor: T.color.surface.divider,
     padding: 12,
     gap: 4,
-    // Clean: no shadow, no elevation
   },
   trimesterTitle: {
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 16,
-    lineHeight: 24,
-    color: '#3A2A30',
+    fontFamily: T.type.label.fontFamily,
+    fontSize: T.type.body.size,
+    lineHeight: T.type.body.lineHeight,
+    color: T.color.text.heading,
     marginBottom: 4,
   },
 
@@ -517,17 +524,16 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   kicksAvg: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 15,
-    lineHeight: 22,
-    color: '#3A2A30',
+    fontFamily: T.type.body.fontFamily,
+    fontSize: T.type.body.size,
+    lineHeight: T.type.body.lineHeight,
+    color: T.color.text.heading,
   },
-  // G-PS-c: daysWithData immediately below avgPerDay — never hidden/tooltip
   kicksDays: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 13,
-    lineHeight: 20,
-    color: '#5F4A52',
+    fontFamily: T.type.caption.fontFamily,
+    fontSize: T.type.caption.size,
+    lineHeight: T.type.caption.lineHeight,
+    color: T.color.text.primary,
   },
 
   // Medications
@@ -539,44 +545,43 @@ const styles = StyleSheet.create({
   },
   medLabel: {
     flex: 1,
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 14,
-    lineHeight: 21,
-    color: '#3A2A30',
+    fontFamily: T.type.caption.fontFamily,
+    fontSize: T.type.caption.size,
+    lineHeight: T.type.caption.lineHeight,
+    color: T.color.text.heading,
   },
   medDays: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 13,
-    lineHeight: 20,
-    color: '#5F4A52',
+    fontFamily: T.type.caption.fontFamily,
+    fontSize: T.type.caption.size,
+    lineHeight: T.type.caption.lineHeight,
+    color: T.color.text.primary,
     marginLeft: 8,
   },
 
   // Empty states
   emptyText: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 14,
-    lineHeight: 21,
-    color: '#94818A',
+    fontFamily: T.type.caption.fontFamily,
+    fontSize: T.type.caption.size,
+    lineHeight: T.type.caption.lineHeight,
+    color: T.color.text.primary,
     paddingVertical: 4,
   },
 
   // Divider
   divider: {
     height: 1,
-    backgroundColor: T.hairline,
+    backgroundColor: T.color.surface.divider,
     marginVertical: 4,
   },
 
   // Delivery section
   deliverySection: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: T.cardRadius,
+    backgroundColor: T.color.surface.subtle,
+    borderRadius: T.radius.md,
     borderWidth: 1,
-    borderColor: T.hairline,
+    borderColor: T.color.surface.divider,
     padding: 12,
     gap: 4,
-    // Clean: no shadow, no elevation
   },
   deliveryRows: {
     gap: 6,
@@ -588,17 +593,17 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   deliveryRowLabel: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 14,
-    lineHeight: 21,
-    color: '#5F4A52',
+    fontFamily: T.type.caption.fontFamily,
+    fontSize: T.type.caption.size,
+    lineHeight: T.type.caption.lineHeight,
+    color: T.color.text.primary,
     flex: 1,
   },
   deliveryRowValue: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 14,
-    lineHeight: 21,
-    color: '#3A2A30',
+    fontFamily: T.type.caption.fontFamily,
+    fontSize: T.type.caption.size,
+    lineHeight: T.type.caption.lineHeight,
+    color: T.color.text.heading,
     flex: 1,
     textAlign: 'right',
   },
@@ -612,59 +617,59 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   noEddText: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 16,
-    lineHeight: 24,
-    color: '#5F4A52',
+    fontFamily: T.type.body.fontFamily,
+    fontSize: T.type.body.size,
+    lineHeight: T.type.body.lineHeight,
+    color: T.color.text.primary,
     textAlign: 'center',
   },
   noEddAction: {
-    backgroundColor: '#9B1C35',
-    borderRadius: T.cardRadius,
+    backgroundColor: T.button.primary.bg,
+    borderRadius: T.radius.md,
     paddingHorizontal: 24,
     paddingVertical: 14,
-    minHeight: 48,
+    minHeight: T.button.primary.height,
     justifyContent: 'center',
     alignItems: 'center',
   },
   noEddActionText: {
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 16,
-    lineHeight: 24,
-    color: '#FFFFFF',
+    fontFamily: T.type.label.fontFamily,
+    fontSize: T.type.body.size,
+    lineHeight: T.type.body.lineHeight,
+    color: T.color.text.onDark,
   },
 
   // Full disclaimer modal
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: T.scrim.color,
     justifyContent: 'flex-end',
   },
   modalCard: {
-    backgroundColor: '#FBF6F1',
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
+    backgroundColor: T.color.surface.base,
+    borderTopLeftRadius: T.radius.lg,
+    borderTopRightRadius: T.radius.lg,
     padding: 24,
     maxHeight: '70%',
     gap: 16,
   },
   modalFullDisclaimerText: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 15,
-    lineHeight: 24,
-    color: '#3A2A30',
+    fontFamily: T.type.body.fontFamily,
+    fontSize: T.type.body.size,
+    lineHeight: T.type.body.lineHeight,
+    color: T.color.text.heading,
   },
   modalCloseBtn: {
-    backgroundColor: '#9B1C35',
-    borderRadius: T.cardRadius,
+    backgroundColor: T.button.primary.bg,
+    borderRadius: T.radius.md,
     paddingVertical: 14,
     alignItems: 'center',
-    minHeight: 48,
+    minHeight: T.button.primary.height,
   },
   modalCloseBtnText: {
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 16,
-    lineHeight: 24,
-    color: '#FFFFFF',
+    fontFamily: T.type.label.fontFamily,
+    fontSize: T.type.body.size,
+    lineHeight: T.type.body.lineHeight,
+    color: T.color.text.onDark,
   },
 });

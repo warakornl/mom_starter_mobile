@@ -87,6 +87,10 @@ import { executeMarkDoneHandler } from './markDoneLogic';
 import { consentStore } from '../consent/consentStore';
 import { createConsentApiClient } from '../consent/consentApiClient';
 import { consentQueue } from '../consent/consentSync';
+import { commitCareActivityDecrement } from '../autoStockDecrement/decrementCommit';
+import { consumptionMappingStore } from '../autoStockDecrement/consumptionMappingStore';
+import { supplySyncStore } from '../sync/supplySyncStore';
+import { stockDecrementMarkerStore } from '../autoStockDecrement/stockDecrementMarkerStore';
 import { ConsentNudgeModal } from '../consent/ConsentNudgeModal';
 import { SnoozeChooserSheet } from './SnoozeChooserSheet';
 import {
@@ -777,6 +781,24 @@ export function CalendarScreen({
               // `id` is the deterministic uuidv5 occurrence id — used as the OS notification
               // identifier (ADR Decision 2 / functional spec §3.4).
               void cancelForOccurrence(id);
+
+              // T-D: fire care-activity decrement trigger (auto-stock-decrement §3).
+              // D-1: this is a local user action — isPulled=false.
+              // M2: read careActivityType LIVE from the Reminder at done-commit time
+              //     (NOT from a cached/snapshot value captured at occurrence creation).
+              // Swallowed on any failure per E-3 (best-effort, never blocks the UI).
+              // NEVER log occurrenceId, careActivityType, or draw results (K-8/SD-5).
+              const _liveReminder = calendarSyncStore.getReminder(reminderId);
+              const _careActivityType = _liveReminder?.careActivityType ?? null;
+              commitCareActivityDecrement({
+                occurrenceId: id, // deterministic uuidv5 (reminderId, scheduledLocalTime)
+                careActivityType: _careActivityType,
+                consentGeneralHealth: consentStore.isGranted('general_health'),
+                supplyStore: supplySyncStore,
+                consumptionMappingStore,
+                markerStore: stockDecrementMarkerStore,
+                isPulled: false,
+              });
 
               // 2. For medication occurrences only: create exactly ONE taken log via
               //    executeMarkDoneHandler (spec §3.1 / AC-17b / MR-E1).

@@ -149,7 +149,13 @@ export function createConsumptionMappingStore(): ConsumptionMappingStore {
     },
 
     upsert(record: ConsumptionMappingRecord): void {
-      upsertInternal(record);
+      // Ingress sanitizer (INV-ASD-8): strip any fields that must not be stored on
+      // ConsumptionMappingRecord. usesRemainingInOpenContainer belongs only on
+      // SupplyItemRecord — if a rogue or forward-compat server sends it, discard it.
+      // TypeScript structural typing allows extra fields through; runtime strip enforces.
+      const { usesRemainingInOpenContainer: _strip, ...cleanRecord } =
+        record as ConsumptionMappingRecord & { usesRemainingInOpenContainer?: unknown };
+      upsertInternal(cleanRecord as ConsumptionMappingRecord);
     },
 
     tombstone(id: string): void {

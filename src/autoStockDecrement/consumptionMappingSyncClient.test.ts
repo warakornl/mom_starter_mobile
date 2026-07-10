@@ -304,24 +304,22 @@ describe('ConsumptionMapping sync client — pull', () => {
   // ── INV-ASD-8: pull NEVER sets usesRemainingInOpenContainer ──
 
   it('INV-ASD-8: pull does NOT set usesRemainingInOpenContainer on pulled records', async () => {
-    // Server sends a record that somehow includes the field (forward-compat / rogue server)
+    // Server sends a record that somehow includes the field (forward-compat / rogue server).
+    // The ingress sanitizer in consumptionMappingStore.upsert() must strip it.
     const badRecord = {
       ...makeMapping({ id: MAP_ID }),
-      usesRemainingInOpenContainer: 999, // should be silently ignored
+      usesRemainingInOpenContainer: 999, // must be silently stripped (INV-ASD-8)
     };
     const { fn } = spyFetch([makePullPage({ created: [badRecord as ConsumptionMappingRecord] })]);
     const client = createConsumptionMappingSyncClient(BASE, store, fn);
     await client.pull(TOKEN);
 
-    // The field should not propagate onto the stored record
+    // The field MUST NOT be present on the stored record — asserted as absent, not just defined.
     const stored = store.getById(MAP_ID) as unknown as Record<string, unknown>;
-    // Either absent or not a number ≥ 0 — the store just called upsert which
-    // stores the record as-is; the key assertion is that it did NOT come from us
-    // (this test primarily documents the INV-ASD-8 boundary)
-    expect(stored).toBeDefined();
-    // The sync client itself must not inject usesRemainingInOpenContainer
-    // (the store transparently upserts what the server sends, but we NEVER
-    //  push it — so the round-trip test is the push test above)
+    expect(stored).toBeDefined(); // record was stored
+    // Primary assertion: usesRemainingInOpenContainer must be absent (INV-ASD-8).
+    expect(Object.prototype.hasOwnProperty.call(stored, 'usesRemainingInOpenContainer')).toBe(false);
+    expect(stored['usesRemainingInOpenContainer']).toBeUndefined();
   });
 
   // ── HTTP error handling ──

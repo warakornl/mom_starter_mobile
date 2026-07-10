@@ -51,6 +51,7 @@ import { Fraunces_600SemiBold } from '@expo-google-fonts/fraunces';
 import { RootNavigator } from './src/navigation/RootNavigator';
 import { SecureTokenStorage } from './src/auth/secureTokenStorage';
 import { API_BASE_URL } from './src/config';
+import { T } from './src/theme/tokens';
 import { LanguageProvider } from './src/i18n/LanguageContext';
 import { consentStore } from './src/consent/consentStore';
 import { configureConsentQueueStorage, restoreConsentQueue } from './src/consent/consentSync';
@@ -171,7 +172,7 @@ export default function App(): React.JSX.Element | null {
   return (
     <LanguageProvider>
       <NavigationContainer ref={navigationRef}>
-        <StatusBar style="dark" backgroundColor="#FBF6F1" />
+        <StatusBar style="dark" backgroundColor={T.color.surface.base} />
         <RootNavigator
           tokenStorage={tokenStorage}
           apiBaseUrl={API_BASE_URL}

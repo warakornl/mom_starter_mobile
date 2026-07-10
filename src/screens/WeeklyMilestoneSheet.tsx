@@ -295,7 +295,7 @@ export function WeeklyMilestoneSheet({
 const sheetStyles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(74,34,48,0.40)', // roselle-900-tinted scrim (decorative)
+    backgroundColor: T.scrim.color, // roselle-900-tinted modal backdrop (T.scrim; decorative)
   },
 
   sheet: {

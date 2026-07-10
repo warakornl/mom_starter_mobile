@@ -325,6 +325,13 @@ const offlinePill = {
   text: jade600,   // #4A7A5C (at ≥15sp)
 } as const;
 
+// ─── Scrim (§4.2 WeeklyMilestoneSheet backdrop) ───────────────────────────────
+// roselle-900-tinted overlay at 40% opacity. Decorative — conveys depth, not meaning.
+
+const scrim = {
+  color: 'rgba(74,34,48,0.40)' as const, // roselle-900 tinted modal backdrop
+} as const;
+
 // ─── Structured export (new API) ──────────────────────────────────────────────
 
 export const tokens = {
@@ -343,6 +350,7 @@ export const tokens = {
     skeleton,
     errorPanel,
     offlinePill,
+    scrim,
   },
   dark: {
     color: darkColor,
@@ -432,5 +440,6 @@ export const T = {
   skeleton,
   errorPanel,
   offlinePill,
+  scrim,
   dark:       darkColor,
 } as const;

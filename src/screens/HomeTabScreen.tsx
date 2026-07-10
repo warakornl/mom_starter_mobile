@@ -25,7 +25,6 @@
  *   onBirthEvent(v)      → navigate to BirthEvent (T3 only)
  *   onSuggestions        → navigate to Suggestions
  *   onKickCount          → navigate to KickCountHome (pregnant wk≥32 card tapped)
- *   onKickCountHistory   → navigate directly to KickCountHistory (postpartum link)
  *   onSupplies           → switch to Supplies tab (suggestion CTA for captureTarget=supplies)
  *   onCalendar           → switch to Calendar tab (suggestion CTA for appointment/medication/self_log)
  *   onDoctorReport       → navigate to DoctorReport root-stack screen (entry row tapped)
@@ -92,11 +91,6 @@ export interface HomeTabScreenProps {
   onSuggestions?: () => void;
   /** Navigate to KickCountHomeScreen (pregnant wk≥32 card tapped, spec §4.2). */
   onKickCount?: () => void;
-  /**
-   * Navigate directly to KickCountHistoryScreen (postpartum history link §4.3).
-   * Bypasses KickCountHomeScreen — history-only entry point.
-   */
-  onKickCountHistory?: () => void;
   /**
    * Switch to the Supplies tab (suggestion banner CTA for captureTarget='supplies').
    */
@@ -504,7 +498,6 @@ export function HomeTabScreen({
   onBirthEvent,
   onSuggestions,
   onKickCount,
-  onKickCountHistory,
   onSupplies,
   onCalendar,
   onDoctorReport,
@@ -718,18 +711,6 @@ export function HomeTabScreen({
               onViewAll={onSuggestions}
             />
           )}
-          {/* Quiet kick-count history link (always visible postpartum, spec §4.3) */}
-          {sections.showPostpartumHistoryLink && (
-            <TouchableOpacity
-              testID="home-tab-kick-history-link"
-              style={styles.historyLink}
-              onPress={() => onKickCountHistory?.()}
-              accessibilityRole="link"
-              accessibilityLabel={t('kick.historyLink')}
-            >
-              <Text style={styles.historyLinkText}>{t('kick.historyLink')}</Text>
-            </TouchableOpacity>
-          )}
           {/* Doctor Report entry row — always visible (spec §3.3) */}
           <DoctorReportRow onPress={onDoctorReport} />
         </ScrollView>
@@ -890,21 +871,6 @@ const styles = StyleSheet.create({
     fontFamily: 'IBMPlexSans-SemiBold',
     fontSize: 16,
     color: '#A8505A', // rose/600
-  },
-
-  // Quiet postpartum history link (spec §4.3: ink/soft, 14pt SemiBold, underline)
-  historyLink: {
-    alignSelf: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    minHeight: 44,
-    justifyContent: 'center',
-  },
-  historyLinkText: {
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 14,
-    color: '#5F4A52', // ink/soft
-    textDecorationLine: 'underline',
   },
 
   errorContainer: {

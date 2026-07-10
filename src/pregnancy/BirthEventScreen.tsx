@@ -536,7 +536,7 @@ export function BirthEventScreen({
           accessibilityState={{ disabled: !canSave }}
         >
           {saving ? (
-            <ActivityIndicator color="#FFFFFF" size="small" />
+            <ActivityIndicator color={T.color.text.onDark} size="small" />
           ) : (
             <Text style={[styles.saveBtnText, !canSave && styles.saveBtnTextDisabled]}>
               {t('birth.save')}

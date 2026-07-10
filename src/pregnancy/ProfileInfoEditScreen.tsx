@@ -190,7 +190,7 @@ export function ProfileInfoEditScreen({
           value={value}
           onChangeText={onChangeText}
           placeholder={placeholder}
-          placeholderTextColor="#9CA3AF"
+          placeholderTextColor={T.input.placeholder}
           maxLength={105} // slight buffer; strict 100-char validated before PUT
           autoCorrect={false}
           testID={testID}

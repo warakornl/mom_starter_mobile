@@ -351,7 +351,7 @@ export function DeleteAccountSheet({
             {deleteInFlight ? (
               <ActivityIndicator
                 size="small"
-                color="#FFFFFF"
+                color={T.color.text.onDark}
                 testID="delete-sheet-confirm-spinner"
               />
             ) : (

@@ -46,7 +46,8 @@ import { createCalendarSyncClient } from '../sync/syncClient';
 import { executePush } from '../sync/pushOrchestrator';
 import { localCivilToday } from '../pregnancy/gestationalAge';
 import type { TokenStorage } from '../auth/tokenStorage';
-import type { ReminderRecord, ReminderType, RecurrenceRuleWire } from '../sync/syncTypes';
+import type { ReminderRecord, ReminderType, RecurrenceRuleWire, CareActivityType } from '../sync/syncTypes';
+import { CareActivityTypeControl } from '../autoStockDecrement/CareActivityTypeControl';
 import type { MessageKey } from '../i18n/messages';
 import { formatCivilDate } from '../i18n/messages';
 import type { Locale } from '../auth/types';
@@ -167,6 +168,16 @@ export function ReminderFormScreen({
    */
   const [byDay, setByDay] = useState<string[]>(existingRule?.byDay ?? []);
 
+  /**
+   * careActivityType — tags this reminder as a care activity so that completing it
+   * fires `applyCareActivityTrigger()` for auto-decrement.
+   * US-AS6: null = not a care activity (no trigger, no marker).
+   * INV-ASD-9/5: supply row carries ZERO activity linkage — this is health-side only.
+   */
+  const [careActivityType, setCareActivityType] = useState<CareActivityType | null>(
+    existingReminder?.careActivityType ?? null,
+  );
+
   const [errors, setErrors] = useState<RuleValidationError[]>([]);
   const [titleError, setTitleError] = useState('');
 
@@ -265,6 +276,9 @@ export function ReminderFormScreen({
         recurrenceRule,
         startAt,
         active,
+        // US-AS6: null = not a care activity (no T-D trigger). INV-ASD-9/5: supply row
+        // carries ZERO activity linkage — careActivityType lives health-side only.
+        careActivityType: careActivityType ?? null,
         updatedAt: now,
       };
       calendarSyncStore.enqueueUpdateReminder(updated);
@@ -276,6 +290,7 @@ export function ReminderFormScreen({
         recurrenceRule,
         startAt,
         active,
+        careActivityType: careActivityType ?? null,
         version: 0,
         createdAt: now,
         updatedAt: now,
@@ -458,6 +473,12 @@ export function ReminderFormScreen({
           </TouchableOpacity>
         ))}
       </View>
+
+      {/* Care activity type control — tags the reminder for T-D auto-decrement trigger */}
+      <CareActivityTypeControl
+        value={careActivityType}
+        onChange={setCareActivityType}
+      />
 
       {/* ── Milestone preset templates (B2 ห้องแม่) ──────────────────────────
           Tapping a preset fills the title field with a template.

@@ -17,16 +17,12 @@
  *
  * Navigation: `onSetupComplete` → Home.
  *
- * Design tokens (design-system.md §1–§5):
- *   bg/warm-milk  #FBF6F1
- *   surface/page  #FFFFFF
- *   ink           #3A2A30
- *   ink/soft      #5F4A52
- *   ink/faint     #94818A
- *   rose/300      #DDA0A6   (disabled button fill)
- *   rose/600      #A8505A   (primary button fill)
- *   rose/700      #8E3A44   (pressed / quiet link)
- *   hairline      #EBE1D9
+ * ห้องแม่ Phase 2 B1 reskin (mother-room-phase2-rollout.md §4.1 ProfileSetupScreen).
+ * All tokens from T.* — NO inline hex outside tokens.ts.
+ *
+ * Loss-state gate: when pregnancyStatus === 'LOSS' the forward-looking
+ * confirmation preview card (week count / stage name) is suppressed. The
+ * form itself remains so the user can still update dates.
  *
  * Security: NEVER log the accessToken.  The EDD civil date is minimized
  * (logged nowhere; not a sensitive field by itself but we keep it out of logs
@@ -54,6 +50,7 @@ import type { Stage } from './gestationalAge';
 import type { PregnancyProfile } from './types';
 import { useT } from '../i18n/LanguageContext';
 import { formatCivilDate, type MessageKey } from '../i18n/messages';
+import { T } from '../theme/tokens';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -91,6 +88,15 @@ export interface ProfileSetupScreenProps {
    * Optional — when absent (create flow) the callback is a no-op.
    */
   onDirty?: () => void;
+  /**
+   * Loss-state gate (Phase 2 B1):
+   * When `pregnancyStatus === 'LOSS'`, the forward-looking confirmation preview
+   * card (trimester stage + gestational week countdown) is suppressed.
+   * The EDD form itself remains so the user can still update dates.
+   * Caller reads this from PregnancyProfileContext.pregnancyStatus.
+   * Undefined / absent → treated as non-loss (no suppression).
+   */
+  pregnancyStatus?: string;
 }
 
 // ─── Input method ─────────────────────────────────────────────────────────────
@@ -147,6 +153,7 @@ export function ProfileSetupScreen({
   onSessionExpired,
   onConflict,
   onDirty,
+  pregnancyStatus,
 }: ProfileSetupScreenProps): React.JSX.Element {
   const { t, locale } = useT();
 
@@ -288,6 +295,9 @@ export function ProfileSetupScreen({
   // ─── Live confirmation preview (client-side derived, no network) ──────────
   function renderConfirmationPreview(): React.JSX.Element | null {
     if (!isValid) return null;
+    // Loss-state gate: suppress forward-looking pregnancy preview in loss state.
+    // The form itself (EDD entry) remains available.
+    if (pregnancyStatus === 'LOSS') return null;
 
     const today = localCivilToday();
     let previewEdd: string;
@@ -318,7 +328,7 @@ export function ProfileSetupScreen({
     const formattedEdd = formatCivilDate(previewEdd, locale);
 
     return (
-      <View style={styles.previewCard} accessibilityRole="text">
+      <View testID="profile-preview-card" style={styles.previewCard} accessibilityRole="text">
         <Text
           style={styles.previewGlyph}
           accessibilityElementsHidden={true}
@@ -553,7 +563,7 @@ export function ProfileSetupScreen({
           accessibilityHint={!isValid ? t('profile.emptyHint') : undefined}
         >
           {saving ? (
-            <ActivityIndicator color="#FFFFFF" size="small" />
+            <ActivityIndicator color={T.button.primary.text} size="small" />
           ) : (
             <Text style={styles.primaryBtnText}>
               {existingProfile ? t('profile.save') : t('profile.next')}
@@ -587,7 +597,7 @@ export function ProfileSetupScreen({
               value={dateInputText}
               onChangeText={setDateInputText}
               placeholder="2026-11-20"
-              placeholderTextColor="#94818A"
+              placeholderTextColor={T.input.placeholder}
               keyboardType={Platform.OS === 'ios' ? 'numbers-and-punctuation' : 'default'}
               maxLength={10}
               autoFocus
@@ -631,7 +641,7 @@ export function ProfileSetupScreen({
               value={lmpInputText}
               onChangeText={setLmpInputText}
               placeholder="2026-02-13"
-              placeholderTextColor="#94818A"
+              placeholderTextColor={T.input.placeholder}
               keyboardType={Platform.OS === 'ios' ? 'numbers-and-punctuation' : 'default'}
               maxLength={10}
               autoFocus
@@ -671,49 +681,52 @@ export function ProfileSetupScreen({
   );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
+// ─── Styles — ALL values from T.* tokens; NO inline hex ──────────────────────
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FBF6F1',
+    backgroundColor: T.color.surface.base,              // #FBF6F1
   },
   scroll: {
     flex: 1,
   },
   scrollContent: {
-    padding: 24,
-    gap: 16,
+    padding: T.spacing[6],                              // 24dp
+    gap: T.spacing[4],                                  // 16dp
   },
 
   // Headline
   headline: {
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 28,
-    lineHeight: 38,
-    color: '#3A2A30',
-    marginBottom: 4,
+    fontFamily: T.type.heading1.fontFamily,             // Sarabun-SemiBold
+    fontSize: T.type.heading1.size,                     // 24sp
+    lineHeight: T.type.heading1.lineHeight,             // 39
+    color: T.color.text.heading,                        // #4A2230
+    marginBottom: T.spacing[1],                         // 4dp
+    letterSpacing: 0,
   },
   subline: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 16,
-    lineHeight: 25,
-    color: '#5F4A52',
-    marginBottom: 8,
+    fontFamily: T.type.body.fontFamily,                 // Sarabun-Regular
+    fontSize: T.type.body.size,                         // 15sp
+    lineHeight: T.type.body.lineHeight,                 // 25
+    color: T.color.text.primary,                        // #7A3A52 (NOT #5F4A52)
+    marginBottom: T.spacing[2],                         // 8dp
+    letterSpacing: 0,
   },
 
   // Segmented control
   sectionLabel: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 15,
-    lineHeight: 22,
-    color: '#5F4A52',
-    marginBottom: 8,
+    fontFamily: T.type.body.fontFamily,                 // Sarabun-Regular
+    fontSize: T.type.body.size,                         // 15sp
+    lineHeight: T.type.body.lineHeight,                 // 25
+    color: T.color.text.primary,                        // #7A3A52 (NOT #5F4A52)
+    marginBottom: T.spacing[2],                         // 8dp
+    letterSpacing: 0,
   },
   segmentRow: {
     flexDirection: 'row',
-    gap: 8,
-    marginBottom: 16,
+    gap: T.spacing[2],                                  // 8dp
+    marginBottom: T.spacing[4],                         // 16dp
   },
   segmentBtn: {
     flex: 1,
@@ -721,79 +734,84 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 52,
-    borderRadius: 999,
+    borderRadius: T.radius.pill,                        // 999
     borderWidth: 1.5,
-    borderColor: '#EBE1D9',
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 12,
+    borderColor: T.color.surface.divider,               // #E8DDD5 (NOT #EBE1D9)
+    backgroundColor: T.color.surface.base,              // #FBF6F1 ivory-100 (NOT white)
+    paddingHorizontal: T.spacing[3],                    // 12dp
   },
   segmentBtnSelected: {
-    backgroundColor: '#A8505A',
-    borderColor: '#A8505A',
+    backgroundColor: T.color.surface.wash.roselle,      // roselle-200 (NOT #A8505A)
+    borderColor: T.color.surface.wash.roselle,          // roselle-200
   },
   segmentCheckMark: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 15,
-    color: '#FFFFFF',
+    fontFamily: T.type.label.fontFamily,                // Sarabun-SemiBold
+    fontSize: T.type.label.size,                        // 15sp
+    color: T.color.text.heading,                        // #4A2230 roselle-900 (NOT white — no contrast issue)
+    letterSpacing: 0,
   },
   segmentLabel: {
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 15,
-    lineHeight: 22,
-    color: '#3A2A30',
+    fontFamily: T.type.label.fontFamily,                // Sarabun-SemiBold
+    fontSize: T.type.label.size,                        // 15sp
+    lineHeight: T.type.label.lineHeight,                // 25
+    color: T.color.text.primary,                        // #7A3A52 (NOT #3A2A30)
     textAlign: 'center',
+    letterSpacing: 0,
   },
   segmentLabelSelected: {
-    color: '#FFFFFF',
+    color: T.color.text.heading,                        // #4A2230 roselle-900 (9.50:1 on roselle-200 AAA ✓)
   },
 
   // Field label
   fieldLabel: {
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 15,
-    lineHeight: 22,
-    color: '#3A2A30',
-    marginBottom: 8,
+    fontFamily: T.type.label.fontFamily,                // Sarabun-SemiBold
+    fontSize: T.type.label.size,                        // 15sp
+    lineHeight: T.type.label.lineHeight,                // 25
+    color: T.color.text.heading,                        // #4A2230
+    marginBottom: T.spacing[2],                         // 8dp
+    letterSpacing: 0,
   },
 
   // Date field (§2.2)
   dateField: {
     flexDirection: 'row',
     alignItems: 'center',
-    minHeight: 56,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
+    minHeight: T.input.height,                          // 52dp
+    backgroundColor: T.input.bg,                        // #F5EDE6 ivory-200 (NOT white)
+    borderRadius: T.radius.md,                          // 12dp
     borderWidth: 1,
-    borderColor: '#EBE1D9',
-    paddingHorizontal: 16,
+    borderColor: T.input.border.default,                // #E8DDD5 (NOT #EBE1D9)
+    paddingHorizontal: T.spacing[4],                    // 16dp
   },
   dateFieldText: {
     flex: 1,
-    fontFamily: 'IBMPlexMono-Medium',
-    fontSize: 16,
-    lineHeight: 24,
-    color: '#3A2A30',
+    fontFamily: T.type.bodyLarge.fontFamily,            // Sarabun-Regular (NOT IBMPlexMono)
+    fontSize: T.type.bodyLarge.size,                    // 17sp
+    lineHeight: T.type.bodyLarge.lineHeight,            // 28
+    color: T.input.text,                                // #4A2230 roselle-900
+    letterSpacing: 0,
   },
   dateFieldPlaceholder: {
-    color: '#94818A',
+    color: T.input.placeholder,                         // #7A3A52 (NOT banned #94818A)
   },
   dateFieldChevron: {
-    fontFamily: 'IBMPlexSans-Regular',
+    fontFamily: T.type.body.fontFamily,                 // Sarabun-Regular
     fontSize: 20,
-    color: '#5F4A52',
+    color: T.color.text.primary,                        // #7A3A52 (NOT #5F4A52)
   },
 
   // LMP quiet link (§2.4)
   quietLink: {
     minHeight: 48,
     justifyContent: 'center',
-    marginTop: 8,
+    marginTop: T.spacing[2],                            // 8dp
   },
   quietLinkText: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 14,
-    lineHeight: 21,
-    color: '#8E3A44',
+    fontFamily: T.type.body.fontFamily,                 // Sarabun-Regular
+    fontSize: T.type.body.size,                         // 15sp
+    lineHeight: T.type.body.lineHeight,                 // 25
+    color: T.color.text.primary,                        // #7A3A52 (NOT old rose/700 #8E3A44)
+    letterSpacing: 0,
   },
 
   // Week stepper (§2.3)
@@ -801,12 +819,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
+    backgroundColor: T.color.surface.subtle,            // #F5EDE6 ivory-200 (NOT white)
+    borderRadius: T.radius.md,                          // 12dp
     borderWidth: 1,
-    borderColor: '#EBE1D9',
-    minHeight: 56,
-    paddingHorizontal: 8,
+    borderColor: T.color.surface.divider,               // #E8DDD5 (NOT #EBE1D9)
+    minHeight: T.input.height,                          // 52dp
+    paddingHorizontal: T.spacing[2],                    // 8dp
   },
   stepperBtn: {
     width: 48,
@@ -815,201 +833,221 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   stepperBtnText: {
-    fontFamily: 'IBMPlexMono-Medium',
+    fontFamily: T.type.label.fontFamily,                // Sarabun-SemiBold (NOT IBMPlexMono)
     fontSize: 24,
-    color: '#A8505A',
+    color: T.color.accent.interactive,                  // #9A5F0A amber-700 (NOT #A8505A)
+    letterSpacing: 0,
   },
   stepperBtnDisabled: {
-    color: '#DDA0A6',
+    color: T.color.surface.divider,                     // #E8DDD5 (NOT banned #DDA0A6)
   },
   stepperValue: {
-    fontFamily: 'IBMPlexMono-Medium',
-    fontSize: 18,
-    lineHeight: 26,
-    color: '#3A2A30',
+    fontFamily: T.type.bodyLarge.fontFamily,            // Sarabun-Regular (NOT IBMPlexMono)
+    fontSize: T.type.bodyLarge.size,                    // 17sp
+    lineHeight: T.type.bodyLarge.lineHeight,            // 28
+    color: T.color.text.heading,                        // #4A2230 (NOT #3A2A30)
     textAlign: 'center',
+    letterSpacing: 0,
   },
 
   // Stage echo (live, updates on step)
   stageEcho: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    marginTop: 12,
-    paddingHorizontal: 4,
+    gap: T.spacing[2],                                  // 8dp
+    marginTop: T.spacing[3],                            // 12dp
+    paddingHorizontal: T.spacing[1],                    // 4dp
   },
   stageEchoGlyph: {
     fontSize: 20,
   },
   stageEchoText: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 15,
-    lineHeight: 22,
-    color: '#5F4A52',
+    fontFamily: T.type.body.fontFamily,                 // Sarabun-Regular
+    fontSize: T.type.body.size,                         // 15sp
+    lineHeight: T.type.body.lineHeight,                 // 25
+    color: T.color.text.primary,                        // #7A3A52 (NOT #5F4A52)
+    letterSpacing: 0,
   },
 
   // Confirmation preview (§2.5 mini — full confirmation is on navigate)
   previewCard: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: T.color.surface.subtle,            // #F5EDE6 ivory-200 (NOT white)
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#EBE1D9',
+    borderColor: T.color.surface.divider,               // #E8DDD5 (NOT #EBE1D9)
     padding: 20,
     alignItems: 'center',
-    gap: 8,
-    marginVertical: 8,
+    gap: T.spacing[2],                                  // 8dp
+    marginVertical: T.spacing[2],                       // 8dp
   },
   previewGlyph: {
     fontSize: 36,
     lineHeight: 48,
   },
   previewStage: {
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 18,
-    lineHeight: 28,
-    color: '#3A2A30',
+    fontFamily: T.type.heading2.fontFamily,             // Sarabun-SemiBold (NOT IBMPlex)
+    fontSize: T.type.heading2.size,                     // 20sp
+    lineHeight: T.type.heading2.lineHeight,             // 33
+    color: T.color.text.heading,                        // #4A2230 (NOT #3A2A30)
     textAlign: 'center',
+    letterSpacing: 0,
   },
   previewEdd: {
-    fontFamily: 'IBMPlexMono-Medium',
-    fontSize: 14,
-    lineHeight: 21,
-    color: '#5F4A52',
+    fontFamily: T.type.caption.fontFamily,              // Sarabun-Regular (NOT IBMPlexMono)
+    fontSize: T.type.caption.size,                      // 13sp
+    lineHeight: T.type.caption.lineHeight,              // 21
+    color: T.color.text.primary,                        // #7A3A52 (NOT #5F4A52)
     textAlign: 'center',
+    letterSpacing: 0,
   },
   deliveryChip: {
-    backgroundColor: '#F4D9DC',
-    borderRadius: 999,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
+    backgroundColor: T.color.surface.wash.roselle,      // roselle-200 wash (NOT #F4D9DC raw)
+    borderRadius: T.radius.pill,                        // 999
+    paddingHorizontal: T.spacing[3],                    // 12dp
+    paddingVertical: T.spacing[1],                      // 4dp
   },
   deliveryChipText: {
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 13,
-    color: '#8E3A44',
+    fontFamily: T.type.caption.fontFamily,              // Sarabun-Regular (NOT IBMPlex)
+    fontSize: T.type.caption.size,                      // 13sp
+    lineHeight: T.type.caption.lineHeight,              // 21
+    color: T.color.text.heading,                        // #4A2230 (NOT old rose/700 #8E3A44)
+    letterSpacing: 0,
   },
 
   // Error
   errorText: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 14,
-    lineHeight: 21,
-    color: '#8E3A44',
+    fontFamily: T.type.body.fontFamily,                 // Sarabun-Regular
+    fontSize: T.type.body.size,                         // 15sp
+    lineHeight: T.type.body.lineHeight,                 // 25
+    color: T.color.text.primary,                        // #7A3A52 (NOT old rose/700 #8E3A44)
     textAlign: 'center',
+    letterSpacing: 0,
   },
 
-  // Primary button
+  // Primary button — amber-700
   primaryBtn: {
-    height: 52,
-    backgroundColor: '#A8505A',
-    borderRadius: 999,
+    height: T.button.primary.height,                    // 52dp
+    backgroundColor: T.button.primary.bg,               // #9A5F0A amber-700 (NOT #A8505A)
+    borderRadius: T.button.primary.radius,              // 14dp
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 8,
+    marginTop: T.spacing[2],                            // 8dp
   },
   primaryBtnDisabled: {
-    backgroundColor: '#DDA0A6',
+    backgroundColor: 'rgba(154, 95, 10, 0.45)',         // amber-700 45% disabled (NOT #DDA0A6)
   },
   primaryBtnText: {
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 15,
-    color: '#FFFFFF',
+    fontFamily: T.type.label.fontFamily,                // Sarabun-SemiBold
+    fontSize: T.type.label.size,                        // 15sp
+    lineHeight: T.type.label.lineHeight,                // 25
+    color: T.button.primary.text,                       // #FBF6F1
+    letterSpacing: 0,
   },
 
   // Empty-state visible hint (§6.1)
   emptyHint: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 16,
-    lineHeight: 25,
-    color: '#5F4A52',
+    fontFamily: T.type.body.fontFamily,                 // Sarabun-Regular
+    fontSize: T.type.body.size,                         // 15sp
+    lineHeight: T.type.body.lineHeight,                 // 25
+    color: T.color.text.primary,                        // #7A3A52 (NOT #5F4A52)
     textAlign: 'center',
+    letterSpacing: 0,
   },
 
   // Footnote
   footnote: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 13,
-    lineHeight: 19,
-    color: '#94818A',
+    fontFamily: T.type.caption.fontFamily,              // Sarabun-Regular
+    fontSize: T.type.caption.size,                      // 13sp
+    lineHeight: T.type.caption.lineHeight,              // 21
+    color: T.color.text.primary,                        // #7A3A52 (NOT banned #94818A)
     textAlign: 'center',
-    marginTop: 4,
+    marginTop: T.spacing[1],                            // 4dp
+    letterSpacing: 0,
   },
 
-  // Modal
+  // Modal (LMP helper + date picker) — surface.subtle bg, radius.lg top corners
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(58,42,48,0.5)',
+    backgroundColor: 'rgba(58,42,48,0.5)',              // overlay — not a color token
     justifyContent: 'flex-end',
   },
   modalCard: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 24,
-    gap: 16,
+    backgroundColor: T.color.surface.subtle,            // #F5EDE6 ivory-200 (NOT white)
+    borderTopLeftRadius: T.radius.lg,                   // 20dp
+    borderTopRightRadius: T.radius.lg,                  // 20dp
+    padding: T.spacing[6],                              // 24dp
+    gap: T.spacing[4],                                  // 16dp
   },
   modalTitle: {
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 18,
-    lineHeight: 28,
-    color: '#3A2A30',
+    fontFamily: T.type.heading2.fontFamily,             // Sarabun-SemiBold
+    fontSize: T.type.heading2.size,                     // 20sp
+    lineHeight: T.type.heading2.lineHeight,             // 33
+    color: T.color.text.heading,                        // #4A2230 (NOT #3A2A30)
+    letterSpacing: 0,
   },
   modalHint: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 14,
-    lineHeight: 21,
-    color: '#5F4A52',
+    fontFamily: T.type.body.fontFamily,                 // Sarabun-Regular
+    fontSize: T.type.body.size,                         // 15sp
+    lineHeight: T.type.body.lineHeight,                 // 25
+    color: T.color.text.primary,                        // #7A3A52 (NOT #5F4A52)
+    letterSpacing: 0,
   },
   modalInput: {
-    height: 52,
+    height: T.input.height,                             // 52dp
     borderWidth: 1,
-    borderColor: '#EBE1D9',
-    borderRadius: 14,
-    paddingHorizontal: 16,
-    fontFamily: 'IBMPlexMono-Medium',
-    fontSize: 16,
-    color: '#3A2A30',
-    backgroundColor: '#FBF6F1',
+    borderColor: T.input.border.default,                // #E8DDD5 (NOT #EBE1D9)
+    borderRadius: T.radius.md,                          // 12dp
+    paddingHorizontal: T.spacing[4],                    // 16dp
+    fontFamily: T.type.bodyLarge.fontFamily,            // Sarabun-Regular (NOT IBMPlexMono)
+    fontSize: T.type.bodyLarge.size,                    // 17sp
+    color: T.input.text,                                // #4A2230
+    backgroundColor: T.input.bg,                        // #F5EDE6 ivory-200 (NOT surface.base)
+    letterSpacing: 0,
   },
   lmpEstimate: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 14,
-    lineHeight: 21,
-    color: '#5F4A52',
-    backgroundColor: '#FBF6F1',
-    borderRadius: 8,
-    padding: 12,
+    fontFamily: T.type.body.fontFamily,                 // Sarabun-Regular
+    fontSize: T.type.body.size,                         // 15sp
+    lineHeight: T.type.body.lineHeight,                 // 25
+    color: T.color.text.primary,                        // #7A3A52 (NOT #5F4A52)
+    backgroundColor: T.color.surface.base,              // #FBF6F1 ivory-100
+    borderRadius: T.radius.sm,                          // 6dp
+    padding: T.spacing[3],                              // 12dp
+    letterSpacing: 0,
   },
   modalBtnRow: {
     flexDirection: 'row',
-    gap: 12,
-    marginTop: 4,
+    gap: T.spacing[3],                                  // 12dp
+    marginTop: T.spacing[1],                            // 4dp
   },
   modalBtnSecondary: {
     flex: 1,
-    height: 52,
+    height: T.button.primary.height,                    // 52dp
     borderWidth: 1,
-    borderColor: '#EBE1D9',
-    borderRadius: 999,
+    borderColor: T.color.surface.divider,               // #E8DDD5 (NOT #EBE1D9)
+    borderRadius: T.radius.pill,                        // 999
     alignItems: 'center',
     justifyContent: 'center',
   },
   modalBtnSecondaryText: {
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 15,
-    color: '#5F4A52',
+    fontFamily: T.type.label.fontFamily,                // Sarabun-SemiBold
+    fontSize: T.type.label.size,                        // 15sp
+    lineHeight: T.type.label.lineHeight,                // 25
+    color: T.color.text.primary,                        // #7A3A52 (NOT #5F4A52)
+    letterSpacing: 0,
   },
   modalBtnPrimary: {
     flex: 1,
-    height: 52,
-    backgroundColor: '#A8505A',
-    borderRadius: 999,
+    height: T.button.primary.height,                    // 52dp
+    backgroundColor: T.button.primary.bg,               // #9A5F0A amber-700 (NOT #A8505A)
+    borderRadius: T.radius.pill,                        // 999
     alignItems: 'center',
     justifyContent: 'center',
   },
   modalBtnPrimaryText: {
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 15,
-    color: '#FFFFFF',
+    fontFamily: T.type.label.fontFamily,                // Sarabun-SemiBold
+    fontSize: T.type.label.size,                        // 15sp
+    lineHeight: T.type.label.lineHeight,                // 25
+    color: T.button.primary.text,                       // #FBF6F1
+    letterSpacing: 0,
   },
 });

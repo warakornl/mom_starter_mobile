@@ -45,6 +45,7 @@ import {
 import { matchesConfirmWord, CONFIRM_WORDS } from './confirmWordMatch';
 import type { SupportedLocale } from './confirmWordMatch';
 import { useT } from '../i18n/LanguageContext';
+import { T } from '../theme/tokens';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -262,7 +263,7 @@ export function DeleteAccountSheet({
               // confirm word. Removing the dead confirmPlaceholder i18n key prevents
               // matcher and UI from ever drifting out of sync.
               placeholder={CONFIRM_WORDS[locale]}
-              placeholderTextColor="#94818A"
+              placeholderTextColor={T.input.placeholder}
               autoCapitalize="none"
               autoCorrect={false}
               editable={!deleteInFlight}
@@ -394,41 +395,26 @@ export function DeleteAccountSheet({
   );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
-// Tokens match the ManageConsents sheet pattern (same overlay + sheet + handle).
-// Destructive variant: rose/700 (#9B1C35) for title + confirm button.
-// Error/degrade notices: honey/100 (#FBE9D2) warm amber — NOT alarming red.
-
-const ROSE_700 = '#9B1C35';   // destructive rose (design-system §5.1)
-const HONEY_100 = '#FBE9D2';  // amber background — non-alarming (§3.6, §2.3)
-const HONEY_BORDER = '#E9C097'; // amber border
-const HONEY_700 = '#92400E';  // amber text
-const INK = '#3A2A30';
-const INK_SOFT = '#5F4A52';
-const INK_FAINT = '#94818A';
-const SURFACE_PAGE = '#FFFFFF';
-const SURFACE_PAGE_SUNK = '#F5F0ED';
-const HAIRLINE = '#EBE1D9';
-const SAGE_500 = '#4A7A56';   // matched state border
+// ─── Styles — ห้องแม่ Phase 2 B4: full semantic T.* migration ────────────────
+// CTA (confirmBtn): amber-700 (T.button.primary.bg) per B4 spec — NOT clinical red.
+// Error/degrade notices: T.color.surface.wash.amber — warm, non-alarming.
+// PDPA trust: title/cancel use T.color.text.heading (roselle-900, legible).
 
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(58, 42, 48, 0.5)',
+    backgroundColor: T.scrim.color,
     justifyContent: 'flex-end',
   },
   sheet: {
-    backgroundColor: SURFACE_PAGE,
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    backgroundColor: T.color.surface.subtle,
+    borderTopLeftRadius: T.radius.lg,
+    borderTopRightRadius: T.radius.lg,
     maxHeight: '92%',
-    // elevation/shadow matching ManageConsents sheet (elev/2)
     ...(Platform.OS === 'android'
       ? { elevation: 8 }
       : {
-          shadowColor: INK,
-          shadowOpacity: 0.18,
-          shadowRadius: 12,
+          ...T.elev[2],
           shadowOffset: { width: 0, height: -4 },
         }),
   },
@@ -441,80 +427,82 @@ const styles = StyleSheet.create({
     width: 40,
     height: 4,
     borderRadius: 2,
-    backgroundColor: HAIRLINE,
+    backgroundColor: T.color.surface.divider,
     alignSelf: 'center',
     marginBottom: 20,
   },
 
-  // Title
+  // Title — roselle-900, legible (PDPA trust marker)
   sheetTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: ROSE_700,
+    fontFamily: T.type.label.fontFamily,
+    fontSize: T.type.heading2.size,
+    lineHeight: T.type.heading2.lineHeight,
+    color: T.color.text.heading,
     marginBottom: 16,
-    lineHeight: 28,
   },
 
   // Disclosure
   disclosureBlock: {
-    backgroundColor: SURFACE_PAGE_SUNK,
-    borderRadius: 10,
+    backgroundColor: T.color.surface.base,
+    borderRadius: T.radius.md,
     padding: 14,
     marginBottom: 16,
   },
   disclosureItem: {
-    fontSize: 14,
-    lineHeight: 22,
-    color: INK_SOFT,
+    fontFamily: T.type.caption.fontFamily,
+    fontSize: T.type.caption.size,
+    lineHeight: T.type.caption.lineHeight,
+    color: T.color.text.primary,
     marginBottom: 8,
   },
 
   // Nudge
   nudgeBlock: {
     borderWidth: 1,
-    borderColor: HAIRLINE,
-    borderRadius: 10,
+    borderColor: T.color.surface.divider,
+    borderRadius: T.radius.md,
     padding: 14,
     marginBottom: 16,
-    backgroundColor: SURFACE_PAGE,
+    backgroundColor: T.color.surface.subtle,
   },
   nudgeTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: INK,
+    fontFamily: T.type.label.fontFamily,
+    fontSize: T.type.body.size,
+    lineHeight: T.type.body.lineHeight,
+    color: T.color.text.heading,
     marginBottom: 6,
   },
   nudgeBody: {
-    fontSize: 13,
-    lineHeight: 20,
-    color: INK_SOFT,
+    fontFamily: T.type.caption.fontFamily,
+    fontSize: T.type.caption.size,
+    lineHeight: T.type.caption.lineHeight,
+    color: T.color.text.primary,
     marginBottom: 12,
   },
   nudgeDownloadBtn: {
-    // ≥ 48dp touch target (UI spec §5.1)
     minHeight: 48,
-    borderRadius: 10,
+    borderRadius: T.radius.md,
     borderWidth: 1.5,
-    borderColor: ROSE_700,
+    borderColor: T.color.accent.identity,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 8,
     paddingHorizontal: 16,
   },
   nudgeDownloadBtnLabel: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: ROSE_700,
+    fontFamily: T.type.label.fontFamily,
+    fontSize: T.type.body.size,
+    color: T.color.text.primary,
   },
   nudgeSkipBtn: {
-    // ≥ 44dp touch target for quiet link (UI spec §5.1)
     minHeight: 44,
     alignItems: 'center',
     justifyContent: 'center',
   },
   nudgeSkipBtnLabel: {
-    fontSize: 14,
-    color: INK_FAINT,
+    fontFamily: T.type.caption.fontFamily,
+    fontSize: T.type.caption.size,
+    color: T.color.text.primary,
     textDecorationLine: 'underline',
   },
 
@@ -523,90 +511,91 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   confirmLabel: {
-    fontSize: 14,
-    color: INK,
+    fontFamily: T.type.caption.fontFamily,
+    fontSize: T.type.caption.size,
+    color: T.color.text.heading,
     marginBottom: 8,
-    fontWeight: '500',
   },
   confirmInput: {
-    // ≥ 48dp touch target (UI spec §5.1)
-    minHeight: 48,
-    backgroundColor: SURFACE_PAGE,
+    minHeight: T.input.height,
+    backgroundColor: T.input.bg,
     borderWidth: 1.5,
-    borderColor: HAIRLINE,
-    borderRadius: 10,
+    borderColor: T.input.border.default,
+    borderRadius: T.radius.md,
     paddingHorizontal: 16,
     paddingVertical: 12,
-    fontSize: 16,
-    color: INK,
+    fontFamily: T.type.body.fontFamily,
+    fontSize: T.type.body.size,
+    color: T.input.text,
   },
   confirmInputFocused: {
-    // M-3: honey/700 2px focus ring — warm, non-destructive focus signal (§3.5)
-    borderColor: HONEY_700,
+    // M-3: amber-600 2px focus ring — warm, non-destructive focus signal (§3.5)
+    borderColor: T.input.border.focused,
     borderWidth: 2,
   },
   confirmInputMatched: {
     // Subtle positive signal when floor is satisfied (§3.5)
-    borderColor: SAGE_500,
+    borderColor: T.color.state.success,
     borderWidth: 1.5,
   },
   confirmInputDisabled: {
-    backgroundColor: SURFACE_PAGE_SUNK,
-    color: INK_FAINT,
+    backgroundColor: T.color.surface.base,
+    color: T.color.text.primary,
   },
 
-  // stepUpDegraded notice (§3.6 — warm amber, NOT red)
+  // stepUpDegraded notice (§3.6 — warm amber wash, NOT red)
   degradeNotice: {
     flexDirection: 'row',
-    backgroundColor: HONEY_100,
+    backgroundColor: T.color.surface.wash.amber,
     borderWidth: 1,
-    borderColor: HONEY_BORDER,
-    borderRadius: 10,
+    borderColor: T.color.surface.divider,
+    borderRadius: T.radius.md,
     padding: 12,
     marginBottom: 12,
     alignItems: 'flex-start',
   },
   degradeNoticeText: {
     flex: 1,
-    fontSize: 13,
-    lineHeight: 20,
-    color: HONEY_700,
+    fontFamily: T.type.caption.fontFamily,
+    fontSize: T.type.caption.size,
+    lineHeight: T.type.caption.lineHeight,
+    color: T.color.text.primary,
   },
 
-  // DELETE_ERROR card (§3.7 — same warm amber style as EXPORT_ERROR)
+  // DELETE_ERROR card (§3.7 — same warm amber wash as degrade notice)
   deleteErrorCard: {
-    backgroundColor: HONEY_100,
+    backgroundColor: T.color.surface.wash.amber,
     borderWidth: 1,
-    borderColor: HONEY_BORDER,
-    borderRadius: 10,
+    borderColor: T.color.surface.divider,
+    borderRadius: T.radius.md,
     padding: 12,
     marginBottom: 12,
   },
   deleteErrorTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: INK,
+    fontFamily: T.type.label.fontFamily,
+    fontSize: T.type.caption.size,
+    color: T.color.text.heading,
     marginBottom: 4,
   },
   deleteErrorBody: {
-    fontSize: 13,
-    lineHeight: 20,
-    color: INK_SOFT,
+    fontFamily: T.type.caption.fontFamily,
+    fontSize: T.type.caption.size,
+    lineHeight: T.type.caption.lineHeight,
+    color: T.color.text.primary,
   },
 
   // Divider
   divider: {
     height: 1,
-    backgroundColor: HAIRLINE,
+    backgroundColor: T.color.surface.divider,
     marginVertical: 16,
   },
 
-  // Confirm button (§3.3)
+  // Confirm button (§3.3) — amber-700 per B4 spec (NOT clinical red)
   confirmBtn: {
-    // ≥ 52dp for destructive confirm (UI spec §5.1)
-    minHeight: 52,
-    backgroundColor: ROSE_700,
-    borderRadius: 26, // radius/pill
+    minHeight: T.button.primary.height,
+    backgroundColor: T.button.primary.bg,
+    borderRadius: T.radius.pill,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 12,
@@ -614,12 +603,11 @@ const styles = StyleSheet.create({
   },
   confirmBtnDisabled: {
     opacity: 0.4,
-    // pointer-events handled via pointerEvents prop — not here
   },
   confirmBtnLabel: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '700',
+    fontFamily: T.type.label.fontFamily,
+    fontSize: T.type.body.size,
+    color: T.color.text.onDark,
   },
 
   // Cancel button (§3.4 — quiet, ≥ 44dp)
@@ -633,12 +621,12 @@ const styles = StyleSheet.create({
     opacity: 0.4,
   },
   cancelBtnLabel: {
-    color: ROSE_700,
-    fontSize: 16,
-    fontWeight: '600',
+    fontFamily: T.type.label.fontFamily,
+    fontSize: T.type.body.size,
+    color: T.color.text.heading,
   },
   cancelBtnLabelDisabled: {
-    color: INK_FAINT,
+    color: T.color.text.primary,
   },
 
   bottomSpacer: {

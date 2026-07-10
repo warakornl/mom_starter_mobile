@@ -364,3 +364,74 @@ describe('CalendarScreen — ห้องแม่ Phase 2 B2 reskin', () => {
     expect(result).toHaveLength(1);
   });
 });
+
+// ─── kickCountItems session-row loss gate (BLOCKER B) ─────────────────────────
+//
+// CalendarScreen.tsx rendered kick-count SESSION rows bypass filterLossStateItems
+// (they come from kickCountSyncStore.getActiveSessions(), not from reminder occurrences).
+// The fix gates the kickCountItems useMemo itself: lifecycle==='ended' → returns [].
+//
+// These tests render CalendarScreen with a mocked getKickCountSessionsForDate that
+// returns a non-empty session and assert the session is ABSENT when lifecycle='ended'
+// and PRESENT when 'pregnant'/undefined — proving the useMemo gate is load-bearing.
+
+const { getKickCountSessionsForDate } = jest.requireMock('./kickCountAgenda') as {
+  getKickCountSessionsForDate: jest.Mock;
+};
+
+const fakeSession = {
+  id: 'ks-1',
+  movementCount: 10,
+  timeLabel: '09:00–09:30',
+};
+
+describe('CalendarScreen — kickCountItems session-row loss gate (B2 BLOCKER B)', () => {
+  beforeEach(() => {
+    // Make getKickCountSessionsForDate return a real session so we can assert its absence.
+    getKickCountSessionsForDate.mockReturnValue([fakeSession]);
+  });
+
+  afterEach(() => {
+    getKickCountSessionsForDate.mockReturnValue([]);
+  });
+
+  it('LOSS-GATE: kick-count session row is ABSENT when lifecycle = "ended"', () => {
+    const tree = CalendarScreen({
+      ...baseProps,
+      lifecycle: 'ended',
+    }) as React.ReactElement;
+    const kickRows = findAll(tree, (el) => {
+      const p = el.props as Record<string, unknown>;
+      return p.testID === 'calendar-kickcount-item';
+    });
+    // When lifecycle='ended' kickCountItems must be [] — no session rows rendered.
+    expect(kickRows).toHaveLength(0);
+  });
+
+  it('FAIL-ON-REVERT: kick-count session row IS present when lifecycle = "pregnant"', () => {
+    // Removing the gate makes kickCountItems always return sessions →
+    // LOSS-GATE above goes RED; this test stays GREEN — proving the gate is load-bearing.
+    const tree = CalendarScreen({
+      ...baseProps,
+      lifecycle: 'pregnant',
+    }) as React.ReactElement;
+    const kickRows = findAll(tree, (el) => {
+      const p = el.props as Record<string, unknown>;
+      return p.testID === 'calendar-kickcount-item';
+    });
+    expect(kickRows.length).toBeGreaterThan(0);
+  });
+
+  it('GAP-2: kick-count session row IS present when lifecycle = undefined', () => {
+    // undefined lifecycle must NOT suppress (not a loss state per GAP-2).
+    const tree = CalendarScreen({
+      ...baseProps,
+      // lifecycle absent = undefined
+    }) as React.ReactElement;
+    const kickRows = findAll(tree, (el) => {
+      const p = el.props as Record<string, unknown>;
+      return p.testID === 'calendar-kickcount-item';
+    });
+    expect(kickRows.length).toBeGreaterThan(0);
+  });
+});

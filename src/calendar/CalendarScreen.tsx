@@ -616,14 +616,20 @@ export function CalendarScreen({
   // refreshKey keeps this in sync with the calendar store refresh cycle
   // (same pattern as checklistMap / occurrenceMap above).
   // Security (K-8): NEVER log movementCount or any session field.
+  //
+  // B2 loss-state gate: suppress kick-count session rows when lifecycle='ended'
+  // (HomeTabScreen §863 hides the kick-count module in loss state — calendar must
+  // be consistent). GAP-2: undefined lifecycle must NOT suppress (not a loss state).
   const kickCountItems = useMemo(
-    () => getKickCountSessionsForDate(
-      kickCountSyncStore.getActiveSessions(),
-      selectedDate,
-      bucketCivilDay,
-    ),
+    () => lifecycle === 'ended'
+      ? []
+      : getKickCountSessionsForDate(
+          kickCountSyncStore.getActiveSessions(),
+          selectedDate,
+          bucketCivilDay,
+        ),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [selectedDate, refreshKey],
+    [selectedDate, refreshKey, lifecycle],
   );
 
   // Monthly grid
@@ -1295,11 +1301,11 @@ const styles = StyleSheet.create({
   addBtnText: {
     fontFamily: T.type.caption.fontFamily,
     fontSize: 12,
-    color: '#FFFFFF',
+    color: T.color.text.onDark,
     fontWeight: '600',
   },
-  addBtnTextSecondary: { color: '#FFFFFF' },
-  addBtnTextCapture: { color: '#FFFFFF' },
+  addBtnTextSecondary: { color: T.color.text.onDark },
+  addBtnTextCapture: { color: T.color.text.onDark },
 
   emptyState: {
     alignItems: 'center',

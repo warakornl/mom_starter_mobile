@@ -53,6 +53,7 @@ import { buildBeforeRemoveHandler } from './profileEditBeforeRemoveHandler';
 import type { BeforeRemoveEvent } from './profileEditBeforeRemoveHandler';
 import type { EditGetOutcome } from './profileEditLogic';
 import { useT } from '../i18n/LanguageContext';
+import { T } from '../theme/tokens';
 
 // ─── Navigation interface (minimal — only what AC-15 needs) ───────────────────
 
@@ -193,7 +194,7 @@ export function ProfileEditScreen({
       <SafeAreaView style={styles.centeredContainer}>
         <ActivityIndicator
           size="large"
-          color="#A8505A"
+          color={T.color.accent.interactive}
           testID="profile-edit-loading"
           accessibilityLabel={t('profile.editLoading')}
         />
@@ -243,7 +244,7 @@ export function ProfileEditScreen({
   if (outcome.type !== 'show-form') {
     return (
       <SafeAreaView style={styles.centeredContainer}>
-        <ActivityIndicator size="large" color="#A8505A" />
+        <ActivityIndicator size="large" color={T.color.accent.interactive} />
       </SafeAreaView>
     );
   }
@@ -300,62 +301,63 @@ export function ProfileEditScreen({
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
+// ห้องแม่ Phase 2 B4: all token references migrated to semantic T.* namespace.
 const styles = StyleSheet.create({
   centeredContainer: {
     flex: 1,
-    backgroundColor: '#FBF6F1',
+    backgroundColor: T.color.surface.base,
     alignItems: 'center',
     justifyContent: 'center',
     padding: 24,
     gap: 16,
   },
   loadingText: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 16,
-    lineHeight: 24,
-    color: '#5F4A52',
+    fontFamily: T.type.body.fontFamily,
+    fontSize: T.type.body.size,
+    lineHeight: T.type.body.lineHeight,
+    color: T.color.text.primary,
     textAlign: 'center',
     marginTop: 12,
   },
   noticeText: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 16,
-    lineHeight: 24,
-    color: '#5F4A52',
+    fontFamily: T.type.body.fontFamily,
+    fontSize: T.type.body.size,
+    lineHeight: T.type.body.lineHeight,
+    color: T.color.text.primary,
     textAlign: 'center',
   },
   retryBtn: {
-    minHeight: 48,
+    minHeight: T.button.primary.height,
     paddingHorizontal: 24,
-    backgroundColor: '#A8505A',
-    borderRadius: 999,
+    backgroundColor: T.button.primary.bg,
+    borderRadius: T.radius.pill,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 8,
   },
   retryBtnText: {
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 15,
-    color: '#FFFFFF',
+    fontFamily: T.type.label.fontFamily,
+    fontSize: T.type.body.size,
+    color: T.color.text.onDark,
   },
   formContainer: {
     flex: 1,
-    backgroundColor: '#FBF6F1',
+    backgroundColor: T.color.surface.base,
   },
   // AC-10: Conflict banner — warm amber (not alarming red), calm tone
   conflictBanner: {
-    backgroundColor: '#FBE9D2',
-    borderColor: '#E9C097',
+    backgroundColor: T.color.surface.wash.amber,
+    borderColor: T.color.surface.divider,
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: T.radius.md,
     padding: 12,
     margin: 16,
     marginBottom: 0,
   },
   conflictBannerText: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 14,
-    lineHeight: 21,
-    color: '#5F4A52',
+    fontFamily: T.type.caption.fontFamily,
+    fontSize: T.type.caption.size,
+    lineHeight: T.type.caption.lineHeight,
+    color: T.color.text.primary,
   },
 });

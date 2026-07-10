@@ -417,6 +417,7 @@ export function BottomTabNavigator({
        * onEditPregnancy navigates to ProfileEdit (root-stack screen).
        * onSessionExpired runs full teardown then resets to Welcome (SD-5).
        * onSettings: navigation.navigate('Settings') (§2 feat-profile-header-settings-row).
+       * onPregnancySummary: navigate('PregnancySummary') — B1 fix; params=undefined (SD-9).
        * Security: no health data in route params (PDPA SD-9). */}
       <Tab.Screen name="Profile">
         {() => (
@@ -430,6 +431,7 @@ export function BottomTabNavigator({
             onEditPregnancy={() => navigation.navigate('ProfileEdit')}
             onSettings={() => navigation.navigate('Settings')}
             onEditPersonalInfo={() => navigation.navigate('ProfileInfoEdit')}
+            onPregnancySummary={() => navigation.navigate('PregnancySummary')}
           />
         )}
       </Tab.Screen>

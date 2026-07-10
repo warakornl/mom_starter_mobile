@@ -25,6 +25,13 @@ export const PROFILE_HUB_TESTIDS = {
    */
   editPersonalInfoBtn: 'profile-hub-edit-personal-info-btn',
 
+  /**
+   * Pregnancy summary row — lifecycle-agnostic (pregnant AND postpartum).
+   * Navigates to PregnancySummaryScreen.
+   * Spec: docs/product/pregnancy-summary.md §3.2 (row accessible always)
+   */
+  pregnancySummaryBtn: 'profile-hub-pregnancy-summary-btn',
+
   /** Download-my-data row (PDPA ม.30). */
   downloadDataBtn: 'profile-hub-download-data-btn',
 

@@ -85,6 +85,14 @@ interface ProfileHubScreenProps {
    * Spec: profile-tab-and-hub-ui.md §3.4 / name-fields-design.md §3.4
    */
   onEditPersonalInfo?: () => void;
+  /**
+   * Navigate to PregnancySummaryScreen (root-stack push).
+   * Lifecycle-agnostic: shown for BOTH pregnant and postpartum profiles.
+   * Wired from BottomTabNavigator: `() => navigation.navigate('PregnancySummary')`.
+   * Optional — row hidden when not provided.
+   * Spec: docs/product/pregnancy-summary.md §3.2
+   */
+  onPregnancySummary?: () => void;
 }
 
 // ─── Profile Summary Card ─────────────────────────────────────────────────────
@@ -118,6 +126,7 @@ export function ProfileHubScreen({
   onEditPregnancy,
   onSettings,
   onEditPersonalInfo,
+  onPregnancySummary,
 }: ProfileHubScreenProps): React.JSX.Element {
   const { t, locale } = useT();
   const snapshot = useProfileSnapshot();
@@ -247,8 +256,8 @@ export function ProfileHubScreen({
         {renderSummaryCard()}
 
         {/* ── SECTION: โปรไฟล์ — Profile rows ──────────────────────────────── */}
-        {/* Show section when at least one row is visible (edit pregnancy OR edit personal info). */}
-        {(isPregnant || onEditPersonalInfo != null) && (
+        {/* Show section when at least one row is visible. */}
+        {(isPregnant || onEditPersonalInfo != null || onPregnancySummary != null) && (
           <Text style={styles.sectionLabel}>{t('profile.section.profile')}</Text>
         )}
 
@@ -284,6 +293,24 @@ export function ProfileHubScreen({
             <View style={styles.menuRowTextGroup}>
               <Text style={styles.menuRowText}>{t('profile.infoEdit.rowLabel')}</Text>
               <Text style={styles.menuRowSubtext}>{t('profile.infoEdit.rowSubtitle')}</Text>
+            </View>
+            <Text style={styles.menuRowChevron}>{'›'}</Text>
+          </TouchableOpacity>
+        )}
+
+        {/* Pregnancy Summary — LIFECYCLE-AGNOSTIC (pregnant AND postpartum) */}
+        {/* Recap of trimester data; hidden only when the prop is not wired. */}
+        {onPregnancySummary != null && (
+          <TouchableOpacity
+            testID={PROFILE_HUB_TESTIDS.pregnancySummaryBtn}
+            style={styles.menuRow}
+            onPress={onPregnancySummary}
+            accessibilityRole="button"
+            accessibilityLabel={t('pregnancySummary.rowLabel')}
+          >
+            <View style={styles.menuRowTextGroup}>
+              <Text style={styles.menuRowText}>{t('pregnancySummary.rowLabel')}</Text>
+              <Text style={styles.menuRowSubtext}>{t('pregnancySummary.rowSubtitle')}</Text>
             </View>
             <Text style={styles.menuRowChevron}>{'›'}</Text>
           </TouchableOpacity>

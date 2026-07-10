@@ -1258,6 +1258,15 @@ const th = {
   // Kick-count today label (AccentRow value; §4.1 data list)
   'home.kickCountToday': 'วันนี้',
 
+  // ── WeeklyMilestoneSheet (§4.2) ───────────────────────────────────────────────
+  'milestone.close': '← ปิด',
+  'milestone.closeSheet': 'ปิดแผ่นข้อมูลสัปดาห์',
+  'milestone.babySection': 'ลูกของคุณ',
+  'milestone.maternitySection': 'ร่างกายของคุณแม่',
+  'milestone.tipSection': 'เคล็ดลับ',
+  'milestone.journalCta': 'เขียนบันทึกวันนี้',
+  'milestone.empty': 'ยังไม่มีข้อมูลสำหรับสัปดาห์นี้',
+
   // ── Baby Size Comparison — Home Section (baby-size-home-section.md) ───────────
   // Design §7.7 — new i18n keys. Fruit names live in babySizeData.ts (static table).
   // S2 invariant: NO health-status words (ปกติ/ผิดปกติ/สุขภาพดี/สมส่วน/ตามเกณฑ์) here.
@@ -2424,6 +2433,15 @@ const en: MsgShape = {
   'home.captureToday': 'Add a log for today',
   'home.captureFeeling': 'Record your feelings today',
   'home.kickCountToday': 'today',
+
+  // ── WeeklyMilestoneSheet (§4.2) ───────────────────────────────────────────────
+  'milestone.close': '← Close',
+  'milestone.closeSheet': 'Close weekly milestone sheet',
+  'milestone.babySection': 'Your Baby',
+  'milestone.maternitySection': 'Your Body',
+  'milestone.tipSection': 'Tip',
+  'milestone.journalCta': 'Write a journal entry today',
+  'milestone.empty': 'No content available for this week',
 
   // ── Baby Size Comparison — Home Section ───────────────────────────────────────
   // EN disclaimer strings: LEGAL-APPROVED verbatim (G-size-1 advisory sign-off 2026-07-10).

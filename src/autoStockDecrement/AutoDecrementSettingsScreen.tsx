@@ -188,6 +188,19 @@ export function AutoDecrementSettingsScreen(
   // ── Handlers ──
 
   function handleToggle(mapping: ConsumptionMappingRecord, enabled: boolean): void {
+    // CONSENT-1: guard enabling with live consent check (INV-ASD-1/3).
+    // When enabled=true, verify all required consents for this activity type are
+    // currently granted BEFORE enqueuing. Never enqueue enabled=true under a
+    // missing consent — that would write a mapping-enabled state that would skip
+    // the engine's gate on the next trigger, silently bypassing the consent check.
+    if (enabled) {
+      const section = ACTIVITY_SECTIONS.find((s) => s.activityType === mapping.activityType);
+      if (section && !hasAllConsents(section.requiredConsents)) {
+        // Consent missing: do not enqueue. The UI already shows the consent advisory
+        // (via consentGranted=false above), so no additional UI action needed here.
+        return;
+      }
+    }
     const updated: ConsumptionMappingRecord = {
       ...mapping,
       enabled,

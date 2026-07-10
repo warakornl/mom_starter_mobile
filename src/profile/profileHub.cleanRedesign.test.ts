@@ -1,12 +1,16 @@
 /**
- * profileHub.cleanRedesign.test.ts — TDD tests for Phase 1 Clean redesign
- * changes to ProfileHubScreen (Direction C spec §2).
+ * profileHub.cleanRedesign.test.ts — Token migration tests for ProfileHubScreen.
+ *
+ * Originally: Phase 1 Clean redesign (Direction C) token assertions.
+ * Updated: Phase 1 Mother's Room migration — token values updated per §1.8
+ * migration map (mother-room-build-spec.md). The backward-compat T aliases
+ * carry Mother's Room values; this file validates the migration is correct.
  *
  * Verifies:
  *   Tell 1D: menuRowIconWrap + menuRowIconText removed from all rows
- *   Tell 2:  summaryCard/menuRow/exportErrorCard/logoutRow borderRadius→8,
- *            shadow props removed, borderColor (hairline) added
- *   Tell 7:  sectionLabel unified to 11pt SemiBold UPPERCASE #5F4A52
+ *   Tell 2:  cardRadius now 12 (was 8); shadow props removed; borderColor updated
+ *   Tell 7:  sectionLabel: fontFamily Sarabun-SemiBold; size 15; letterSpacing 0;
+ *            color #2F5042 (color.text.botanical)
  *
  * Pure-Node environment — no RNTL.
  */
@@ -89,27 +93,28 @@ describe('ProfileHubScreen — module export (post-redesign)', () => {
   });
 });
 
-// ─── 2. Token values confirm what ProfileHub now uses ──────────────────────────
+// ─── 2. Token migration — §1.8 Mother's Room values ──────────────────────────
+// Values now reflect Mother's Room palette (updated from Clean direction §1.8).
 
-describe('ProfileHubScreen — token values (Tell 2 + Tell 7)', () => {
-  it('T.cardRadius is 8 (applied to summaryCard, menuRow, exportErrorCard, logoutRow)', () => {
-    expect(T.cardRadius).toBe(8);
+describe('ProfileHubScreen — §1.8 token migration (Mother\'s Room values)', () => {
+  it('T.cardRadius is 12 / radius.md (was 8 in Clean; warmer per §1.6)', () => {
+    expect(T.cardRadius).toBe(12);
   });
 
-  it('T.hairline is #E3D8CE (borderColor on menuRow + logoutRow)', () => {
-    expect(T.hairline).toBe('#E3D8CE');
+  it('T.hairline is #E8DDD5 (Mother\'s Room divider; was #E3D8CE in Clean)', () => {
+    expect(T.hairline).toBe('#E8DDD5');
   });
 
-  it('T.sectionLabelFontSize is 11 (unified section label)', () => {
-    expect(T.sectionLabelFontSize).toBe(11);
+  it('T.sectionLabelFontSize is 15 / type.label.size (was 11 in Clean)', () => {
+    expect(T.sectionLabelFontSize).toBe(15);
   });
 
-  it('T.sectionLabelColor is #5F4A52 (WCAG AAA on bg)', () => {
-    expect(T.sectionLabelColor).toBe('#5F4A52');
+  it('T.sectionLabelColor is #2F5042 / color.text.botanical (was #5F4A52 in Clean)', () => {
+    expect(T.sectionLabelColor).toBe('#2F5042');
   });
 
-  it('T.sectionLabelLetterSpacing is 0.8', () => {
-    expect(T.sectionLabelLetterSpacing).toBe(0.8);
+  it('T.sectionLabelLetterSpacing is 0 (Thai no tracking; was 0.8 in Clean)', () => {
+    expect(T.sectionLabelLetterSpacing).toBe(0);
   });
 });
 
@@ -132,18 +137,20 @@ describe('ProfileHubScreen — menuRowIconWrap removed (Tell 1D)', () => {
   });
 });
 
-// ─── 4. Section label unified color (Tell 7) ──────────────────────────────────
+// ─── 4. Section label color — Mother's Room §1.2 ──────────────────────────────
 
-describe('ProfileHubScreen — sectionLabel unified (Tell 7)', () => {
-  it('sectionLabelColor #5F4A52 meets WCAG AAA (~7.6:1 on bg #FBF6F1)', () => {
-    // Spec §4.1: inkSoft #5F4A52 on bg #FBF6F1 ≈ 7.6:1 — AAA pass
-    // We assert the token value is the correct hex.
-    expect(T.sectionLabelColor).toBe('#5F4A52');
+describe('ProfileHubScreen — sectionLabel Mother\'s Room color (§1.2)', () => {
+  it('sectionLabelColor #2F5042 is jade-800 (color.text.botanical; 8.36:1 AAA on ivory-100)', () => {
+    // §1.2: color.text.botanical = jade-800 #2F5042 on ivory-100 L=0.932
+    // ratio = (0.932+0.05)/(0.0674+0.05) = 0.982/0.1174 = 8.36:1 AAA
+    expect(T.sectionLabelColor).toBe('#2F5042');
   });
 
-  it('sectionLabel does not use inkFaint #94818A (old ProfileHub value)', () => {
-    // Old ProfileHub sectionLabel was color: '#94818A' (~3.4:1 — WCAG FAIL at 11pt)
-    // After redesign, the token value must NOT be #94818A.
+  it('sectionLabel does not use the old #5F4A52 (inkSoft, Clean direction)', () => {
+    expect(T.sectionLabelColor).not.toBe('#5F4A52');
+  });
+
+  it('sectionLabel does not use inkFaint #94818A (BANNED in Mother\'s Room per §1.8)', () => {
     expect(T.sectionLabelColor).not.toBe('#94818A');
   });
 });

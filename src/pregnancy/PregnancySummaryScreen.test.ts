@@ -80,15 +80,15 @@ describe('PregnancySummaryScreen — module export', () => {
 
 // ─── Group B: Design token usage ─────────────────────────────────────────────
 
-describe('PregnancySummaryScreen — design tokens (Clean)', () => {
-  it('uses T.cardRadius=8 (flat card, no shadow)', () => {
-    expect(T.cardRadius).toBe(8);
+describe('PregnancySummaryScreen — design tokens (Mother Room migration §1.8)', () => {
+  it('uses T.cardRadius=12 (radius.md; updated from 8 in Clean to 12 in Mother Room)', () => {
+    expect(T.cardRadius).toBe(12);
     // Source must reference T.cardRadius
     expect(SCREEN_SRC).toContain('T.cardRadius');
   });
 
-  it('uses T.hairline for dividers/borders', () => {
-    expect(T.hairline).toBe('#E3D8CE');
+  it('uses T.hairline for dividers/borders (#E8DDD5 — new divider color per §1.8)', () => {
+    expect(T.hairline).toBe('#E8DDD5');
     expect(SCREEN_SRC).toContain('T.hairline');
   });
 

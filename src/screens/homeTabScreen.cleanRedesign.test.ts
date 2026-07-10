@@ -1,15 +1,19 @@
 /**
- * homeTabScreen.cleanRedesign.test.ts — TDD tests for Phase 1 Clean redesign
- * changes to HomeTabScreen (Direction C spec §2, §3.2).
+ * homeTabScreen.cleanRedesign.test.ts — Token migration tests for HomeTabScreen.
  *
- * Verifies the 7 AI-tell removals in HomeTabScreen:
- *   Tell 1B: STAGE_GLYPHS removed; SVG stage icons imported
- *   Tell 1C: ppBannerStyles glyphDisc removed; PostpartumStageIcon used
- *   Tell 2:  Card borderRadius changed to 8 (T.cardRadius)
- *   Tell 3:  daysNumber + ppCardStyles.number font/size/alignment changes
- *   Tell 4:  deliveryChip borderRadius 999→8 (T.cardRadius)
- *   Tell 6:  kickCountCard bg rose/50→white, border hairline (T.hairline)
- *   Tell 7:  sectionLabel unified to 11pt SemiBold UPPERCASE #5F4A52
+ * Originally: Phase 1 Clean redesign (Direction C) token assertions.
+ * Updated: Phase 1 Mother's Room migration — token values updated per §1.8
+ * migration map (mother-room-build-spec.md). The backward-compat T aliases
+ * carry Mother's Room values; this file validates the migration is correct.
+ *
+ * Verifies the §1.8 migration aliases on T:
+ *   hairline:              #E3D8CE → #E8DDD5 (new divider)
+ *   cardRadius:            8       → 12      (radius.md)
+ *   heroFontSize:          28      → 32      (type.display.size)
+ *   heroFontFamily:        IBMPlexSans-SemiBold → Sarabun-SemiBold
+ *   sectionLabelFontSize:  11      → 15      (type.label.size)
+ *   sectionLabelColor:     #5F4A52 → #2F5042 (color.text.botanical)
+ *   sectionLabelLetterSpacing: 0.8 → 0       (Thai: no tracking)
  *
  * All tests run in a pure-Node environment (no RNTL).
  */
@@ -129,35 +133,36 @@ describe('HomeTabScreen — module export (post-redesign)', () => {
   });
 });
 
-// ─── 2. Token imports — the changed values are sourced from T ────────────────
+// ─── 2. Token migration — §1.8 values ────────────────────────────────────────
+// These tests now assert the MOTHER'S ROOM values (updated from Clean direction).
 
-describe('HomeTabScreen — uses token module T for changed values', () => {
-  it('T.hairline is #E3D8CE (new hairline token)', () => {
-    expect(T.hairline).toBe('#E3D8CE');
+describe('HomeTabScreen — §1.8 token migration (Mother\'s Room values)', () => {
+  it('T.hairline is #E8DDD5 (Mother\'s Room divider; was #E3D8CE in Clean)', () => {
+    expect(T.hairline).toBe('#E8DDD5');
   });
 
-  it('T.cardRadius is 8 (new card radius)', () => {
-    expect(T.cardRadius).toBe(8);
+  it('T.cardRadius is 12 (radius.md; was 8 in Clean; warmer per §1.6)', () => {
+    expect(T.cardRadius).toBe(12);
   });
 
-  it('T.heroFontSize is 28 (daysNumber / ppCard number size)', () => {
-    expect(T.heroFontSize).toBe(28);
+  it('T.heroFontSize is 32 (type.display.size; was 28 in Clean)', () => {
+    expect(T.heroFontSize).toBe(32);
   });
 
-  it('T.heroFontFamily is IBMPlexSans-SemiBold (not Mono)', () => {
-    expect(T.heroFontFamily).toBe('IBMPlexSans-SemiBold');
+  it('T.heroFontFamily is Sarabun-SemiBold (was IBMPlexSans-SemiBold in Clean)', () => {
+    expect(T.heroFontFamily).toBe('Sarabun-SemiBold');
   });
 
-  it('T.sectionLabelFontSize is 11', () => {
-    expect(T.sectionLabelFontSize).toBe(11);
+  it('T.sectionLabelFontSize is 15 (type.label.size; was 11 in Clean)', () => {
+    expect(T.sectionLabelFontSize).toBe(15);
   });
 
-  it('T.sectionLabelColor is #5F4A52 (inkSoft)', () => {
-    expect(T.sectionLabelColor).toBe('#5F4A52');
+  it('T.sectionLabelColor is #2F5042 / color.text.botanical (was #5F4A52 in Clean)', () => {
+    expect(T.sectionLabelColor).toBe('#2F5042');
   });
 
-  it('T.sectionLabelLetterSpacing is 0.8', () => {
-    expect(T.sectionLabelLetterSpacing).toBe(0.8);
+  it('T.sectionLabelLetterSpacing is 0 (Thai no tracking; was 0.8 in Clean)', () => {
+    expect(T.sectionLabelLetterSpacing).toBe(0);
   });
 });
 

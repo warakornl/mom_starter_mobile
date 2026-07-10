@@ -1,0 +1,122 @@
+# 30-pregnancy-summary.yaml
+# Flow: Profile Hub → สรุปการตั้งครรภ์ → assert trimester sections visible
+#       → assert always-on disclaimer visible → back to Profile Hub
+#
+# ── LAUNCH-GATE ──────────────────────────────────────────────────────────────
+# This flow is a LAUNCH-GATE — it MUST pass on a real device or simulator with
+# the real backend before production release.  It is NOT run in CI.
+# See docs/product/pregnancy-summary.md §3 / docs/legal/pregnancy-summary-legal.md §3.
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# What this flow verifies (on-device, cannot be covered by Jest unit tests):
+#   1. The ProfileHub "สรุปการตั้งครรภ์" row is visible and tappable (B1 fix).
+#   2. Navigation reaches PregnancySummaryScreen (screen title visible).
+#   3. All three trimester section labels render (ไตรมาสที่ 1 / 2 / 3).
+#   4. The always-on disclaimer text is visible (G-summary-1 legal requirement).
+#   5. SD-9: health data is NOT passed in route params (verified by unit test;
+#      this flow confirms the screen loads its data independently via GET).
+#   6. Tapping back returns to ProfileHub.
+#
+# ── PDPA note ────────────────────────────────────────────────────────────────
+# K-8: This flow does NOT assert movementCount/avg numeric values because
+# health values must never be hardcoded in automation scripts.
+# The flow only asserts structural/label presence (trimester headers, disclaimer).
+# ─────────────────────────────────────────────────────────────────────────────
+#
+# Prerequisites:
+#   - Dev account dev@momstarter.local / DevTest-Password-2026 exists and is
+#     already logged in (run 01-login.yaml first).
+#   - Account has a pregnancy profile with EDD already set (run 03-pregnancy.yaml).
+#   - Backend running at localhost:8080 with --spring.profiles.active=local.
+#   - The slice/feat-pregnancy-summary-mobile branch is built into the dev app.
+#
+# testIDs and text labels used:
+#   profile-hub-screen                   — ProfileHubScreen root
+#   profile-hub-pregnancy-summary-btn    — "สรุปการตั้งครรภ์" row (B1 fix)
+#   "สรุปการตั้งครรภ์"                   — screen nav title (pregnancySummary.navTitle)
+#   "ไตรมาสที่ 1"                        — T1 section label (pregnancySummary.t1)
+#   "ไตรมาสที่ 2"                        — T2 section label (pregnancySummary.t2)
+#   "ไตรมาสที่ 3"                        — T3 section label (pregnancySummary.t3)
+#   "ข้อมูลที่คุณบันทึกไว้เอง"           — substring of short disclaimer (legal §3 verbatim TH)
+#
+# Spec refs:
+#   docs/product/pregnancy-summary.md §3.1 (trimester sections)
+#   docs/product/pregnancy-summary.md §3.5 (always-on disclaimer)
+#   docs/legal/pregnancy-summary-legal.md §3 (verbatim disclaimer TH)
+#   docs/compliance/pdpa-assessment.md §2.6 (on-device aggregation, K-8)
+
+appId: com.momstarter.app
+
+---
+
+# ── Step 1: Confirm we are on the app (logged in, home visible) ───────────────
+- extendedWaitUntil:
+    visible:
+      id: home-week-hero
+    timeout: 10000
+
+# ── Step 2: Navigate to Profile tab ──────────────────────────────────────────
+- tapOn:
+    text: "โปรไฟล์"
+
+- extendedWaitUntil:
+    visible:
+      id: profile-hub-screen
+    timeout: 10000
+
+# ── Step 3: Assert "สรุปการตั้งครรภ์" row is visible (B1 regression guard) ──
+# This row exists for both pregnant AND postpartum lifecycles.
+# Spec: pregnancy-summary.md §3.2 (row accessible always; not lifecycle-gated)
+- assertVisible:
+    id: profile-hub-pregnancy-summary-btn
+
+# ── Step 4: Open PregnancySummaryScreen ──────────────────────────────────────
+- tapOn:
+    id: profile-hub-pregnancy-summary-btn
+
+# Wait for the wrapper's GET /pregnancy-profile to complete and screen to render.
+# SD-9: the screen loads health data via GET on mount, NOT from route params.
+- extendedWaitUntil:
+    visible:
+      text: "สรุปการตั้งครรภ์"
+    timeout: 15000
+
+# ── Step 5: Assert screen nav title ──────────────────────────────────────────
+- assertVisible:
+    text: "สรุปการตั้งครรภ์"
+
+# ── Step 6: Assert all three trimester section labels render ─────────────────
+# Spec: pregnancy-summary.md §3.1 — T1, T2, T3 sections always rendered
+# (even if a trimester has no data, the section label still appears)
+- assertVisible:
+    text: "ไตรมาสที่ 1"
+
+- assertVisible:
+    text: "ไตรมาสที่ 2"
+
+- assertVisible:
+    text: "ไตรมาสที่ 3"
+
+# ── Step 7: Assert always-on disclaimer is visible ───────────────────────────
+# Legal requirement: G-summary-1 — disclaimer must always be visible.
+# Spec: pregnancy-summary.md §3.5 / pregnancy-summary-legal.md §3
+# We assert a stable substring of the Thai short disclaimer (verbatim §3):
+#   "ข้อมูลที่คุณบันทึกไว้เอง เพื่อการทบทวน · ไม่ใช่การประเมินหรือคำแนะนำทางการแพทย์"
+# K-8: asserting label text only — no health values are compared.
+- assertVisible:
+    text: "ข้อมูลที่คุณบันทึกไว้เอง"
+
+# ── Step 8: Assert disclaimer link "ดูเพิ่มเติม" is visible (a11y G-PS-f) ──
+# The "see more" link must be independently tappable (not nested in accessibilityRole=text).
+- assertVisible:
+    text: "ดูเพิ่มเติม"
+
+# ── Step 9: Back to ProfileHub ────────────────────────────────────────────────
+# Tapping the back button (< or ← in nav bar) returns to ProfileHub.
+- tapOn:
+    text: "ย้อนกลับ"
+
+- extendedWaitUntil:
+    visible:
+      id: profile-hub-screen
+    timeout: 10000

@@ -53,6 +53,8 @@ import type { Locale } from '../auth/types';
 import { toCivilDate, toCivilTime, parseCivilDate, parseCivilTime } from './dateTimePickerFormat';
 import { setPendingCalendarFocusDate } from './pendingCalendarFocusDate';
 import { reanchor } from '../notifications';
+import { T } from '../theme/tokens';
+import type { Lifecycle } from '../pregnancy/types';
 
 // ─── FLAG-4 grammar validation — imported from pure-TS module (testable) ──────
 //
@@ -81,6 +83,17 @@ const REMINDER_TYPES: ReminderType[] = [
   'custom', 'medication', 'appointment', 'kick_count', 'feeding', 'supply_restock',
 ];
 
+/**
+ * ห้องแม่ B2 milestone preset titles for pregnancy-progress reminders.
+ * These chips pre-fill the reminder title field so the user can quickly set
+ * common pregnancy milestone reminder names.
+ *
+ * NOTE: 'milestone' and 'countdown' ReminderTypes are not yet in the type union.
+ * When added (future slice), add them to REMINDER_TYPES above.
+ * These presets currently create reminders of the user's selected type (default: custom).
+ */
+const MILESTONE_PRESET_TITLES = ['เตือนสัปดาห์ที่ 28', 'เตือนนับถอยหลัง'];
+
 // ─── Picker kind discriminator ────────────────────────────────────────────────
 
 /**
@@ -107,6 +120,11 @@ export interface ReminderFormScreenProps {
   apiBaseUrl?: string;
   onSave?: () => void;
   onCancel?: () => void;
+  /**
+   * ห้องแม่ B2 loss-state gate: lifecycle='ended' → suppress milestone preset templates.
+   * Undefined = unknown/not loaded; must NEVER suppress content (GAP-2).
+   */
+  lifecycle?: Lifecycle;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -117,6 +135,7 @@ export function ReminderFormScreen({
   apiBaseUrl,
   onSave,
   onCancel,
+  lifecycle,
 }: ReminderFormScreenProps): React.JSX.Element {
   const { t, locale } = useT();
   const isEdit = !!existingReminder;
@@ -419,7 +438,7 @@ export function ReminderFormScreen({
         value={displayTitle}
         onChangeText={setDisplayTitle}
         placeholder={t('reminder.titlePlaceholder')}
-        placeholderTextColor="#94818A"
+        placeholderTextColor={T.input.placeholder}
         autoFocus={!isEdit}
       />
       {titleError ? <Text style={styles.errorText}>{titleError}</Text> : null}
@@ -439,6 +458,33 @@ export function ReminderFormScreen({
           </TouchableOpacity>
         ))}
       </View>
+
+      {/* ── Milestone preset templates (B2 ห้องแม่) ──────────────────────────
+          Tapping a preset fills the title field with a template.
+          Hidden when lifecycle='ended' (loss/bereavement — spec §3 B2 Loss-State Gate).
+          Visible for 'pregnant', 'postpartum', and undefined (GAP-2: never default-suppress).
+
+          NOTE: 'milestone' and 'countdown' ReminderTypes are not yet in the ReminderType union.
+          Future slice: when added, change preset type to 'milestone'/'countdown'.
+          Current behaviour: preset fills title only; type chip stays at user selection. */}
+      {lifecycle !== 'ended' && (
+        <View testID="reminder-milestone-presets" style={styles.presetSection}>
+          <Text style={styles.label}>{t('reminder.milestonePresetsLabel')}</Text>
+          <View style={styles.chipRow}>
+            {MILESTONE_PRESET_TITLES.map((title) => (
+              <TouchableOpacity
+                key={title}
+                style={styles.presetChip}
+                onPress={() => setDisplayTitle(title)}
+                accessibilityRole="button"
+                accessibilityLabel={title}
+              >
+                <Text style={styles.presetChipText}>{title}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      )}
 
       {/* Start date — Pressable that opens DateTimePicker */}
       <Text style={styles.label}>{t('reminder.fieldStartDate')}</Text>
@@ -526,7 +572,7 @@ export function ReminderFormScreen({
             onChangeText={setInterval}
             keyboardType="number-pad"
             placeholder="1"
-            placeholderTextColor="#94818A"
+            placeholderTextColor={T.input.placeholder}
           />
           {fieldError('interval') ? (
             <Text style={styles.errorText}>{fieldError('interval')}</Text>
@@ -763,20 +809,33 @@ export function ReminderFormScreen({
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FBF6F1', padding: 16 },
-  label: { fontSize: 13, color: '#5F4A52', fontWeight: '600', marginTop: 16, marginBottom: 4 },
+  container: { flex: 1, backgroundColor: T.color.surface.base, padding: 16 },
+  label: {
+    fontFamily: T.type.caption.fontFamily,
+    fontSize: T.type.caption.size,
+    color: T.color.text.botanical,
+    fontWeight: '600',
+    marginTop: 16,
+    marginBottom: 4,
+  },
   input: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 10,
+    fontFamily: T.type.bodyLarge.fontFamily,
+    backgroundColor: T.input.bg,
+    borderRadius: T.radius.sm,
     borderWidth: 1,
-    borderColor: '#EBE1D9',
+    borderColor: T.color.surface.divider,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 15,
-    color: '#3A2A30',
+    color: T.color.text.heading,
   },
-  inputError: { borderColor: '#A8505A' },
-  errorText: { fontSize: 12, color: '#A8505A', marginTop: 4 },
+  inputError: { borderColor: T.input.border.error },
+  errorText: {
+    fontFamily: T.type.caption.fontFamily,
+    fontSize: 12,
+    color: T.input.errorText,
+    marginTop: 4,
+  },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -788,10 +847,10 @@ const styles = StyleSheet.create({
   chip: {
     paddingHorizontal: 12,
     paddingVertical: 6,
-    borderRadius: 14,
+    borderRadius: T.radius.sm,
     borderWidth: 1,
-    borderColor: '#EBE1D9',
-    backgroundColor: '#FFFFFF',
+    borderColor: T.color.surface.divider,
+    backgroundColor: T.input.bg,
   },
   /** byDay chips are square-ish for uniform weekday labels (จ/อ/พ etc.) */
   byDayChip: {
@@ -799,43 +858,80 @@ const styles = StyleSheet.create({
     minWidth: 38,
     alignItems: 'center',
   },
-  chipSelected: { backgroundColor: '#A8505A', borderColor: '#A8505A' },
-  chipText: { fontSize: 13, color: '#5F4A52' },
-  chipTextSelected: { color: '#FFFFFF', fontWeight: '600' },
+  chipSelected: {
+    backgroundColor: T.color.surface.wash.roselle,
+    borderColor: T.color.list.bar.pregnancy,
+  },
+  chipText: {
+    fontFamily: T.type.caption.fontFamily,
+    fontSize: T.type.caption.size,
+    color: T.color.text.primary,
+  },
+  chipTextSelected: { color: T.color.text.primary, fontWeight: '600' },
+
+  // ── Milestone preset section (B2 ห้องแม่) ──
+  presetSection: { marginTop: 4 },
+  presetChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: T.radius.md,
+    borderWidth: 1,
+    borderColor: T.color.list.bar.pregnancy,
+    backgroundColor: T.color.surface.wash.roselle,
+    minHeight: 48,
+    justifyContent: 'center',
+  },
+  presetChipText: {
+    fontFamily: T.type.caption.fontFamily,
+    fontSize: T.type.caption.size,
+    color: T.color.text.primary,
+    fontWeight: '600',
+  },
 
   // ── Picker field (replaces TextInput for date/time) ──
   pickerField: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 10,
+    backgroundColor: T.input.bg,
+    borderRadius: T.radius.sm,
     borderWidth: 1,
-    borderColor: '#EBE1D9',
+    borderColor: T.color.surface.divider,
     paddingHorizontal: 14,
     paddingVertical: 12,
     minHeight: 48,
   },
-  pickerFieldText: { flex: 1, fontSize: 15, color: '#3A2A30' },
-  pickerFieldPlaceholder: { color: '#94818A' },
-  pickerChevron: { fontSize: 18, color: '#94818A', marginLeft: 8 },
+  pickerFieldText: {
+    fontFamily: T.type.bodyLarge.fontFamily,
+    flex: 1,
+    fontSize: 15,
+    color: T.color.text.heading,
+  },
+  pickerFieldPlaceholder: { color: T.color.text.primary },
+  pickerChevron: { fontSize: 18, color: T.color.text.primary, marginLeft: 8 },
 
   // Times-of-day row
   todRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
   todPickerField: { flex: 1 },
   todRemoveBtn: { padding: 10, marginLeft: 8 },
-  todRemoveText: { color: '#A8505A', fontSize: 16 },
+  todRemoveText: { color: T.color.text.primary, fontSize: 16 },
   addTimeBtn: { marginTop: 4, marginBottom: 4, paddingVertical: 12, minHeight: 44, justifyContent: 'center' },
-  addTimeBtnText: { color: '#3B8C8C', fontSize: 14, fontWeight: '600' },
+  addTimeBtnText: {
+    fontFamily: T.type.caption.fontFamily,
+    color: T.color.text.botanical,
+    fontSize: 14,
+    fontWeight: '600',
+  },
 
   // Until row (field + clear button)
   untilRow: { flexDirection: 'row', alignItems: 'center' },
   untilPickerField: { flex: 1 },
   untilClearBtn: { padding: 10, marginLeft: 8 },
-  untilClearText: { color: '#A8505A', fontSize: 16 },
+  untilClearText: { color: T.color.text.primary, fontSize: 16 },
 
   carryForwardNote: {
+    fontFamily: T.type.caption.fontFamily,
     fontSize: 11,
-    color: '#94818A',
+    color: T.color.text.primary,
     fontStyle: 'italic',
     marginTop: 16,
     marginBottom: 4,
@@ -844,13 +940,13 @@ const styles = StyleSheet.create({
   // ── Bottom-sheet picker modal (iOS) ──
   pickerOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(58,42,48,0.4)',
+    backgroundColor: 'rgba(74,34,48,0.4)',
     justifyContent: 'flex-end',
   },
   pickerCard: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    backgroundColor: T.color.surface.base,
+    borderTopLeftRadius: T.radius.lg,
+    borderTopRightRadius: T.radius.lg,
     paddingBottom: 32,
   },
   pickerBtnRow: {
@@ -859,32 +955,61 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#EBE1D9',
+    borderBottomColor: T.color.surface.divider,
   },
   pickerCancelBtn: { minHeight: 44, justifyContent: 'center' },
-  pickerCancelText: { fontSize: 15, color: '#94818A' },
-  pickerTitle: { fontSize: 15, color: '#3A2A30', fontWeight: '600', textAlign: 'center' },
+  pickerCancelText: {
+    fontFamily: T.type.bodyLarge.fontFamily,
+    fontSize: 15,
+    color: T.color.text.primary,
+  },
+  pickerTitle: {
+    fontFamily: T.type.bodyLarge.fontFamily,
+    fontSize: 15,
+    color: T.color.text.heading,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
   pickerDoneBtn: { minHeight: 44, justifyContent: 'center' },
-  pickerDoneText: { fontSize: 15, color: '#C0485F', fontWeight: '600' },
+  pickerDoneText: {
+    fontFamily: T.type.bodyLarge.fontFamily,
+    fontSize: 15,
+    color: T.color.accent.interactive,
+    fontWeight: '600',
+  },
   iosPicker: { alignSelf: 'center' },
 
   saveBtn: {
-    backgroundColor: '#A8505A',
-    borderRadius: 12,
+    backgroundColor: T.button.primary.bg,
+    borderRadius: T.radius.md,
     paddingVertical: 14,
     alignItems: 'center',
     marginTop: 24,
   },
-  saveBtnText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
+  saveBtnText: {
+    fontFamily: T.type.bodyLarge.fontFamily,
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+  },
   deleteBtn: {
-    borderColor: '#A8505A',
+    borderColor: T.color.list.bar.pregnancy,
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: T.radius.md,
     paddingVertical: 12,
     alignItems: 'center',
     marginTop: 12,
   },
-  deleteBtnText: { color: '#A8505A', fontSize: 15, fontWeight: '600' },
+  deleteBtnText: {
+    fontFamily: T.type.bodyLarge.fontFamily,
+    color: T.color.text.primary,
+    fontSize: 15,
+    fontWeight: '600',
+  },
   cancelBtn: { paddingVertical: 12, alignItems: 'center', marginTop: 8, marginBottom: 32 },
-  cancelBtnText: { color: '#94818A', fontSize: 15 },
+  cancelBtnText: {
+    fontFamily: T.type.bodyLarge.fontFamily,
+    color: T.color.text.primary,
+    fontSize: 15,
+  },
 });

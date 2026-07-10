@@ -556,6 +556,8 @@ const th = {
   'reminder.type.supply_restock': 'เติมของ',
   'reminder.type.custom': 'อื่นๆ',
   'reminder.notificationCarryForward': 'การแจ้งเตือนระดับ OS จะเพิ่มในเวอร์ชันถัดไป',
+  /** NEW B2 ห้องแม่ — milestone preset templates section label */
+  'reminder.milestonePresetsLabel': 'เลือกจากแม่แบบ',
 
   // ── Birth Event ───────────────────────────────────────────────────────────────
   'birth.navTitle': 'ลูกคลอดแล้ว',
@@ -1824,6 +1826,8 @@ const en: MsgShape = {
   'reminder.type.supply_restock': 'Restock supply',
   'reminder.type.custom': 'Custom',
   'reminder.notificationCarryForward': 'OS-level notification firing coming in a future update',
+  /** NEW B2 ห้องแม่ — milestone preset templates section label */
+  'reminder.milestonePresetsLabel': 'Choose from templates',
 
   // ── Birth Event ───────────────────────────────────────────────────────────────
   'birth.navTitle': 'Record birth',

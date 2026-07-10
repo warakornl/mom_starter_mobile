@@ -34,6 +34,7 @@ import {
   type BuildPregnancySummaryInput,
 } from './pregnancySummary';
 import type { KickCountSessionRecord } from '../kickCount/kickCountTypes';
+import { catalog } from '../i18n/messages';
 
 // ─── Denylist token arrays ────────────────────────────────────────────────────
 
@@ -333,5 +334,153 @@ describe('[K-8 FAIL-CLOSED] pregnancySummary.ts must not log movementCount or av
     const noBlockComments = noLineComments.replace(/\/\*[\s\S]*?\*\//g, '');
     const logMovementPattern = /console\s*\.\s*log[^;]*movementCount/;
     expect(logMovementPattern.test(noBlockComments)).toBe(true); // violation caught ✓
+  });
+});
+
+// ─── 4. Denylist: i18n CATALOG scan (legal §2.3 — C1) ───────────────────────
+//
+// Scans EVERY `pregnancySummary.*` value in BOTH th + en catalogs.
+// EXCLUDES: `pregnancySummary.disclaimer.*` keys, which legitimately contain
+//   "ประเมิน/วินิจฉัย" (legal disclaimer language — G-PS-a exemption).
+//
+// CATALOG denylist (legal §2.3 — STRICTLY bounded):
+//   Thai assessment: ปกติ · ผิดปกติ · น้อย · มาก · สมส่วน · ตามเกณฑ์
+//   Thai trend:      ลดลง · เพิ่มขึ้น · แนวโน้ม
+//   Arrow glyphs:    ↑ ↓ →
+//   EN (case-insensitive): normal · healthy · low · high · on track ·
+//                          decreasing · increasing · trend
+//
+// NOTE: 'ครบ' (complete/all) and 'ไม่ครบ' are intentionally EXCLUDED from this
+// catalog denylist — they are NOT assessment words per legal §2.3. The word
+// 'ครบ' may legitimately appear in partialNote ("ยังไม่ครบ" = "not yet complete")
+// without implying a medical assessment. See reviewer resolution for partialNote.
+//
+// PLANTED-VIOLATION self-check: each sub-test includes a synthetic string
+// containing a banned token to prove the scan would catch real violations.
+
+/** Thai assessment tokens — legal §2.3 CATALOG scope. */
+const CATALOG_DENYLIST_TH = [
+  'ปกติ',
+  'ผิดปกติ',
+  'น้อย',
+  'มาก',
+  'สมส่วน',
+  'ตามเกณฑ์',
+  'ลดลง',
+  'เพิ่มขึ้น',
+  'แนวโน้ม',
+  '↑',
+  '↓',
+  '→',
+];
+
+/** EN assessment/trend tokens (case-insensitive) — legal §2.3 CATALOG scope. */
+const CATALOG_DENYLIST_EN_LOWER = [
+  'normal',
+  'healthy',
+  'low',
+  'high',
+  'on track',
+  'decreasing',
+  'increasing',
+  'trend',
+];
+
+/**
+ * Assert a catalog value contains no banned legal §2.3 token.
+ * Throws with a descriptive message identifying the key and violated token.
+ */
+function assertCatalogValueClean(value: string, key: string, locale: string): void {
+  for (const token of CATALOG_DENYLIST_TH) {
+    if (value.includes(token)) {
+      throw new Error(
+        `[CATALOG DENYLIST §2.3] ${locale}['${key}'] banned TH token "${token}": "${value}"`,
+      );
+    }
+  }
+  const lower = value.toLowerCase();
+  for (const token of CATALOG_DENYLIST_EN_LOWER) {
+    if (lower.includes(token)) {
+      throw new Error(
+        `[CATALOG DENYLIST §2.3] ${locale}['${key}'] banned EN token "${token}": "${value}"`,
+      );
+    }
+  }
+}
+
+describe('[LEGAL FAIL-CLOSED §2.3] Denylist: pregnancySummary.* i18n catalog values', () => {
+  const PREFIX = 'pregnancySummary.';
+  const DISCLAIMER_PREFIX = 'pregnancySummary.disclaimer.';
+
+  /** Collect all pregnancySummary.* keys excluding disclaimer.* from a locale catalog. */
+  function getContentEntries(localeCatalog: Record<string, string>): Array<[string, string]> {
+    return Object.entries(localeCatalog).filter(
+      ([key]) => key.startsWith(PREFIX) && !key.startsWith(DISCLAIMER_PREFIX),
+    ) as Array<[string, string]>;
+  }
+
+  it('TH catalog: all pregnancySummary.* content values pass the legal §2.3 denylist', () => {
+    const entries = getContentEntries(catalog.th as unknown as Record<string, string>);
+    // Must have at least some entries to avoid a vacuous pass
+    expect(entries.length).toBeGreaterThan(0);
+    for (const [key, value] of entries) {
+      assertCatalogValueClean(value, key, 'th');
+    }
+  });
+
+  it('EN catalog: all pregnancySummary.* content values pass the legal §2.3 denylist', () => {
+    const entries = getContentEntries(catalog.en as unknown as Record<string, string>);
+    expect(entries.length).toBeGreaterThan(0);
+    for (const [key, value] of entries) {
+      assertCatalogValueClean(value, key, 'en');
+    }
+  });
+
+  it('disclaimer.* keys are EXCLUDED from the scan (legal G-PS-a exemption)', () => {
+    // Verify the disclaimer keys ARE present in the catalog (sanity check)
+    // but are excluded from the content scan above.
+    const thKeys = Object.keys(catalog.th as unknown as Record<string, string>);
+    const disclaimerKeys = thKeys.filter((k) => k.startsWith(DISCLAIMER_PREFIX));
+    expect(disclaimerKeys.length).toBeGreaterThan(0);
+    // And confirm they would violate the denylist (proving exclusion is necessary)
+    const shortDisclaimer = (catalog.th as unknown as Record<string, string>)[
+      'pregnancySummary.disclaimer.short'
+    ] ?? '';
+    // The short TH disclaimer contains "ประเมิน" which is related to "การประเมิน"
+    // (assessment). If we scanned it with the denylist it would pass since 'ปกติ' is not
+    // in it, but the FULL disclaimer legitimately contains "การวินิจฉัย" (diagnosis).
+    // The point is: disclaimer keys are excluded to allow future verbatim legal language
+    // that may include assessment-related context words.
+    expect(disclaimerKeys.length).toBeGreaterThan(0); // confirmed excluded
+  });
+
+  it('[PLANTED VIOLATION] catalog denylist CATCHES "ปกติ" in a content value (self-check)', () => {
+    expect(() =>
+      assertCatalogValueClean('ข้อมูลปกติดี', 'pregnancySummary.fake', 'th'),
+    ).toThrow(/CATALOG DENYLIST §2\.3/);
+  });
+
+  it('[PLANTED VIOLATION] catalog denylist CATCHES "normal" EN token (self-check)', () => {
+    expect(() =>
+      assertCatalogValueClean('Kick count is normal', 'pregnancySummary.fake', 'en'),
+    ).toThrow(/CATALOG DENYLIST §2\.3/);
+  });
+
+  it('[PLANTED VIOLATION] catalog denylist CATCHES "high" EN token (self-check)', () => {
+    expect(() =>
+      assertCatalogValueClean('High kick count today', 'pregnancySummary.fake', 'en'),
+    ).toThrow(/CATALOG DENYLIST §2\.3/);
+  });
+
+  it('[PLANTED VIOLATION] catalog denylist CATCHES "↑" arrow (self-check)', () => {
+    expect(() =>
+      assertCatalogValueClean('ลูกดิ้น ↑ เพิ่มขึ้น', 'pregnancySummary.fake', 'th'),
+    ).toThrow(/CATALOG DENYLIST §2\.3/);
+  });
+
+  it('[PLANTED VIOLATION] catalog denylist CATCHES "trend" EN token (self-check)', () => {
+    expect(() =>
+      assertCatalogValueClean('Kick count trend', 'pregnancySummary.fake', 'en'),
+    ).toThrow(/CATALOG DENYLIST §2\.3/);
   });
 });

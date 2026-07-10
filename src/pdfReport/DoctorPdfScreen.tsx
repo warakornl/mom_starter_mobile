@@ -61,6 +61,7 @@ import { SvgXml } from 'react-native-svg';
 import { useT } from '../i18n/LanguageContext';
 import type { Locale } from '../auth/types';
 import type { TokenStorage } from '../auth/tokenStorage';
+import { T } from '../theme/tokens';
 import { JitConsentSheet } from '../consent/JitConsentSheet';
 import { useJitConsent } from '../consent/useJitConsent';
 import { localCivilToday } from '../pregnancy/gestationalAge';
@@ -359,7 +360,7 @@ export function DoctorPdfScreen({
     return (
       <SafeAreaView style={styles.container}>
         <View testID="pdf-screen-generating" style={styles.generatingContainer}>
-          <ActivityIndicator color="#A8505A" size="large" />
+          <ActivityIndicator color={T.color.accent.interactive} size="large" />
           <Text style={styles.generatingText}>{t('pdf.screen.generating')}</Text>
         </View>
       </SafeAreaView>
@@ -1098,18 +1099,10 @@ function AppointmentPreviewSection({
   );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
-
-const ROSE_600 = '#A8505A';
-const NEUTRAL_900 = '#3A2A30';
-const NEUTRAL_600 = '#5F4A52';
-const NEUTRAL_400 = '#94818A';
-const CREAM = '#FBF6F1';
-const BORDER = '#EBE1D9';
-const CARD_BG = '#F5F0ED';
+// ─── Styles — ห้องแม่ Phase 2 B4: full semantic T.* migration ────────────────
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: CREAM },
+  container: { flex: 1, backgroundColor: T.color.surface.base },
 
   // Header row
   headerRow: {
@@ -1118,36 +1111,37 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: BORDER,
+    borderBottomColor: T.color.surface.divider,
   },
   backBtn: { minWidth: 44, minHeight: 44, justifyContent: 'center' },
-  backBtnText: { fontSize: 22, color: ROSE_600 },
+  backBtnText: { fontSize: 22, color: T.color.text.primary },
   backBtnSpacer: { minWidth: 44 },
   navTitle: {
     flex: 1,
     textAlign: 'center',
-    fontSize: 17,
-    fontWeight: '600',
-    color: NEUTRAL_900,
-    fontFamily: 'IBMPlexSans-SemiBold',
+    fontFamily: T.type.label.fontFamily,
+    fontSize: T.type.bodyLarge.size,
+    lineHeight: T.type.bodyLarge.lineHeight,
+    color: T.color.text.heading,
   },
 
   // Builder
   builderContent: { paddingHorizontal: 20, paddingBottom: 32 },
   sectionLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: NEUTRAL_600,
+    fontFamily: T.type.label.fontFamily,
+    fontSize: T.type.label.size,
+    lineHeight: T.type.label.lineHeight,
+    letterSpacing: T.type.label.letterSpacing,
+    color: T.color.text.botanical,
     marginTop: 20,
     marginBottom: 8,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
   },
 
   // Month picker fields (v2 §8A.2 — replace preset chips)
   pickerFieldLabel: {
-    fontSize: 13,
-    color: NEUTRAL_600,
+    fontFamily: T.type.caption.fontFamily,
+    fontSize: T.type.caption.size,
+    color: T.color.text.primary,
     marginTop: 12,
     marginBottom: 4,
   },
@@ -1157,112 +1151,195 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingVertical: 12,
-    borderRadius: 10,
+    borderRadius: T.radius.md,
     borderWidth: 1.5,
-    borderColor: BORDER,
-    backgroundColor: CREAM,
+    borderColor: T.color.surface.divider,
+    backgroundColor: T.color.surface.base,
     minHeight: 48,
   },
   pickerFieldError: {
-    borderColor: ROSE_600,
+    borderColor: T.input.border.error,
   },
   pickerFieldValue: {
-    fontSize: 16,
-    color: NEUTRAL_900,
-    fontFamily: 'IBMPlexMono-Medium',
+    fontFamily: T.type.label.fontFamily,
+    fontSize: T.type.body.size,
+    lineHeight: T.type.body.lineHeight,
+    color: T.color.text.heading,
   },
   pickerFieldChevron: {
     fontSize: 18,
-    color: NEUTRAL_400,
+    color: T.color.text.primary,
   },
   rangeError: {
-    fontSize: 13,
-    color: ROSE_600,
+    fontFamily: T.type.caption.fontFamily,
+    fontSize: T.type.caption.size,
+    color: T.input.border.error,
     marginTop: 6,
   },
 
   // Manifest card
   manifestCard: {
-    backgroundColor: CARD_BG,
-    borderRadius: 12,
+    backgroundColor: T.color.surface.subtle,
+    borderRadius: T.radius.md,
     padding: 16,
     gap: 10,
   },
   manifestRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
-  manifestIcon: { fontSize: 16, color: NEUTRAL_600, marginTop: 1, minWidth: 20 },
-  manifestLabel: { fontSize: 14, color: NEUTRAL_900, flex: 1 },
+  manifestIcon: { fontSize: 16, color: T.color.text.primary, marginTop: 1, minWidth: 20 },
+  manifestLabel: {
+    fontFamily: T.type.caption.fontFamily,
+    fontSize: T.type.caption.size,
+    color: T.color.text.heading,
+    flex: 1,
+  },
 
   // Where card
   whereCard: {
-    backgroundColor: CARD_BG,
-    borderRadius: 12,
+    backgroundColor: T.color.surface.subtle,
+    borderRadius: T.radius.md,
     padding: 16,
     gap: 6,
   },
-  whereText: { fontSize: 13, color: NEUTRAL_600 },
+  whereText: {
+    fontFamily: T.type.caption.fontFamily,
+    fontSize: T.type.caption.size,
+    color: T.color.text.primary,
+  },
 
   // Buttons
   primaryBtn: {
-    backgroundColor: ROSE_600,
-    borderRadius: 10,
-    minHeight: 52,
+    backgroundColor: T.button.primary.bg,
+    borderRadius: T.radius.md,
+    minHeight: T.button.primary.height,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 24,
   },
-  primaryBtnDisabled: { backgroundColor: '#D4B8BC' },
-  primaryBtnText: { fontSize: 16, fontWeight: '700', color: '#fff', fontFamily: 'IBMPlexSans-SemiBold' },
+  primaryBtnDisabled: { backgroundColor: T.scrim.amber },
+  primaryBtnText: {
+    fontFamily: T.type.label.fontFamily,
+    fontSize: T.type.body.size,
+    color: T.color.text.onDark,
+  },
   primaryBtnTextDisabled: { opacity: 0.7 },
   previewBtnMt: { marginTop: 24 },
 
   secondaryBtn: {
-    borderRadius: 10,
-    minHeight: 52,
+    borderRadius: T.radius.md,
+    minHeight: T.button.primary.height,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 24,
     borderWidth: 1.5,
-    borderColor: ROSE_600,
+    borderColor: T.color.accent.identity,
     flex: 1,
   },
-  secondaryBtnText: { fontSize: 16, fontWeight: '600', color: ROSE_600 },
+  secondaryBtnText: {
+    fontFamily: T.type.label.fontFamily,
+    fontSize: T.type.body.size,
+    color: T.color.text.primary,
+  },
 
   // Generating
   generatingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16 },
-  generatingText: { fontSize: 15, color: NEUTRAL_600 },
+  generatingText: {
+    fontFamily: T.type.body.fontFamily,
+    fontSize: T.type.body.size,
+    color: T.color.text.primary,
+  },
 
   // Error
   errorContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 16 },
-  errorTitle: { fontSize: 16, color: NEUTRAL_900, textAlign: 'center' },
+  errorTitle: {
+    fontFamily: T.type.body.fontFamily,
+    fontSize: T.type.body.size,
+    color: T.color.text.heading,
+    textAlign: 'center',
+  },
 
   // Consent blocked
   blockedContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 12 },
-  blockedText: { fontSize: 15, color: NEUTRAL_600, textAlign: 'center' },
-  rearmBtn: { paddingVertical: 10, paddingHorizontal: 20, borderRadius: 8, borderWidth: 1.5, borderColor: ROSE_600 },
-  rearmBtnText: { fontSize: 14, fontWeight: '600', color: ROSE_600 },
+  blockedText: {
+    fontFamily: T.type.body.fontFamily,
+    fontSize: T.type.body.size,
+    color: T.color.text.primary,
+    textAlign: 'center',
+  },
+  rearmBtn: {
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: T.radius.sm,
+    borderWidth: 1.5,
+    borderColor: T.color.accent.identity,
+  },
+  rearmBtnText: {
+    fontFamily: T.type.label.fontFamily,
+    fontSize: T.type.caption.size,
+    color: T.color.text.primary,
+  },
 
   // Preview
   previewScroll: { flex: 1 },
   previewContent: { paddingHorizontal: 16, paddingVertical: 20 },
   previewPage: {
-    backgroundColor: '#fff',
-    borderRadius: 8,
+    backgroundColor: T.color.surface.subtle,
+    borderRadius: T.radius.sm,
     padding: 20,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 2,
+    ...T.elev[1],
   },
-  previewH1: { fontSize: 18, fontWeight: '700', color: ROSE_600, marginBottom: 4 },
-  previewRange: { fontSize: 13, color: NEUTRAL_600, marginBottom: 4 },
-  previewH2: { fontSize: 15, fontWeight: '600', color: NEUTRAL_600, marginTop: 14, marginBottom: 4 },
-  previewBody: { fontSize: 13, color: NEUTRAL_900, marginBottom: 2 },
-  previewPlaceholder: { fontSize: 12, color: NEUTRAL_400, fontStyle: 'italic' },
-  previewLabHidden: { fontSize: 12, color: NEUTRAL_400, marginTop: 12, fontStyle: 'italic' },
-  previewDisclaimer: { fontSize: 11, color: NEUTRAL_400, marginTop: 12 },
-  divider: { height: 1, backgroundColor: BORDER, marginVertical: 12 },
+  previewH1: {
+    fontFamily: T.type.label.fontFamily,
+    fontSize: T.type.heading2.size,
+    color: T.color.text.heading,
+    marginBottom: 4,
+  },
+  previewRange: {
+    fontFamily: T.type.caption.fontFamily,
+    fontSize: T.type.caption.size,
+    color: T.color.text.primary,
+    marginBottom: 4,
+  },
+  previewH2: {
+    fontFamily: T.type.label.fontFamily,
+    fontSize: T.type.body.size,
+    color: T.color.text.primary,
+    marginTop: 14,
+    marginBottom: 4,
+  },
+  previewBody: {
+    fontFamily: T.type.caption.fontFamily,
+    fontSize: T.type.caption.size,
+    color: T.color.text.heading,
+    marginBottom: 2,
+  },
+  previewPlaceholder: {
+    fontFamily: T.type.caption.fontFamily,
+    fontSize: T.type.micro.size,
+    color: T.color.text.primary,
+    fontStyle: 'italic',
+  },
+  previewLabHidden: {
+    fontFamily: T.type.caption.fontFamily,
+    fontSize: T.type.micro.size,
+    color: T.color.text.primary,
+    marginTop: 12,
+    fontStyle: 'italic',
+  },
+  previewDisclaimer: {
+    fontFamily: T.type.micro.fontFamily,
+    fontSize: T.type.micro.size,
+    color: T.color.text.primary,
+    marginTop: 12,
+  },
+  divider: { height: 1, backgroundColor: T.color.surface.divider, marginVertical: 12 },
   chartContainer: { marginVertical: 8 },
-  previewChartCaption: { fontSize: 11, color: NEUTRAL_400, textAlign: 'center', marginTop: 2 },
+  previewChartCaption: {
+    fontFamily: T.type.micro.fontFamily,
+    fontSize: T.type.micro.size,
+    color: T.color.text.primary,
+    textAlign: 'center',
+    marginTop: 2,
+  },
 
   // Action bar
   actionBar: {
@@ -1271,21 +1348,20 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderTopWidth: 1,
-    borderTopColor: BORDER,
-    backgroundColor: CREAM,
+    borderTopColor: T.color.surface.divider,
+    backgroundColor: T.color.surface.base,
   },
 
   // ── Month/year picker modal styles (FIX 3, §8A.2) ───────────────────────────
-  // Bottom-sheet pattern matching ReminderFormScreen (§8A).
   pickerOverlay: {
     flex: 1,
     justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.35)',
+    backgroundColor: T.scrim.color,
   },
   pickerCard: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    backgroundColor: T.color.surface.base,
+    borderTopLeftRadius: T.radius.lg,
+    borderTopRightRadius: T.radius.lg,
     paddingHorizontal: 16,
     paddingBottom: 32,
     paddingTop: 4,
@@ -1296,20 +1372,28 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: BORDER,
+    borderBottomColor: T.color.surface.divider,
     marginBottom: 12,
   },
   pickerCancelBtn: { minWidth: 56, paddingVertical: 4 },
-  pickerCancelText: { fontSize: 15, color: NEUTRAL_600 },
+  pickerCancelText: {
+    fontFamily: T.type.body.fontFamily,
+    fontSize: T.type.body.size,
+    color: T.color.text.primary,
+  },
   pickerTitle: {
-    fontSize: 15,
-    fontWeight: '600',
-    color: NEUTRAL_900,
+    fontFamily: T.type.label.fontFamily,
+    fontSize: T.type.body.size,
+    color: T.color.text.heading,
     textAlign: 'center',
     flex: 1,
   },
   pickerDoneBtn: { minWidth: 56, paddingVertical: 4, alignItems: 'flex-end' },
-  pickerDoneText: { fontSize: 15, fontWeight: '600', color: ROSE_600 },
+  pickerDoneText: {
+    fontFamily: T.type.label.fontFamily,
+    fontSize: T.type.body.size,
+    color: T.color.text.primary,
+  },
 
   // Year stepper row
   pickerYearRow: {
@@ -1325,11 +1409,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  pickerStepText: { fontSize: 22, color: ROSE_600 },
+  pickerStepText: { fontSize: 22, color: T.color.text.primary },
   pickerYearLabel: {
-    fontSize: 17,
-    fontWeight: '600',
-    color: NEUTRAL_900,
+    fontFamily: T.type.label.fontFamily,
+    fontSize: T.type.bodyLarge.size,
+    color: T.color.text.heading,
     minWidth: 100,
     textAlign: 'center',
   },
@@ -1346,22 +1430,23 @@ const styles = StyleSheet.create({
     minHeight: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 10,
+    borderRadius: T.radius.md,
     borderWidth: 1,
-    borderColor: BORDER,
-    backgroundColor: CREAM,
+    borderColor: T.color.surface.divider,
+    backgroundColor: T.color.surface.base,
   },
   pickerMonthCellSelected: {
-    backgroundColor: ROSE_600,
-    borderColor: ROSE_600,
+    backgroundColor: T.color.surface.wash.roselle,
+    borderColor: T.color.accent.identity,
   },
   pickerMonthLabel: {
-    fontSize: 13,
-    color: NEUTRAL_900,
+    fontFamily: T.type.caption.fontFamily,
+    fontSize: T.type.caption.size,
+    color: T.color.text.heading,
     textAlign: 'center',
   },
   pickerMonthLabelSelected: {
-    color: '#FFFFFF',
-    fontWeight: '600',
+    fontFamily: T.type.label.fontFamily,
+    color: T.color.text.heading,
   },
 });

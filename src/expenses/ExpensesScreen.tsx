@@ -81,6 +81,7 @@ import {
 import { toCivilDate, parseCivilDate } from '../calendar/dateTimePickerFormat';
 import { formatCivilDate, formatYearMonth } from '../i18n/messages';
 import type { Locale } from '../auth/types';
+import { T } from '../theme/tokens';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -155,6 +156,10 @@ function CategorySelector({
           accessibilityRole="button"
           accessibilityState={{ selected: value === cat }}
         >
+          {/* B3 spec: shape cue — checkmark glyph (non-color-only selection indicator) */}
+          {value === cat && (
+            <Text style={formStyles.categoryChipCheck} accessibilityElementsHidden>✓</Text>
+          )}
           <Text
             style={[
               formStyles.categoryChipText,
@@ -266,7 +271,7 @@ function ExpenseFormModal({
               onChangeText={(v) => onChange({ amountBaht: filterAmountInput(v) })}
               keyboardType="decimal-pad"
               placeholder="0"
-              placeholderTextColor="#94818A"
+              placeholderTextColor={T.input.placeholder}
               autoFocus={!isEdit}
             />
           </View>
@@ -302,7 +307,7 @@ function ExpenseFormModal({
             multiline
             numberOfLines={3}
             placeholder={t('expenses.fieldNote')}
-            placeholderTextColor="#94818A"
+            placeholderTextColor={T.input.placeholder}
           />
           <Text style={formStyles.privacyLine}>{t('expenses.notePrivacyLine')}</Text>
 
@@ -396,135 +401,160 @@ function ExpenseFormModal({
 }
 
 const formStyles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FBF6F1' },
+  container: { flex: 1, backgroundColor: T.color.surface.base },          // #FBF6F1 (from #FBF6F1 literal)
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 16,
+    padding: T.spacing[4],                                                  // 16dp
     borderBottomWidth: 1,
-    borderBottomColor: '#EBE1D9',
+    borderBottomColor: T.color.surface.divider,                             // #E8DDD5 (from #EBE1D9)
   },
   headerSpacer: { width: 60 },
   title: {
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 18,
-    color: '#3A2A30',
+    fontFamily: T.type.heading2.fontFamily,                                 // Sarabun-SemiBold (from IBMPlexSans-SemiBold)
+    fontSize: T.type.heading2.size,                                         // 20sp (from 18sp)
+    lineHeight: T.type.heading2.lineHeight,                                 // 33
+    color: T.color.text.heading,                                            // #4A2230 roselle-900 (from #3A2A30)
     flex: 1,
     textAlign: 'center',
   },
   cancelBtn: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 16,
-    color: '#A8505A',
+    fontFamily: T.type.body.fontFamily,                                     // Sarabun-Regular (from IBMPlexSans-Regular)
+    fontSize: T.type.body.size,                                             // 15sp (from 16sp)
+    lineHeight: T.type.body.lineHeight,                                     // 25
+    color: T.color.text.primary,                                            // #7A3A52 roselle-700 (from #A8505A)
     width: 60,
   },
   body: { flex: 1 },
   bodyContent: { padding: 20, gap: 12 },
   label: {
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 14,
-    color: '#5F4A52',
+    fontFamily: T.type.label.fontFamily,                                    // Sarabun-SemiBold (from IBMPlexSans-SemiBold)
+    fontSize: T.type.body.size,                                             // 15sp (from 14sp)
+    lineHeight: T.type.body.lineHeight,                                     // 25
+    color: T.color.text.primary,                                            // #7A3A52 roselle-700 (from #5F4A52)
   },
-  // Amount input with ฿ prefix
+  // Amount input with ฿ prefix — spec: type.body.large text.primary tabular-nums Thai Baht ฿ Sarabun
   amountRow: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#EBE1D9',
-    borderRadius: 12,
-    backgroundColor: '#FFFFFF',
+    borderColor: T.input.border.default,                                    // #E8DDD5 (from #EBE1D9)
+    borderRadius: T.radius.sm,                                              // 6dp (from 12dp)
+    backgroundColor: T.input.bg,                                            // #F5EDE6 ivory-200 (from #FFFFFF)
     paddingHorizontal: 14,
   },
   currencyPrefix: {
-    fontFamily: 'IBMPlexMono-Regular',
-    fontSize: 18,
-    color: '#3A2A30',
+    // ฿ symbol in Sarabun (spec: "Thai Baht symbol ฿ Sarabun")
+    fontFamily: T.type.bodyLarge.fontFamily,                                // Sarabun-Regular (from IBMPlexMono-Regular)
+    fontSize: T.type.bodyLarge.size,                                        // 17sp (from 18sp)
+    lineHeight: T.type.bodyLarge.lineHeight,                                // 28
+    color: T.color.text.primary,                                            // #7A3A52 roselle-700 (from #3A2A30 — per spec text.primary)
     marginRight: 6,
   },
   amountInput: {
     flex: 1,
     paddingVertical: 14,
-    fontFamily: 'IBMPlexMono-Regular',
-    fontSize: 22,
-    color: '#3A2A30',
+    // spec: "Amount display: type.body.large text.primary tabular-nums"
+    fontFamily: T.type.bodyLarge.fontFamily,                                // Sarabun-Regular (from IBMPlexMono-Regular)
+    fontSize: T.type.bodyLarge.size,                                        // 17sp (from 22sp — per spec body.large)
+    lineHeight: T.type.bodyLarge.lineHeight,                                // 28
+    color: T.color.text.primary,                                            // #7A3A52 roselle-700 (from #3A2A30)
   },
   input: {
     borderWidth: 1,
-    borderColor: '#EBE1D9',
-    borderRadius: 12,
+    borderColor: T.input.border.default,                                    // #E8DDD5 (from #EBE1D9)
+    borderRadius: T.radius.sm,                                              // 6dp (from 12dp)
     padding: 14,
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 16,
-    color: '#3A2A30',
-    backgroundColor: '#FFFFFF',
+    fontFamily: T.type.body.fontFamily,                                     // Sarabun-Regular (from IBMPlexSans-Regular)
+    fontSize: T.type.body.size,                                             // 15sp (from 16sp)
+    lineHeight: T.type.body.lineHeight,                                     // 25
+    color: T.input.text,                                                    // #4A2230 roselle-900 (from #3A2A30)
+    backgroundColor: T.input.bg,                                            // #F5EDE6 ivory-200 (from #FFFFFF)
   },
   noteInput: {
     minHeight: 80,
     textAlignVertical: 'top',
   },
   privacyLine: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 12,
-    color: '#94818A',
+    fontFamily: T.type.micro.fontFamily,                                    // Sarabun-Regular (from IBMPlexSans-Regular)
+    fontSize: T.type.micro.size,                                            // 11sp (from 12sp) — footnote
+    lineHeight: T.type.micro.lineHeight,                                    // 18
+    color: T.color.text.primary,                                            // #7A3A52 roselle-700 (from #94818A)
     fontStyle: 'italic',
   },
   categoryRow: { flexGrow: 0 },
   categoryChip: {
+    // B3 spec: radius.sm 6dp for expense category chips
+    flexDirection: 'row',                                                   // row for checkmark + text
+    alignItems: 'center',
     paddingHorizontal: 14,
     paddingVertical: 8,
-    borderRadius: 999,
+    borderRadius: T.radius.sm,                                              // 6dp (from 999 — spec: radius.sm for category chips)
     borderWidth: 1,
-    borderColor: '#EBE1D9',
+    borderColor: T.color.surface.divider,                                   // #E8DDD5 (from #EBE1D9)
     marginRight: 8,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: T.color.surface.base,                                  // #FBF6F1 (from #FFFFFF)
+    gap: 4,
+    minHeight: 48,                                                          // ≥48dp touch target (a11y)
+    justifyContent: 'center',
   },
   categoryChipSelected: {
-    backgroundColor: '#FBEDEE',
-    borderColor: '#A8505A',
+    // B3 spec: selected surface.wash.amber bg + text.heading; checkmark shape cue added in JSX
+    backgroundColor: T.color.surface.wash.amber,                            // #FDF0D5 amber-100 (from #FBEDEE — per spec!)
+    borderColor: T.color.accent.milestone,                                  // #B8720E amber-600 — matches amber wash
+  },
+  categoryChipCheck: {
+    // Checkmark shape cue (non-color-only selection indicator — B3 spec)
+    fontSize: T.type.caption.size,                                          // 13sp
+    color: T.color.accent.interactive,                                      // #9A5F0A amber-700 — on amber-100 wash 4.90:1 AA ✓
+    fontWeight: '700',
   },
   categoryChipText: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 14,
-    color: '#5F4A52',
+    fontFamily: T.type.caption.fontFamily,                                  // Sarabun-Regular (from IBMPlexSans-Regular)
+    fontSize: T.type.caption.size,                                          // 13sp (from 14sp) — text.primary R4
+    lineHeight: T.type.caption.lineHeight,                                  // 21
+    color: T.color.text.primary,                                            // #7A3A52 roselle-700 (from #5F4A52)
   },
   categoryChipTextSelected: {
-    fontFamily: 'IBMPlexSans-SemiBold',
-    color: '#8E3A44',
+    // B3 spec: selected text = text.heading (roselle-900)
+    fontFamily: T.type.label.fontFamily,                                    // Sarabun-SemiBold (from IBMPlexSans-SemiBold)
+    color: T.color.text.heading,                                            // #4A2230 roselle-900 (from #8E3A44 — spec: text.heading)
   },
   // Date picker field (replaces free-text TextInput)
   pickerField: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#EBE1D9',
-    borderRadius: 12,
-    backgroundColor: '#FFFFFF',
+    borderColor: T.input.border.default,                                    // #E8DDD5 (from #EBE1D9)
+    borderRadius: T.radius.sm,                                              // 6dp (from 12dp)
+    backgroundColor: T.input.bg,                                            // #F5EDE6 ivory-200 (from #FFFFFF)
     paddingHorizontal: 14,
     paddingVertical: 14,
-    minHeight: 48,
+    minHeight: T.input.height,                                              // 52dp
   },
   pickerFieldText: {
     flex: 1,
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 16,
-    color: '#3A2A30',
+    fontFamily: T.type.body.fontFamily,                                     // Sarabun-Regular (from IBMPlexSans-Regular)
+    fontSize: T.type.bodyLarge.size,                                        // 17sp (from 16sp)
+    lineHeight: T.type.bodyLarge.lineHeight,                                // 28
+    color: T.input.text,                                                    // #4A2230 roselle-900 (from #3A2A30)
   },
   pickerChevron: {
-    fontSize: 18,
-    color: '#94818A',
+    fontSize: T.type.bodyLarge.size,                                        // 17sp (from 18sp)
+    color: T.color.text.primary,                                            // #7A3A52 roselle-700 (from #94818A)
     marginLeft: 8,
   },
   // Bottom-sheet picker modal (iOS)
   pickerOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(58,42,48,0.4)',
+    backgroundColor: T.scrim.color,                                         // rgba(74,34,48,0.40) (from rgba(58,42,48,0.4))
     justifyContent: 'flex-end',
   },
   pickerCard: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    backgroundColor: T.color.surface.base,                                  // #FBF6F1 (from #FFFFFF)
+    borderTopLeftRadius: T.radius.lg,                                       // 20dp (from 24dp)
+    borderTopRightRadius: T.radius.lg,                                      // 20dp
     paddingBottom: 32,
   },
   pickerBtnRow: {
@@ -533,65 +563,71 @@ const formStyles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#EBE1D9',
+    borderBottomColor: T.color.surface.divider,                             // #E8DDD5 (from #EBE1D9)
   },
   pickerCancelBtn: { minHeight: 44, justifyContent: 'center' as const },
   pickerCancelText: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 15,
-    color: '#94818A',
+    fontFamily: T.type.body.fontFamily,                                     // Sarabun-Regular (from IBMPlexSans-Regular)
+    fontSize: T.type.body.size,                                             // 15sp ✓
+    lineHeight: T.type.body.lineHeight,                                     // 25
+    color: T.color.text.primary,                                            // #7A3A52 roselle-700 (from #94818A)
   },
   pickerTitle: {
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 15,
-    color: '#3A2A30',
+    fontFamily: T.type.label.fontFamily,                                    // Sarabun-SemiBold (from IBMPlexSans-SemiBold)
+    fontSize: T.type.label.size,                                            // 15sp ✓
+    lineHeight: T.type.label.lineHeight,                                    // 24
+    color: T.color.text.heading,                                            // #4A2230 roselle-900 (from #3A2A30)
     textAlign: 'center' as const,
   },
   pickerDoneBtn: { minHeight: 44, justifyContent: 'center' as const },
   pickerDoneText: {
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 15,
-    color: '#A8505A',
+    fontFamily: T.type.label.fontFamily,                                    // Sarabun-SemiBold (from IBMPlexSans-SemiBold)
+    fontSize: T.type.label.size,                                            // 15sp ✓
+    lineHeight: T.type.label.lineHeight,                                    // 24
+    color: T.color.text.primary,                                            // #7A3A52 roselle-700 (from #A8505A)
   },
   iosPicker: { alignSelf: 'center' as const },
 
   // Echo line
   echoContainer: {
-    backgroundColor: '#FBF3EE',
-    borderRadius: 12,
+    backgroundColor: T.color.surface.subtle,                                // #F5EDE6 ivory-200 (from #FBF3EE)
+    borderRadius: T.radius.sm,                                              // 6dp (from 12dp)
     padding: 14,
     gap: 4,
   },
   echoLabel: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 12,
-    color: '#94818A',
+    fontFamily: T.type.micro.fontFamily,                                    // Sarabun-Regular (from IBMPlexSans-Regular)
+    fontSize: T.type.micro.size,                                            // 11sp (from 12sp)
+    lineHeight: T.type.micro.lineHeight,                                    // 18
+    color: T.color.text.primary,                                            // #7A3A52 roselle-700 (from #94818A)
   },
   echoLine: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 14,
-    color: '#3A2A30',
+    fontFamily: T.type.body.fontFamily,                                     // Sarabun-Regular (from IBMPlexSans-Regular)
+    fontSize: T.type.body.size,                                             // 15sp (from 14sp)
+    lineHeight: T.type.body.lineHeight,                                     // 25
+    color: T.color.text.primary,                                            // #7A3A52 roselle-700 (from #3A2A30)
   },
   footer: {
-    padding: 16,
+    padding: T.spacing[4],                                                  // 16dp
     borderTopWidth: 1,
-    borderTopColor: '#EBE1D9',
+    borderTopColor: T.color.surface.divider,                                // #E8DDD5 (from #EBE1D9)
     gap: 8,
   },
   saveBtn: {
-    height: 52,
-    backgroundColor: '#A8505A',
-    borderRadius: 999,
+    height: T.button.primary.height,                                        // 52dp ✓
+    backgroundColor: T.button.primary.bg,                                   // #9A5F0A amber-700 (from #A8505A)
+    borderRadius: T.button.primary.radius,                                  // 12dp (from 999/pill)
     alignItems: 'center',
     justifyContent: 'center',
   },
   saveBtnDisabled: {
-    backgroundColor: '#C8A0A6',
+    opacity: 0.4,                                                           // from explicit muted-rose bg (#C8A0A6) → standard opacity
   },
   saveBtnText: {
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 17,
-    color: '#FFFFFF',
+    fontFamily: T.type.label.fontFamily,                                    // Sarabun-SemiBold (from IBMPlexSans-SemiBold)
+    fontSize: T.type.bodyLarge.size,                                        // 17sp ✓
+    lineHeight: T.type.bodyLarge.lineHeight,                                // 28
+    color: T.color.text.onDark,                                             // #FFFFFF
   },
   deleteBtn: {
     height: 44,
@@ -599,9 +635,10 @@ const formStyles = StyleSheet.create({
     justifyContent: 'center',
   },
   deleteBtnText: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 15,
-    color: '#A8505A',
+    fontFamily: T.type.body.fontFamily,                                     // Sarabun-Regular (from IBMPlexSans-Regular)
+    fontSize: T.type.body.size,                                             // 15sp ✓
+    lineHeight: T.type.body.lineHeight,                                     // 25
+    color: T.color.text.primary,                                            // #7A3A52 roselle-700 (from #A8505A)
   },
 });
 
@@ -656,11 +693,14 @@ const rowStyles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    backgroundColor: T.input.bg,                                            // #F5EDE6 ivory-200 (from #FFFFFF — no white surfaces)
+    borderRadius: T.radius.md,                                              // 12dp (from 16dp)
     borderWidth: 1,
-    borderColor: '#EBE1D9',
-    padding: 16,
+    borderColor: T.color.surface.divider,                                   // #E8DDD5 (from #EBE1D9)
+    // B3 spec: AccentRow — jade-800 3dp left accent bar for health/expense rows
+    borderLeftWidth: T.list.row.accentBar.width,                            // 3dp
+    borderLeftColor: T.list.row.accentBar.health,                           // #2F5042 jade-800
+    padding: T.spacing[4],                                                  // 16dp ✓
     gap: 12,
     minHeight: 48,
   },
@@ -670,36 +710,44 @@ const rowStyles = StyleSheet.create({
     paddingTop: 2,
   },
   glyph: {
-    fontSize: 16,
-    color: '#5F4A52',
+    fontSize: T.type.body.size,                                             // 15sp (from 16sp) — decorative category icon
+    color: T.color.text.primary,                                            // #7A3A52 roselle-700 (from #5F4A52)
   },
   info: { flex: 1, gap: 2 },
   catLabel: {
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 14,
-    color: '#3A2A30',
+    // B3 spec: type.body.large text.primary 17sp
+    fontFamily: T.type.bodyLarge.fontFamily,                                // Sarabun-Regular (from IBMPlexSans-SemiBold)
+    fontSize: T.type.bodyLarge.size,                                        // 17sp (from 14sp — per spec body.large)
+    lineHeight: T.type.bodyLarge.lineHeight,                                // 28
+    fontWeight: '600',
+    color: T.color.text.primary,                                            // #7A3A52 roselle-700 (from #3A2A30 — per spec text.primary)
   },
   note: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 13,
-    color: '#5F4A52',
+    fontFamily: T.type.caption.fontFamily,                                  // Sarabun-Regular (from IBMPlexSans-Regular)
+    fontSize: T.type.caption.size,                                          // 13sp ✓ — text.primary (R4)
+    lineHeight: T.type.caption.lineHeight,                                  // 21
+    color: T.color.text.primary,                                            // #7A3A52 roselle-700 (from #5F4A52)
   },
   noNote: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 13,
-    color: '#94818A',
+    fontFamily: T.type.caption.fontFamily,                                  // Sarabun-Regular (from IBMPlexSans-Regular)
+    fontSize: T.type.caption.size,                                          // 13sp — text.primary (R4; same as note)
+    lineHeight: T.type.caption.lineHeight,                                  // 21
+    color: T.color.text.primary,                                            // #7A3A52 roselle-700 (from #94818A)
     fontStyle: 'italic',
   },
   date: {
-    fontFamily: 'IBMPlexMono-Regular',
-    fontSize: 12,
-    color: '#94818A',
+    fontFamily: T.type.micro.fontFamily,                                    // Sarabun-Regular (from IBMPlexMono-Regular — no mono token)
+    fontSize: T.type.micro.size,                                            // 11sp (from 12sp) — date micro
+    lineHeight: T.type.micro.lineHeight,                                    // 18
+    color: T.color.text.primary,                                            // #7A3A52 roselle-700 (from #94818A)
     marginTop: 2,
   },
   amount: {
-    fontFamily: 'IBMPlexMono-Regular',
-    fontSize: 16,
-    color: '#3A2A30',
+    // B3 spec: "Amount display: type.body.large text.primary; tabular-nums"
+    fontFamily: T.type.bodyLarge.fontFamily,                                // Sarabun-Regular (from IBMPlexMono-Regular)
+    fontSize: T.type.bodyLarge.size,                                        // 17sp (from 16sp — per spec body.large)
+    lineHeight: T.type.bodyLarge.lineHeight,                                // 28
+    color: T.color.text.primary,                                            // #7A3A52 roselle-700 (from #3A2A30 — per spec text.primary)
     fontWeight: '600',
     minWidth: 80,
     textAlign: 'right',
@@ -744,10 +792,10 @@ function CategoryBreakdown({
 
 const breakdownStyles = StyleSheet.create({
   container: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    backgroundColor: T.input.bg,                                            // #F5EDE6 ivory-200 (from #FFFFFF)
+    borderRadius: T.radius.md,                                              // 12dp (from 16dp)
     borderWidth: 1,
-    borderColor: '#EBE1D9',
+    borderColor: T.color.surface.divider,                                   // #E8DDD5 (from #EBE1D9)
     padding: 12,
     gap: 6,
   },
@@ -757,20 +805,22 @@ const breakdownStyles = StyleSheet.create({
     gap: 8,
   },
   glyph: {
-    fontSize: 14,
-    color: '#5F4A52',
+    fontSize: T.type.caption.size,                                          // 13sp (from 14sp)
+    color: T.color.text.primary,                                            // #7A3A52 roselle-700 (from #5F4A52)
     width: 20,
   },
   label: {
     flex: 1,
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 13,
-    color: '#5F4A52',
+    fontFamily: T.type.caption.fontFamily,                                  // Sarabun-Regular (from IBMPlexSans-Regular)
+    fontSize: T.type.caption.size,                                          // 13sp ✓ — text.primary (R4)
+    lineHeight: T.type.caption.lineHeight,                                  // 21
+    color: T.color.text.primary,                                            // #7A3A52 roselle-700 (from #5F4A52)
   },
   amount: {
-    fontFamily: 'IBMPlexMono-Regular',
-    fontSize: 13,
-    color: '#3A2A30',
+    fontFamily: T.type.caption.fontFamily,                                  // Sarabun-Regular (from IBMPlexMono-Regular — no mono token)
+    fontSize: T.type.caption.size,                                          // 13sp ✓ — text.primary (R4)
+    lineHeight: T.type.caption.lineHeight,                                  // 21
+    color: T.color.text.primary,                                            // #7A3A52 roselle-700 (from #3A2A30)
   },
 });
 
@@ -1227,66 +1277,71 @@ export function ExpensesScreen({ tokenStorage, apiBaseUrl }: ExpensesScreenProps
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FBF6F1',
+    backgroundColor: T.color.surface.base,                                  // #FBF6F1 ivory-100 (from #FBF6F1 literal)
   },
 
   // Sync status banners
   syncBar: {
-    backgroundColor: '#EBF2EC',
+    backgroundColor: T.color.surface.wash.jade,                             // #E4EDE7 jade-100 (from #EBF2EC)
     paddingVertical: 6,
-    paddingHorizontal: 16,
+    paddingHorizontal: T.spacing[4],                                        // 16dp
     alignItems: 'center',
   },
   syncBarText: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 13,
-    color: '#4A7A56',
+    fontFamily: T.type.body.fontFamily,                                     // Sarabun-Regular (from IBMPlexSans-Regular)
+    fontSize: T.type.body.size,                                             // 15sp (from 13sp)
+    lineHeight: T.type.body.lineHeight,                                     // 25
+    color: T.color.text.primary,                                            // #7A3A52 roselle-700 (from #4A7A56)
   },
   // Offline pill (spec §4.5 — calm warm-neutral, list stays interactive)
   offlinePill: {
-    backgroundColor: '#FFF8E8',
+    backgroundColor: T.color.surface.wash.amber,                            // #FDF0D5 amber-100 (from #FFF8E8)
     paddingVertical: 6,
-    paddingHorizontal: 16,
+    paddingHorizontal: T.spacing[4],                                        // 16dp
     alignItems: 'center',
   },
   offlinePillText: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 13,
-    color: '#7A5A10',
+    fontFamily: T.type.body.fontFamily,                                     // Sarabun-Regular (from IBMPlexSans-Regular)
+    fontSize: T.type.body.size,                                             // 15sp (from 13sp)
+    lineHeight: T.type.body.lineHeight,                                     // 25
+    color: T.color.text.primary,                                            // #7A3A52 roselle-700 (from #7A5A10)
   },
   // Error banner (genuine server/client errors only — not offline)
   errorBar: {
-    backgroundColor: '#FBEDEE',
+    backgroundColor: T.color.surface.subtle,                                // #F5EDE6 ivory-200 (from #FBEDEE — blameless; per B3 spec)
     paddingVertical: 8,
-    paddingHorizontal: 16,
+    paddingHorizontal: T.spacing[4],                                        // 16dp
     alignItems: 'center',
   },
   errorBarText: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 13,
-    color: '#8E3A44',
+    fontFamily: T.type.body.fontFamily,                                     // Sarabun-Regular (from IBMPlexSans-Regular)
+    fontSize: T.type.body.size,                                             // 15sp (from 13sp — per B3 spec 15sp)
+    lineHeight: T.type.body.lineHeight,                                     // 25
+    color: T.color.text.primary,                                            // #7A3A52 roselle-700 (from #8E3A44 — blameless)
   },
   infoBar: {
-    backgroundColor: '#EBF2EC',
+    backgroundColor: T.color.surface.wash.jade,                             // #E4EDE7 jade-100 (from #EBF2EC)
     paddingVertical: 6,
-    paddingHorizontal: 16,
+    paddingHorizontal: T.spacing[4],                                        // 16dp
     alignItems: 'center',
   },
   infoBarText: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 13,
-    color: '#4A7A56',
+    fontFamily: T.type.body.fontFamily,                                     // Sarabun-Regular (from IBMPlexSans-Regular)
+    fontSize: T.type.body.size,                                             // 15sp (from 13sp)
+    lineHeight: T.type.body.lineHeight,                                     // 25
+    color: T.color.text.primary,                                            // #7A3A52 roselle-700 (from #4A7A56)
   },
   warnBar: {
-    backgroundColor: '#FFF8E8',
+    backgroundColor: T.color.surface.wash.amber,                            // #FDF0D5 amber-100 (from #FFF8E8)
     paddingVertical: 6,
-    paddingHorizontal: 16,
+    paddingHorizontal: T.spacing[4],                                        // 16dp
     alignItems: 'center',
   },
   warnBarText: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 13,
-    color: '#7A5A10',
+    fontFamily: T.type.body.fontFamily,                                     // Sarabun-Regular (from IBMPlexSans-Regular)
+    fontSize: T.type.body.size,                                             // 15sp (from 13sp)
+    lineHeight: T.type.body.lineHeight,                                     // 25
+    color: T.color.text.primary,                                            // #7A3A52 roselle-700 (from #7A5A10)
   },
 
   // List container
@@ -1313,61 +1368,67 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   monthNavArrow: {
-    fontSize: 22,
-    color: '#5F4A52',
-    lineHeight: 28,
+    fontSize: T.type.heading2.size,                                         // 20sp (from 22sp — nearest heading token)
+    color: T.color.text.primary,                                            // #7A3A52 roselle-700 (from #5F4A52)
+    lineHeight: T.type.heading2.lineHeight,                                 // 33
   },
   monthLabel: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 15,
-    color: '#3A2A30',
+    fontFamily: T.type.body.fontFamily,                                     // Sarabun-Regular (from IBMPlexSans-Regular)
+    fontSize: T.type.body.size,                                             // 15sp ✓
+    lineHeight: T.type.body.lineHeight,                                     // 25
+    color: T.color.text.heading,                                            // #4A2230 roselle-900 (from #3A2A30)
     textAlign: 'center',
     flex: 1,
   },
   yearLabel: {
-    fontFamily: 'IBMPlexMono-Regular',
-    fontSize: 15,
-    color: '#3A2A30',
+    fontFamily: T.type.body.fontFamily,                                     // Sarabun-Regular (from IBMPlexMono-Regular)
+    fontSize: T.type.body.size,                                             // 15sp ✓
+    lineHeight: T.type.body.lineHeight,                                     // 25
+    color: T.color.text.heading,                                            // #4A2230 roselle-900 (from #3A2A30)
   },
 
-  // Month total (the one bold thing — spec §2.1 / design-system §0)
+  // Month total — B3 spec: type.heading2 text.heading 20sp
   totalSection: {
     alignItems: 'center',
     gap: 4,
     paddingVertical: 8,
   },
   totalLabel: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 14,
-    color: '#5F4A52',
+    fontFamily: T.type.body.fontFamily,                                     // Sarabun-Regular (from IBMPlexSans-Regular)
+    fontSize: T.type.body.size,                                             // 15sp (from 14sp)
+    lineHeight: T.type.body.lineHeight,                                     // 25
+    color: T.color.text.primary,                                            // #7A3A52 roselle-700 (from #5F4A52)
   },
   totalAmount: {
-    fontFamily: 'IBMPlexMono-Regular',
-    fontSize: 36,
-    fontWeight: '700',
-    color: '#3A2A30',
-    letterSpacing: -0.5,
+    // B3 spec: "Total summary: type.heading2 text.heading 20sp"
+    fontFamily: T.type.heading2.fontFamily,                                 // Sarabun-SemiBold (from IBMPlexMono-Regular)
+    fontSize: T.type.heading2.size,                                         // 20sp (from 36sp — per spec; heading2 is the largest non-display token)
+    lineHeight: T.type.heading2.lineHeight,                                 // 33
+    fontWeight: T.type.heading2.fontWeight,                                 // '600'
+    color: T.color.text.heading,                                            // #4A2230 roselle-900 (from #3A2A30 — per spec text.heading)
   },
   totalCount: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 13,
-    color: '#94818A',
+    fontFamily: T.type.caption.fontFamily,                                  // Sarabun-Regular (from IBMPlexSans-Regular)
+    fontSize: T.type.caption.size,                                          // 13sp ✓ — text.primary (R4)
+    lineHeight: T.type.caption.lineHeight,                                  // 21
+    color: T.color.text.primary,                                            // #7A3A52 roselle-700 (from #94818A)
   },
 
   // Jump-to-current-month
   jumpToTodayBtn: {
     alignSelf: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: T.spacing[4],                                        // 16dp
     paddingVertical: 8,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 999,
+    backgroundColor: T.color.surface.base,                                  // #FBF6F1 (from #FFFFFF)
+    borderRadius: T.radius.pill,                                            // 999
     borderWidth: 1,
-    borderColor: '#EBE1D9',
+    borderColor: T.color.surface.divider,                                   // #E8DDD5 (from #EBE1D9)
   },
   jumpToTodayText: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 13,
-    color: '#5F4A52',
+    fontFamily: T.type.caption.fontFamily,                                  // Sarabun-Regular (from IBMPlexSans-Regular)
+    fontSize: T.type.caption.size,                                          // 13sp ✓ — text.primary (R4)
+    lineHeight: T.type.caption.lineHeight,                                  // 21
+    color: T.color.text.primary,                                            // #7A3A52 roselle-700 (from #5F4A52)
   },
 
   // List items
@@ -1375,7 +1436,7 @@ const styles = StyleSheet.create({
     height: 10,
   },
 
-  // Empty state (spec §4.2)
+  // Empty state (spec §4.2 — PandanEmptyState)
   emptyContainer: {
     alignItems: 'center',
     paddingHorizontal: 32,
@@ -1387,31 +1448,33 @@ const styles = StyleSheet.create({
     fontSize: 40,
   },
   emptyHeadline: {
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 17,
-    color: '#3A2A30',
+    fontFamily: T.type.label.fontFamily,                                    // Sarabun-SemiBold (from IBMPlexSans-SemiBold)
+    fontSize: T.type.bodyLarge.size,                                        // 17sp ✓
+    lineHeight: T.type.bodyLarge.lineHeight,                                // 28
+    color: T.color.text.heading,                                            // #4A2230 roselle-900 (from #3A2A30)
     textAlign: 'center',
   },
   emptyBody: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 14,
-    color: '#5F4A52',
+    fontFamily: T.type.body.fontFamily,                                     // Sarabun-Regular (from IBMPlexSans-Regular)
+    fontSize: T.type.body.size,                                             // 15sp (from 14sp)
+    lineHeight: T.type.body.lineHeight,                                     // 25
+    color: T.color.text.primary,                                            // #7A3A52 roselle-700 (from #5F4A52)
     textAlign: 'center',
-    lineHeight: 22,
   },
   addFirstBtn: {
     marginTop: 8,
-    height: 52,
+    height: T.button.primary.height,                                        // 52dp ✓
     paddingHorizontal: 28,
-    backgroundColor: '#A8505A',
-    borderRadius: 999,
+    backgroundColor: T.button.primary.bg,                                   // #9A5F0A amber-700 (from #A8505A)
+    borderRadius: T.button.primary.radius,                                  // 12dp (from 999/pill)
     alignItems: 'center',
     justifyContent: 'center',
   },
   addFirstBtnText: {
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 16,
-    color: '#FFFFFF',
+    fontFamily: T.type.label.fontFamily,                                    // Sarabun-SemiBold (from IBMPlexSans-SemiBold)
+    fontSize: T.type.body.size,                                             // 15sp (from 16sp)
+    lineHeight: T.type.body.lineHeight,                                     // 25
+    color: T.color.text.onDark,                                             // #FFFFFF
   },
 
   // Refresh button
@@ -1421,15 +1484,16 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     paddingHorizontal: 20,
     paddingVertical: 10,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 999,
+    backgroundColor: T.color.surface.base,                                  // #FBF6F1 (from #FFFFFF)
+    borderRadius: T.radius.pill,                                            // 999
     borderWidth: 1,
-    borderColor: '#EBE1D9',
+    borderColor: T.color.surface.divider,                                   // #E8DDD5 (from #EBE1D9)
   },
   refreshBtnText: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 14,
-    color: '#5F4A52',
+    fontFamily: T.type.body.fontFamily,                                     // Sarabun-Regular (from IBMPlexSans-Regular)
+    fontSize: T.type.body.size,                                             // 15sp (from 14sp)
+    lineHeight: T.type.body.lineHeight,                                     // 25
+    color: T.color.text.primary,                                            // #7A3A52 roselle-700 (from #5F4A52)
   },
 
   // FAB
@@ -1437,58 +1501,63 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 24,
     alignSelf: 'center',
-    height: 52,
+    height: T.button.primary.height,                                        // 52dp ✓
     paddingHorizontal: 28,
-    backgroundColor: '#A8505A',
-    borderRadius: 999,
+    backgroundColor: T.button.primary.bg,                                   // #9A5F0A amber-700 (from #A8505A)
+    borderRadius: T.button.primary.radius,                                  // 12dp (from 999/pill)
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 4,
+    // Warm-tinted shadow per token (T.elev.1)
+    shadowColor: T.elev[1].shadowColor,                                     // 'rgba(74,34,48,0.07)' (from '#000')
+    shadowOffset: T.elev[1].shadowOffset,                                   // { width:0, height:2 }
+    shadowOpacity: T.elev[1].shadowOpacity,                                 // 1
+    shadowRadius: T.elev[1].shadowRadius,                                   // 8
+    elevation: T.elev[1].elevation,                                         // 2
   },
   fabText: {
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 16,
-    color: '#FFFFFF',
+    fontFamily: T.type.label.fontFamily,                                    // Sarabun-SemiBold (from IBMPlexSans-SemiBold)
+    fontSize: T.type.body.size,                                             // 15sp (from 16sp)
+    lineHeight: T.type.body.lineHeight,                                     // 25
+    color: T.color.text.onDark,                                             // #FFFFFF
   },
 
   // Undo-delete toast (spec §3.2/US-E3)
   deleteToast: {
     position: 'absolute',
     bottom: 100,
-    left: 16,
-    right: 16,
-    backgroundColor: '#3A2A30',
-    borderRadius: 12,
+    left: T.spacing[4],                                                     // 16dp
+    right: T.spacing[4],                                                    // 16dp
+    backgroundColor: T.color.text.heading,                                  // #4A2230 roselle-900 (from #3A2A30)
+    borderRadius: T.radius.md,                                              // 12dp ✓
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
+    paddingHorizontal: T.spacing[4],                                        // 16dp
     paddingVertical: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-    elevation: 6,
+    // Elevated shadow per T.elev[2]
+    shadowColor: T.elev[2].shadowColor,                                     // 'rgba(74,34,48,0.12)' (from '#000')
+    shadowOffset: T.elev[2].shadowOffset,                                   // { width:0, height:8 }
+    shadowOpacity: T.elev[2].shadowOpacity,                                 // 1
+    shadowRadius: T.elev[2].shadowRadius,                                   // 24
+    elevation: T.elev[2].elevation,                                         // 8
   },
   deleteToastText: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 14,
-    color: '#FFFFFF',
+    fontFamily: T.type.body.fontFamily,                                     // Sarabun-Regular (from IBMPlexSans-Regular)
+    fontSize: T.type.body.size,                                             // 15sp (from 14sp)
+    lineHeight: T.type.body.lineHeight,                                     // 25
+    color: T.color.text.onDark,                                             // #FFFFFF
     flex: 1,
   },
   deleteToastUndoBtn: {
-    paddingLeft: 16,
+    paddingLeft: T.spacing[4],                                              // 16dp
     paddingVertical: 4,
     minHeight: 44,
     justifyContent: 'center',
   },
   deleteToastUndoText: {
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 14,
-    color: '#F2B8BE',
+    fontFamily: T.type.label.fontFamily,                                    // Sarabun-SemiBold (from IBMPlexSans-SemiBold)
+    fontSize: T.type.body.size,                                             // 15sp (from 14sp)
+    lineHeight: T.type.body.lineHeight,                                     // 25
+    color: T.color.text.onDark,                                             // #FFFFFF (from #F2B8BE — no light-rose token; use onDark white)
   },
 });

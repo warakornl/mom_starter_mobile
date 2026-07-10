@@ -51,23 +51,26 @@ describe('KickCountDailyChart — component export', () => {
 
 // ─── 2. Design tokens ────────────────────────────────────────────────────────
 
-describe('KickCountDailyChart — design tokens', () => {
-  it('exports CHART_ROSE_FILL color matching T.rose (#A8505A)', () => {
+describe('KickCountDailyChart — design tokens (B3 reskin)', () => {
+  it('exports CHART_AMBER_FILL color matching T.color.accent.milestone (#B8720E)', () => {
+    // B3 reskin: rose bars (#A8505A) → amber-600 (#B8720E) K-5b uniform fill
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const mod = require('./KickCountDailyChart') as Record<string, unknown>;
-    expect(mod['CHART_ROSE_FILL']).toBe('#A8505A');
+    expect(mod['CHART_AMBER_FILL']).toBe('#B8720E');
   });
 
-  it('exports CHART_HAIRLINE color matching T.hairline (#E3D8CE)', () => {
+  it('exports CHART_DIVIDER color matching T.color.surface.divider (#E8DDD5)', () => {
+    // B3 reskin: hairline (#E3D8CE) → divider token (#E8DDD5)
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const mod = require('./KickCountDailyChart') as Record<string, unknown>;
-    expect(mod['CHART_HAIRLINE']).toBe('#E3D8CE');
+    expect(mod['CHART_DIVIDER']).toBe('#E8DDD5');
   });
 
-  it('exports CHART_INK color for labels (#1A1A1A)', () => {
+  it('exports CHART_LABEL_COLOR matching T.color.text.primary roselle-700 (#7A3A52)', () => {
+    // B3 reskin: ink (#1A1A1A) → roselle-700 (#7A3A52) axis labels
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const mod = require('./KickCountDailyChart') as Record<string, unknown>;
-    expect(mod['CHART_INK']).toBe('#1A1A1A');
+    expect(mod['CHART_LABEL_COLOR']).toBe('#7A3A52');
   });
 });
 

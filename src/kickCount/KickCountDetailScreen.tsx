@@ -29,6 +29,7 @@ import { interpolate } from '../i18n/messages';
 import { kickCountSyncStore } from './kickCountSyncStore';
 import type { KickCountSessionRecord } from './kickCountTypes';
 import { SafetyStrip } from './KickCountHomeScreen';
+import { T } from '../theme/tokens';
 
 type Route = NativeStackScreenProps<RootStackParamList, 'KickCountDetail'>['route'];
 
@@ -129,12 +130,14 @@ export function KickCountDetailScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
-    padding: 16,
+    backgroundColor: T.color.surface.base,   // #FBF6F1 ivory-100
+    padding: T.spacing[4],                    // 16dp
   },
   loadingText: {
-    fontSize: 15,
-    color: '#6B6B6B',
+    fontFamily: T.type.body.fontFamily,       // Sarabun-Regular
+    fontSize: T.type.body.size,               // 15sp
+    lineHeight: T.type.body.lineHeight,       // 25
+    color: T.color.text.primary,              // #7A3A52 roselle-700 (from #6B6B6B)
     marginTop: 40,
     textAlign: 'center',
   },
@@ -145,22 +148,26 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   headline: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#1A1A1A',
+    fontFamily: T.type.heading2.fontFamily,   // Sarabun-SemiBold
+    fontSize: T.type.heading2.size,           // 20sp (from 22sp — closest heading token)
+    lineHeight: T.type.heading2.lineHeight,   // 33
+    fontWeight: T.type.heading2.fontWeight,   // '600'
+    color: T.color.text.heading,              // #4A2230 roselle-900 (from #1A1A1A ink)
     textAlign: 'center',
     marginBottom: 4,
   },
   dateTime: {
-    fontSize: 14,
-    color: '#6B6B6B',
+    fontFamily: T.type.caption.fontFamily,    // Sarabun-Regular
+    fontSize: T.type.caption.size,            // 13sp (from 14sp — caption for metadata)
+    lineHeight: T.type.caption.lineHeight,    // 21
+    color: T.color.text.primary,              // #7A3A52 roselle-700 (from #6B6B6B)
     textAlign: 'center',
     marginBottom: 20,
   },
   statsBox: {
-    backgroundColor: '#F5F5F5',
-    borderRadius: 12,
-    padding: 16,
+    backgroundColor: T.color.surface.subtle,  // #F5EDE6 ivory-200 (from #F5F5F5)
+    borderRadius: T.radius.md,                // 12dp
+    padding: T.spacing[4],                    // 16dp
     flexDirection: 'row',
     justifyContent: 'space-around',
     marginBottom: 20,
@@ -169,46 +176,54 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   statLabel: {
-    fontSize: 12,
-    color: '#9B9B9B',
+    fontFamily: T.type.caption.fontFamily,    // Sarabun-Regular
+    fontSize: T.type.caption.size,            // 13sp (from 12sp)
+    lineHeight: T.type.caption.lineHeight,    // 21
+    color: T.color.text.primary,              // #7A3A52 roselle-700 (from #9B9B9B — not jade-600 at 13sp, R4)
     marginBottom: 4,
   },
   statValue: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1A1A1A', // ink — no conditional coloring (INV-K1)
+    fontFamily: T.type.bodyLarge.fontFamily,  // Sarabun-Regular
+    fontSize: T.type.bodyLarge.size,          // 17sp (from 18sp, per spec "type.body.large")
+    lineHeight: T.type.bodyLarge.lineHeight,  // 28
+    fontWeight: '600',
+    color: T.color.text.heading,              // #4A2230 roselle-900 (from #1A1A1A — no conditional coloring INV-K1)
   },
   noteSection: {
     marginBottom: 16,
   },
   noteLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#6B6B6B',
+    fontFamily: T.type.label.fontFamily,      // Sarabun-SemiBold
+    fontSize: T.type.label.size,              // 15sp (from 13sp — label token)
+    lineHeight: T.type.label.lineHeight,      // 24
+    fontWeight: T.type.label.fontWeight,      // '600'
+    color: T.color.text.botanical,            // #2F5042 jade-800 (from #6B6B6B — section labels → botanical)
     marginBottom: 8,
   },
   noteBox: {
-    backgroundColor: '#F5F5F5',
-    borderRadius: 8,
+    backgroundColor: T.color.surface.subtle,  // #F5EDE6 ivory-200 (from #F5F5F5)
+    borderRadius: T.radius.sm,                // 6dp (from 8dp)
     padding: 12,
   },
   noteText: {
-    fontSize: 15,
-    color: '#1A1A1A',
-    lineHeight: 22,
+    fontFamily: T.type.body.fontFamily,       // Sarabun-Regular
+    fontSize: T.type.body.size,               // 15sp
+    lineHeight: T.type.body.lineHeight,       // 25
+    color: T.color.text.primary,              // #7A3A52 roselle-700 (from #1A1A1A)
   },
   exportBtn: {
     borderWidth: 1,
-    borderColor: '#E5E5E5',
-    borderRadius: 12,
-    height: 52,
+    borderColor: T.color.surface.divider,     // #E8DDD5 (from #E5E5E5)
+    borderRadius: T.button.secondary.radius,  // 12dp
+    height: T.button.primary.height,          // 52dp
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 16,
     marginBottom: 32,
   },
   exportBtnText: {
-    fontSize: 15,
-    color: '#1A1A1A',
+    fontFamily: T.type.body.fontFamily,       // Sarabun-Regular
+    fontSize: T.type.body.size,               // 15sp
+    color: T.color.text.primary,              // #7A3A52 roselle-700 (from #1A1A1A)
   },
 });

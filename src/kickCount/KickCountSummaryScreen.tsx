@@ -5,7 +5,7 @@
  *   - icon/book (not done stamp ◉ / no sage/700 color)
  *   - No celebratory copy ("เก่งมาก!", "ครบแล้ว!")
  *   - count=3 and count=10 produce identical UI — only the number differs
- *   - All values displayed with ink color — no status/conditional coloring
+ *   - All values displayed with heading color — no status/conditional coloring
  *
  * INV-K6: safety strip + disclaimer always-on.
  * INV-K1: no derived verdict/clinical string from the count value.
@@ -30,6 +30,7 @@ import { interpolate } from '../i18n/messages';
 import { kickCountSyncStore } from './kickCountSyncStore';
 import type { KickCountSessionRecord } from './kickCountTypes';
 import { SafetyStrip } from './KickCountHomeScreen';
+import { T } from '../theme/tokens';
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'KickCountSummary'>;
 type Route = NativeStackScreenProps<RootStackParamList, 'KickCountSummary'>['route'];
@@ -74,7 +75,7 @@ export function KickCountSummaryScreen() {
 
       {/*
         K-5b summary box: count=3 and count=10 have IDENTICAL styling.
-        ink color for all values — no conditional coloring.
+        roselle-900 heading color for all values — no conditional coloring.
         No "เก่งมาก!" / "ครบแล้ว!" copy (INV-K2).
       */}
       <View style={styles.statsBox} testID="kick-summary-stats">
@@ -95,6 +96,11 @@ export function KickCountSummaryScreen() {
         )}
         {session.gestationalWeekAtStart != null && (
           <View style={styles.statColumn}>
+            {/*
+              B3 pre-build caption fix: week-range labels use type.caption (13sp)
+              + text.primary (roselle-700, 6.98:1 on ivory-200 AAA). jade-600 is
+              BANNED below 15sp (R4).
+            */}
             <Text style={styles.statLabel}>{t('kick.detailWeekLabel')}</Text>
             <Text style={styles.statValue}>
               {interpolate(t('kick.weekLabel'), { n: session.gestationalWeekAtStart })}
@@ -134,13 +140,15 @@ export function KickCountSummaryScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
-    padding: 16,
+    backgroundColor: T.color.surface.base,        // #FBF6F1 ivory-100 (from #FFFFFF)
+    padding: T.spacing[4],                         // 16dp
     alignItems: 'center',
   },
   loadingText: {
-    fontSize: 15,
-    color: '#6B6B6B',
+    fontFamily: T.type.body.fontFamily,            // Sarabun-Regular
+    fontSize: T.type.body.size,                    // 15sp
+    lineHeight: T.type.body.lineHeight,            // 25
+    color: T.color.text.primary,                   // #7A3A52 roselle-700 (from #6B6B6B)
     marginTop: 40,
   },
   // K-5b: icon/book — NOT done stamp ◉ (no sage/700)
@@ -150,22 +158,27 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   headline: {
-    fontSize: 22,
-    fontWeight: '700',
-    color: '#1A1A1A',
+    fontFamily: T.type.heading2.fontFamily,        // Sarabun-SemiBold
+    fontSize: T.type.heading2.size,                // 20sp (from 22sp — closest heading token)
+    lineHeight: T.type.heading2.lineHeight,        // 33
+    fontWeight: T.type.heading2.fontWeight,        // '600'
+    color: T.color.text.heading,                   // #4A2230 roselle-900 (from #1A1A1A)
     marginBottom: 4,
   },
   startedAt: {
-    fontSize: 14,
-    color: '#6B6B6B',
+    // B3 pre-build caption fix: session metadata label — type.caption 13sp + text.primary
+    fontFamily: T.type.caption.fontFamily,         // Sarabun-Regular
+    fontSize: T.type.caption.size,                 // 13sp (from 14sp — caption for metadata)
+    lineHeight: T.type.caption.lineHeight,         // 21
+    color: T.color.text.primary,                   // #7A3A52 roselle-700 (from #6B6B6B — not jade-600 at 13sp R4)
     marginBottom: 20,
   },
   // K-5b: stats box — identical styling for count=3 and count=10
   statsBox: {
     flexDirection: 'row',
-    backgroundColor: '#F5F5F5',
-    borderRadius: 12,
-    padding: 16,
+    backgroundColor: T.color.surface.subtle,       // #F5EDE6 ivory-200 (from #F5F5F5)
+    borderRadius: T.radius.md,                     // 12dp
+    padding: T.spacing[4],                         // 16dp
     width: '100%',
     justifyContent: 'space-around',
     marginBottom: 16,
@@ -174,14 +187,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   statLabel: {
-    fontSize: 12,
-    color: '#9B9B9B',
+    // B3 pre-build caption fix: week-range / stat labels = type.caption 13sp + text.primary roselle-700
+    fontFamily: T.type.caption.fontFamily,         // Sarabun-Regular
+    fontSize: T.type.caption.size,                 // 13sp (from 12sp) — text.primary required at 13sp (R4)
+    lineHeight: T.type.caption.lineHeight,         // 21
+    color: T.color.text.primary,                   // #7A3A52 roselle-700 (6.98:1 on ivory-200 AAA; jade-600 BANNED at 13sp)
     marginBottom: 4,
   },
   statValue: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#1A1A1A', // ink — same color regardless of count (K-5b)
+    fontFamily: T.type.heading2.fontFamily,        // Sarabun-SemiBold (per spec "type.display or type.heading1")
+    fontSize: T.type.heading2.size,                // 20sp (from 20sp — heading2 size)
+    lineHeight: T.type.heading2.lineHeight,        // 33
+    fontWeight: T.type.heading2.fontWeight,        // '600'
+    color: T.color.text.heading,                   // #4A2230 roselle-900 (from #1A1A1A — STATIC per K-5b; no conditional coloring)
   },
   actions: {
     flexDirection: 'row',
@@ -191,28 +209,32 @@ const styles = StyleSheet.create({
   },
   primaryBtn: {
     flex: 1,
-    backgroundColor: '#C0485F',
-    borderRadius: 12,
-    height: 52,
+    backgroundColor: T.button.primary.bg,         // #9A5F0A amber-700 (from #C0485F)
+    borderRadius: T.button.primary.radius,         // 12dp
+    height: T.button.primary.height,               // 52dp
     alignItems: 'center',
     justifyContent: 'center',
   },
   primaryBtnText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
+    fontFamily: T.type.label.fontFamily,           // Sarabun-SemiBold
+    fontSize: T.type.body.size,                    // 15sp (from 16sp)
+    lineHeight: T.type.body.lineHeight,            // 25
+    color: T.color.text.onDark,                    // #FFFFFF
+    fontWeight: T.type.label.fontWeight,           // '600'
   },
   secondaryBtn: {
     flex: 1,
     borderWidth: 1,
-    borderColor: '#C0485F',
-    borderRadius: 12,
-    height: 52,
+    borderColor: T.button.secondary.border,        // #E8DDD5 divider (from #C0485F — no rose border)
+    borderRadius: T.button.secondary.radius,       // 12dp
+    height: T.button.primary.height,               // 52dp
     alignItems: 'center',
     justifyContent: 'center',
   },
   secondaryBtnText: {
-    color: '#C0485F',
-    fontSize: 15,
+    fontFamily: T.type.body.fontFamily,            // Sarabun-Regular
+    fontSize: T.type.body.size,                    // 15sp
+    lineHeight: T.type.body.lineHeight,            // 25
+    color: T.button.secondary.text,                // #7A3A52 roselle-700 (from #C0485F — no rose text)
   },
 });

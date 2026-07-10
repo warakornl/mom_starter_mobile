@@ -3,11 +3,11 @@
  *
  * Layout (top → bottom):
  *   1. Date-range picker (from–to with quick presets 7/14/30 วัน)
- *   2. Daily bar chart (react-native-svg, rose bars, Clean design)
+ *   2. Daily bar chart (react-native-svg, amber bars, ห้องแม่ design)
  *   3. Session list grouped by civil date, filtered to selected range
  *
  * K-5c rules (testable — all rows must look identical):
- *   - All rows: background surface/page (#FFFFFF), text color ink (#1A1A1A)
+ *   - All rows: background surface/base (ivory-100), text color roselle-700
  *   - No badge/pill/icon/left-accent per row based on count value
  *   - No sort/group by count size — group by civil date of startedAt only (D10)
  *   - row count=3 and row count=10 produce IDENTICAL rendered appearance
@@ -55,6 +55,7 @@ import {
   filterSessionsToRange,
   fromDateForPreset,
 } from './kickCountHistoryChartHelpers';
+import { T } from '../theme/tokens';
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'KickCountHistory'>;
 
@@ -422,7 +423,7 @@ export function KickCountHistoryScreen({
             // K-5c: ALL rows are visually identical — no per-row style variation
           >
             {/*
-              K-5c: all columns use the SAME text tokens (ink/ink-soft/ink-faint).
+              K-5c: all columns use the SAME text tokens (roselle-700).
               row with count=3 and row with count=10 have identical appearance.
               No badge, no left-accent, no highlight.
             */}
@@ -465,67 +466,77 @@ export function KickCountHistoryScreen({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: T.color.surface.base,       // #FBF6F1 ivory-100 (from #FFFFFF)
   },
   loadingText: {
-    fontSize: 15,
-    color: '#6B6B6B',
+    fontFamily: T.type.body.fontFamily,           // Sarabun-Regular
+    fontSize: T.type.body.size,                   // 15sp
+    lineHeight: T.type.body.lineHeight,           // 25
+    color: T.color.text.primary,                  // #7A3A52 roselle-700 (from #6B6B6B)
     marginTop: 40,
     textAlign: 'center',
   },
   emptyHeadline: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1A1A1A',
+    fontFamily: T.type.heading2.fontFamily,       // Sarabun-SemiBold
+    fontSize: T.type.heading2.size,               // 20sp (from 18sp)
+    lineHeight: T.type.heading2.lineHeight,       // 33
+    fontWeight: T.type.heading2.fontWeight,       // '600'
+    color: T.color.text.heading,                  // #4A2230 roselle-900 (from #1A1A1A)
     textAlign: 'center',
     marginTop: 40,
     marginBottom: 8,
   },
   emptyBody: {
-    fontSize: 14,
-    color: '#6B6B6B',
+    fontFamily: T.type.body.fontFamily,           // Sarabun-Regular
+    fontSize: T.type.body.size,                   // 15sp (from 14sp, body for readability)
+    lineHeight: T.type.body.lineHeight,           // 25
+    color: T.color.text.primary,                  // #7A3A52 roselle-700 (from #6B6B6B)
     textAlign: 'center',
     marginBottom: 24,
   },
   primaryBtn: {
-    backgroundColor: '#C0485F',
-    borderRadius: 12,
-    height: 52,
+    backgroundColor: T.button.primary.bg,        // #9A5F0A amber-700 (from #C0485F)
+    borderRadius: T.button.primary.radius,        // 12dp
+    height: T.button.primary.height,              // 52dp
     alignItems: 'center',
     justifyContent: 'center',
     marginHorizontal: 16,
   },
   primaryBtnText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
+    fontFamily: T.type.label.fontFamily,          // Sarabun-SemiBold
+    fontSize: T.type.body.size,                   // 15sp (from 16sp — body size for button text)
+    lineHeight: T.type.body.lineHeight,           // 25
+    color: T.color.text.onDark,                   // #FFFFFF (from #FFFFFF)
+    fontWeight: T.type.label.fontWeight,          // '600'
   },
   postpartumBanner: {
-    backgroundColor: '#F5F5F5',
-    borderRadius: 8,
+    backgroundColor: T.color.surface.subtle,      // #F5EDE6 ivory-200 (from #F5F5F5)
+    borderRadius: T.radius.sm,                    // 6dp (from 8dp)
     padding: 12,
     marginBottom: 12,
     marginHorizontal: 16,
     marginTop: 12,
   },
   postpartumBannerText: {
-    fontSize: 13,
-    color: '#6B6B6B',
+    fontFamily: T.type.body.fontFamily,           // Sarabun-Regular
+    fontSize: T.type.body.size,                   // 15sp (from 13sp — body per spec)
+    lineHeight: T.type.body.lineHeight,           // 25
+    color: T.color.text.primary,                  // #7A3A52 roselle-700 (from #6B6B6B)
     textAlign: 'center',
   },
 
   // ── Date-range picker ──────────────────────────────────────────────────────
   rangeSection: {
-    paddingHorizontal: 16,
-    paddingTop: 16,
+    paddingHorizontal: T.spacing[4],              // 16dp
+    paddingTop: T.spacing[4],                     // 16dp
     paddingBottom: 8,
   },
   rangeSectionLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#5F4A52',          // T.sectionLabelColor
-    letterSpacing: 0.8,
-    textTransform: 'uppercase',
+    fontFamily: T.type.label.fontFamily,          // Sarabun-SemiBold (section label)
+    fontSize: T.type.label.size,                  // 15sp — NO uppercase (Thai rule)
+    lineHeight: T.type.label.lineHeight,          // 24
+    fontWeight: T.type.label.fontWeight,          // '600'
+    color: T.color.text.botanical,                // #2F5042 jade-800 (from #5F4A52)
     marginBottom: 8,
   },
   presetRow: {
@@ -534,18 +545,20 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   presetChip: {
-    borderRadius: 999,
+    borderRadius: T.radius.pill,                  // 999
     borderWidth: 1,
-    borderColor: '#E3D8CE',    // T.hairline
+    borderColor: T.color.surface.divider,         // #E8DDD5 (from #E3D8CE)
     paddingHorizontal: 12,
     paddingVertical: 4,
+    minHeight: 32,
     alignItems: 'center',
     justifyContent: 'center',
   },
   presetChipText: {
-    fontSize: 12,
-    color: '#5F4A52',
-    fontWeight: '500',
+    fontFamily: T.type.caption.fontFamily,        // Sarabun-Regular
+    fontSize: T.type.caption.size,                // 13sp (from 12sp)
+    lineHeight: T.type.caption.lineHeight,        // 21
+    color: T.color.text.primary,                  // #7A3A52 roselle-700 (from #5F4A52 — not jade-600 at 13sp R4)
   },
   pickerRow: {
     flexDirection: 'row',
@@ -555,51 +568,57 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   pickerLabel: {
-    fontSize: 11,
-    color: '#6B6B6B',
+    fontFamily: T.type.caption.fontFamily,        // Sarabun-Regular
+    fontSize: T.type.caption.size,                // 13sp (from 11sp)
+    lineHeight: T.type.caption.lineHeight,        // 21
+    color: T.color.text.primary,                  // #7A3A52 (from #6B6B6B — not jade-600 at 13sp R4)
     marginBottom: 4,
   },
   pickerBtn: {
-    backgroundColor: '#FAFAFA',
+    backgroundColor: T.input.bg,                 // #F5EDE6 ivory-200 (from #FAFAFA)
     borderWidth: 1,
-    borderColor: '#E3D8CE',    // T.hairline
-    borderRadius: 8,           // T.cardRadius
+    borderColor: T.input.border.default,          // #E8DDD5 (from #E3D8CE)
+    borderRadius: T.radius.sm,                   // 6dp (from 8dp)
     paddingHorizontal: 10,
     paddingVertical: 8,
+    minHeight: 44,
   },
   pickerBtnText: {
-    fontSize: 13,
-    fontFamily: 'monospace',
-    color: '#1A1A1A',
+    fontFamily: T.type.caption.fontFamily,        // Sarabun-Regular (tabular monospace for date)
+    fontSize: T.type.caption.size,               // 13sp (from 13sp)
+    lineHeight: T.type.caption.lineHeight,        // 21
+    color: T.color.text.heading,                  // #4A2230 roselle-900 (from #1A1A1A)
   },
 
   // ── Chart ──────────────────────────────────────────────────────────────────
   chartSection: {
-    paddingHorizontal: 16,
+    paddingHorizontal: T.spacing[4],              // 16dp
     paddingBottom: 8,
   },
   chartTitle: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#5F4A52',
-    letterSpacing: 0.8,
-    textTransform: 'uppercase',
+    fontFamily: T.type.label.fontFamily,          // Sarabun-SemiBold (section label)
+    fontSize: T.type.label.size,                  // 15sp — NO uppercase (Thai rule)
+    lineHeight: T.type.label.lineHeight,          // 24
+    fontWeight: T.type.label.fontWeight,          // '600'
+    color: T.color.text.botanical,                // #2F5042 jade-800 (from #5F4A52)
     marginBottom: 8,
   },
   chartContainer: {
-    borderRadius: 8,
+    borderRadius: T.radius.sm,                    // 6dp (from 8dp)
     overflow: 'hidden',
   },
 
   // ── Range empty state (list portion only) ─────────────────────────────────
   rangeEmptyState: {
-    paddingHorizontal: 16,
+    paddingHorizontal: T.spacing[4],              // 16dp
     paddingVertical: 12,
     alignItems: 'center',
   },
   rangeEmptyText: {
-    fontSize: 13,
-    color: '#6B6B6B',
+    fontFamily: T.type.caption.fontFamily,        // Sarabun-Regular
+    fontSize: T.type.caption.size,                // 13sp (from 13sp)
+    lineHeight: T.type.caption.lineHeight,        // 21
+    color: T.color.text.primary,                  // #7A3A52 (from #6B6B6B — not jade-600 at 13sp R4)
     textAlign: 'center',
   },
 
@@ -608,58 +627,70 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   listSectionLabel: {
-    fontSize: 13,
-    color: '#6B6B6B',
+    fontFamily: T.type.caption.fontFamily,        // Sarabun-Regular
+    fontSize: T.type.caption.size,                // 13sp
+    lineHeight: T.type.caption.lineHeight,        // 21
+    color: T.color.text.primary,                  // #7A3A52 roselle-700 (from #6B6B6B — not jade-600 at 13sp R4)
     fontWeight: '600',
     paddingVertical: 6,
-    paddingHorizontal: 16,
+    paddingHorizontal: T.spacing[4],              // 16dp
   },
   sectionHeader: {
-    fontSize: 13,
-    color: '#6B6B6B',
-    fontWeight: '600',
+    fontFamily: T.type.heading2.fontFamily,       // Sarabun-SemiBold (section date heading)
+    fontSize: T.type.heading2.size,               // 20sp — per spec "type.heading2 text.heading 20sp"
+    lineHeight: T.type.heading2.lineHeight,       // 33
+    fontWeight: T.type.heading2.fontWeight,       // '600'
+    color: T.color.text.heading,                  // #4A2230 roselle-900
     paddingVertical: 8,
-    paddingHorizontal: 16,
+    paddingHorizontal: T.spacing[4],              // 16dp
   },
   // K-5c: session row — IDENTICAL styling regardless of movementCount
   sessionRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF', // surface/page — same for ALL rows (K-5c)
-    borderRadius: 8,
+    backgroundColor: T.color.surface.base,        // #FBF6F1 ivory-100 (from #FFFFFF — K-5c same for ALL rows)
+    borderRadius: T.radius.sm,                    // 6dp (from 8dp)
     paddingVertical: 14,
-    paddingHorizontal: 16,
-    minHeight: 56,
+    paddingHorizontal: T.spacing[4],              // 16dp
+    minHeight: T.list.row.minHeight,              // 56dp
     marginBottom: 1,
     borderBottomWidth: 1,
-    borderBottomColor: '#F0F0F0',
+    borderBottomColor: T.color.surface.divider,   // #E8DDD5 (from #F0F0F0)
     // NO left border accent (K-5c: ห้ามใช้ status/attention accent bar)
   },
   rowTime: {
-    fontSize: 15,
-    fontFamily: 'monospace',
-    color: '#1A1A1A', // ink — SAME for all rows (K-5c)
+    fontFamily: T.type.body.fontFamily,           // Sarabun-Regular (tabular for time display)
+    fontSize: T.type.body.size,                   // 15sp (from 15sp)
+    lineHeight: T.type.body.lineHeight,           // 25
+    color: T.color.text.primary,                  // #7A3A52 roselle-700 (K-5c SAME for all rows)
     marginRight: 8,
     minWidth: 48,
   },
   rowCount: {
-    fontSize: 15,
+    fontFamily: T.type.body.fontFamily,           // Sarabun-Regular
+    fontSize: T.type.body.size,                   // 15sp
+    lineHeight: T.type.body.lineHeight,           // 25
     fontWeight: '600',
-    color: '#1A1A1A', // ink — SAME regardless of count value (K-5c)
+    color: T.color.text.primary,                  // #7A3A52 roselle-700 (K-5c SAME regardless of count value)
     marginRight: 4,
   },
   rowDuration: {
-    fontSize: 14,
-    color: '#6B6B6B', // ink/soft — SAME for all rows (K-5c)
+    fontFamily: T.type.body.fontFamily,           // Sarabun-Regular
+    fontSize: T.type.body.size,                   // 15sp (from 14sp — body for legibility)
+    lineHeight: T.type.body.lineHeight,           // 25
+    color: T.color.text.primary,                  // #7A3A52 roselle-700 (K-5c SAME for all rows)
     flex: 1,
   },
   rowWeek: {
-    fontSize: 12,
-    color: '#9B9B9B', // ink/faint — SAME for all rows (K-5c)
+    fontFamily: T.type.caption.fontFamily,        // Sarabun-Regular
+    fontSize: T.type.caption.size,                // 13sp (from 12sp)
+    lineHeight: T.type.caption.lineHeight,        // 21
+    color: T.color.text.primary,                  // #7A3A52 roselle-700 (from #9B9B9B — not jade-600 at 13sp R4; K-5c SAME)
     marginRight: 8,
   },
   rowChevron: {
-    fontSize: 16,
-    color: '#9B9B9B',
+    fontFamily: T.type.body.fontFamily,           // Sarabun-Regular
+    fontSize: T.type.body.size,                   // 15sp (from 16sp)
+    color: T.color.text.primary,                  // #7A3A52 roselle-700 (from #9B9B9B)
   },
 });

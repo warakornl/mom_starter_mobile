@@ -3,13 +3,17 @@
  *
  * Renders using react-native-svg (already installed).
  *
- * Design (Direction C "Clean"):
- *   - Rose bars (T.rose #A8505A), flat — no shadow, no gradient.
- *   - Hairline baseline (T.hairline #E3D8CE).
- *   - Ink labels (#1A1A1A).
+ * Design (ห้องแม่ Phase 2):
+ *   - Amber-600 bars (T.color.accent.milestone #B8720E), flat — no shadow, no gradient.
+ *   - Divider baseline (T.color.surface.divider #E8DDD5).
+ *   - Roselle-700 labels (T.color.text.primary #7A3A52) — type.micro 11sp.
  *   - Generous whitespace, minimal chrome.
  *   - Y axis scaled to max daily total. All-zero → empty-state text, no broken axis.
  *   - X labels = day-of-month number, thinned when range is long.
+ *
+ * K-5b note: Chart bars must not use different colours at different count values
+ *   (no "red zone" at low counts, no "green zone" at high counts).
+ *   All bars use accent.milestone amber-600 uniformly.
  *
  * Accessibility:
  *   - The outer View has an accessibilityLabel summarising the chart (screen reader).
@@ -29,20 +33,28 @@ import { View, Text, StyleSheet } from 'react-native';
 import Svg, { Rect, Line, Text as SvgText, G } from 'react-native-svg';
 import type { DailyKickTotal } from './kickCountDailyTotals';
 import { interpolate } from '../i18n/messages';
+import { T } from '../theme/tokens';
 
-// ─── Design tokens ────────────────────────────────────────────────────────────
+// ─── Design token constants (exported for token tests per F-5 note) ───────────
 
-/** Rose bar fill — T.rose. Exported for token tests. */
-export const CHART_ROSE_FILL = '#A8505A';
+/**
+ * Amber-600 bar fill — T.color.accent.milestone.
+ * K-5b: uniform across ALL bars regardless of count value.
+ * Exported as a hex string per F-5 note (chart libraries need explicit hex).
+ */
+export const CHART_AMBER_FILL = T.color.accent.milestone;  // '#B8720E'
 
-/** Hairline baseline / axis color — T.hairline. Exported for token tests. */
-export const CHART_HAIRLINE = '#E3D8CE';
+/**
+ * Divider baseline / axis color — T.color.surface.divider.
+ * Exported for token tests.
+ */
+export const CHART_DIVIDER = T.color.surface.divider;      // '#E8DDD5'
 
-/** Ink text color. Exported for token tests. */
-export const CHART_INK = '#1A1A1A';
-
-/** Ink-soft text color for axes and thinned labels. */
-const CHART_INK_SOFT = '#6B6B6B';
+/**
+ * Primary text color for axis labels — T.color.text.primary roselle-700.
+ * Exported for token tests.
+ */
+export const CHART_LABEL_COLOR = T.color.text.primary;     // '#7A3A52'
 
 // ─── Layout constants ─────────────────────────────────────────────────────────
 
@@ -135,13 +147,13 @@ export function KickCountDailyChart({
       )}
 
       <Svg width={width} height={height}>
-        {/* Hairline baseline */}
+        {/* Divider baseline — T.color.surface.divider */}
         <Line
           x1={PAD_LEFT}
           y1={baselineY}
           x2={PAD_LEFT + chartW}
           y2={baselineY}
-          stroke={CHART_HAIRLINE}
+          stroke={CHART_DIVIDER}
           strokeWidth={1}
         />
 
@@ -160,26 +172,30 @@ export function KickCountDailyChart({
 
           return (
             <G key={day.date}>
-              {/* Rose bar — decorative (no per-bar a11y announcement) */}
+              {/*
+                Amber-600 bar — decorative (no per-bar a11y announcement).
+                K-5b: CHART_AMBER_FILL is constant — same for ALL bars regardless
+                of totalCount value. No "red zone", no "green zone".
+              */}
               {day.totalCount > 0 && (
                 <Rect
                   x={barX}
                   y={barY}
                   width={barW}
                   height={barH}
-                  fill={CHART_ROSE_FILL}
+                  fill={CHART_AMBER_FILL}
                   rx={2}
                   ry={2}
                 />
               )}
 
-              {/* X-axis day label (thinned) */}
+              {/* X-axis day label (thinned) — type.micro roselle-700 */}
               {showLabel && (
                 <SvgText
                   x={labelX}
                   y={baselineY + 14}
-                  fontSize={9}
-                  fill={CHART_INK_SOFT}
+                  fontSize={T.type.micro.size}   // 11sp
+                  fill={CHART_LABEL_COLOR}        // #7A3A52 roselle-700
                   textAnchor="middle"
                 >
                   {dayNum}
@@ -198,6 +214,7 @@ export function KickCountDailyChart({
 const styles = StyleSheet.create({
   container: {
     position: 'relative',
+    backgroundColor: T.color.surface.base,        // #FBF6F1 ivory-100 — chart bg
   },
   emptyOverlay: {
     position: 'absolute',
@@ -210,8 +227,10 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   emptyText: {
-    fontSize: 13,
-    color: CHART_INK_SOFT,
+    fontFamily: T.type.caption.fontFamily,        // Sarabun-Regular
+    fontSize: T.type.caption.size,                // 13sp
+    lineHeight: T.type.caption.lineHeight,        // 21
+    color: T.color.text.primary,                  // #7A3A52 roselle-700 (from CHART_INK_SOFT #6B6B6B)
     textAlign: 'center',
   },
 });

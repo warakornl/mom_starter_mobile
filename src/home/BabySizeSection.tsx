@@ -232,16 +232,26 @@ export function BabySizeSection(props: BabySizeSectionProps): React.JSX.Element 
 
     return (
       <>
-        <View
-          style={styles.section}
-          accessibilityRole="text"
-          accessibilityLabel={a11yLabel}
-        >
+        {/*
+          FIX (disclaimer-modal bug): The outer View is now a plain layout wrapper
+          with NO accessibilityRole/accessibilityLabel.  Previously it had
+          accessibilityRole="text" + accessibilityLabel which made the entire section
+          isAccessibilityElement=YES on iOS, swallowing the inner TouchableOpacity
+          into the parent accessibility element and making the modal unreachable via
+          VoiceOver.  The accessible summary now lives on the content-row View only.
+        */}
+        <View style={styles.section}>
           <Text style={styles.sectionLabel}>{t('home.babySizeSectionLabel')}</Text>
 
-          {/* Content row — static, NOT tappable (design §0) */}
-          <View style={babySizeStyles.row} accessibilityElementsHidden={true}>
-            {/* Icon: decorative, hidden from screen reader */}
+          {/* Content row — accessible summary for screen readers (design §0 + a11y fix).
+              accessibilityRole="text" + accessibilityLabel replaced the former
+              accessibilityElementsHidden={true}; the full a11yLabel is read once here. */}
+          <View
+            style={babySizeStyles.row}
+            accessibilityRole="text"
+            accessibilityLabel={a11yLabel}
+          >
+            {/* Icon: decorative — merged into parent's accessible element */}
             <FruitIcon color="#A8505A" size={28} />
             <View style={babySizeStyles.textCol}>
               {/* Primary line: fruit name */}
@@ -256,8 +266,11 @@ export function BabySizeSection(props: BabySizeSectionProps): React.JSX.Element 
             {t('home.babySizeDisclaimer')}
           </Text>
 
-          {/* "ดูเพิ่มเติม" — ≥44dp tap target (design B3 / §3.2) */}
+          {/* "ดูเพิ่มเติม" — ≥44dp tap target (design B3 / §3.2).
+              OUTSIDE the accessibilityRole="text" container so VoiceOver can reach
+              this button as a standalone interactive element (root-cause fix). */}
           <TouchableOpacity
+            testID="baby-size-disclaimer-link"
             style={babySizeStyles.disclaimerLinkRow}
             onPress={() => setModalVisible(true)}
             accessibilityRole="button"
@@ -298,16 +311,24 @@ export function BabySizeSection(props: BabySizeSectionProps): React.JSX.Element 
 
   return (
     <>
-      <View
-        style={styles.section}
-        accessibilityRole="text"
-        accessibilityLabel={ppA11yLabel}
-      >
+      {/*
+        FIX (disclaimer-modal bug): Same root-cause fix as pregnant variant.
+        The outer View is now a plain layout wrapper (no accessibilityRole).
+        The accessible summary lives on the content-row View only so the
+        disclaimer link TouchableOpacity is reachable via VoiceOver.
+      */}
+      <View style={styles.section}>
         <Text style={styles.sectionLabel}>{t('home.babyYourBabySectionLabel')}</Text>
 
-        {/* Content row — static, NOT tappable */}
-        <View style={babySizeStyles.row} accessibilityElementsHidden={true}>
-          {/* BabyFootprintIcon: decorative, hidden from screen reader */}
+        {/* Content row — accessible summary for screen readers (a11y fix).
+            accessibilityRole="text" + accessibilityLabel replaced the former
+            accessibilityElementsHidden={true}. */}
+        <View
+          style={babySizeStyles.row}
+          accessibilityRole="text"
+          accessibilityLabel={ppA11yLabel}
+        >
+          {/* BabyFootprintIcon: decorative — merged into parent's accessible element */}
           <BabyFootprintIcon color="#4C6B57" size={28} />
           <View style={babySizeStyles.textCol}>
             {/* Primary line: age */}
@@ -322,8 +343,10 @@ export function BabySizeSection(props: BabySizeSectionProps): React.JSX.Element 
           {t('home.babyPostpartumDisclaimer')}
         </Text>
 
-        {/* "ดูเพิ่มเติม" — ≥44dp tap target */}
+        {/* "ดูเพิ่มเติม" — ≥44dp tap target.
+            OUTSIDE the accessibilityRole="text" container (root-cause fix). */}
         <TouchableOpacity
+          testID="baby-size-disclaimer-link"
           style={babySizeStyles.disclaimerLinkRow}
           onPress={() => setModalVisible(true)}
           accessibilityRole="button"

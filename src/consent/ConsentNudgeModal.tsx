@@ -27,6 +27,7 @@ import {
   ActivityIndicator,
   StyleSheet,
 } from 'react-native';
+import { T } from '../theme/tokens';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -91,7 +92,7 @@ export function ConsentNudgeModal({
               accessibilityState={{ disabled: isLoading }}
             >
               {isLoading
-                ? <ActivityIndicator color="#FFFFFF" />
+                ? <ActivityIndicator color={T.color.text.onDark} />
                 : <Text style={styles.grantBtnText}>{grantLabel}</Text>}
             </TouchableOpacity>
             <TouchableOpacity
@@ -114,18 +115,18 @@ export function ConsentNudgeModal({
   );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
+// ─── Styles — ห้องแม่ Phase 2 B4: full semantic T.* migration ────────────────
 
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(58,42,48,0.4)',
+    backgroundColor: T.scrim.color,
     justifyContent: 'flex-end',
   },
   sheet: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    backgroundColor: T.color.surface.base,
+    borderTopLeftRadius: T.radius.lg,
+    borderTopRightRadius: T.radius.lg,
     maxHeight: '80%',
   },
   content: {
@@ -134,40 +135,32 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   title: {
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 18,
-    lineHeight: 28,
-    color: '#3A2A30',
+    fontFamily: T.type.label.fontFamily,
+    fontSize: T.type.heading2.size,
+    lineHeight: T.type.heading2.lineHeight,
+    color: T.color.text.heading,
   },
   body: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 16,
-    lineHeight: 25,
-    color: '#5F4A52',
-  },
-  error: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 14,
-    color: '#8E3A44',
-    backgroundColor: '#FBEDEE',
-    borderRadius: 8,
-    padding: 12,
+    fontFamily: T.type.body.fontFamily,
+    fontSize: T.type.body.size,
+    lineHeight: T.type.body.lineHeight,
+    color: T.color.text.primary,
   },
   grantBtn: {
-    height: 52,
-    backgroundColor: '#A8505A',
-    borderRadius: 999,
+    height: T.button.primary.height,
+    backgroundColor: T.button.primary.bg,
+    borderRadius: T.radius.pill,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 8,
   },
   grantBtnLoading: {
-    backgroundColor: '#DDA0A6',
+    backgroundColor: T.scrim.amber,
   },
   grantBtnText: {
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 16,
-    color: '#FFFFFF',
+    fontFamily: T.type.label.fontFamily,
+    fontSize: T.type.body.size,
+    color: T.color.text.onDark,
   },
   notNowBtn: {
     height: 48,
@@ -175,16 +168,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   notNowText: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 16,
-    color: '#8E3A44',
+    fontFamily: T.type.body.fontFamily,
+    fontSize: T.type.body.size,
+    color: T.color.text.primary,
   },
   notNowDisabled: { opacity: 0.5 },
   changeLaterNote: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 12,
-    lineHeight: 18,
-    color: '#94818A',
+    fontFamily: T.type.micro.fontFamily,
+    fontSize: T.type.micro.size,
+    lineHeight: T.type.micro.lineHeight,
+    color: T.color.text.primary,
     textAlign: 'center',
   },
 });

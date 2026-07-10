@@ -26,6 +26,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useT } from '../i18n/LanguageContext';
 import type { TokenStorage } from '../auth/tokenStorage';
+import { T } from '../theme/tokens';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -118,15 +119,12 @@ export function SettingsScreen({
 }
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
-
-const INK = '#3A2A30';
-const INK_SOFT = '#5F4A52';
-const INK_FAINT = '#94818A';
+// ห้องแม่ Phase 2 B4: all token references migrated to semantic T.* namespace.
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FBF6F1',
+    backgroundColor: T.color.surface.base,
   },
   scrollContent: {
     paddingHorizontal: 16,
@@ -134,8 +132,11 @@ const styles = StyleSheet.create({
     paddingBottom: 32,
   },
   sectionLabel: {
-    fontSize: 13,
-    color: INK_FAINT,
+    fontFamily: T.type.label.fontFamily,
+    fontSize: T.type.label.size,
+    lineHeight: T.type.label.lineHeight,
+    letterSpacing: T.type.label.letterSpacing,
+    color: T.color.text.botanical,
     marginBottom: 8,
     marginLeft: 4,
     marginTop: 16,
@@ -143,36 +144,34 @@ const styles = StyleSheet.create({
 
   // ── Shared menu row ─────────────────────────────────────────────────────────
   menuRow: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    backgroundColor: T.color.surface.subtle,
+    borderRadius: T.radius.md,
     paddingVertical: 14,
     paddingHorizontal: 16,
     minHeight: 56,
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 8,
-    elevation: 1,
-    shadowColor: INK,
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    shadowOffset: { width: 0, height: 1 },
+    borderWidth: 1,
+    borderColor: T.color.surface.divider,
   },
   menuRowTextGroup: {
     flex: 1,
   },
   menuRowText: {
-    fontSize: 16,
-    color: INK,
+    fontSize: T.type.body.size,
+    lineHeight: T.type.body.lineHeight,
+    color: T.color.text.heading,
     fontWeight: '500',
   },
   menuRowSubtext: {
-    fontSize: 13,
-    color: INK_FAINT,
+    fontSize: T.type.caption.size,
+    color: T.color.text.primary,
     marginTop: 2,
   },
   menuRowChevron: {
     fontSize: 18,
-    color: INK_FAINT,
+    color: T.color.text.primary,
     marginLeft: 8,
   },
 
@@ -180,14 +179,14 @@ const styles = StyleSheet.create({
   menuRowIconWrap: {
     width: 32,
     height: 32,
-    borderRadius: 8,
-    backgroundColor: '#FFF0F0',
+    borderRadius: T.radius.sm,
+    backgroundColor: T.color.surface.subtle,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
   },
   menuRowIconText: {
     fontSize: 16,
-    color: INK_SOFT,
+    color: T.color.text.primary,
   },
 });

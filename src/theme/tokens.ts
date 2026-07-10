@@ -350,7 +350,8 @@ const offlinePill = {
 // roselle-900-tinted overlay at 40% opacity. Decorative — conveys depth, not meaning.
 
 const scrim = {
-  color: 'rgba(74,34,48,0.40)' as const, // roselle-900 tinted modal backdrop
+  color:  'rgba(74,34,48,0.40)' as const,  // roselle-900 tinted modal backdrop
+  amber:  'rgba(154,95,10,0.45)' as const, // amber-700 tinted disabled CTA overlay (saveBtnDisabled)
 } as const;
 
 // ─── Structured export (new API) ──────────────────────────────────────────────

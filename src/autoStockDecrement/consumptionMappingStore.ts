@@ -89,6 +89,25 @@ export interface ConsumptionMappingStore {
 
   /** Clear all data + queue (call on sign-out — PDPA data isolation). */
   reset(): void;
+
+  // ── Sync apply (called by sync client — contract §2/§4) ──────────────────
+
+  /**
+   * Stamp a local record with server-assigned version+updatedAt after push
+   * is acknowledged (contract §2 applied[]). Safe no-op if id is absent.
+   */
+  stampApplied(id: string, version: number, updatedAt: string): void;
+
+  /**
+   * Replace local record with the server record for all conflict resolutions
+   * (contract §4: server_won | client_won | tombstone_won → always adopt).
+   */
+  adoptServerRecord(record: ConsumptionMappingRecord): void;
+
+  // ── Watermark (shared pull cursor — WatermarkStore interface) ────────────
+
+  getWatermark(): string | undefined;
+  setWatermark(watermark: string): void;
 }
 
 // ─── Factory ──────────────────────────────────────────────────────────────────
@@ -98,6 +117,7 @@ export function createConsumptionMappingStore(): ConsumptionMappingStore {
   const pendingCreated: ConsumptionMappingRecord[] = [];
   const pendingUpdated: ConsumptionMappingRecord[] = [];
   const pendingDeleted: string[] = [];
+  let watermark: string | undefined;
 
   function upsertInternal(record: ConsumptionMappingRecord): void {
     const existing = recordMap.get(record.id);
@@ -202,6 +222,26 @@ export function createConsumptionMappingStore(): ConsumptionMappingStore {
       pendingCreated.length = 0;
       pendingUpdated.length = 0;
       pendingDeleted.length = 0;
+      watermark = undefined;
+    },
+
+    stampApplied(id: string, version: number, updatedAt: string): void {
+      const existing = recordMap.get(id);
+      if (!existing) return;
+      recordMap.set(id, { ...existing, version, updatedAt });
+    },
+
+    adoptServerRecord(record: ConsumptionMappingRecord): void {
+      // Unconditional replace — server record always wins for conflict resolution.
+      recordMap.set(record.id, { ...record });
+    },
+
+    getWatermark(): string | undefined {
+      return watermark;
+    },
+
+    setWatermark(w: string): void {
+      watermark = w;
     },
   };
 }

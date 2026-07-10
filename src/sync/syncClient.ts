@@ -48,6 +48,7 @@ import type { SyncStore } from './syncStore';
 import type { CalendarSyncStore } from './calendarSyncStore';
 import type { KickCountSyncStore } from '../kickCount/kickCountSyncStore';
 import type { ExpensesSyncStore } from '../expenses/expensesSyncStore';
+import type { ConsumptionMappingStore } from '../autoStockDecrement/consumptionMappingStore';
 import type {
   SyncChangeSet,
   SyncPushResponse,
@@ -61,6 +62,7 @@ import type {
   ChecklistItemRecord,
   KickCountSessionRecord,
   ExpenseRecord,
+  ConsumptionMappingRecord,
 } from './syncTypes';
 
 // ─── Collection adapter interface ─────────────────────────────────────────────
@@ -291,6 +293,8 @@ function createSyncClientWithAdapters(
         applyPullChanges('checklistItems', page.changes?.checklistItems, adapterMap);
         applyPullChanges('kickCountSessions', page.changes?.kickCountSessions, adapterMap);
         applyPullChanges('expenses', page.changes?.expenses, adapterMap);
+        applyPullChanges('consumptionMappings', page.changes?.consumptionMappings, adapterMap);
+        applyPullChanges('feedingSessions', page.changes?.feedingSessions, adapterMap);
 
         const isLastPage = !page.nextCursor;
 
@@ -472,6 +476,45 @@ export function createExpensesSyncClient(
         upsertRecord: (record) =>
           store.upsertExpense(record as ExpenseRecord),
         tombstoneRecord: (id) => store.tombstoneExpense(id),
+      },
+    ],
+  ]);
+  return createSyncClientWithAdapters(baseUrl, adapterMap, store, fetchFn);
+}
+
+/**
+ * Creates a sync client bound to a ConsumptionMappingStore.
+ * Handles collection: consumptionMappings (mutable LWW, health-side).
+ *
+ * INV-ASD-9: consumptionMappings is a HEALTH-SIDE entity and is pushed/pulled
+ * under the health sync rails, SEPARATE from supplyItems. The supplies row
+ * carries ZERO activity linkage.
+ *
+ * INV-ASD-8: usesRemainingInOpenContainer is MOBILE-LOCAL-ONLY and is NEVER
+ * included in any push payload (it is not a field on ConsumptionMappingRecord).
+ *
+ * Security: NEVER log defaultQty or supplyItemId (health-adjacent / K-8).
+ *
+ * @param baseUrl  API base URL (no trailing slash)
+ * @param store    ConsumptionMappingStore singleton
+ * @param fetchFn  Defaults to global `fetch`; inject a mock in tests
+ */
+export function createConsumptionMappingSyncClient(
+  baseUrl: string,
+  store: ConsumptionMappingStore,
+  fetchFn: FetchFn = fetch,
+) {
+  const adapterMap = new Map<string, SyncCollectionAdapter>([
+    [
+      'consumptionMappings',
+      {
+        stampApplied: (id, version, updatedAt) =>
+          store.stampApplied(id, version, updatedAt),
+        adoptServerRecord: (record) =>
+          store.adoptServerRecord(record as ConsumptionMappingRecord),
+        upsertRecord: (record) =>
+          store.upsert(record as ConsumptionMappingRecord),
+        tombstoneRecord: (id) => store.tombstone(id),
       },
     ],
   ]);

@@ -1162,6 +1162,28 @@ export interface SyncPullPage {
       /** Tombstoned uuids — client removes matching local rows. */
       deleted: string[];
     };
+    /**
+     * feedingSessions pull — immutable event union (arch §2 / A5≡A16).
+     * Extended with kind=formula + amount_sub_units for formula-feed logging.
+     * MOTHER-health: dual-gated infant_feeding + general_health (SD-10).
+     * Pulled records NEVER trigger the T-F decrement (D-1 guard on trigger engine).
+     */
+    feedingSessions?: {
+      created: FeedingSessionRecord[];
+      updated: FeedingSessionRecord[];
+      deleted: string[];
+    };
+    /**
+     * consumptionMappings pull — mutable LWW health-side (arch §4 / INV-ASD-9).
+     * The supplies row carries ZERO activity linkage — this is health-side.
+     * MOTHER-health: gated by activityType-specific consent (general_health /
+     * infant_feeding+general_health per row).
+     */
+    consumptionMappings?: {
+      created: ConsumptionMappingRecord[];
+      updated: ConsumptionMappingRecord[];
+      deleted: string[];
+    };
   };
 }
 

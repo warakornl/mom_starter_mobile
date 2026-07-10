@@ -222,4 +222,20 @@ export type RootStackParamList = {
     defaultTime?: string;
     medicationPlanId?: string;
   };
+
+  /**
+   * AutoDecrementSettings — Screen 1: configure which activities auto-decrement
+   * which supply items. Entry: Supplies tab "ตั้งค่าตัดสต็อกอัตโนมัติ ›" button.
+   * No params — config data read from consumptionMappingStore on mount.
+   */
+  AutoDecrementSettings: undefined;
+
+  /**
+   * SubUnitSetup — Screen 2: configure usesPerContainer for a supply item.
+   * Entry: AutoDecrementSettings when usesPerContainer < 2 (D-4 advisory deep-link).
+   *
+   * SD-9: supplyItemId is a UUID only — NO health values or item data in route params.
+   * Screen reads item from supplySyncStore.getSupplyItem(supplyItemId) on render.
+   */
+  SubUnitSetup: { supplyItemId: string };
 };

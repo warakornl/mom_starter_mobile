@@ -427,6 +427,7 @@ const th = {
   'supplies.deleteConfirmCancel': 'ยกเลิก',
   'supplies.deleteConfirmOk': 'ลบ',
   'supplies.shortcutBtn': 'รายการเตรียมคลอด ›',
+  'supplies.autoDecrementSettings': 'ตั้งค่าตัดสต็อกอัตโนมัติ ›',
 
   // ── Auto-stock-decrement (ตัดสต็อกอัตโนมัติ) ──────────────────────────────────
   //
@@ -1806,6 +1807,7 @@ const en: MsgShape = {
   'supplies.deleteConfirmCancel': 'Cancel',
   'supplies.deleteConfirmOk': 'Delete',
   'supplies.shortcutBtn': 'Supply checklist ›',
+  'supplies.autoDecrementSettings': 'Auto-decrement settings ›',
 
   // ── Auto-stock-decrement ───────────────────────────────────────────────────────
 

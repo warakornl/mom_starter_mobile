@@ -71,6 +71,12 @@ export interface SuppliesScreenProps {
   apiBaseUrl: string;
   /** Called when user presses the back/close button. */
   onBack?: () => void;
+  /**
+   * Called when user taps the "Auto-decrement settings ›" button.
+   * Entry point to Screen 1 (AutoDecrementSettingsScreen).
+   * Wired in BottomTabNavigator → RootNavigator.
+   */
+  onAutoDecrementSettings?: () => void;
 }
 
 interface FormState {
@@ -424,6 +430,7 @@ const rowStyles = StyleSheet.create({
 export function SuppliesScreen({
   tokenStorage,
   apiBaseUrl,
+  onAutoDecrementSettings,
 }: SuppliesScreenProps): React.JSX.Element {
   const { t } = useT();
 
@@ -679,6 +686,21 @@ export function SuppliesScreen({
         <Text style={styles.refreshBtnText}>{t('supplies.refresh')}</Text>
       </TouchableOpacity>
 
+      {/* Auto-decrement settings entry — SD-9: no params, screen fetches locally */}
+      {onAutoDecrementSettings && (
+        <TouchableOpacity
+          testID="supplies-auto-decrement-settings"
+          style={styles.autoDecrementBtn}
+          onPress={onAutoDecrementSettings}
+          accessibilityRole="button"
+          accessibilityLabel={t('supplies.autoDecrementSettings')}
+        >
+          <Text style={styles.autoDecrementBtnText}>
+            {t('supplies.autoDecrementSettings')}
+          </Text>
+        </TouchableOpacity>
+      )}
+
       {/* FAB — add item */}
       <TouchableOpacity
         testID="supplies-add"
@@ -826,5 +848,20 @@ const styles = StyleSheet.create({
     fontSize: T.type.body.size,                                             // 15sp (from 16sp)
     lineHeight: T.type.body.lineHeight,                                     // 25
     color: T.color.text.onDark,                                             // #FFFFFF
+  },
+
+  // Auto-decrement settings entry button
+  autoDecrementBtn: {
+    marginHorizontal: T.spacing[4],
+    marginBottom: T.spacing[3],
+    minHeight: 48,
+    justifyContent: 'center',
+    alignItems: 'flex-start',
+  },
+  autoDecrementBtnText: {
+    color: T.color.accent.interactive,
+    fontSize: T.type.body.size,
+    fontFamily: T.type.label.fontFamily,
+    fontWeight: T.type.label.fontWeight,
   },
 });

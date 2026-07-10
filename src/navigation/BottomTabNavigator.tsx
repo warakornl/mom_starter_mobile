@@ -335,6 +335,7 @@ export function BottomTabNavigator({
           <SuppliesScreen
             tokenStorage={tokenStorage}
             apiBaseUrl={apiBaseUrl}
+            onAutoDecrementSettings={() => navigation.navigate('AutoDecrementSettings')}
           />
         )}
       </Tab.Screen>

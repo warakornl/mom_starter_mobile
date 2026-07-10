@@ -79,6 +79,8 @@ import { SuggestionFlowScreen } from '../suggestion/SuggestionFlowScreen';
 import { CaptureScreen } from '../capture/CaptureScreen';
 import { DoctorPdfScreen } from '../pdfReport/DoctorPdfScreen';
 import { PregnancySummaryScreen } from '../pregnancy/PregnancySummaryScreen';
+import { AutoDecrementSettingsScreen } from '../autoStockDecrement/AutoDecrementSettingsScreen';
+import { SubUnitSetupScreen } from '../autoStockDecrement/SubUnitSetupScreen';
 import { BottomTabNavigator } from './BottomTabNavigator';
 import { useT } from '../i18n/LanguageContext';
 import { DOCTOR_REPORT_ROUTE_OPTIONS } from './doctorReportRouteOptions';
@@ -846,6 +848,45 @@ function StackNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps): React
             lifecycle={snapshot?.lifecycle}
             onSave={() => navigation.goBack()}
             onCancel={() => navigation.goBack()}
+          />
+        )}
+      </Stack.Screen>
+
+      {/* AutoDecrementSettings — Screen 1: configure activity→supply-item mappings.
+       * Entry: SuppliesTab "ตั้งค่าตัดสต็อกอัตโนมัติ ›" button.
+       * SD-9: no health data in route params (params = undefined).
+       */}
+      <Stack.Screen
+        name="AutoDecrementSettings"
+        options={{ headerShown: false }}
+      >
+        {({ navigation: nav }) => (
+          <AutoDecrementSettingsScreen
+            tokenStorage={tokenStorage}
+            apiBaseUrl={apiBaseUrl}
+            onBack={() => nav.goBack()}
+            onNavigateSubUnitSetup={(supplyItemId) =>
+              // SD-9: only the supply item ID goes in route params — no health data
+              nav.navigate('SubUnitSetup', { supplyItemId })
+            }
+          />
+        )}
+      </Stack.Screen>
+
+      {/* SubUnitSetup — Screen 2: configure usesPerContainer for a supply item.
+       * Entry: AutoDecrementSettings D-4 advisory deep-link.
+       * SD-9: supplyItemId param is a UUID only — screen fetches item locally.
+       */}
+      <Stack.Screen
+        name="SubUnitSetup"
+        options={{ headerShown: false }}
+      >
+        {({ route, navigation: nav }) => (
+          <SubUnitSetupScreen
+            supplyItemId={route.params.supplyItemId}
+            tokenStorage={tokenStorage}
+            apiBaseUrl={apiBaseUrl}
+            onBack={() => nav.goBack()}
           />
         )}
       </Stack.Screen>

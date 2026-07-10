@@ -1063,7 +1063,7 @@ export function CaptureScreen({ tokenStorage, apiBaseUrl }: CaptureScreenProps):
           accessibilityState={{ disabled: !saveEnabled || isSaving }}
         >
           {isSaving
-            ? <ActivityIndicator color="#FFFFFF" size="small" />
+            ? <ActivityIndicator color={T.color.text.onDark} size="small" />
             : <Text style={styles.saveBtnText}>{t('capture.save')}</Text>}
         </TouchableOpacity>
       </View>

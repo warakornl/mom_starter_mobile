@@ -21,6 +21,7 @@
  */
 
 import type { SupplyItemRecord, SyncChangeSet } from './syncTypes';
+import type { DrawState } from '../autoStockDecrement/containerHoldsNEngine';
 
 // ─── Interface ────────────────────────────────────────────────────────────────
 
@@ -61,6 +62,24 @@ export interface SyncStore {
    * Called for server_won, client_won (both adopt serverRecord), and tombstone_won.
    */
   adoptServerRecord(serverRecord: SupplyItemRecord): void;
+
+  /**
+   * Apply an auto-decrement draw result to a supply item (D-6 commit step).
+   *
+   * ALWAYS updates usesRemainingInOpenContainer (mobile-local-only, no sync egress).
+   * Only updates onHandQty if it differs from the current value (container transition).
+   * On container transition: bumps version + updatedAt so the next drainQueue()
+   * push carries the authoritative onHandQty.
+   *
+   * Does NOT enqueue a push directly — the commit function (decrementCommit.ts)
+   * calls enqueueUpdate() after the marker write succeeds (D-6 step ordering).
+   *
+   * INV-ASD-8: usesRemainingInOpenContainer is NEVER included in any push payload;
+   * drainQueue() strips it before returning the changeset.
+   *
+   * NEVER log nextState values (K-8 / SD-5).
+   */
+  applyDecrementDraw(id: string, nextState: DrawState): void;
 
   // ── Mutation queue ─────────────────────────────────────────────────────────
 
@@ -169,7 +188,19 @@ export function createSyncStore(): SyncStore {
       ) {
         return;
       }
-      itemMap.set(item.id, { ...item });
+      // Ingress sanitizer (INV-ASD-8): strip server-provided usesRemainingInOpenContainer.
+      // The server NEVER sends this field; if it does (rogue/forward-compat), strip it.
+      // Preserve the mobile-local value from the existing record across server updates.
+      const { usesRemainingInOpenContainer: _serverField, ...rest } = item;
+      const stored: SupplyItemRecord = {
+        ...rest,
+        // Carry forward the local usesRemainingInOpenContainer (if any) unchanged.
+        // A pull update must never wipe the local sub-unit position (INV-ASD-8).
+        ...(existing?.usesRemainingInOpenContainer !== undefined
+          ? { usesRemainingInOpenContainer: existing.usesRemainingInOpenContainer }
+          : {}),
+      };
+      itemMap.set(stored.id, stored);
     },
 
     tombstoneItem(id: string): void {
@@ -203,6 +234,23 @@ export function createSyncStore(): SyncStore {
       itemMap.set(serverRecord.id, { ...serverRecord });
     },
 
+    applyDecrementDraw(id: string, nextState: DrawState): void {
+      const existing = itemMap.get(id);
+      if (!existing) return; // defensive: no-op if item absent
+      const now = new Date().toISOString();
+      const onHandQtyChanged = existing.onHandQty !== nextState.onHandQty;
+      itemMap.set(id, {
+        ...existing,
+        // usesRemainingInOpenContainer: mobile-local-only (never synced)
+        usesRemainingInOpenContainer: nextState.usesRemaining,
+        onHandQty: nextState.onHandQty,
+        // Bump version + updatedAt only on container transition (onHandQty sync field)
+        ...(onHandQtyChanged
+          ? { version: existing.version + 1, updatedAt: now }
+          : {}),
+      });
+    },
+
     // ── Mutation queue ────────────────────────────────────────────────────────
 
     enqueueCreate(item: SupplyItemRecord): void {
@@ -224,10 +272,19 @@ export function createSyncStore(): SyncStore {
     },
 
     drainQueue(): SyncChangeSet {
+      // Egress sanitizer (INV-ASD-8): strip usesRemainingInOpenContainer from
+      // every supply item before it leaves the device. This field is
+      // MOBILE-LOCAL-ONLY and must NEVER appear in any push payload.
+      // Structural allow-list: destructure the known mobile-local field away.
+      const sanitize = (si: SupplyItemRecord): SupplyItemRecord => {
+        const { usesRemainingInOpenContainer: _mobileLocal, ...wireRecord } = si;
+        return wireRecord;
+      };
+
       const changeSet: SyncChangeSet = {
         supplyItems: {
-          created: [...pendingCreated],
-          updated: [...pendingUpdated],
+          created: [...pendingCreated].map(sanitize),
+          updated: [...pendingUpdated].map(sanitize),
           deleted: [...pendingDeleted],
         },
       };

@@ -1,47 +1,30 @@
 /**
  * VerifyEmailScreen — Check-inbox screen (Screen C in journey-screens.html)
  *
+ * ห้องแม่ Phase 2 B1 reskin (mother-room-phase2-rollout.md §4.1 VerifyEmailScreen).
  * Shown immediately after POST /v1/auth/register → 202 (verification_pending).
- * The user lands here and waits for the verification email.
  *
  * Maps to:
  *   POST /v1/auth/resend-verification → always 202 (non-enumerating)
  *   POST /v1/auth/verify-email        → 200 AuthTokens (via deep-link, carry-forward)
  *
- * All strings are sourced from useT() / catalog (src/i18n/messages.ts).
+ * All strings sourced from useT() / catalog (src/i18n/messages.ts).
  * Locale is read from LanguageContext — not a prop.
  *
- * ── No render tests in this file ─────────────────────────────────────────────
- * See registerScreenLogic.ts / verifyEmailScreenLogic.ts for full unit-tested logic.
- * ─────────────────────────────────────────────────────────────────────────────
+ * State matrix:
+ *   Waiting     — Informational text; "ส่งอีกครั้ง" quiet link
+ *   Verified    — jade-100 wash success indicator + navigate
+ *   Expired/err — blameless error + resend CTA
+ *   Offline     — offlinePill
  *
- * Navigation map:
- *   RegisterScreen (S2) → (202) → VerifyEmailScreen
- *   VerifyEmailScreen + "Resend link" → stays on screen, shows resentConfirm
- *   VerifyEmailScreen + "Change email" → onChangeEmail() → back to RegisterScreen
- *   VerifyEmailScreen + deep-link token → handleVerifyToken → (200) → onVerified()
- *
- * Deep-link carry-forward:
- *   The `pendingToken` prop is the hook for the navigator to pass the token
- *   extracted from the verification URL (e.g. "momstarter://verify?token=...").
- *   Expo Linking integration — registering the URL scheme, intercepting the link,
- *   and extracting the `token` param — is a carry-forward for the Expo scaffold slice.
- *   When Expo is installed, the navigator calls:
- *     <VerifyEmailScreen pendingToken={extractedToken} ... />
- *   and this screen calls handleVerifyToken and navigates on success.
- *
- * Design tokens (design-system.md §1–§5):
- *   bg/warm-milk  #FBF6F1   App background
- *   ink           #3A2A30   Primary text
- *   ink/soft      #5F4A52   Secondary copy
- *   ink/faint     #94818A   Hint copy
- *   rose/600      #A8505A   Active progress dot
- *   rose/700      #8E3A44   Resend button text
- *   sage/500      #6E9079   Completed progress dot
- *   sage/700      #4C6B57   Resent-confirmation text
- *   sage/100      #E4EBE4   Resent-confirmation background
- *   hairline      #EBE1D9   Inactive progress dot + card border
- *   surface/sunk  #FBF3EE   Spam-tip background
+ * Reskin changes (all tokens — NO inline hex outside tokens.ts):
+ *   - All fonts: Sarabun (no IBMPlex)
+ *   - Progress dots: amber-700 active, jade-800 done, surface.divider inactive
+ *   - resentConfirm bg: jade-100 wash; text: jade-800
+ *   - errorCard bg: surface.subtle; border: surface.divider
+ *   - resendButton text: text.primary (no old rose #8E3A44)
+ *   - spamTip bg: surface.subtle
+ *   - Screen bg: surface.base
  */
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -64,6 +47,7 @@ import { InMemoryTokenStorage } from './tokenStorage';
 import { createAuthClient } from './authApiClient';
 import type { TokenStorage } from './tokenStorage';
 import { useT } from '../i18n/LanguageContext';
+import { T } from '../theme/tokens';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -75,31 +59,22 @@ export interface VerifyEmailScreenProps {
    * This prop is kept for backward compatibility but is ignored.
    */
   locale?: string;
-  /**
-   * The email the user registered with.
-   * Displayed as "we sent a link to <email>".
-   */
+  /** The email the user registered with. */
   email: string;
   /** Stable per-install device id (bound to the first session on verify). */
   deviceId?: string;
-  /**
-   * Called after successful email verification (tokens stored in secure storage).
-   * Navigate to the home / post-verify consent screen.
-   */
+  /** Called after successful email verification. */
   onVerified: () => void;
   /** Navigate back to RegisterScreen so the user can correct their email. */
   onChangeEmail: () => void;
   /**
    * Deep-link verification token from the email link.
-   * The navigator extracts this from the URL scheme via Expo Linking and passes
-   * it here. When present, the screen automatically calls handleVerifyToken.
    * Carry-forward: this prop is wired up in the Expo scaffold slice.
    */
   pendingToken?: string;
   /**
    * Token storage implementation.
-   * Defaults to InMemoryTokenStorage; production binding is expo-secure-store
-   * (SEC-HOOK §A/C4 — swap in when Expo is scaffolded).
+   * Defaults to InMemoryTokenStorage; production binding is expo-secure-store.
    */
   tokenStorage?: TokenStorage;
 }
@@ -117,7 +92,6 @@ export function VerifyEmailScreen({
 }: VerifyEmailScreenProps): React.JSX.Element {
   const { t } = useT();
 
-  // Stable references — prevents a new client/storage instance on every render
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const authClient = useMemo(() => createAuthClient(apiBaseUrl), [apiBaseUrl]);
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -136,8 +110,6 @@ export function VerifyEmailScreen({
   const isResendCoolingDown = resendAt !== null && Date.now() < resendAt;
 
   // ─── Deep-link verify effect ────────────────────────────────────────────────
-  // When the navigator passes a pendingToken (Expo Linking carry-forward),
-  // automatically attempt token verification.
   useEffect(() => {
     if (!pendingToken) return;
 
@@ -165,9 +137,6 @@ export function VerifyEmailScreen({
   }, [pendingToken]);
 
   // ─── Resend cooldown auto-expire ────────────────────────────────────────────
-  // Sets a timer to clear `resendAt` when the 60-second cooldown expires,
-  // so the "ส่งลิงก์อีกครั้ง" button re-enables automatically without a
-  // manual refresh. The timer is cleaned up if the screen unmounts early.
   useEffect(() => {
     if (resendAt === null) return;
     const remaining = resendAt - Date.now();
@@ -215,8 +184,6 @@ export function VerifyEmailScreen({
 
   function tokenErrorText(): string {
     if (verifyOutcome?.kind === 'token_invalid') return t('verify.tokenInvalid');
-    // storage_error: token exchange succeeded but Keychain/Keystore failed.
-    // Direct the user to resend so they can attempt verification again.
     if (verifyOutcome?.kind === 'server_error' && verifyOutcome.code === 'storage_error') {
       return t('verify.storageErrorHint');
     }
@@ -235,14 +202,14 @@ export function VerifyEmailScreen({
         <Text style={styles.stepLabel}>{t('verify.stepLabel')}</Text>
       </View>
 
-      {/* Progress pip row — done (sage) · active (rose) · waiting (hairline) */}
+      {/* Progress pip row — done (jade-800) · active (amber-700) · waiting (divider) */}
       <View style={styles.stepDots} accessibilityLabel={t('verify.stepLabel')}>
         <View style={[styles.dot, styles.dotDone]} />
         <View style={[styles.dot, styles.dotActive]} />
         <View style={[styles.dot, styles.dotWaiting]} />
       </View>
 
-      {/* Envelope illustration */}
+      {/* Envelope illustration area */}
       <View style={styles.illustration} accessibilityElementsHidden={true}>
         {/* Placeholder — swap for react-native-svg envelope when svg dep lands */}
         <Text style={styles.envelopeEmoji}>✉️</Text>
@@ -264,18 +231,18 @@ export function VerifyEmailScreen({
       {/* Deep-link token loading spinner */}
       {verifyLoading && (
         <View style={styles.verifySpinner}>
-          <ActivityIndicator color="#A8505A" size="small" />
+          <ActivityIndicator color={T.button.primary.bg} size="small" />
         </View>
       )}
 
-      {/* Deep-link token error (410 / storage failure / server error) */}
+      {/* Deep-link token error */}
       {showTokenError && !verifyLoading && (
         <View style={styles.errorCard} accessibilityRole="alert">
           <Text style={styles.errorCardText}>{tokenErrorText()}</Text>
         </View>
       )}
 
-      {/* Resent confirmation — sage/100 background, calm */}
+      {/* Resent confirmation — jade-100 wash, calm */}
       {showResent && (
         <View style={styles.resentConfirm} accessibilityLiveRegion="polite">
           <Text style={styles.resentConfirmText}>{t('verify.resentConfirm')}</Text>
@@ -289,7 +256,7 @@ export function VerifyEmailScreen({
         </View>
       )}
 
-      {/* Resend button — ≥48 px, disabled during cooldown or loading */}
+      {/* Resend button — ≥48dp, disabled during cooldown or loading */}
       <TouchableOpacity
         style={[
           styles.resendButton,
@@ -305,7 +272,7 @@ export function VerifyEmailScreen({
         }}
       >
         {resendLoading ? (
-          <ActivityIndicator color="#A8505A" size="small" />
+          <ActivityIndicator color={T.button.primary.bg} size="small" />
         ) : (
           <Text style={[
             styles.resendButtonText,
@@ -328,37 +295,45 @@ export function VerifyEmailScreen({
   );
 }
 
-// ─── Styles (design-system.md tokens) ────────────────────────────────────────
+// ─── Styles — ALL values from T.* tokens; NO inline hex ──────────────────────
 
 const styles = StyleSheet.create({
-  flex: { flex: 1, backgroundColor: '#FBF6F1' /* bg/warm-milk */ },
-  scroll: { flexGrow: 1, padding: 24 },
+  flex: {
+    flex: 1,
+    backgroundColor: T.color.surface.base,           // #FBF6F1
+  },
+  scroll: {
+    flexGrow: 1,
+    padding: T.spacing[6],                            // 24dp
+  },
 
   topbar: {
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: T.spacing[3],                       // 12dp
   },
   stepLabel: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 14,
-    color: '#5F4A52', // ink/soft
+    fontFamily: T.type.body.fontFamily,               // Sarabun-Regular
+    fontSize: T.type.body.size,                       // 15sp
+    lineHeight: T.type.body.lineHeight,               // 25
+    color: T.color.text.primary,                      // #7A3A52
+    letterSpacing: 0,
   },
 
-  // Progress pips — mirrors journey-screens.html Screen C
+  // Progress pips — jade-800 done · amber-700 active · surface.divider waiting
   stepDots: {
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: 6,
+    gap: T.spacing[1],                                // 4dp (was 6 — closest token is spacing[1]=4)
     marginBottom: 22,
   },
   dot: { width: 28, height: 6, borderRadius: 3 },
-  dotDone: { backgroundColor: '#6E9079' /* sage/500 */ },
-  dotActive: { backgroundColor: '#A8505A' /* rose/600 */ },
-  dotWaiting: { backgroundColor: '#EBE1D9' /* hairline */ },
+  dotDone: { backgroundColor: T.color.text.botanical },    // #2F5042 jade-800
+  dotActive: { backgroundColor: T.color.accent.interactive }, // #9A5F0A amber-700
+  dotWaiting: { backgroundColor: T.color.surface.divider }, // #E8DDD5
 
   illustration: {
     alignItems: 'center',
-    paddingVertical: 16,
+    paddingVertical: T.spacing[4],                    // 16dp
   },
   envelopeEmoji: {
     fontSize: 64,
@@ -371,109 +346,125 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   title: {
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 22,
-    lineHeight: 30,
-    color: '#3A2A30', // ink
-    marginBottom: 8,
+    fontFamily: T.type.heading2.fontFamily,           // Sarabun-SemiBold
+    fontSize: T.type.heading2.size,                   // 20sp (was 22 — use heading2)
+    lineHeight: T.type.heading2.lineHeight,           // 33
+    color: T.color.text.heading,                      // #4A2230
+    marginBottom: T.spacing[2],                       // 8dp
     textAlign: 'center',
+    letterSpacing: 0,
   },
   sentToPrefix: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 14,
-    color: '#5F4A52', // ink/soft
+    fontFamily: T.type.body.fontFamily,               // Sarabun-Regular
+    fontSize: T.type.body.size,                       // 15sp
+    lineHeight: T.type.body.lineHeight,               // 25
+    color: T.color.text.primary,                      // #7A3A52
     textAlign: 'center',
+    letterSpacing: 0,
   },
   emailDisplay: {
-    fontFamily: 'IBMPlexMono-Regular', // IBM Plex Mono for email readability (matches mockup)
-    fontSize: 14,
+    fontFamily: T.type.body.fontFamily,               // Sarabun-Regular (was IBMPlexMono)
+    fontSize: T.type.body.size,                       // 15sp
     fontWeight: '600',
-    color: '#3A2A30', // ink
-    marginVertical: 4,
+    color: T.color.text.heading,                      // #4A2230
+    marginVertical: T.spacing[1],                     // 4dp
     textAlign: 'center',
+    letterSpacing: 0,
   },
   openLinkHint: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 14,
-    color: '#5F4A52', // ink/soft
+    fontFamily: T.type.body.fontFamily,               // Sarabun-Regular
+    fontSize: T.type.body.size,                       // 15sp
+    lineHeight: T.type.body.lineHeight,               // 25
+    color: T.color.text.primary,                      // #7A3A52
     textAlign: 'center',
-    lineHeight: 21,
+    letterSpacing: 0,
   },
 
   spamTip: {
-    padding: 12,
-    backgroundColor: '#FBF3EE', // surface/sunk
-    borderRadius: 10,
+    padding: T.spacing[3],                            // 12dp
+    backgroundColor: T.color.surface.subtle,          // #F5EDE6 (NOT #FBF3EE)
+    borderRadius: T.radius.sm,                        // 6dp (was 10)
     marginBottom: 14,
   },
   spamTipText: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 13,
-    color: '#5F4A52', // ink/soft
+    fontFamily: T.type.caption.fontFamily,            // Sarabun-Regular
+    fontSize: T.type.caption.size,                    // 13sp
+    lineHeight: T.type.caption.lineHeight,            // 21
+    color: T.color.text.primary,                      // #7A3A52
+    letterSpacing: 0,
   },
 
   verifySpinner: {
     alignItems: 'center',
-    paddingVertical: 8,
+    paddingVertical: T.spacing[2],                    // 8dp
   },
 
+  // Resent confirmation — jade-100 wash (success context)
   resentConfirm: {
-    padding: 12,
-    backgroundColor: '#E4EBE4', // sage/100 — calm, success feel
-    borderRadius: 10,
-    marginBottom: 8,
+    padding: T.spacing[3],                            // 12dp
+    backgroundColor: T.color.surface.wash.jade,       // #E4EDE7 jade-100
+    borderRadius: T.radius.sm,                        // 6dp
+    marginBottom: T.spacing[2],                       // 8dp
   },
   resentConfirmText: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 14,
-    color: '#4C6B57', // sage/700
+    fontFamily: T.type.body.fontFamily,               // Sarabun-Regular
+    fontSize: T.type.body.size,                       // 15sp
+    lineHeight: T.type.body.lineHeight,               // 25
+    color: T.color.text.botanical,                    // #2F5042 jade-800 (7.18:1 on jade-100 AAA)
     textAlign: 'center',
+    letterSpacing: 0,
   },
 
   errorCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    backgroundColor: T.color.surface.subtle,          // #F5EDE6 (NOT white)
+    borderRadius: T.radius.md,                        // 12dp
     padding: 14,
-    marginBottom: 10,
+    marginBottom: T.spacing[2],                       // 8dp (was 10)
     borderWidth: 1,
-    borderColor: '#EBE1D9', // hairline
+    borderColor: T.color.surface.divider,             // #E8DDD5
   },
   errorCardText: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 14,
-    color: '#3A2A30', // ink — calm, no red
+    fontFamily: T.type.body.fontFamily,               // Sarabun-Regular
+    fontSize: T.type.body.size,                       // 15sp
+    lineHeight: T.type.body.lineHeight,               // 25
+    color: T.color.text.primary,                      // #7A3A52
     textAlign: 'center',
+    letterSpacing: 0,
   },
 
-  // Resend button — text-only style, ≥48 px touch target
+  // Resend button — text-only style, ≥48dp touch target
   resendButton: {
     minHeight: 48,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    marginTop: 4,
+    paddingHorizontal: T.spacing[4],                  // 16dp
+    paddingVertical: T.spacing[2],                    // 8dp
+    marginTop: T.spacing[1],                          // 4dp
   },
   resendButtonDisabled: { opacity: 0.45 },
   resendButtonText: {
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 14,
-    color: '#8E3A44', // rose/700 — prominent but not primary button level
+    fontFamily: T.type.label.fontFamily,              // Sarabun-SemiBold
+    fontSize: T.type.body.size,                       // 15sp
+    lineHeight: T.type.body.lineHeight,               // 25
+    color: T.color.text.primary,                      // #7A3A52 (NOT old rose/700 #8E3A44)
+    letterSpacing: 0,
   },
   resendButtonTextDisabled: {
-    color: '#94818A', // ink/faint
+    color: T.color.text.primary,                      // still roselle-700 (disabled via parent opacity)
   },
 
   changeEmailButton: {
     minHeight: 48,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 6,
+    paddingHorizontal: T.spacing[4],                  // 16dp
+    paddingVertical: T.spacing[1],                    // 4dp
   },
   changeEmailText: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 13,
-    color: '#5F4A52', // ink/soft — quiet link
+    fontFamily: T.type.caption.fontFamily,            // Sarabun-Regular
+    fontSize: T.type.caption.size,                    // 13sp
+    lineHeight: T.type.caption.lineHeight,            // 21
+    color: T.color.text.primary,                      // #7A3A52
+    letterSpacing: 0,
   },
 });

@@ -60,6 +60,9 @@ import type { KickCountDraft } from './kickCountTypes';
 import type { TokenStorage } from '../auth/tokenStorage';
 import { SafetyStrip } from './KickCountHomeScreen';
 import { timerStyleTokens } from './kickCountTimerStyleTokens';
+import { isLossState } from './kickCountLogic';
+import { useProfileSnapshot } from '../pregnancy/PregnancyProfileContext';
+import { T } from '../theme/tokens';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -139,6 +142,20 @@ export function KickCountCountingScreen({
   const { t } = useT();
   const navigation = useNavigation<Nav>();
 
+  // ── G2-DELIV: in-screen loss predicate (D-G2, loss-gates-functional.md §2 Gate 2) ─
+  // Sources lifecycle from PregnancyProfileContext DIRECTLY — not from a navigator prop.
+  // This makes the guard invariant to entry path and immune to the GAP-2 default bug.
+  // Live counting renders ONLY when snapshot !== null AND lifecycle === 'pregnant'.
+  const snapshot = useProfileSnapshot();
+  const lifecycle = snapshot?.lifecycle ?? null;
+
+  // Top-of-render loss guard — runs BEFORE any draft/session hook so no in_progress
+  // draft can be created in loss state (K-8). The guard returns JSX here so hooks
+  // below are still called unconditionally (Rules of Hooks), but the effect skips via
+  // its own lifecycle guard.
+  const isLoss = isLossState(lifecycle);
+  const isSnapshotUnknown = snapshot === null;
+
   // ── State ────────────────────────────────────────────────────────────────────
   type InitPhase = 'loading' | 'draft-resume' | 'counting' | 'saving' | 'save-error';
   const [phase, setPhase] = useState<InitPhase>('loading');
@@ -156,6 +173,12 @@ export function KickCountCountingScreen({
 
   // ── Init (load or create draft) ──────────────────────────────────────────────
   useEffect(() => {
+    // G2-DELIV top-of-effect guard: loss/unknown → skip ALL async init (K-8).
+    // Draft/session creation is prohibited in loss state or unknown snapshot.
+    // Live counting is only allowed when snapshot is affirmatively known pregnant.
+    if (isLoss || isSnapshotUnknown) {
+      return;
+    }
     let cancelled = false;
     async function init() {
       // Y-6 / appsec-1.3: consent defense-in-depth.
@@ -365,6 +388,28 @@ export function KickCountCountingScreen({
     try { await clearDraft(); } catch { /* best effort */ }
     navigation.navigate('KickCountHome');
   }, [draft, navigation]);
+
+  // ── G2-DELIV: full-page loss replacement (lifecycle='ended' or snapshot unknown) ─
+  // Renders BEFORE any draft/phase check so no counting UI ever shows in loss.
+  // "ฟีเจอร์นี้ไม่พร้อมใช้งานในขณะนี้" — calm, non-alarming (OQ-PP7 deferred).
+  // One "กลับ" button navigates back. No count, no timer, no tap area, no draft.
+
+  if (isLoss || isSnapshotUnknown) {
+    return (
+      <View style={styles.lossContainer} testID="kick-counting-loss">
+        <Text style={styles.lossText}>{t('kick.lossReplacement')}</Text>
+        <TouchableOpacity
+          style={styles.lossBackBtn}
+          onPress={() => navigation.goBack()}
+          accessibilityRole="button"
+          accessibilityLabel={t('kick.lossGoBack')}
+          testID="kick-counting-loss-back-btn"
+        >
+          <Text style={styles.lossBackBtnText}>{t('kick.lossGoBack')}</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 
   // ── Draft resume sheet (SC-K2) ────────────────────────────────────────────────
 
@@ -611,99 +656,136 @@ export function KickCountCountingScreen({
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
+  // ── G2-DELIV: loss replacement screen ──────────────────────────────────────
+  lossContainer: {
+    flex: 1,
+    backgroundColor: T.color.surface.base,   // #FBF6F1 ivory-100
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: T.spacing[4],                   // 16dp
+  },
+  lossText: {
+    fontFamily: T.type.body.fontFamily,      // Sarabun-Regular
+    fontSize: T.type.body.size,              // 15sp
+    lineHeight: T.type.body.lineHeight,      // 25
+    color: T.color.text.primary,             // #7A3A52 roselle-700
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  lossBackBtn: {
+    backgroundColor: T.button.primary.bg,   // #9A5F0A amber-700
+    borderRadius: T.button.primary.radius,  // 12dp
+    height: T.button.primary.height,        // 52dp
+    minWidth: 160,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 24,
+  },
+  lossBackBtnText: {
+    fontFamily: T.type.label.fontFamily,    // Sarabun-SemiBold
+    fontSize: T.type.body.size,             // 15sp
+    color: T.color.text.onDark,             // #FFFFFF
+    fontWeight: T.type.label.fontWeight,    // '600'
+  },
+  // ── Main counting screen ────────────────────────────────────────────────────
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
-    padding: 16,
+    backgroundColor: T.color.surface.base,   // #FBF6F1 ivory-100
+    padding: T.spacing[4],                   // 16dp
   },
   loadingText: {
-    fontSize: 15,
-    color: '#6B6B6B',
+    fontFamily: T.type.body.fontFamily,      // Sarabun-Regular
+    fontSize: T.type.body.size,              // 15sp
+    color: T.color.text.primary,             // #7A3A52 roselle-700
     textAlign: 'center',
     marginTop: 40,
   },
-  // Timer — prominent secondary (strong secondary stat, NOT the hero counter)
+  // Timer — prominent secondary stat
   timerText: {
-    fontSize: timerStyleTokens.timerFontSize, // 32 pt (was 20) — clearly readable secondary
-    fontFamily: 'monospace', // IBM Plex Mono equivalent — keeps mm:ss aligned
-    color: timerStyleTokens.timerColor, // #3D3D3D (was #6B6B6B) — readable ink, darker but not hero-dark
+    fontSize: timerStyleTokens.timerFontSize,
+    fontFamily: 'monospace',
+    color: T.color.text.heading,             // #4A2230 roselle-900 (from ink)
     textAlign: 'center',
     marginTop: 16,
   },
   timerLabel: {
-    fontSize: timerStyleTokens.timerLabelFontSize, // 14 pt (was 13) — slightly easier to read
-    color: timerStyleTokens.timerLabelColor, // #6B6B6B (was #9B9B9B) — ink/soft, less faint
+    fontFamily: T.type.caption.fontFamily,   // Sarabun-Regular
+    fontSize: T.type.caption.size,           // 13sp
+    color: T.color.text.primary,             // #7A3A52 roselle-700
     textAlign: 'center',
     marginBottom: 16,
   },
-  // Progress counter (K-5b: IDENTICAL styling regardless of count value)
+  // Progress counter (K-5b: IDENTICAL styling regardless of count value — INV-K2)
   progressContainer: {
     alignItems: 'center',
     marginVertical: 8,
   },
   countNumber: {
-    fontSize: 56,
-    fontWeight: '700',
-    color: '#1A1A1A', // ink
+    // type.display: Sarabun-SemiBold 32sp — STATIC colour (roselle-900) regardless of count
+    fontFamily: T.type.display.fontFamily,   // Sarabun-SemiBold
+    fontSize: 56,                             // larger than type.display for hero counter
+    fontWeight: T.type.display.fontWeight,   // '600'
+    color: T.color.text.heading,             // #4A2230 roselle-900 — STATIC (INV-K2)
     lineHeight: 66,
   },
   divider: {
     width: 48,
     height: 1.5,
-    backgroundColor: '#9B9B9B',
+    backgroundColor: T.color.surface.divider, // #E8DDD5 (from #9B9B9B)
     marginVertical: 4,
   },
   targetNumber: {
-    fontSize: 16,
-    color: '#6B6B6B', // ink/soft
-    lineHeight: 25,
+    fontFamily: T.type.body.fontFamily,      // Sarabun-Regular
+    fontSize: T.type.bodyLarge.size,         // 17sp
+    color: T.color.text.primary,             // #7A3A52 roselle-700 (from #6B6B6B)
+    lineHeight: T.type.bodyLarge.lineHeight, // 28
   },
   countUnit: {
-    fontSize: 13,
-    color: '#9B9B9B', // ink/faint
+    fontFamily: T.type.caption.fontFamily,   // Sarabun-Regular
+    fontSize: T.type.caption.size,           // 13sp
+    color: T.color.text.primary,             // #7A3A52 roselle-700 (from #9B9B9B)
   },
-  // Tap area (min-height 200dp, full width)
+  // Tap area — STATIC bg colour (INV-K2: ivory-200 regardless of count)
   tapArea: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: T.color.surface.subtle, // #F5EDE6 ivory-200 — STATIC (INV-K2)
     borderWidth: 1.5,
-    borderColor: '#E5E5E5', // hairline
+    borderColor: T.color.surface.divider,    // #E8DDD5 (from #E5E5E5)
     borderRadius: 20,
     minHeight: 200,
     width: '100%',
     alignItems: 'center',
     justifyContent: 'center',
     marginVertical: 12,
-    elevation: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
   },
   tapAreaDisabled: {
-    backgroundColor: '#F5F5F5',
+    backgroundColor: T.color.surface.subtle, // ivory-200 — same (STATIC per INV-K2)
+    opacity: 0.6,
   },
   tapLabel: {
-    fontSize: 17,
+    fontFamily: T.type.bodyLarge.fontFamily, // Sarabun-Regular
+    fontSize: T.type.bodyLarge.size,         // 17sp
     fontWeight: '600',
-    color: '#1A1A1A', // ink
+    color: T.color.text.heading,             // #4A2230 roselle-900
     textAlign: 'center',
     marginBottom: 4,
   },
   tapSublabel: {
-    fontSize: 13,
-    color: '#6B6B6B', // ink/soft
+    fontFamily: T.type.caption.fontFamily,   // Sarabun-Regular
+    fontSize: T.type.caption.size,           // 13sp
+    color: T.color.text.primary,             // #7A3A52 roselle-700
     textAlign: 'center',
   },
   // Save error
   saveErrorPanel: {
-    backgroundColor: '#FEF2F2',
-    borderRadius: 8,
+    backgroundColor: T.color.surface.subtle, // #F5EDE6 ivory-200 (calm, not FEF2F2 red)
+    borderRadius: T.radius.sm,               // 6dp
     padding: 12,
     marginBottom: 8,
   },
   saveErrorText: {
-    color: '#C0485F',
-    fontSize: 13,
+    fontFamily: T.type.body.fontFamily,      // Sarabun-Regular
+    fontSize: T.type.body.size,              // 15sp
+    color: T.color.text.primary,             // #7A3A52 roselle-700 (not red — calm UX)
     textAlign: 'center',
   },
   // Undo button (K-5b: visual appearance IDENTICAL at count=0 and count≥1)
@@ -714,9 +796,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   undoBtnText: {
-    // K-5b: SAME color at count=0 and count≥1 — no dimming/opacity change
-    color: '#9B1C35', // rose/700
-    fontSize: 15,
+    fontFamily: T.type.body.fontFamily,      // Sarabun-Regular
+    fontSize: T.type.body.size,              // 15sp
+    // K-5b: SAME colour at count=0 and count≥1 — no dimming/opacity change
+    color: T.color.text.primary,             // #7A3A52 roselle-700 (no red)
   },
   // Bottom bar (B1: endSession always-on)
   bottomBar: {
@@ -725,7 +808,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingTop: 12,
     borderTopWidth: 1,
-    borderTopColor: '#E5E5E5',
+    borderTopColor: T.color.surface.divider, // #E8DDD5 (from #E5E5E5)
     marginTop: 'auto',
   },
   cancelBottomBtn: {
@@ -735,13 +818,14 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   cancelBottomBtnText: {
-    color: '#9B1C35', // rose/700
-    fontSize: 15,
+    fontFamily: T.type.body.fontFamily,      // Sarabun-Regular
+    fontSize: T.type.body.size,              // 15sp
+    color: T.color.text.primary,             // #7A3A52 roselle-700 (no red)
   },
   endSessionBtn: {
-    backgroundColor: '#C0485F', // rose/600
-    borderRadius: 12,
-    minHeight: 52,
+    backgroundColor: T.button.primary.bg,   // #9A5F0A amber-700 (from rose/600)
+    borderRadius: T.button.primary.radius,  // 12dp
+    minHeight: T.button.primary.height,     // 52dp
     paddingHorizontal: 24,
     alignItems: 'center',
     justifyContent: 'center',
@@ -751,84 +835,92 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   endSessionBtnText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
+    fontFamily: T.type.label.fontFamily,    // Sarabun-SemiBold
+    fontSize: T.type.body.size,             // 15sp
+    color: T.color.text.onDark,             // #FFFFFF
+    fontWeight: T.type.label.fontWeight,    // '600'
   },
   // Leave guard modal
   leaveGuardOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: T.scrim.color,         // rgba(74,34,48,0.40) roselle-900 tinted
     justifyContent: 'center',
     alignItems: 'center',
     padding: 24,
   },
   leaveGuardCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    backgroundColor: T.color.surface.subtle, // #F5EDE6 ivory-200 (from white)
+    borderRadius: T.radius.lg,               // 20dp (radius.lg for bottom-sheet-style card)
     padding: 24,
     width: '100%',
   },
   leaveGuardTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1A1A1A',
+    fontFamily: T.type.heading2.fontFamily,  // Sarabun-SemiBold
+    fontSize: T.type.heading2.size,          // 20sp
+    lineHeight: T.type.heading2.lineHeight,  // 33
+    color: T.color.text.heading,             // #4A2230 roselle-900
     marginBottom: 8,
     textAlign: 'center',
   },
   leaveGuardBody: {
-    fontSize: 15,
-    color: '#1A1A1A',
+    fontFamily: T.type.body.fontFamily,      // Sarabun-Regular
+    fontSize: T.type.body.size,              // 15sp
+    lineHeight: T.type.body.lineHeight,      // 25
+    color: T.color.text.primary,             // #7A3A52 roselle-700
     textAlign: 'center',
     marginBottom: 20,
   },
   // Draft resume sheet
   draftResumeContainer: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: T.color.surface.subtle, // #F5EDE6 ivory-200 (from white)
     padding: 24,
     justifyContent: 'center',
   },
   draftSheetTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#1A1A1A',
+    fontFamily: T.type.heading2.fontFamily,  // Sarabun-SemiBold
+    fontSize: T.type.heading2.size,          // 20sp
+    lineHeight: T.type.heading2.lineHeight,  // 33
+    color: T.color.text.heading,             // #4A2230 roselle-900
     marginBottom: 12,
     textAlign: 'center',
   },
   draftSummaryText: {
-    fontSize: 15,
-    color: '#1A1A1A',
+    fontFamily: T.type.body.fontFamily,      // Sarabun-Regular
+    fontSize: T.type.body.size,              // 15sp
+    lineHeight: T.type.body.lineHeight,      // 25
+    color: T.color.text.primary,             // #7A3A52 roselle-700
     textAlign: 'center',
     marginBottom: 24,
   },
   // Shared button styles
   primaryBtn: {
-    backgroundColor: '#C0485F', // rose/600
-    borderRadius: 12,
-    height: 52,
+    backgroundColor: T.button.primary.bg,   // #9A5F0A amber-700 (from rose/600)
+    borderRadius: T.button.primary.radius,  // 12dp
+    height: T.button.primary.height,        // 52dp
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 12,
   },
   primaryBtnText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
+    fontFamily: T.type.label.fontFamily,    // Sarabun-SemiBold
+    fontSize: T.type.body.size,             // 15sp
+    color: T.color.text.onDark,             // #FFFFFF
+    fontWeight: T.type.label.fontWeight,    // '600'
   },
   secondaryBtn: {
     borderWidth: 1,
-    borderColor: '#C0485F',
-    borderRadius: 12,
+    borderColor: T.button.secondary.border, // #E8DDD5 divider (from rose border)
+    borderRadius: T.button.secondary.radius,// 12dp
     height: 48,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 12,
   },
   secondaryBtnText: {
-    color: '#C0485F',
-    fontSize: 15,
-    fontWeight: '500',
+    fontFamily: T.type.body.fontFamily,     // Sarabun-Regular
+    fontSize: T.type.body.size,             // 15sp
+    color: T.button.secondary.text,         // #7A3A52 roselle-700 (from rose)
   },
   quietBtn: {
     alignItems: 'center',
@@ -837,7 +929,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   quietBtnText: {
-    color: '#9B1C35', // rose/700
-    fontSize: 15,
+    fontFamily: T.type.body.fontFamily,     // Sarabun-Regular
+    fontSize: T.type.body.size,             // 15sp
+    color: T.color.text.primary,            // #7A3A52 roselle-700 (no red)
   },
 });

@@ -675,6 +675,9 @@ const th = {
   'kick.storeError': 'เปิดข้อมูลในเครื่องไม่สำเร็จ',
   // SC-K6b postpartum read-only
   'kick.postpartumBanner': 'บันทึกระหว่างตั้งครรภ์ · ดูได้แบบอ่านอย่างเดียว',
+  // Loss-state replacement (lifecycle='ended') — Gate 2 (G2-DELIV) + Gate 1 supplementary
+  'kick.lossReplacement': 'ฟีเจอร์นี้ไม่พร้อมใช้งานในขณะนี้',
+  'kick.lossGoBack': 'กลับ',
   // SC-K5 detail
   'kick.detailCountLabel': 'นับได้',
   'kick.detailDurationLabel': 'เวลาที่ใช้',
@@ -1924,6 +1927,9 @@ const en: MsgShape = {
   'kick.consentGateCaption': 'Consent required before recording',
   'kick.storeError': 'Could not read local data',
   'kick.postpartumBanner': 'Recorded during pregnancy · Read-only',
+  // Loss-state replacement (lifecycle='ended') — Gate 2 (G2-DELIV)
+  'kick.lossReplacement': 'This feature is not available at this time',
+  'kick.lossGoBack': 'Back',
   'kick.detailCountLabel': 'Movements',
   'kick.detailDurationLabel': 'Time',
   'kick.detailWeekLabel': 'Gestational age',

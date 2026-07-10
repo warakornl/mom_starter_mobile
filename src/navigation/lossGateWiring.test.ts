@@ -188,6 +188,7 @@ import { RootNavigator } from './RootNavigator';
 import { CalendarScreen } from '../calendar/CalendarScreen';
 import { AppointmentFormScreen } from '../calendar/AppointmentFormScreen';
 import { ReminderFormScreen } from '../calendar/ReminderFormScreen';
+import { KickCountHomeScreen } from '../kickCount/KickCountHomeScreen';
 import { useProfileSnapshot } from '../pregnancy/PregnancyProfileContext';
 
 // ─── Typed mock handles ───────────────────────────────────────────────────────
@@ -196,6 +197,7 @@ const mockUseProfileSnapshot = useProfileSnapshot as unknown as jest.Mock;
 const MockCalendarScreen     = CalendarScreen as unknown as jest.Mock;
 const MockAppointmentForm    = AppointmentFormScreen as unknown as jest.Mock;
 const MockReminderForm       = ReminderFormScreen as unknown as jest.Mock;
+const MockKickCountHome      = KickCountHomeScreen as unknown as jest.Mock;
 
 // ─── Shared test fixtures ─────────────────────────────────────────────────────
 
@@ -678,5 +680,85 @@ describe('[B2 LossGate] CalendarScreen — kickCountItems gated on lifecycle', (
     expect(memoBlock).toContain("'ended'");
     // Must return empty array on ended — not just track it in deps
     expect(memoBlock).toContain('[]');
+  });
+});
+
+// ─── F. [B3] StackNavigator → KickCountHomeScreen ───────────────────────────
+//
+// GAP-1 + GAP-2: KickCountHome must receive lifecycle={snapshot?.lifecycle}
+// (raw from context, NOT kickProps.lifecycle which defaults to 'pregnant').
+//
+// Pattern: same as B, C, D above — extract StackNavigator, find render-prop,
+// invoke it, assert child element props.
+
+describe('[B3 Behavioral] StackNavigator → KickCountHomeScreen prop-flow', () => {
+  let StackNavigatorFn: NavigatorFn;
+
+  beforeAll(() => {
+    mockUseProfileSnapshot.mockReturnValue(ENDED_SNAPSHOT);
+    StackNavigatorFn = getStackNavigatorFn();
+  });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('KickCountHome render-prop delivers lifecycle:"ended" when snapshot.lifecycle="ended"', () => {
+    mockUseProfileSnapshot.mockReturnValue(ENDED_SNAPSHOT);
+
+    const stackElement = StackNavigatorFn({ tokenStorage: mockTokenStorage, apiBaseUrl: '' });
+    const renderProp = findScreenRenderProp(stackElement, 'KickCountHome');
+    expect(renderProp).not.toBeNull();
+
+    // Invoke the render-prop (no route params for KickCountHome)
+    const homeElement = renderProp!({ navigation: { navigate: jest.fn(), goBack: jest.fn() } });
+
+    expect(homeElement.type).toBe(MockKickCountHome);
+    expect((homeElement.props as Record<string, unknown>).lifecycle).toBe('ended');
+  });
+
+  it('KickCountHome render-prop delivers lifecycle:undefined when snapshot is null (GAP-2)', () => {
+    mockUseProfileSnapshot.mockReturnValue(null);
+
+    const stackElement = StackNavigatorFn({ tokenStorage: mockTokenStorage, apiBaseUrl: '' });
+    const renderProp = findScreenRenderProp(stackElement, 'KickCountHome');
+    const homeElement = renderProp!({ navigation: { navigate: jest.fn(), goBack: jest.fn() } });
+
+    // GAP-2: must be undefined, NOT 'pregnant' (kickProps fallback removed)
+    expect((homeElement.props as Record<string, unknown>).lifecycle).toBeUndefined();
+    expect((homeElement.props as Record<string, unknown>).lifecycle).not.toBe('pregnant');
+  });
+
+  it('FAIL-ON-REVERT: KickCountHomeScreen element carries a lifecycle prop (guards wiring site)', () => {
+    mockUseProfileSnapshot.mockReturnValue(ENDED_SNAPSHOT);
+
+    const stackElement = StackNavigatorFn({ tokenStorage: mockTokenStorage, apiBaseUrl: '' });
+    const renderProp = findScreenRenderProp(stackElement, 'KickCountHome');
+    const homeElement = renderProp!({ navigation: { navigate: jest.fn(), goBack: jest.fn() } });
+
+    // Goes RED the moment lifecycle= is removed from the KickCountHome Stack.Screen
+    expect(Object.keys(homeElement.props as object)).toContain('lifecycle');
+  });
+});
+
+// ─── G. [B3] Source-grep: KickCountHome wiring uses snapshot?.lifecycle ──────
+
+const ROOT_NAV_SRC_B3 = ROOT_NAV_SRC; // already loaded above
+
+describe('[B3 LossGate Wiring] RootNavigator → KickCountHome', () => {
+  it('KickCountHome Stack.Screen block passes lifecycle prop via snapshot?.lifecycle (NOT kickProps)', () => {
+    const block = extractScreenBlock(ROOT_NAV_SRC_B3, 'KickCountHome');
+    // Must use raw snapshot?.lifecycle — NOT kickProps.lifecycle (which defaults 'pregnant')
+    expect(block).toMatch(/lifecycle=\{snapshot\?\.lifecycle\}/);
+  });
+
+  it('FAIL-ON-REVERT: KickCountHome Stack.Screen block contains lifecycle prop', () => {
+    const block = extractScreenBlock(ROOT_NAV_SRC_B3, 'KickCountHome');
+    expect(block).toContain('lifecycle=');
+  });
+
+  it('KickCountHome does NOT use kickProps.lifecycle fallback (GAP-2)', () => {
+    const block = extractScreenBlock(ROOT_NAV_SRC_B3, 'KickCountHome');
+    expect(block).not.toMatch(/lifecycle=\{kickProps\.lifecycle\}/);
   });
 });

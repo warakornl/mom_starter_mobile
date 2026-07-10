@@ -169,20 +169,47 @@ export function cancelSession(_draft: KickCountDraft): null {
   return null;
 }
 
+// ─── Loss-state predicate (§1 canonical, loss-gates-functional.md) ───────────
+
+/**
+ * Canonical loss-state predicate — §1 of loss-gates-functional.md.
+ *
+ * Returns true IFF lifecycle === 'ended'. All other values (including null/
+ * undefined — GAP-2 fail-safe: unknown state is NEVER treated as loss/ended)
+ * return false.
+ *
+ * K-8: never log lifecycle or any health field in callers.
+ */
+export function isLossState(lifecycle: Lifecycle | null | undefined): boolean {
+  return lifecycle === 'ended';
+}
+
 // ─── Module visibility gate (SC-K6a / D6) ────────────────────────────────────
 
 /**
  * Determine whether the kick-count MODULE should be visible at all.
  *
  * D6 / SC-K6a / SC-K6b:
+ *   - lifecycle='ended' → module visible (renders loss layout — explicit branch, GAP-1)
+ *     Previously this fell through to the gestationalWeek >= 32 check, which is
+ *     unreliable because an ended profile keeps its last week (may be < 32).
+ *     Explicit branch ensures deterministic rendering of the loss layout.
  *   - gestationalWeek < 32 (pregnant) → module NOT rendered (no entry, no teaser)
  *   - gestationalWeek ≥ 32 AND lifecycle=pregnant → full access
  *   - lifecycle=postpartum → read-only history visible (SC-K6b)
  *
+ * NOTE: this function returns a BOOLEAN only — it does NOT return a layout.
+ * The layout (screenState='loss') is selected in the component. (§2 Gate 1 R3)
+ *
  * @param gestationalWeek  Client-derived current week (may be negative for far EDD).
  * @param lifecycle        Current pregnancy lifecycle.
  */
-export function shouldShowModule(gestationalWeek: number, lifecycle: Lifecycle): boolean {
+export function shouldShowModule(gestationalWeek: number, lifecycle: Lifecycle | undefined): boolean {
+  // GAP-2: undefined lifecycle (snapshot not yet loaded) → don't show module.
+  if (lifecycle === undefined) return false;
+  // GAP-1: explicit 'ended' branch so loss deterministically renders the module.
+  // The component sets screenState='loss' — this boolean just says "render the module".
+  if (lifecycle === 'ended') return true;
   if (lifecycle === 'postpartum') return true; // read-only history visible
   return gestationalWeek >= 32;
 }
@@ -193,7 +220,9 @@ export function shouldShowModule(gestationalWeek: number, lifecycle: Lifecycle):
  * Starting is only allowed for wk ≥ 32 and lifecycle = pregnant.
  * Postpartum = read-only (no new sessions).
  */
-export function isStartAllowedByWeek(gestationalWeek: number, lifecycle: Lifecycle): boolean {
+export function isStartAllowedByWeek(gestationalWeek: number, lifecycle: Lifecycle | undefined): boolean {
+  // GAP-2: undefined lifecycle → no start allowed (never default to 'pregnant' capability).
+  if (lifecycle === undefined) return false;
   return lifecycle === 'pregnant' && gestationalWeek >= 32;
 }
 

@@ -915,7 +915,12 @@ function StackNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps): React
        * Security: no health data in route params (K-8 PDPA SD-9).
        */}
 
-      {/* SC-K0: KickCount entry */}
+      {/* SC-K0: KickCount entry.
+       * GAP-2 (B3): lifecycle is passed as snapshot?.lifecycle (raw from context,
+       * undefined when null) NOT kickProps.lifecycle (which defaults 'pregnant' when null).
+       * KickCountHomeScreen accepts Lifecycle | undefined — undefined → loading/neutral
+       * state, never the 'pregnant' default that would mask a real loss on cold-start.
+       */}
       <Stack.Screen
         name="KickCountHome"
         options={{ title: t('kick.navTitle'), headerBackTitle: t('general.back') }}
@@ -923,7 +928,7 @@ function StackNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps): React
         {({ navigation }) => (
           <KickCountHomeScreen
             gestationalWeek={kickProps.gestationalWeek}
-            lifecycle={kickProps.lifecycle}
+            lifecycle={snapshot?.lifecycle}
             generalHealthConsented={kickProps.generalHealthConsented}
             onRequestConsent={() => navigation.navigate('Consent')}
             tokenStorage={tokenStorage}

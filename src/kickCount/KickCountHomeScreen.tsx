@@ -38,7 +38,8 @@ import type { RootStackParamList } from '../navigation/types';
 import { useT } from '../i18n/LanguageContext';
 import { interpolate, type MessageKey } from '../i18n/messages';
 import { loadDraft } from './kickCountDraftStore';
-import { shouldShowModule, isStartAllowedByWeek } from './kickCountLogic';
+import { shouldShowModule, isStartAllowedByWeek, isLossState } from './kickCountLogic';
+import { T } from '../theme/tokens';
 import { kickCountSyncStore } from './kickCountSyncStore';
 import { createKickCountSyncClient } from '../sync/syncClient';
 import type { Lifecycle } from '../pregnancy/types';
@@ -54,7 +55,12 @@ interface KickCountHomeScreenProps {
    * Used for the wk32 gate and display label.
    */
   gestationalWeek: number;
-  lifecycle: Lifecycle;
+  /**
+   * Current lifecycle from PregnancyProfileContext (navigator-injected).
+   * GAP-2: undefined when snapshot not yet loaded → show neutral loading state,
+   * never default to 'pregnant'. Loss gate: 'ended' → loss layout.
+   */
+  lifecycle: Lifecycle | undefined;
   /** Whether the local general_health consent is granted. */
   generalHealthConsented: boolean;
   /** True when the device has no network connection. */
@@ -87,8 +93,12 @@ export function KickCountHomeScreen({
   const { t } = useT();
   const navigation = useNavigation<Nav>();
 
-  type ScreenState = 'loading' | 'ready' | 'error' | 'postpartum';
-  const [screenState, setScreenState] = useState<ScreenState>('loading');
+  type ScreenState = 'loading' | 'ready' | 'error' | 'postpartum' | 'loss';
+  // GAP-1 R2 ordering: loss mounts directly in 'loss' — never enters 'loading'.
+  // This is a lazy initializer so it evaluates once at mount time.
+  const [screenState, setScreenState] = useState<ScreenState>(() =>
+    isLossState(lifecycle) ? 'loss' : 'loading',
+  );
   const [hasDraft, setHasDraft] = useState(false);
 
   // D6 / SC-K6a: module must NOT render before wk32
@@ -113,6 +123,17 @@ export function KickCountHomeScreen({
   }, [tokenStorage]);
 
   useEffect(() => {
+    // GAP-1 R2: loss short-circuit runs BEFORE any fetch effect.
+    // An ended lifecycle must never enter loading, never call syncPull,
+    // never call loadDraft (K-8 — no session/draft in loss state).
+    if (isLossState(lifecycle)) {
+      setScreenState('loss');
+      return;
+    }
+    // GAP-2: undefined lifecycle (snapshot not yet loaded) — stay in loading.
+    if (lifecycle === undefined) {
+      return;
+    }
     let cancelled = false;
     async function init() {
       try {
@@ -188,6 +209,29 @@ export function KickCountHomeScreen({
         >
           <Text style={styles.retryBtnText}>{t('general.retry')}</Text>
         </TouchableOpacity>
+        <SafetyStrip t={t} />
+      </View>
+    );
+  }
+
+  // ── Loss state layout ────────────────────────────────────────────────────────
+  // GAP-1: history link + safety strip only. No week label, no CTA, no wk-32 copy.
+  // Not opacity-0/disabled — the start CTA node is ABSENT from the render tree.
+
+  if (screenState === 'loss') {
+    return (
+      <View style={styles.container} testID="kick-home-loss">
+        {/* History link retained — historical data belongs to the user */}
+        <TouchableOpacity
+          style={styles.quietBtn}
+          onPress={handleHistoryPress}
+          accessibilityRole="button"
+          accessibilityLabel={t('kick.viewHistory')}
+          testID="kick-view-history-btn"
+        >
+          <Text style={styles.quietBtnText}>{t('kick.viewHistory')} ›</Text>
+        </TouchableOpacity>
+        {/* Safety strip retained (INV-K6: always-on, static, generic) */}
         <SafetyStrip t={t} />
       </View>
     );
@@ -281,52 +325,59 @@ function SafetyStrip({ t }: { t: (key: MessageKey, params?: Record<string, strin
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
-    padding: 16,
+    backgroundColor: T.color.surface.base,   // #FBF6F1 ivory-100
+    padding: T.spacing[4],                    // 16dp
   },
   skeletonDisc: {
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#F5F5F5',
+    backgroundColor: T.skeleton.color,        // #F5EDE6 ivory-200
     marginBottom: 24,
     alignSelf: 'center',
   },
   skeletonBtn: {
-    height: 52,
-    borderRadius: 12,
-    backgroundColor: '#F5F5F5',
+    height: T.button.primary.height,          // 52dp
+    borderRadius: T.radius.md,                // 12dp
+    backgroundColor: T.skeleton.color,        // #F5EDE6
     marginBottom: 12,
   },
   weekLabel: {
-    fontSize: 14,
-    color: '#6B6B6B',
+    // type.caption: 13sp — text.primary roselle-700 (AAA 7.70:1 on ivory-100)
+    // NOT jade-600 at 13sp (R4: secondary BANNED below 15sp)
+    fontFamily: T.type.caption.fontFamily,    // Sarabun-Regular
+    fontSize: T.type.caption.size,            // 13sp
+    lineHeight: T.type.caption.lineHeight,    // 21
+    color: T.color.text.primary,              // #7A3A52 roselle-700
     marginBottom: 24,
     textAlign: 'center',
   },
   primaryBtn: {
-    backgroundColor: '#C0485F', // rose/600
-    borderRadius: 12,
-    height: 52,
+    backgroundColor: T.button.primary.bg,    // #9A5F0A amber-700
+    borderRadius: T.button.primary.radius,   // 12dp
+    height: T.button.primary.height,         // 52dp
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 12,
-    minHeight: 52,
+    minHeight: T.button.primary.height,
   },
   primaryBtnDisabled: {
-    backgroundColor: '#E8A0AD', // rose/300 (consent-gate state)
+    backgroundColor: T.scrim.amber,          // rgba(154,95,10,0.45) amber-700 disabled
   },
   primaryBtnText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
+    fontFamily: T.type.label.fontFamily,     // Sarabun-SemiBold
+    fontSize: T.type.body.size,              // 15sp
+    color: T.color.text.onDark,              // #FFFFFF
+    fontWeight: T.type.label.fontWeight,     // '600'
   },
   primaryBtnTextDisabled: {
-    color: '#FFFFFF',
+    color: T.color.text.onDark,              // #FFFFFF (keep contrast on amber disabled)
   },
   consentCaption: {
-    fontSize: 13,
-    color: '#6B6B6B',
+    fontFamily: T.type.body.fontFamily,      // Sarabun-Regular
+    fontSize: T.type.body.size,              // 15sp (up from 13sp to use text.primary cleanly)
+    lineHeight: T.type.body.lineHeight,      // 25
+    color: T.color.text.primary,             // #7A3A52 roselle-700
     textAlign: 'center',
     marginBottom: 8,
   },
@@ -337,71 +388,84 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   quietBtnText: {
-    color: '#9B1C35', // rose/700
-    fontSize: 15,
+    fontFamily: T.type.body.fontFamily,      // Sarabun-Regular
+    fontSize: T.type.body.size,              // 15sp
+    color: T.color.text.primary,             // #7A3A52 roselle-700 (no red quiet links)
   },
   postpartumBanner: {
-    backgroundColor: '#F5F5F5',
-    borderRadius: 8,
+    backgroundColor: T.color.surface.subtle, // #F5EDE6 ivory-200
+    borderRadius: T.radius.sm,               // 6dp
     padding: 12,
     marginBottom: 16,
   },
   postpartumBannerText: {
-    fontSize: 13,
-    color: '#6B6B6B',
+    fontFamily: T.type.body.fontFamily,      // Sarabun-Regular
+    fontSize: T.type.body.size,              // 15sp
+    color: T.color.text.primary,             // #7A3A52 roselle-700
     textAlign: 'center',
   },
   offlinePill: {
-    backgroundColor: '#FEF3F5',
-    borderRadius: 20,
+    backgroundColor: T.offlinePill.bg,      // #F5EDE6 ivory-200
+    borderRadius: T.radius.pill,             // 999
     paddingHorizontal: 12,
     paddingVertical: 6,
     alignSelf: 'center',
     marginBottom: 12,
   },
   offlinePillText: {
-    fontSize: 12,
-    color: '#6B6B6B',
+    fontFamily: T.type.caption.fontFamily,   // Sarabun-Regular
+    fontSize: T.type.caption.size,           // 13sp — use text.primary at 13sp (R4)
+    color: T.color.text.primary,             // #7A3A52 (jade-600 banned below 15sp)
   },
   safetyStrip: {
-    backgroundColor: '#FEF9F9',
-    borderRadius: 8,
+    backgroundColor: T.color.surface.subtle, // #F5EDE6 ivory-200
+    borderRadius: T.radius.sm,               // 6dp
     padding: 16,
     marginTop: 24,
   },
   safetyText: {
-    fontSize: 13,
-    color: '#6B6B6B',
+    fontFamily: T.type.caption.fontFamily,   // Sarabun-Regular
+    fontSize: T.type.caption.size,           // 13sp
+    lineHeight: T.type.caption.lineHeight,   // 21
+    color: T.color.text.primary,             // #7A3A52 roselle-700 (6.98:1 on ivory-200 AAA)
     marginBottom: 4,
   },
   safetySource: {
-    fontSize: 12,
-    color: '#9B9B9B',
+    fontFamily: T.type.micro.fontFamily,     // Sarabun-Regular
+    fontSize: T.type.micro.size,             // 11sp
+    lineHeight: T.type.micro.lineHeight,     // 18
+    color: T.color.text.primary,             // #7A3A52 roselle-700
     textDecorationLine: 'underline',
     marginBottom: 8,
   },
   disclaimerText: {
-    fontSize: 12,
-    color: '#9B9B9B',
+    fontFamily: T.type.micro.fontFamily,     // Sarabun-Regular
+    fontSize: T.type.micro.size,             // 11sp
+    lineHeight: T.type.micro.lineHeight,     // 18
+    color: T.color.text.primary,             // #7A3A52 roselle-700
   },
   errorText: {
-    fontSize: 15,
-    color: '#6B6B6B',
+    fontFamily: T.type.body.fontFamily,      // Sarabun-Regular
+    fontSize: T.type.body.size,              // 15sp
+    color: T.color.text.primary,             // #7A3A52 roselle-700
     textAlign: 'center',
     marginBottom: 16,
   },
   retryBtn: {
-    backgroundColor: '#C0485F',
-    borderRadius: 8,
-    paddingVertical: 10,
-    paddingHorizontal: 24,
+    backgroundColor: T.button.primary.bg,   // #9A5F0A amber-700
+    borderRadius: T.button.primary.radius,  // 12dp
+    height: T.button.primary.height,        // 52dp
+    alignItems: 'center',
+    justifyContent: 'center',
     alignSelf: 'center',
+    paddingHorizontal: 24,
     marginBottom: 16,
   },
   retryBtnText: {
-    color: '#FFFFFF',
-    fontSize: 15,
-    fontWeight: '600',
+    fontFamily: T.type.label.fontFamily,    // Sarabun-SemiBold
+    fontSize: T.type.body.size,             // 15sp
+    color: T.color.text.onDark,             // #FFFFFF
+    fontWeight: T.type.label.fontWeight,    // '600'
   },
 });
 

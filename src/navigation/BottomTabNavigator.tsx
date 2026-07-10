@@ -61,7 +61,6 @@ import {
 import { localCivilToday } from '../pregnancy/gestationalAge';
 
 import { HomeTabScreen } from '../screens/HomeTabScreen';
-import { WeeklyMilestoneSheet } from '../screens/WeeklyMilestoneSheet';
 import { CalendarScreen } from '../calendar/CalendarScreen';
 import { SuppliesScreen } from '../supplies/SuppliesScreen';
 import { ExpensesScreen } from '../expenses/ExpensesScreen';
@@ -351,48 +350,29 @@ export function BottomTabNavigator({
       </Tab.Screen>
 
       {/* Tab 3: Home — dashboard + snapshot-population ────────────────────── */}
-      {/* v3 Mother's Room: amber CTA (onCapture) + milestone sheet (onOpenMilestoneSheet)
-          wired here. WeeklyMilestoneSheet is a Modal within HomeTabScreen — NOT a new
-          route — so we pass the opener as a prop (§4.2 + §4.3 nav map). */}
+      {/* v3 Mother's Room: WeeklyMilestoneSheet is now owned by HomeTabScreen (§4.2 + §4.3).
+          Sheet state and isLoss are managed inside HomeTabScreen so isLoss is threaded in.
+          Week-zone tap → sheet open; sheet CTA → onCapture (CaptureScreen). */}
       <Tab.Screen name="Home">
-        {({ navigation: tabNavigation }) => {
-          // WeeklyMilestoneSheet state — managed here so HomeTabScreen stays pure
-          // (lifted to BottomTabNavigator since sheet is Modal within Home tab zone).
-          // For Phase 1 the sheet opens; content is placeholder (full data wiring = Phase 2).
-          // eslint-disable-next-line react-hooks/rules-of-hooks
-          const [milestoneSheetVisible, setMilestoneSheetVisible] = React.useState(false);
-          return (
-            <>
-              <HomeTabScreen
-                tokenStorage={tokenStorage}
-                apiBaseUrl={apiBaseUrl}
-                onLogout={handleLogout}
-                onNeedsProfile={() =>
-                  navigation.reset({ index: 0, routes: [{ name: 'ProfileSetup' }] })
-                }
-                onBirthEvent={(profileVersion) =>
-                  navigation.navigate('BirthEvent', { profileVersion })
-                }
-                onSuggestions={() => navigation.navigate('Suggestions')}
-                onKickCount={() => navigation.navigate('KickCountHome')}
-                onSupplies={() => tabNavigation.navigate('Supplies')}
-                onCalendar={() => tabNavigation.navigate('Calendar')}
-                onDoctorReport={() => navigation.navigate('DoctorReport')}
-                onCapture={() => navigation.navigate('Capture', { loggedAtDate: undefined })}
-                onOpenMilestoneSheet={() => setMilestoneSheetVisible(true)}
-              />
-              {/* §4.2: WeeklyMilestoneSheet — Modal within Home tab (not a route) */}
-              <WeeklyMilestoneSheet
-                visible={milestoneSheetVisible}
-                onClose={() => setMilestoneSheetVisible(false)}
-                onNavigateToCapture={() => {
-                  setMilestoneSheetVisible(false);
-                  navigation.navigate('Capture', { loggedAtDate: undefined });
-                }}
-              />
-            </>
-          );
-        }}
+        {({ navigation: tabNavigation }) => (
+          <HomeTabScreen
+            tokenStorage={tokenStorage}
+            apiBaseUrl={apiBaseUrl}
+            onLogout={handleLogout}
+            onNeedsProfile={() =>
+              navigation.reset({ index: 0, routes: [{ name: 'ProfileSetup' }] })
+            }
+            onBirthEvent={(profileVersion) =>
+              navigation.navigate('BirthEvent', { profileVersion })
+            }
+            onSuggestions={() => navigation.navigate('Suggestions')}
+            onKickCount={() => navigation.navigate('KickCountHome')}
+            onSupplies={() => tabNavigation.navigate('Supplies')}
+            onCalendar={() => tabNavigation.navigate('Calendar')}
+            onDoctorReport={() => navigation.navigate('DoctorReport')}
+            onCapture={() => navigation.navigate('Capture', { loggedAtDate: undefined })}
+          />
+        )}
       </Tab.Screen>
 
       {/* Tab 4: Calendar — CalendarScreen DIRECT (fixes nested ScrollView bug §6B) */}

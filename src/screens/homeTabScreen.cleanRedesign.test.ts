@@ -130,6 +130,11 @@ jest.mock('../home/AccentRow', () => ({
   AccentRow: 'AccentRow',
 }));
 
+// WeeklyMilestoneSheet mock (now owned by HomeTabScreen after isLoss threading fix §4.2)
+jest.mock('./WeeklyMilestoneSheet', () => ({
+  WeeklyMilestoneSheet: 'WeeklyMilestoneSheet',
+}));
+
 // ── Imports ──────────────────────────────────────────────────────────────────
 
 import { HomeTabScreen } from './HomeTabScreen';

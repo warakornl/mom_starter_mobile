@@ -37,7 +37,7 @@
  *   onCalendar           → switch to Calendar tab
  *   onDoctorReport       → navigate to DoctorReport
  *   onCapture            → navigate to CaptureScreen (amber CTA tap)
- *   onOpenMilestoneSheet → open WeeklyMilestoneSheet (week-zone tap; §4.2)
+ *   WeeklyMilestoneSheet → managed internally (week-zone tap → internal state; §4.2)
  *
  * Security: never log accessToken or health field values (SD-9).
  */
@@ -88,6 +88,7 @@ import {
 import { BabySizeSection } from '../home/BabySizeSection';
 import { AccentRow } from '../home/AccentRow';
 import { JasmineDivider } from '../illustrations/JasmineDivider';
+import { WeeklyMilestoneSheet } from './WeeklyMilestoneSheet';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -118,11 +119,7 @@ export interface HomeTabScreenProps {
    * §4.1: amber CTA → CaptureScreen.
    */
   onCapture?: () => void;
-  /**
-   * Open WeeklyMilestoneSheet (week-zone tap; §4.2).
-   * Not a route — modal within HomeTabScreen.
-   */
-  onOpenMilestoneSheet?: () => void;
+  // WeeklyMilestoneSheet is managed internally — week-zone tap opens it via local state (§4.2).
 }
 
 // ─── Screen state ─────────────────────────────────────────────────────────────
@@ -673,13 +670,14 @@ export function HomeTabScreen({
   onCalendar,
   onDoctorReport,
   onCapture,
-  onOpenMilestoneSheet,
 }: HomeTabScreenProps): React.JSX.Element {
   const { t } = useT();
   const setSnapshot = useProfileSnapshotSetter();
 
   const [state, setState] = useState<ScreenState>({ kind: 'loading' });
   const [suggestionTick, setSuggestionTick] = useState(0);
+  // §4.2: WeeklyMilestoneSheet visibility — lifted here so isLoss can be threaded in.
+  const [milestoneSheetVisible, setMilestoneSheetVisible] = useState(false);
 
   const loadedEdd = useRef<string | null>(null);
   const loadedBirthDate = useRef<string | null>(null);
@@ -909,7 +907,7 @@ export function HomeTabScreen({
           profile={profile}
           ga={isLoss ? undefined : ga}
           isLoss={isLoss}
-          onPress={onOpenMilestoneSheet}
+          onPress={() => setMilestoneSheetVisible(true)}
         />
 
         {/* §4.1: Baby-size subtitle at 15sp jade-600 (R4: ≥15sp ✓) */}
@@ -968,6 +966,19 @@ export function HomeTabScreen({
         </TouchableOpacity>
 
       </ScrollView>
+
+      {/* §4.2: WeeklyMilestoneSheet — Modal owned here so isLoss can be threaded in.
+          Week-zone tap (onPress above) → setMilestoneSheetVisible(true).
+          CTA → onCapture (navigates to CaptureScreen). */}
+      <WeeklyMilestoneSheet
+        visible={milestoneSheetVisible}
+        onClose={() => setMilestoneSheetVisible(false)}
+        onNavigateToCapture={() => {
+          setMilestoneSheetVisible(false);
+          onCapture?.();
+        }}
+        isLoss={isLoss}
+      />
     </SafeAreaView>
   );
 }

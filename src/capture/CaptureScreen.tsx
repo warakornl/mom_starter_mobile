@@ -111,6 +111,7 @@ import {
   orchestrateMedicationSave,
 } from './medicationCaptureLogic';
 import type { SelfLogInput } from '../sync/syncTypes';
+import { T } from '../theme/tokens';
 
 // ─── Navigation types ─────────────────────────────────────────────────────────
 
@@ -204,7 +205,7 @@ function WeightRegion({ value, onChangeText, hint, unit }: WeightRegionProps): R
           onChangeText={onChangeText}
           keyboardType="decimal-pad"
           placeholder="0.0"
-          placeholderTextColor="#94818A"
+          placeholderTextColor={T.input.placeholder}
           accessibilityLabel={`น้ำหนัก กิโลกรัม ช่องข้อความ / Weight, kilograms, edit text`}
           returnKeyType="done"
         />
@@ -258,7 +259,7 @@ function BpRegion({
           onChangeText={onSystolicChange}
           keyboardType="number-pad"
           placeholder="120"
-          placeholderTextColor="#94818A"
+          placeholderTextColor={T.input.placeholder}
           accessibilityLabel="ซิสโตลิก mmHg / Systolic, mmHg, edit text"
           returnKeyType="next"
         />
@@ -273,7 +274,7 @@ function BpRegion({
           onChangeText={onDiastolicChange}
           keyboardType="number-pad"
           placeholder="78"
-          placeholderTextColor="#94818A"
+          placeholderTextColor={T.input.placeholder}
           accessibilityLabel="ไดแอสโตลิก mmHg / Diastolic, mmHg, edit text"
           returnKeyType="done"
         />
@@ -1000,7 +1001,7 @@ export function CaptureScreen({ tokenStorage, apiBaseUrl }: CaptureScreenProps):
             multiline
             numberOfLines={3}
             placeholder={t('capture.field.notePlaceholder')}
-            placeholderTextColor="#94818A"
+            placeholderTextColor={T.input.placeholder}
             accessibilityLabel={t('capture.field.note')}
             textAlignVertical="top"
           />
@@ -1195,7 +1196,7 @@ export function CaptureScreen({ tokenStorage, apiBaseUrl }: CaptureScreenProps):
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FBF6F1', // bg/warm-milk
+    backgroundColor: T.color.surface.base,
   },
   // Header
   header: {
@@ -1205,7 +1206,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#EBE1D9', // hairline
+    borderBottomColor: T.color.surface.divider,
   },
   headerCloseBtn: {
     minWidth: 60,
@@ -1213,15 +1214,15 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   headerCloseText: {
-    fontFamily: 'IBMPlexSans-Regular',
+    fontFamily: T.type.bodyLarge.fontFamily,
     fontSize: 16,
-    color: '#A8505A', // rose/600
+    color: T.color.text.primary,
   },
   headerTitle: {
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 18,
-    lineHeight: 28,
-    color: '#3A2A30', // ink
+    fontFamily: T.type.heading2.fontFamily,
+    fontSize: T.type.heading2.size,
+    lineHeight: T.type.heading2.lineHeight,
+    color: T.color.text.heading,
     flex: 1,
     textAlign: 'center',
   },
@@ -1237,33 +1238,33 @@ const styles = StyleSheet.create({
   },
   section: { gap: 8 },
   sectionLabel: {
-    fontFamily: 'IBMPlexSans-SemiBold',
+    fontFamily: T.type.bodyLarge.fontFamily,
     fontSize: 15,
     lineHeight: 22,
-    color: '#5F4A52', // ink/soft
+    color: T.color.text.primary,
   },
 
   // Generic text input (note)
   input: {
     borderWidth: 1,
-    borderColor: '#EBE1D9',
-    borderRadius: 14,
+    borderColor: T.color.surface.divider,
+    borderRadius: T.radius.md,
     padding: 14,
-    fontFamily: 'IBMPlexSans-Regular',
+    fontFamily: T.type.bodyLarge.fontFamily,
     fontSize: 16,
     lineHeight: 25,
-    color: '#3A2A30',
-    backgroundColor: '#FFFFFF',
+    color: T.color.text.heading,
+    backgroundColor: T.input.bg,
   },
   noteInput: {
     minHeight: 80,
     textAlignVertical: 'top',
   },
   privacyLine: {
-    fontFamily: 'IBMPlexSans-Regular',
+    fontFamily: T.type.caption.fontFamily,
     fontSize: 12,
     lineHeight: 18,
-    color: '#94818A', // ink/faint
+    color: T.color.text.primary,
     fontStyle: 'italic',
   },
 
@@ -1276,73 +1277,73 @@ const styles = StyleSheet.create({
   dateTimeBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: T.input.bg,
     borderWidth: 1,
-    borderColor: '#EBE1D9',
-    borderRadius: 14,
+    borderColor: T.color.surface.divider,
+    borderRadius: T.radius.md,
     paddingHorizontal: 14,
     paddingVertical: 10,
     minHeight: 48,
     gap: 8,
   },
   dateTimeText: {
-    fontFamily: 'IBMPlexMono-Regular',
+    fontFamily: T.type.bodyLarge.fontFamily,
     fontSize: 16,
     lineHeight: 24,
-    color: '#3A2A30',
+    color: T.color.text.heading,
   },
   dateTimeEditIcon: {
     fontSize: 14,
-    color: '#94818A',
+    color: T.color.text.primary,
   },
 
   // Echo line (capture-ui §0 signature)
   echoContainer: {
-    backgroundColor: '#FBF3EE', // surface/page-sunk
-    borderRadius: 14,
+    backgroundColor: T.color.surface.subtle,
+    borderRadius: T.radius.md,
     padding: 14,
     gap: 6,
   },
   echoLabel: {
-    fontFamily: 'IBMPlexSans-Regular',
+    fontFamily: T.type.caption.fontFamily,
     fontSize: 12,
     lineHeight: 18,
-    color: '#94818A', // ink/faint
+    color: T.color.text.primary,
   },
   echoText: {
-    fontFamily: 'IBMPlexSans-Regular',
+    fontFamily: T.type.bodyLarge.fontFamily,
     fontSize: 15,
     lineHeight: 22,
-    color: '#3A2A30', // ink — verbatim, never coloured (INV-S1)
+    color: T.color.text.heading, // INV-S1: verbatim, never coloured
   },
   echoPlaceholder: {
-    fontFamily: 'IBMPlexSans-Regular',
+    fontFamily: T.type.caption.fontFamily,
     fontSize: 14,
     lineHeight: 20,
-    color: '#94818A', // ink/faint
+    color: T.color.text.primary,
     fontStyle: 'italic',
   },
 
   // Error panel (§5)
   errorPanel: {
-    backgroundColor: '#FBEDEE', // rose/50
-    borderRadius: 14,
+    backgroundColor: T.color.surface.wash.roselle,
+    borderRadius: T.radius.md,
     padding: 14,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
   errorPanelText: {
-    fontFamily: 'IBMPlexSans-Regular',
+    fontFamily: T.type.bodyLarge.fontFamily,
     fontSize: 14,
-    color: '#8E3A44', // rose/700
+    color: T.color.text.primary,
     flex: 1,
   },
   retryBtn: { paddingLeft: 12, minHeight: 48, justifyContent: 'center' },
   retryBtnText: {
-    fontFamily: 'IBMPlexSans-SemiBold',
+    fontFamily: T.type.bodyLarge.fontFamily,
     fontSize: 14,
-    color: '#8E3A44',
+    color: T.color.text.primary,
   },
 
   // Footer / Save button
@@ -1351,28 +1352,28 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 16,
     borderTopWidth: 1,
-    borderTopColor: '#EBE1D9',
+    borderTopColor: T.color.surface.divider,
     // elev/2 equivalent for the bottom action bar (design-system §5.12)
-    shadowColor: '#3A2A30',
+    shadowColor: T.color.text.heading,
     shadowOffset: { width: 0, height: -2 },
     shadowOpacity: 0.06,
     shadowRadius: 8,
     elevation: 4,
-    backgroundColor: '#FBF6F1',
+    backgroundColor: T.color.surface.base,
   },
   saveBtn: {
     height: 52,
-    backgroundColor: '#A8505A', // rose/600
+    backgroundColor: T.button.primary.bg,
     borderRadius: 999, // radius/pill
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 52, // a11y ≥ 48dp
   },
   saveBtnDisabled: {
-    backgroundColor: '#DDA0A6', // rose/300 (disabled fill)
+    backgroundColor: 'rgba(154, 95, 10, 0.45)', // amber-700 at 45% opacity
   },
   saveBtnText: {
-    fontFamily: 'IBMPlexSans-SemiBold',
+    fontFamily: T.type.bodyLarge.fontFamily,
     fontSize: 17,
     lineHeight: 22,
     color: '#FFFFFF',
@@ -1386,20 +1387,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   savedStamp: {
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 18,
-    lineHeight: 28,
-    color: '#4C6B57', // sage/700 (done stamp — design-system §1.3)
+    fontFamily: T.type.heading2.fontFamily,
+    fontSize: T.type.heading2.size,
+    lineHeight: T.type.heading2.lineHeight,
+    color: T.color.list.bar.health, // jade-800 done stamp
     textAlign: 'center',
   },
   savedEcho: {
-    fontFamily: 'IBMPlexSans-Regular',
+    fontFamily: T.type.bodyLarge.fontFamily,
     fontSize: 15,
     lineHeight: 22,
-    color: '#3A2A30',
+    color: T.color.text.heading,
     textAlign: 'center',
-    backgroundColor: '#FBF3EE',
-    borderRadius: 14,
+    backgroundColor: T.color.surface.subtle,
+    borderRadius: T.radius.md,
     padding: 14,
   },
   savedActions: {
@@ -1410,28 +1411,28 @@ const styles = StyleSheet.create({
   savedSecondaryBtn: {
     height: 48,
     paddingHorizontal: 20,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: T.input.bg,
     borderWidth: 1,
-    borderColor: '#EBE1D9',
+    borderColor: T.color.surface.divider,
     borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
   },
   savedSecondaryBtnText: {
-    fontFamily: 'IBMPlexSans-Regular',
+    fontFamily: T.type.bodyLarge.fontFamily,
     fontSize: 15,
-    color: '#5F4A52',
+    color: T.color.text.primary,
   },
   savedPrimaryBtn: {
     height: 48,
     paddingHorizontal: 24,
-    backgroundColor: '#A8505A',
+    backgroundColor: T.button.primary.bg,
     borderRadius: 999,
     alignItems: 'center',
     justifyContent: 'center',
   },
   savedPrimaryBtnText: {
-    fontFamily: 'IBMPlexSans-SemiBold',
+    fontFamily: T.type.bodyLarge.fontFamily,
     fontSize: 15,
     color: '#FFFFFF',
   },
@@ -1447,29 +1448,29 @@ const fieldStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#EBE1D9',
-    borderRadius: 14,
-    backgroundColor: '#FFFFFF',
+    borderColor: T.color.surface.divider,
+    borderRadius: T.radius.md,
+    backgroundColor: T.input.bg,
     paddingHorizontal: 14,
     minHeight: 56,
   },
   numericInput: {
     flex: 1,
-    fontFamily: 'IBMPlexMono-Regular', // mono for tabular figures (design-system §2.1)
+    fontFamily: T.type.bodyLarge.fontFamily, // tabular figures — Sarabun
     fontSize: 22,
     lineHeight: 28,
-    color: '#3A2A30',
+    color: T.color.text.heading,
     paddingVertical: 12,
   },
   numericInputHint: {
     // Hint state: keep ink colour (NEVER status/attention amber — capture-ui §4)
-    color: '#3A2A30',
+    color: T.color.text.heading,
   },
   unitLabel: {
-    fontFamily: 'IBMPlexSans-Regular',
+    fontFamily: T.type.bodyLarge.fontFamily,
     fontSize: 16,
     lineHeight: 24,
-    color: '#5F4A52', // ink/soft — non-editable unit suffix (accessibility-notes §8)
+    color: T.color.text.primary,
     marginLeft: 8,
   },
   // BP: systolic / diastolic row
@@ -1477,38 +1478,38 @@ const fieldStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#EBE1D9',
-    borderRadius: 14,
-    backgroundColor: '#FFFFFF',
+    borderColor: T.color.surface.divider,
+    borderRadius: T.radius.md,
+    backgroundColor: T.input.bg,
     paddingHorizontal: 14,
     minHeight: 56,
   },
   bpField: {
-    fontFamily: 'IBMPlexMono-Regular',
+    fontFamily: T.type.bodyLarge.fontFamily,
     fontSize: 22,
     lineHeight: 28,
-    color: '#3A2A30',
+    color: T.color.text.heading,
     paddingVertical: 12,
     width: 70,
     textAlign: 'center',
   },
   bpSeparator: {
-    fontFamily: 'IBMPlexMono-Regular',
+    fontFamily: T.type.bodyLarge.fontFamily,
     fontSize: 22,
-    color: '#5F4A52',
+    color: T.color.text.primary,
     paddingHorizontal: 4,
   },
   // Text input for swelling/lochia/symptom
   textInput: {
     borderWidth: 1,
-    borderColor: '#EBE1D9',
-    borderRadius: 14,
+    borderColor: T.color.surface.divider,
+    borderRadius: T.radius.md,
     padding: 14,
-    fontFamily: 'IBMPlexSans-Regular',
+    fontFamily: T.type.bodyLarge.fontFamily,
     fontSize: 16,
     lineHeight: 25,
-    color: '#3A2A30',
-    backgroundColor: '#FFFFFF',
+    color: T.color.text.heading,
+    backgroundColor: T.input.bg,
     minHeight: 88,
     textAlignVertical: 'top',
   },
@@ -1520,13 +1521,13 @@ const fieldStyles = StyleSheet.create({
   },
   hintIcon: {
     fontSize: 13,
-    color: '#5F4A52', // ink/soft (explicitly NOT status/attention amber)
+    color: T.color.text.primary, // ink/soft (explicitly NOT status/attention amber)
   },
   hintText: {
-    fontFamily: 'IBMPlexSans-Regular',
+    fontFamily: T.type.caption.fontFamily,
     fontSize: 13,
     lineHeight: 19,
-    color: '#5F4A52', // ink/soft (capture-ui §4: never amber)
+    color: T.color.text.primary, // ink/soft (capture-ui §4: never amber)
     flex: 1,
   },
 
@@ -1535,47 +1536,47 @@ const fieldStyles = StyleSheet.create({
 
   /** Wrapper block for plan name + from-label + dose line. */
   medPlanBlock: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: T.input.bg,
     borderWidth: 1,
-    borderColor: '#EBE1D9',
-    borderRadius: 14,
+    borderColor: T.color.surface.divider,
+    borderRadius: T.radius.md,
     padding: 14,
     gap: 2,
   },
   /** Plan name line — verbatim, semi-bold (INV-M4). */
   medPlanName: {
-    fontFamily: 'IBMPlexSans-SemiBold',
+    fontFamily: T.type.heading2.fontFamily,
     fontSize: 16,
     lineHeight: 24,
-    color: '#3A2A30', // ink — verbatim, never coloured (INV-M4)
+    color: T.color.text.heading, // verbatim, never coloured (INV-M4)
   },
   /** "จากแผนยา" / "From plan" secondary label below the plan name. */
   medPlanFrom: {
-    fontFamily: 'IBMPlexSans-Regular',
+    fontFamily: T.type.caption.fontFamily,
     fontSize: 13,
     lineHeight: 19,
-    color: '#94818A', // ink/faint
+    color: T.color.text.primary,
   },
   /** "ขนาด 1 เม็ด" dose line — verbatim (INV-M4). */
   medDose: {
-    fontFamily: 'IBMPlexSans-Regular',
+    fontFamily: T.type.caption.fontFamily,
     fontSize: 14,
     lineHeight: 21,
-    color: '#5F4A52', // ink/soft — neutral, never coloured (INV-M4)
+    color: T.color.text.primary, // neutral, never coloured (INV-M4)
   },
   /**
    * Status section: label + chip row for taken / missed.
-   * INV-M2: both chips use IDENTICAL chipSelected styling (rose/50 bg).
+   * INV-M2: both chips use IDENTICAL chipSelected styling.
    * Missed is NEVER amber/attention — no shaming. (INV-M2 / AC-20)
    */
   medStatusSection: {
     gap: 6,
   },
   medStatusLabel: {
-    fontFamily: 'IBMPlexSans-SemiBold',
+    fontFamily: T.type.caption.fontFamily,
     fontSize: 13,
     lineHeight: 19,
-    color: '#5F4A52', // ink/soft — section label
+    color: T.color.text.primary,
   },
   /** Row containing the taken and missed chips (equal-weight flex row). */
   medStatusChips: {
@@ -1598,25 +1599,25 @@ const segStyles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 999, // radius/pill
     borderWidth: 1,
-    borderColor: '#EBE1D9',
-    backgroundColor: '#FFFFFF',
+    borderColor: T.color.surface.divider,
+    backgroundColor: T.input.bg,
     minHeight: 48, // a11y ≥ 48dp (blocker #5)
     justifyContent: 'center',
     alignItems: 'center',
   },
   chipSelected: {
-    backgroundColor: '#FBEDEE', // rose/50
-    borderColor: '#A8505A',    // rose/600
+    backgroundColor: T.color.surface.wash.roselle,
+    borderColor: T.color.list.bar.pregnancy,
   },
   chipText: {
-    fontFamily: 'IBMPlexSans-Regular',
+    fontFamily: T.type.bodyLarge.fontFamily,
     fontSize: 14,
     lineHeight: 20,
-    color: '#5F4A52',
+    color: T.color.text.primary,
   },
   chipTextSelected: {
-    fontFamily: 'IBMPlexSans-SemiBold',
-    color: '#8E3A44', // rose/700
+    fontFamily: T.type.heading2.fontFamily,
+    color: T.color.text.primary,
   },
 });
 
@@ -1625,13 +1626,13 @@ const segStyles = StyleSheet.create({
 const pickerStyles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(58,42,48,0.4)',
+    backgroundColor: 'rgba(74,34,48,0.4)',
     justifyContent: 'flex-end',
   },
   card: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    backgroundColor: T.color.surface.base,
+    borderTopLeftRadius: T.radius.lg,
+    borderTopRightRadius: T.radius.lg,
     paddingBottom: 32,
   },
   btnRow: {
@@ -1640,19 +1641,19 @@ const pickerStyles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#EBE1D9',
+    borderBottomColor: T.color.surface.divider,
   },
   cancelBtn: { minHeight: 48, justifyContent: 'center' as const },
   cancelText: {
-    fontFamily: 'IBMPlexSans-Regular',
+    fontFamily: T.type.bodyLarge.fontFamily,
     fontSize: 15,
-    color: '#94818A',
+    color: T.color.text.primary,
   },
   doneBtn: { minHeight: 48, justifyContent: 'center' as const },
   doneText: {
-    fontFamily: 'IBMPlexSans-SemiBold',
+    fontFamily: T.type.heading2.fontFamily,
     fontSize: 15,
-    color: '#A8505A',
+    color: T.color.accent.interactive,
   },
   picker: { alignSelf: 'center' as const },
 });

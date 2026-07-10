@@ -384,6 +384,7 @@ export function BottomTabNavigator({
           <CalendarScreen
             tokenStorage={tokenStorage}
             apiBaseUrl={apiBaseUrl}
+            lifecycle={snapshot?.lifecycle}
             onAddAppointment={() =>
               navigation.navigate('AppointmentForm', {})
             }

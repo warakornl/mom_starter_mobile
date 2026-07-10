@@ -568,6 +568,7 @@ function StackNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps): React
               defaultCategory={defaultCategory}
               tokenStorage={tokenStorage}
               apiBaseUrl={apiBaseUrl}
+              lifecycle={snapshot?.lifecycle}
               onSave={() => navigation.goBack()}
               onCancel={() => navigation.goBack()}
             />
@@ -596,6 +597,7 @@ function StackNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps): React
               existingReminder={existingReminder}
               tokenStorage={tokenStorage}
               apiBaseUrl={apiBaseUrl}
+              lifecycle={snapshot?.lifecycle}
               onSave={() => navigation.goBack()}
               onCancel={() => navigation.goBack()}
             />
@@ -832,6 +834,7 @@ function StackNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps): React
             prefill={ancPrefillRef.current ?? undefined}
             tokenStorage={tokenStorage}
             apiBaseUrl={apiBaseUrl}
+            lifecycle={snapshot?.lifecycle}
             onSave={() => navigation.goBack()}
             onCancel={() => navigation.goBack()}
           />

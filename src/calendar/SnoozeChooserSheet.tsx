@@ -206,7 +206,7 @@ export function SnoozeChooserSheet({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(74, 34, 48, 0.4)',
+    backgroundColor: T.scrim.color,
     justifyContent: 'flex-end',
   },
   // Minor 2: maxHeight 85% mirrors JitConsentSheet to prevent overflow at

@@ -39,8 +39,8 @@
  *   for all exit paths to ensure all health stores are cleared.
  */
 
-import React, { useRef } from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useRef, useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import type { RootStackParamList } from './types';
@@ -76,12 +76,15 @@ import { ManageConsentsScreen } from '../screens/ManageConsentsScreen';
 import { SuggestionFlowScreen } from '../suggestion/SuggestionFlowScreen';
 import { CaptureScreen } from '../capture/CaptureScreen';
 import { DoctorPdfScreen } from '../pdfReport/DoctorPdfScreen';
+import { PregnancySummaryScreen } from '../pregnancy/PregnancySummaryScreen';
 import { BottomTabNavigator } from './BottomTabNavigator';
 import { useT } from '../i18n/LanguageContext';
 import { DOCTOR_REPORT_ROUTE_OPTIONS } from './doctorReportRouteOptions';
 
 // ── Logout deps for SD-5 teardown (used by ProfileEditScreen) ─────────────────
 import { performLogout } from '../auth/performLogout';
+import { createPregnancyClient } from '../pregnancy/pregnancyApiClient';
+import { decodeDateFromWire } from '../pregnancy/hospitalStayCipher';
 import { supplySyncStore } from '../sync/supplySyncStore';
 import { kickCountSyncStore } from '../kickCount/kickCountSyncStore';
 import { clearDraft } from '../kickCount/kickCountDraftStore';
@@ -94,6 +97,161 @@ import { medicationPlanSyncStore } from '../medication/medicationPlanSyncStore';
 import { medicationLogSyncStore } from '../medication/medicationLogSyncStore';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
+
+// ─── PregnancySummaryWrapper — SD-9-safe GET-on-mount container ───────────────
+//
+// SD-9: health data (edd, birthDate, deliveryType, hospitalAdmission/DischargeDate)
+//   MUST NOT go in route params. This wrapper performs GET /v1/pregnancy-profile
+//   on mount, decodes cipher fields client-side, and passes decoded data to the
+//   approved PregnancySummaryScreen component (whose computation is approved and
+//   unchanged). Route params for this screen are `undefined`.
+//
+// SD-5: GET 401 (no token or server-expired) → onSessionExpired → performLogout.
+//
+// Mirrors ProfileInfoEditScreen's GET-on-mount pattern:
+//   tokenStorage.load() → accessToken → getProfile() → decode → render screen.
+//
+// K-8 / PDPA: decoded health values are passed to PregnancySummaryScreen ONLY.
+//   NEVER logged. NEVER stored in route params or navigation state.
+
+type PregnancySummaryLoadState =
+  | { mode: 'loading' }
+  | {
+      mode: 'ready';
+      edd: string | null;
+      birthDate: string | null;
+      /** MVP: plaintext (TODO: AES-GCM decode when cipher ships). NEVER log. */
+      deliveryType: string | null;
+      /** Decoded from Base64 cipher. NEVER log. */
+      hospitalAdmissionDate: string | null;
+      /** Decoded from Base64 cipher. NEVER log. */
+      hospitalDischargeDate: string | null;
+    }
+  | { mode: 'error'; message: string };
+
+interface PregnancySummaryWrapperProps {
+  tokenStorage: TokenStorage;
+  apiBaseUrl: string;
+  onBack: () => void;
+  onSetEdd: () => void;
+  onSessionExpired: () => void;
+}
+
+/**
+ * PregnancySummaryWrapper — thin container that GETs pregnancy profile on mount
+ * and renders PregnancySummaryScreen with decoded health data.
+ *
+ * This component is the ONLY place where health data is decoded for display on
+ * PregnancySummaryScreen. It must NOT log or persist any decoded value.
+ */
+function PregnancySummaryWrapper({
+  tokenStorage,
+  apiBaseUrl,
+  onBack,
+  onSetEdd,
+  onSessionExpired,
+}: PregnancySummaryWrapperProps): React.JSX.Element {
+  const { t } = useT();
+  const [loadState, setLoadState] = useState<PregnancySummaryLoadState>({ mode: 'loading' });
+
+  useEffect(() => {
+    let cancelled = false;
+
+    async function loadProfile(): Promise<void> {
+      // SD-5: no token → treat as 401, trigger session-expired teardown
+      const tokens = await tokenStorage.load();
+      const accessToken = tokens?.accessToken;
+      if (!accessToken) {
+        if (!cancelled) onSessionExpired();
+        return;
+      }
+
+      const client = createPregnancyClient(apiBaseUrl);
+      const result = await client.getProfile(accessToken, localCivilToday());
+
+      if (cancelled) return;
+
+      if (result.ok) {
+        const { profile } = result;
+        // SD-9: decode cipher fields here — NEVER in route params.
+        // K-8 / PDPA: NEVER log decoded values (health PII / health-adjacent PII).
+        setLoadState({
+          mode: 'ready',
+          edd: profile.edd,
+          birthDate: profile.birthDate ?? null,
+          // deliveryType: MVP plaintext (TODO: AES-GCM decode when appsec ships cipher).
+          deliveryType: profile.deliveryType ?? null,
+          // hospitalAdmissionDate / hospitalDischargeDate: Base64 → decode client-side.
+          hospitalAdmissionDate: decodeDateFromWire(profile.hospitalAdmissionDate),
+          hospitalDischargeDate: decodeDateFromWire(profile.hospitalDischargeDate),
+        });
+      } else if (!result.ok && result.status === 401) {
+        // SD-5: 401 (no token or server-expired) → full performLogout teardown
+        onSessionExpired();
+      } else {
+        setLoadState({ mode: 'error', message: !result.ok ? result.message : 'Unknown error' });
+      }
+    }
+
+    void loadProfile();
+    return (): void => {
+      cancelled = true;
+    };
+  }, [tokenStorage, apiBaseUrl, onSessionExpired]);
+
+  if (loadState.mode === 'loading') {
+    return (
+      <View style={pregnancySummaryWrapperStyles.center}>
+        <ActivityIndicator size="small" color="#9B1C35" />
+        <Text style={pregnancySummaryWrapperStyles.loadingText}>{t('home.loading')}</Text>
+      </View>
+    );
+  }
+
+  if (loadState.mode === 'error') {
+    return (
+      <View style={pregnancySummaryWrapperStyles.center}>
+        <Text style={pregnancySummaryWrapperStyles.errorText}>{loadState.message}</Text>
+      </View>
+    );
+  }
+
+  // loadState.mode === 'ready' — pass decoded data to the approved screen.
+  // SD-9: all health data comes from this GET result, NOT from route params.
+  return (
+    <PregnancySummaryScreen
+      edd={loadState.edd}
+      birthDate={loadState.birthDate}
+      deliveryType={loadState.deliveryType}
+      hospitalAdmissionDate={loadState.hospitalAdmissionDate}
+      hospitalDischargeDate={loadState.hospitalDischargeDate}
+      onBack={onBack}
+      onSetEdd={onSetEdd}
+    />
+  );
+}
+
+const pregnancySummaryWrapperStyles = StyleSheet.create({
+  center: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FBF6F1',
+    gap: 12,
+  },
+  loadingText: {
+    fontFamily: 'IBMPlexSans-Regular',
+    fontSize: 16,
+    color: '#94818A',
+  },
+  errorText: {
+    fontFamily: 'IBMPlexSans-Regular',
+    fontSize: 14,
+    color: '#94818A',
+    textAlign: 'center',
+    paddingHorizontal: 24,
+  },
+});
 
 interface RootNavigatorProps {
   /** Secure token storage shared across all auth screens. */
@@ -537,6 +695,49 @@ function StackNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps): React
                 clearKickCountDraft: () => clearDraft(),
                 onComplete: () =>
                   navigation.reset({ index: 0, routes: [{ name: 'Welcome' }] }),
+              });
+            }}
+          />
+        )}
+      </Stack.Screen>
+
+      {/* PregnancySummary — read-only pregnancy recap (trimester + delivery).
+       *
+       * Entry: ProfileHubScreen > "สรุปการตั้งครรภ์" row (lifecycle-agnostic).
+       * SD-9: params = undefined — PregnancySummaryWrapper performs GET on mount
+       *   and passes decoded health data to PregnancySummaryScreen (NOT route params).
+       * SD-5: GET 401 → performLogout teardown → Welcome.
+       * Wiring/test-only: disclaimer/4-conditions/K-8/computation are approved,
+       *   unchanged. Only the route registration and GET-on-mount wiring is new.
+       */}
+      <Stack.Screen
+        name="PregnancySummary"
+        options={{ title: t('pregnancySummary.navTitle'), headerShown: false }}
+      >
+        {({ navigation: stackNav }) => (
+          <PregnancySummaryWrapper
+            tokenStorage={tokenStorage}
+            apiBaseUrl={apiBaseUrl}
+            onBack={() => stackNav.goBack()}
+            onSetEdd={() =>
+              stackNav.reset({ index: 0, routes: [{ name: 'ProfileSetup' }] })
+            }
+            onSessionExpired={() => {
+              void performLogout({
+                clearTokens: () => tokenStorage.clear(),
+                resetSupplyStore: () => supplySyncStore.reset(),
+                resetKickCountStore: () => kickCountSyncStore.reset(),
+                resetCalendarStore: () => calendarSyncStore.reset(),
+                resetSelfLogStore: () => selfLogSyncStore.reset(),
+                resetMedicationPlanStore: () => medicationPlanSyncStore.reset(),
+                resetMedicationLogStore: () => medicationLogSyncStore.reset(),
+                resetConsentStore: () => consentStore.reset(),
+                resetConsentQueue: () => resetConsentQueue(),
+                resetSuggestionStore: () => suggestionStore.reset(),
+                resetExpensesStore: () => expensesSyncStore.reset(),
+                clearKickCountDraft: () => clearDraft(),
+                onComplete: () =>
+                  stackNav.reset({ index: 0, routes: [{ name: 'Welcome' }] }),
               });
             }}
           />

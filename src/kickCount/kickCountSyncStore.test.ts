@@ -118,6 +118,57 @@ describe('kickCountSyncStore', () => {
     });
   });
 
+  describe('getCompletedSessions', () => {
+    it('returns only non-tombstoned completed sessions sorted by startedAt desc', () => {
+      const store = createKickCountSyncStore();
+      const s1 = makeSession({ id: 'cs-1', startedAt: '2026-06-29T09:00', version: 1 });
+      const s2 = makeSession({ id: 'cs-2', startedAt: '2026-06-30T09:15', version: 1 });
+      store.upsertSession(s1);
+      store.upsertSession(s2);
+      store.tombstoneSession(s1.id);
+      const completed = store.getCompletedSessions();
+      expect(completed).toHaveLength(1);
+      expect(completed[0].id).toBe('cs-2');
+    });
+
+    it('excludes sessions whose status is not completed (spec §3.2 DEFECT-PS-1 guard)', () => {
+      // KickCountSessionStatus is currently a union of 'completed' only, but this
+      // test future-proofs the guard: if a non-completed record were introduced
+      // (e.g. via adoptServerRecord with status='in_progress'), it must not appear.
+      const store = createKickCountSyncStore();
+      const completedSession = makeSession({ id: 'done', status: 'completed', version: 1 });
+      // Force an in_progress record via adoptServerRecord (bypasses enqueueCreate guard)
+      const inProgressSession = makeSession({
+        id: 'draft',
+        status: 'in_progress' as KickCountSessionRecord['status'],
+        version: 1,
+      });
+      store.upsertSession(completedSession);
+      store.adoptServerRecord(inProgressSession);
+      const completed = store.getCompletedSessions();
+      expect(completed.every((s) => s.status === 'completed')).toBe(true);
+      expect(completed.find((s) => s.id === 'done')).toBeDefined();
+      expect(completed.find((s) => s.id === 'draft')).toBeUndefined();
+    });
+
+    it('returns empty array when no sessions', () => {
+      const store = createKickCountSyncStore();
+      expect(store.getCompletedSessions()).toHaveLength(0);
+    });
+
+    it('results are sorted by startedAt descending (newest first)', () => {
+      const store = createKickCountSyncStore();
+      const s1 = makeSession({ id: 'old', startedAt: '2026-06-28T08:00', version: 1 });
+      const s2 = makeSession({ id: 'new', startedAt: '2026-06-30T10:00', version: 1 });
+      const s3 = makeSession({ id: 'mid', startedAt: '2026-06-29T09:00', version: 1 });
+      store.upsertSession(s1);
+      store.upsertSession(s2);
+      store.upsertSession(s3);
+      const completed = store.getCompletedSessions();
+      expect(completed.map((s) => s.id)).toEqual(['new', 'mid', 'old']);
+    });
+  });
+
   describe('getActiveSessions', () => {
     it('returns only non-tombstoned completed sessions sorted by startedAt desc', () => {
       const store = createKickCountSyncStore();

@@ -32,6 +32,17 @@ export interface KickCountSyncStore {
   /** All active (non-tombstoned) completed sessions, sorted by startedAt descending. */
   getActiveSessions(): KickCountSessionRecord[];
 
+  /**
+   * All active (non-tombstoned) sessions with status === 'completed', sorted by
+   * startedAt descending.
+   *
+   * Spec §3.2: summary screens MUST use this accessor — getActiveSessions() is
+   * banned by name for summary aggregation (DEFECT-PS-1).  Any future session
+   * status beyond 'completed' (e.g. 'in_progress') will be excluded here without
+   * callers needing to change.
+   */
+  getCompletedSessions(): KickCountSessionRecord[];
+
   /** One session by id (including tombstones — for stampApplied / conflict resolution). */
   getSession(id: string): KickCountSessionRecord | undefined;
 
@@ -131,6 +142,15 @@ export function createKickCountSyncStore(): KickCountSyncStore {
     getActiveSessions(): KickCountSessionRecord[] {
       return Array.from(sessionMap.values())
         .filter((s) => !s.deletedAt)
+        .sort((a, b) => b.startedAt.localeCompare(a.startedAt)); // descending by startedAt
+    },
+
+    getCompletedSessions(): KickCountSessionRecord[] {
+      // Spec §3.2: only status==='completed' sessions enter summary aggregation.
+      // Filters by both tombstone absence AND explicit completed status so that
+      // any future in_progress / cancelled status additions are excluded automatically.
+      return Array.from(sessionMap.values())
+        .filter((s) => !s.deletedAt && s.status === 'completed')
         .sort((a, b) => b.startedAt.localeCompare(a.startedAt)); // descending by startedAt
     },
 

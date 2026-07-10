@@ -48,6 +48,7 @@ import { useT } from '../i18n/LanguageContext';
 import { interpolate } from '../i18n/messages';
 import { getSnoozeOptions } from './snoozeChooserLogic';
 import type { SnoozeDuration } from './snoozeChooserLogic';
+import { T } from '../theme/tokens';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -205,15 +206,15 @@ export function SnoozeChooserSheet({
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(58, 42, 48, 0.4)',
+    backgroundColor: 'rgba(74, 34, 48, 0.4)',
     justifyContent: 'flex-end',
   },
   // Minor 2: maxHeight 85% mirrors JitConsentSheet to prevent overflow at
   // ≥200% Dynamic Type (screens-spec §5.6).
   sheet: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    backgroundColor: T.color.surface.base,
+    borderTopLeftRadius: T.radius.lg,
+    borderTopRightRadius: T.radius.lg,
     maxHeight: '85%',
   },
   sheetContent: {
@@ -222,23 +223,23 @@ const styles = StyleSheet.create({
   dragHandle: {
     width: 36,
     height: 4,
-    backgroundColor: '#EBE1D9', // hairline
+    backgroundColor: T.color.surface.subtle,
     borderRadius: 2,
     alignSelf: 'center',
     marginTop: 12,
     marginBottom: 16,
   },
   title: {
-    fontFamily: 'Looped-SemiBold',
-    fontSize: 18,
-    lineHeight: 28,
-    color: '#3A2A30', // ink
+    fontFamily: T.type.heading2.fontFamily,
+    fontSize: T.type.heading2.size,
+    lineHeight: T.type.heading2.lineHeight,
+    color: T.color.text.heading,
     marginHorizontal: 24,
     marginBottom: 16,
   },
   divider: {
     height: 1,
-    backgroundColor: '#EBE1D9', // hairline
+    backgroundColor: T.color.surface.divider,
     marginHorizontal: 0,
   },
   optionRow: {
@@ -246,36 +247,38 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 24,
     minHeight: 56, // ≥ 56dp as per screens-spec §5.6
-    backgroundColor: '#FFFFFF', // surface/page
+    backgroundColor: T.color.surface.base,
   },
   optionLeft: {
     width: 40,
     alignItems: 'flex-start',
   },
   optionMinutes: {
-    fontFamily: 'IBMPlexMono-SemiBold',
+    fontFamily: T.type.heading2.fontFamily,
     fontSize: 20,
-    color: '#3A2A30', // ink
+    color: T.color.text.heading,
   },
   optionBody: {
     flex: 1,
     paddingVertical: 12,
   },
   optionLabel: {
+    fontFamily: T.type.bodyLarge.fontFamily,
     fontSize: 15,
     fontWeight: '600',
-    color: '#3A2A30', // ink
+    color: T.color.text.primary,
     lineHeight: 22,
   },
   optionSublabel: {
+    fontFamily: T.type.caption.fontFamily,
     fontSize: 12,
-    color: '#94818A', // ink/faint
+    color: T.color.text.primary,
     lineHeight: 18,
     marginTop: 2,
   },
   chevron: {
     fontSize: 18,
-    color: '#94818A', // ink/faint
+    color: T.color.text.primary,
     marginLeft: 8,
   },
   cancelRow: {
@@ -285,8 +288,9 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   cancelLabel: {
+    fontFamily: T.type.bodyLarge.fontFamily,
     fontSize: 16,
     fontWeight: '700',
-    color: '#8E3A44', // rose/700
+    color: T.color.text.primary,
   },
 });

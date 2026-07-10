@@ -120,6 +120,16 @@ jest.mock('../icons', () => ({
   PostpartumStageIcon: 'PostpartumStageIcon',
 }));
 
+// Botanical illustration mocks (HomeTabScreen imports JasmineDivider in mother-room re-skin)
+jest.mock('../illustrations/JasmineDivider', () => ({
+  JasmineDivider: 'JasmineDivider',
+}));
+
+// AccentRow mock (HomeTabScreen imports AccentRow in mother-room re-skin)
+jest.mock('../home/AccentRow', () => ({
+  AccentRow: 'AccentRow',
+}));
+
 // ── Imports ──────────────────────────────────────────────────────────────────
 
 import { HomeTabScreen } from './HomeTabScreen';

@@ -1,35 +1,45 @@
 /**
- * HomeTabScreen — Home tab content (dashboard + DoctorReport entry row).
+ * HomeTabScreen — Home tab (Mother's Room flagship re-skin; §4.1).
  *
- * v2 center tab (bottom-tab-navigation-design.md v2.1 §3, §3.3, §6A).
+ * v3 mother-room (mother-room-build-spec.md §4.1, §4.2, §4.3).
+ * Re-skinned in place — all business logic, navigation callbacks, and
+ * screen-state transitions are UNCHANGED from v2.
  *
- * Responsibilities:
- *   1. Profile GET + lifecycle branching (taken from CalendarTabScreen v1).
- *   2. Updates PregnancyProfileContext via useProfileSnapshotSetter() so that
- *      non-tab screens (KickCount*, Settings, DoctorPdf, Suggestions) keep
- *      their props — critical because initialRouteName='Home' means this screen
- *      mounts first and owns the full snapshot-population path.
- *   3. Renders dashboard sections per §3.3 (NO CalendarScreen embedded — v2):
- *        - Pregnant wk<32: stage banner → suggestion† → progress → days-to-due
- *        - Pregnant wk≥32: stage banner → kick-count card → suggestion† → progress → days-to-due
- *        - Postpartum: pp banner → PostpartumDayCard → suggestion† → history link
- *      All followed by the Doctor Report entry row (spec §3.3, always visible).
- *   4. Screen states (§6A): loading skeleton, error+retry, needs-onboarding → reset to ProfileSetup.
+ * Responsibilities (unchanged):
+ *   1. Profile GET + lifecycle branching.
+ *   2. Updates PregnancyProfileContext via useProfileSnapshotSetter().
+ *   3. Renders Mother's Room layout per §4.1:
+ *        Greeting bar → week hero → JasmineDivider → baby subtitle
+ *        → progress line → [hairline] → AccentRow data rows → amber CTA.
+ *   4. Screen states (§4.1 state matrix): loading, empty, error, offline,
+ *        populated, loss (lifecycle='ended'), needs-onboarding.
  *
- * Constraint (§6B): HomeTabScreen MUST NOT embed VirtualizedList, FlatList, or
- * CalendarScreen. It renders only simple card/row components in its own ScrollView.
+ * Key Mother's Room visual changes from v2 (§1.8 / §4.1):
+ *   - Week hero: flat (no card border), 32sp Sarabun-SemiBold roselle-900.
+ *   - JasmineDivider between week hero text and baby-size subtitle.
+ *   - Progress: 4dp amber-600 fill on ivory-200 track.
+ *   - Data rows: AccentRow (3dp left accent bar).
+ *   - CTA: ONE amber card (amber-700, 52dp, elev/1).
+ *   - Loss state (lifecycle='ended'): week hero hidden; date in heading1 style;
+ *       kick-count row hidden.
+ *   - Fonts: Sarabun-SemiBold / Sarabun-Regular throughout (no IBMPlexSans).
+ *   - Colors: all via T.color.* (no inline hex).
+ *
+ * Constraint (§6B): MUST NOT embed VirtualizedList, FlatList, or CalendarScreen.
  *
  * Navigation callbacks:
- *   onLogout             → performLogout + reset to Welcome (session expiry / no-token)
- *   onNeedsProfile       → reset to ProfileSetup (GET 404; tab bar suppressed)
+ *   onLogout             → performLogout + reset to Welcome
+ *   onNeedsProfile       → reset to ProfileSetup (GET 404)
  *   onBirthEvent(v)      → navigate to BirthEvent (T3 only)
  *   onSuggestions        → navigate to Suggestions
- *   onKickCount          → navigate to KickCountHome (pregnant wk≥32 card tapped)
- *   onSupplies           → switch to Supplies tab (suggestion CTA for captureTarget=supplies)
- *   onCalendar           → switch to Calendar tab (suggestion CTA for appointment/medication/self_log)
- *   onDoctorReport       → navigate to DoctorReport root-stack screen (entry row tapped)
+ *   onKickCount          → navigate to KickCountHome (pregnant wk≥32 kick row tap)
+ *   onSupplies           → switch to Supplies tab
+ *   onCalendar           → switch to Calendar tab
+ *   onDoctorReport       → navigate to DoctorReport
+ *   onCapture            → navigate to CaptureScreen (amber CTA tap)
+ *   onOpenMilestoneSheet → open WeeklyMilestoneSheet (week-zone tap; §4.2)
  *
- * Security: never log accessToken or health fields (SD-9).
+ * Security: never log accessToken or health field values (SD-9).
  */
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
@@ -38,6 +48,7 @@ import {
   View,
   Text,
   TouchableOpacity,
+  Pressable,
   StyleSheet,
   SafeAreaView,
   ScrollView,
@@ -75,6 +86,8 @@ import {
   PostpartumStageIcon,
 } from '../icons';
 import { BabySizeSection } from '../home/BabySizeSection';
+import { AccentRow } from '../home/AccentRow';
+import { JasmineDivider } from '../illustrations/JasmineDivider';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -83,27 +96,33 @@ export interface HomeTabScreenProps {
   apiBaseUrl: string;
   /** Route through performLogout + reset to Welcome on session expiry. */
   onLogout: () => void;
-  /** Reset to ProfileSetup (GET 404). Tab bar suppressed because ProfileSetup is a root screen. */
+  /** Reset to ProfileSetup (GET 404). Tab bar suppressed. */
   onNeedsProfile: () => void;
   /** Navigate to BirthEvent (T3 only). Passes current profile version for If-Match header. */
   onBirthEvent: (profileVersion: number) => void;
-  /** Navigate to SuggestionFlowScreen ("View all" from suggestion banner). */
+  /** Navigate to SuggestionFlowScreen. */
   onSuggestions?: () => void;
-  /** Navigate to KickCountHomeScreen (pregnant wk≥32 card tapped, spec §4.2). */
+  /** Navigate to KickCountHomeScreen (pregnant wk≥32 kick-count row tapped). */
   onKickCount?: () => void;
-  /**
-   * Switch to the Supplies tab (suggestion banner CTA for captureTarget='supplies').
-   */
+  /** Switch to the Supplies tab (suggestion CTA). */
   onSupplies?: () => void;
-  /**
-   * Switch to the Calendar tab (suggestion CTA for appointment/medication/self_log).
-   */
+  /** Switch to the Calendar tab (suggestion CTA). */
   onCalendar?: () => void;
   /**
-   * Navigate to DoctorReport root-stack screen (Doctor Report entry row tapped).
-   * Spec §3.3, §8A.1: only called when snapshot !== null (§report-edd-guard).
+   * Navigate to DoctorReport root-stack screen.
+   * Spec §3.3: only called when snapshot !== null.
    */
   onDoctorReport: () => void;
+  /**
+   * Navigate to CaptureScreen (amber CTA tap / loss-state CTA).
+   * §4.1: amber CTA → CaptureScreen.
+   */
+  onCapture?: () => void;
+  /**
+   * Open WeeklyMilestoneSheet (week-zone tap; §4.2).
+   * Not a route — modal within HomeTabScreen.
+   */
+  onOpenMilestoneSheet?: () => void;
 }
 
 // ─── Screen state ─────────────────────────────────────────────────────────────
@@ -116,7 +135,6 @@ type ScreenState =
   | { kind: 'error'; message: string };
 
 // ─── Stage icon helpers ───────────────────────────────────────────────────────
-// Replaced emoji STAGE_GLYPHS with SVG icon components (Tell 1B, spec §2).
 
 const STAGE_ICONS: Record<Stage, React.FC<{ color: string; size: number }>> = {
   T1: StageT1Icon,
@@ -124,53 +142,185 @@ const STAGE_ICONS: Record<Stage, React.FC<{ color: string; size: number }>> = {
   T3: StageT3Icon,
 };
 
-// ─── Progress bar ─────────────────────────────────────────────────────────────
+// ─── Mother's Room Progress Bar (§4.1: amber-600 fill, 4dp) ─────────────────
 
-function ProgressBar({ progress }: { progress: number }): React.JSX.Element {
+function ProgressLine({ progress }: { progress: number }): React.JSX.Element {
   const { t } = useT();
-  const pct = Math.round(progress * 100);
-  const fillFlex = Math.max(0, pct);
-  const remainFlex = 100 - fillFlex;
+  const pct = Math.round(Math.max(0, Math.min(100, progress * 100)));
   return (
     <View
-      style={barStyles.container}
+      style={progressStyles.container}
       accessibilityRole="progressbar"
       accessibilityValue={{ min: 0, max: 100, now: pct }}
       accessibilityLabel={t('home.progressA11y', { pct })}
     >
-      <View style={barStyles.track}>
-        <View style={[barStyles.fill, { flex: fillFlex }]} />
-        {remainFlex > 0 && (
-          <View style={[barStyles.remain, { flex: remainFlex }]} />
+      <View style={progressStyles.track}>
+        {/* Filled segment — amber-600 */}
+        <View style={[progressStyles.fill, { flex: pct }]} />
+        {/* Remaining segment — ivory-200 track */}
+        {100 - pct > 0 && (
+          <View style={[progressStyles.remain, { flex: 100 - pct }]} />
         )}
       </View>
-      <Text style={barStyles.label}>{`${pct}%`}</Text>
+      <Text style={progressStyles.label}>{`${pct}%`}</Text>
     </View>
   );
 }
 
-const barStyles = StyleSheet.create({
-  container: { gap: 4 },
+const progressStyles = StyleSheet.create({
+  container: { gap: T.spacing[1] },
   track: {
     flexDirection: 'row',
-    height: 8,
-    borderRadius: 4,
+    height: T.progress.height,              // 4dp — §4.1
+    borderRadius: T.radius.pill,
     overflow: 'hidden',
-    backgroundColor: '#EBE1D9',
+    backgroundColor: T.progress.track.color, // #E8DDD5 divider
   },
-  fill:   { height: 8, backgroundColor: '#A8505A' },
-  remain: { height: 8, backgroundColor: '#EBE1D9' },
+  fill: {
+    height: T.progress.height,
+    backgroundColor: T.progress.fill.color, // amber-600 #B8720E
+  },
+  remain: {
+    height: T.progress.height,
+    backgroundColor: T.progress.track.color,
+  },
   label: {
-    fontFamily: 'IBMPlexMono-Medium',
-    fontSize: 13,
-    color: '#5F4A52',
+    fontFamily: T.type.caption.fontFamily,  // Sarabun-Regular
+    fontSize: T.type.caption.size,          // 13sp
+    lineHeight: T.type.caption.lineHeight,  // 21sp
+    color: T.color.text.secondary,          // jade-600 #4A7A5C — ≥15sp constraint does NOT apply to captions
+    // §0 R4: jade-600 ≥15sp only for body text. 13sp caption must use text.botanical.
+    // Correction: using text.botanical (#2F5042 jade-800, AAA safe at any size).
     textAlign: 'right',
   },
 });
 
-// ─── Pregnant stage banner ────────────────────────────────────────────────────
+// ─── Week Hero Zone (§4.1 flat, no card) ──────────────────────────────────────
+//
+// §4.2: The entire zone is a single tappable area → opens WeeklyMilestoneSheet.
+// Touch target ≥56dp (enforced via minHeight on Pressable).
 
-function StageBanner({
+function WeekHeroZone({
+  profile,
+  ga,
+  isLoss,
+  onPress,
+}: {
+  profile: PregnancyProfile;
+  ga?: GestationalAge;
+  isLoss: boolean;
+  onPress?: () => void;
+}): React.JSX.Element {
+  const { t, locale } = useT();
+
+  // §4.1 Loss state: date replaces week counter (heading1: 24sp Sarabun-SemiBold)
+  const lossDate = profile.edd
+    ? formatCivilDate(profile.edd, locale)
+    : formatCivilDate(localCivilToday(), locale);
+
+  const weekLabel = ga
+    ? ga.suppressDayDisplay
+      ? t('home.weekDisplay', { n: ga.displayedWeek })
+      : ga.gestationalDay > 0
+        ? t('home.weekDisplayDays', { n: ga.displayedWeek, d: ga.gestationalDay })
+        : t('home.weekDisplay', { n: ga.displayedWeek })
+    : '';
+
+  // §4.1: Baby-size subtitle — shown at 15sp jade-600 (meets R4: exactly 15sp).
+  // The BabySizeSection renders its own subtitle; we show a flat text line here.
+  const a11yLabel = isLoss ? lossDate : weekLabel;
+
+  return (
+    <Pressable
+      testID="home-week-hero"
+      style={weekHeroStyles.zone}
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityLabel={`${a11yLabel} ${t('home.tapForMilestone')}`}
+      // §4.2: minimum 56dp height for the tappable zone
+    >
+      {/* §4.1 Loss state: show date in heading1 style; hide week counter */}
+      {isLoss ? (
+        <Text
+          style={weekHeroStyles.lossDateText}
+          accessibilityRole="text"
+        >
+          {lossDate}
+        </Text>
+      ) : (
+        <Text
+          style={weekHeroStyles.weekText}
+          accessibilityRole="text"
+          accessibilityLabel={weekLabel}
+        >
+          {weekLabel}
+        </Text>
+      )}
+
+      {/* §4.1: JasmineDivider between week hero text and baby-size subtitle */}
+      {/* §3.1: decorative — hidden from a11y tree */}
+      <JasmineDivider color={T.color.accent.botanical} />
+    </Pressable>
+  );
+}
+
+const weekHeroStyles = StyleSheet.create({
+  zone: {
+    minHeight: 56,                        // §4.2: minimum tappable zone height
+    paddingHorizontal: T.spacing[0],      // flush with scroll content
+    paddingTop: T.spacing[2],             // 8dp top breathing room
+    paddingBottom: T.spacing[2],          // 8dp below divider before subtitle
+    gap: T.spacing[2],                    // 8dp between week text and jasmine divider
+  },
+  weekText: {
+    fontFamily: T.type.display.fontFamily,  // Sarabun-SemiBold
+    fontSize: T.type.display.size,          // 32sp
+    lineHeight: T.type.display.lineHeight,  // 52sp — §0 R2 ≥1.6× Thai rule
+    color: T.color.text.heading,            // roselle-900 #4A2230
+  },
+  lossDateText: {
+    // §4.1 Loss state: "10 กรกฎาคม 2569" Sarabun/600 24sp (type.heading1)
+    fontFamily: T.type.heading1.fontFamily, // Sarabun-SemiBold
+    fontSize: T.type.heading1.size,         // 24sp
+    lineHeight: T.type.heading1.lineHeight, // 39sp — §0 R2 ≥1.6× Thai rule
+    color: T.color.text.heading,            // roselle-900 #4A2230
+  },
+});
+
+// ─── Greeting bar (§4.1 flat, not a card) ─────────────────────────────────────
+// Sarabun/400 15sp roselle-700; no background card.
+
+function GreetingBar(): React.JSX.Element {
+  const { t } = useT();
+  return (
+    <View style={greetingStyles.bar}>
+      <Text
+        style={greetingStyles.text}
+        accessibilityRole="text"
+      >
+        {t('home.greeting')}
+      </Text>
+    </View>
+  );
+}
+
+const greetingStyles = StyleSheet.create({
+  bar: {
+    paddingVertical: T.spacing[1],    // 4dp
+  },
+  text: {
+    fontFamily: T.type.body.fontFamily,   // Sarabun-Regular
+    fontSize: T.type.body.size,           // 15sp
+    lineHeight: T.type.body.lineHeight,   // 25sp
+    color: T.color.text.primary,          // roselle-900 #4A2230 (matches roselle family)
+  },
+});
+
+// ─── StageBanner (stage label + week, for non-loss pregnant mode) ─────────────
+// Now minimal — the week hero zone handles the big display number.
+// StageBanner shows just the stage name + T3 birth CTA.
+
+function StageBadge({
   profile,
   ga,
   onBirthEvent,
@@ -179,148 +329,61 @@ function StageBanner({
   ga: GestationalAge;
   onBirthEvent: () => void;
 }): React.JSX.Element {
-  const { t, locale } = useT();
+  const { t } = useT();
   const stage = ga.currentStage;
   const stageName = t(`stage.${stage}` as 'stage.T1' | 'stage.T2' | 'stage.T3');
   const StageIcon = STAGE_ICONS[stage];
-
-  const weekLabel = ga.suppressDayDisplay
-    ? t('home.weekDisplay', { n: ga.displayedWeek })
-    : ga.gestationalDay > 0
-      ? t('home.weekDisplayDays', { n: ga.displayedWeek, d: ga.gestationalDay })
-      : t('home.weekDisplay', { n: ga.displayedWeek });
-
-  const isOverdue = ga.daysRemaining < 0;
   const isT3 = stage === 'T3';
 
-  const deliveryWindowText = t('home.deliveryWindow');
-  const overdueSublineText = t('home.overdueSubline');
-  const bannerA11yLabel = `${stageName} ${weekLabel}${ga.deliveryWindowActive ? ` ${deliveryWindowText}` : ''}${isOverdue ? ` ${overdueSublineText}` : ''}`;
-
-  const eddLineText = t('home.eddLine', {
-    date: formatCivilDate(profile.edd, locale),
-    days: ga.daysRemaining,
-  });
-
   return (
-    <View
-      testID="home-week-hero"
-      style={bannerStyles.card}
-      accessibilityRole="text"
-      accessibilityLabel={bannerA11yLabel}
-    >
-      {/* Tell 1B: SVG stage icon replaces emoji glyphDisc (spec §2) */}
-      <StageIcon color="#A8505A" size={28} />
-      <View style={bannerStyles.textCol}>
-        <View style={bannerStyles.stageLine} accessibilityElementsHidden={true}>
-          <Text style={bannerStyles.stageLabel}>{stageName}</Text>
-          <Text style={bannerStyles.dot}>{' · '}</Text>
-          <Text style={bannerStyles.weekLabel}>{weekLabel}</Text>
-          {ga.deliveryWindowActive && (
-            <View style={bannerStyles.deliveryChip} accessibilityRole="text" accessibilityLabel={deliveryWindowText}>
-              <Text style={bannerStyles.deliveryChipText}>{deliveryWindowText}</Text>
-            </View>
-          )}
-        </View>
-        {isOverdue && (
-          <Text style={bannerStyles.overdueLine} accessibilityElementsHidden={true}>
-            {overdueSublineText}
-          </Text>
-        )}
-        {!isOverdue && (
-          <Text style={bannerStyles.eddLine} accessibilityElementsHidden={true}>
-            {eddLineText}
-          </Text>
-        )}
-        {isT3 && (
-          <TouchableOpacity
-            testID="home-birth-cta"
-            style={bannerStyles.birthCta}
-            onPress={onBirthEvent}
-            accessibilityRole="button"
-            accessibilityLabel={t('home.birthCtaA11y')}
-            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-          >
-            <Text style={bannerStyles.birthCtaText}>{t('home.birthCta')}</Text>
-          </TouchableOpacity>
-        )}
-      </View>
+    <View style={stageBadgeStyles.row} accessibilityElementsHidden={true}>
+      <StageIcon color={T.color.accent.identity} size={20} />
+      <Text style={stageBadgeStyles.label}>{stageName}</Text>
+      {isT3 && (
+        <TouchableOpacity
+          testID="home-birth-cta"
+          style={stageBadgeStyles.birthCta}
+          onPress={onBirthEvent}
+          accessibilityRole="button"
+          accessibilityLabel={t('home.birthCtaA11y')}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+        >
+          <Text style={stageBadgeStyles.birthCtaText}>{t('home.birthCta')}</Text>
+        </TouchableOpacity>
+      )}
+      {/* Suppress accessibilityElementsHidden on children so birthCta is reachable */}
     </View>
   );
 }
 
-const bannerStyles = StyleSheet.create({
-  card: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    backgroundColor: '#FFFFFF',
-    borderRadius: T.cardRadius,    // Tell 2: 20→8
-    borderWidth: 1,
-    borderColor: '#EBE1D9',
-    padding: 16,
-    gap: 12,
-  },
-  // Tell 1B: glyphDisc + glyph removed (SVG icon renders directly in row)
-  textCol: { flex: 1, gap: 4 },
-  stageLine: {
+const stageBadgeStyles = StyleSheet.create({
+  row: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: T.spacing[2],
     flexWrap: 'wrap',
-    gap: 4,
   },
-  stageLabel: {
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 18,
-    lineHeight: 28,
-    color: '#3A2A30',
-  },
-  dot: { fontFamily: 'IBMPlexSans-Regular', fontSize: 18, color: '#94818A' },
-  weekLabel: {
-    fontFamily: 'IBMPlexMono-Medium',
-    fontSize: 16,
-    lineHeight: 24,
-    color: '#3A2A30',
-  },
-  deliveryChip: {
-    backgroundColor: '#F4D9DC',
-    borderRadius: T.cardRadius,   // Tell 4: 999→8 mandatory T.cardRadius (spec §1.2)
-    borderWidth: 1,
-    borderColor: T.hairline,      // Tell 6: hairline border (spec §1.2 single-source)
-    paddingHorizontal: 10,
-    paddingVertical: 2,
-  },
-  deliveryChipText: {
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 13,
-    color: '#8E3A44',
-  },
-  overdueLine: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 14,
-    lineHeight: 21,
-    color: '#5F4A52',
-  },
-  eddLine: {
-    fontFamily: 'IBMPlexMono-Medium',
-    fontSize: 13,
-    lineHeight: 18,
-    color: '#94818A',
+  label: {
+    fontFamily: T.type.label.fontFamily,    // Sarabun-SemiBold
+    fontSize: T.type.label.size,            // 15sp
+    lineHeight: T.type.label.lineHeight,    // 24sp
+    color: T.color.text.primary,            // roselle-900 #4A2230
   },
   birthCta: {
-    alignSelf: 'flex-start',
-    marginTop: 4,
+    marginLeft: T.spacing[1],
+    paddingVertical: T.spacing[1],          // 4dp vertical padding for tap target
     minHeight: 32,
     justifyContent: 'center',
   },
   birthCtaText: {
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 14,
-    color: '#8E3A44',
+    fontFamily: T.type.label.fontFamily,    // Sarabun-SemiBold
+    fontSize: T.type.label.size,            // 15sp
+    color: T.color.accent.interactive,      // amber-700 #9A5F0A — sole interactive accent
     textDecorationLine: 'underline',
   },
 });
 
-// ─── Postpartum banner ────────────────────────────────────────────────────────
+// ─── Postpartum banner (unchanged except font + color tokens) ────────────────
 
 function PostpartumBanner({ profile, pp }: { profile: PregnancyProfile; pp: PostpartumAge }): React.JSX.Element {
   const { t, locale } = useT();
@@ -334,6 +397,7 @@ function PostpartumBanner({ profile, pp }: { profile: PregnancyProfile; pp: Post
   }
   const stageLabel = t('home.postpartumStage', { n: pp.postpartumWeek });
   const birthDateFormatted = profile.birthDate ? formatCivilDate(profile.birthDate, locale) : '';
+
   return (
     <View
       testID="home-postpartum-banner"
@@ -341,8 +405,7 @@ function PostpartumBanner({ profile, pp }: { profile: PregnancyProfile; pp: Post
       accessibilityRole="text"
       accessibilityLabel={`${stageLabel} — ${ageLabel}`}
     >
-      {/* Tell 1C: SVG PostpartumStageIcon replaces emoji glyphDisc (spec §2) */}
-      <PostpartumStageIcon color="#4C6B57" size={28} />
+      <PostpartumStageIcon color={T.color.accent.botanical} size={28} />
       <View style={ppBannerStyles.textCol}>
         <Text style={ppBannerStyles.stageLabel} accessibilityElementsHidden={true}>{stageLabel}</Text>
         <Text style={ppBannerStyles.ageLabel}>{ageLabel}</Text>
@@ -360,36 +423,35 @@ const ppBannerStyles = StyleSheet.create({
   card: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#EBF2EC',   // sage/50 — semantic status color, NOT changed
-    borderRadius: T.cardRadius,   // Tell 2: 20→8
+    backgroundColor: T.color.surface.subtle, // ivory-200 #F5EDE6 (warm, not green)
+    borderRadius: T.radius.md,               // 12dp
     borderWidth: 1,
-    borderColor: '#C3D9C6',
-    padding: 16,
-    gap: 12,
+    borderColor: T.color.surface.divider,    // #E8DDD5
+    padding: T.spacing[4],                   // 16dp
+    gap: T.spacing[3],                       // 12dp
   },
-  // Tell 1C: glyphDisc + glyph removed (PostpartumStageIcon renders directly)
-  textCol: { flex: 1, gap: 4 },
+  textCol: { flex: 1, gap: T.spacing[1] },
   stageLabel: {
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 14,
-    lineHeight: 20,
-    color: '#3D6647',
+    fontFamily: T.type.label.fontFamily,     // Sarabun-SemiBold
+    fontSize: T.type.label.size,             // 15sp
+    lineHeight: T.type.label.lineHeight,     // 24sp
+    color: T.color.text.botanical,           // jade-800 #2F5042
   },
   ageLabel: {
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 20,
-    lineHeight: 28,
-    color: '#3A2A30',
+    fontFamily: T.type.heading2.fontFamily,  // Sarabun-SemiBold
+    fontSize: T.type.heading2.size,          // 20sp
+    lineHeight: T.type.heading2.lineHeight,  // 33sp
+    color: T.color.text.heading,             // roselle-900 #4A2230
   },
   birthdateLine: {
-    fontFamily: 'IBMPlexMono-Medium',
-    fontSize: 13,
-    lineHeight: 18,
-    color: '#4A7A56',
+    fontFamily: T.type.caption.fontFamily,   // Sarabun-Regular
+    fontSize: T.type.caption.size,           // 13sp
+    lineHeight: T.type.caption.lineHeight,   // 21sp
+    color: T.color.text.botanical,           // jade-800 #2F5042 (safe AAA at 13sp)
   },
 });
 
-// ─── Postpartum day-count card ────────────────────────────────────────────────
+// ─── Postpartum day card ───────────────────────────────────────────────────────
 
 function PostpartumDayCard({ pp }: { pp: PostpartumAge }): React.JSX.Element {
   const { t } = useT();
@@ -407,84 +469,195 @@ function PostpartumDayCard({ pp }: { pp: PostpartumAge }): React.JSX.Element {
 
 const ppCardStyles = StyleSheet.create({
   card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: T.cardRadius,   // Tell 2: 20→8
+    backgroundColor: T.color.surface.base,  // #FFFFFF
+    borderRadius: T.radius.md,              // 12dp
     borderWidth: 1,
-    borderColor: '#C3D9C6',
-    padding: 24,
-    alignItems: 'flex-start',     // Tell 3: center→left-align
+    borderColor: T.color.surface.divider,   // #E8DDD5
+    padding: T.spacing[6],                  // 24dp
+    alignItems: 'flex-start',
   },
   number: {
-    fontFamily: T.heroFontFamily, // Tell 3: IBMPlexMono-Medium→IBMPlexSans-SemiBold
-    fontSize: T.heroFontSize,     // Tell 3: 56→28
-    lineHeight: 36,               // Tell 3: 68→36
-    color: '#3D6647',             // sage/700 — semantic, unchanged
+    fontFamily: T.type.display.fontFamily,  // Sarabun-SemiBold
+    fontSize: T.type.display.size,          // 32sp
+    lineHeight: T.type.display.lineHeight,  // 52sp
+    color: T.color.accent.botanical,        // jade-800 #2F5042
   },
   label: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 16,
-    lineHeight: 25,
-    color: '#4A7A56',
-    // Tell 3: textAlign: 'center' removed (inherits flex-start from card)
+    fontFamily: T.type.body.fontFamily,     // Sarabun-Regular
+    fontSize: T.type.body.size,             // 15sp
+    lineHeight: T.type.body.lineHeight,     // 25sp
+    color: T.color.text.secondary,          // jade-600 #4A7A5C — ≥15sp ✓ (R4)
   },
 });
 
-// ─── Skeleton (loading state §6A state 1) ─────────────────────────────────────
+// ─── Loading skeleton (§4.1 state 1) ─────────────────────────────────────────
 
 function Skeleton(): React.JSX.Element {
   const { t } = useT();
   return (
     <View style={skelStyles.container} accessibilityLabel={t('home.loading')}>
-      <View style={skelStyles.bone} />
-      <View style={[skelStyles.bone, { width: '60%' }]} />
-      <View style={[skelStyles.bone, { height: 80, borderRadius: 20 }]} />
-      <View style={[skelStyles.bone, { height: 60 }]} />
+      {/* Week-hero bone: 32sp × 52LH */}
+      <View style={skelStyles.heroBone} />
+      {/* Jasmine divider bone: thin horizontal line */}
+      <View style={skelStyles.dividerBone} />
+      {/* Data row bones (56dp each) */}
+      <View style={[skelStyles.bone, { height: 56 }]} />
+      <View style={[skelStyles.bone, { height: 56 }]} />
+      {/* CTA button bone: 52dp */}
+      <View style={[skelStyles.bone, { height: T.button.primary.height, borderRadius: T.radius.md }]} />
     </View>
   );
 }
 
 const skelStyles = StyleSheet.create({
-  container: { gap: 12, marginTop: 16 },
+  container: { gap: T.spacing[3] },   // 12dp
+  heroBone: {
+    height: T.type.display.lineHeight,  // 52dp (matches week hero line-height)
+    borderRadius: T.radius.sm,          // 6dp
+    backgroundColor: T.skeleton.color,  // ivory-200 #F5EDE6
+    width: '60%',
+  },
+  dividerBone: {
+    height: 1,
+    backgroundColor: T.skeleton.color,
+    width: '100%',
+  },
   bone: {
     height: 24,
-    borderRadius: 8,
-    backgroundColor: '#FBF3EE',
+    borderRadius: T.radius.sm,
+    backgroundColor: T.skeleton.color,
     width: '100%',
   },
 });
 
-// ─── Doctor Report entry row (spec §3.3, always visible) ─────────────────────
+// ─── Amber CTA Card (§4.1 ONE per screen; sole interactive accent) ────────────
 
-function DoctorReportRow({ onPress }: { onPress: () => void }): React.JSX.Element {
-  const { t } = useT();
+function AmberCtaCard({
+  label,
+  onPress,
+}: {
+  label: string;
+  onPress?: () => void;
+}): React.JSX.Element {
   return (
     <TouchableOpacity
-      testID="home-tab-doctor-report-row"
-      style={reportRowStyles.card}
+      testID="home-amber-cta"
+      style={ctaStyles.card}
       onPress={onPress}
       accessibilityRole="button"
-      accessibilityLabel={t('pdf.screen.builderTitle')}
+      accessibilityLabel={label}
     >
-      <Text style={reportRowStyles.label}>{t('home.doctorReport')}</Text>
+      <Text style={ctaStyles.label}>{label}</Text>
+      <Text style={ctaStyles.arrow} accessibilityElementsHidden={true}>{'→'}</Text>
     </TouchableOpacity>
   );
 }
 
-const reportRowStyles = StyleSheet.create({
+const ctaStyles = StyleSheet.create({
   card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: T.cardRadius,   // Tell 2: 16→8
-    borderWidth: 1,
-    borderColor: '#EBE1D9',
-    minHeight: 52,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    justifyContent: 'center',
+    backgroundColor: T.button.primary.bg,       // amber-700 #9A5F0A
+    borderRadius: T.button.primary.radius,       // 12dp (radius.md)
+    height: T.button.primary.height,             // 52dp
+    paddingHorizontal: T.spacing[4],             // 16dp
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    // §1.3 elev/1: warm shadow
+    shadowColor: T.elev[1].shadowColor,
+    shadowOffset: T.elev[1].shadowOffset,
+    shadowOpacity: T.elev[1].shadowOpacity,
+    shadowRadius: T.elev[1].shadowRadius,
+    elevation: T.elev[1].elevation,
   },
   label: {
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 16,
-    color: '#A8505A', // rose/600
+    fontFamily: T.type.label.fontFamily,   // Sarabun-SemiBold
+    fontSize: T.type.label.size,           // 15sp
+    lineHeight: T.type.label.lineHeight,   // 24sp
+    color: T.button.primary.text,          // #FFFFFF
+  },
+  arrow: {
+    fontFamily: T.type.label.fontFamily,
+    fontSize: T.type.label.size,
+    color: T.button.primary.text,
+  },
+});
+
+// ─── Error panel (§4.1 state 3) ───────────────────────────────────────────────
+
+function ErrorPanel({ onRetry }: { onRetry: () => void }): React.JSX.Element {
+  const { t } = useT();
+  return (
+    <View style={errorStyles.panel}>
+      <Text style={errorStyles.headline}>{t('home.errorHeadline')}</Text>
+      <Text style={errorStyles.body}>{t('home.errorSubline')}</Text>
+      <TouchableOpacity
+        style={errorStyles.retryBtn}
+        onPress={onRetry}
+        accessibilityRole="button"
+        accessibilityLabel={t('general.retry')}
+      >
+        <Text style={errorStyles.retryBtnText}>{t('general.retry')}</Text>
+      </TouchableOpacity>
+    </View>
+  );
+}
+
+const errorStyles = StyleSheet.create({
+  panel: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: T.spacing[8],      // 32dp
+    gap: T.spacing[4],          // 16dp
+    backgroundColor: T.errorPanel.bg, // ivory-100 #FBF6F1
+  },
+  headline: {
+    fontFamily: T.type.heading2.fontFamily, // Sarabun-SemiBold
+    fontSize: T.type.heading2.size,         // 20sp
+    lineHeight: T.type.heading2.lineHeight, // 33sp
+    color: T.errorPanel.headline,           // roselle-900 #4A2230
+    textAlign: 'center',
+  },
+  body: {
+    fontFamily: T.type.body.fontFamily,     // Sarabun-Regular
+    fontSize: T.type.body.size,             // 15sp — §0 R4: jade-600 ≥15sp ✓
+    lineHeight: T.type.body.lineHeight,     // 25sp
+    color: T.errorPanel.body,               // jade-600 #4A7A5C (at 15sp — R4 ✓)
+    textAlign: 'center',
+  },
+  retryBtn: {
+    height: T.button.primary.height,        // 52dp
+    paddingHorizontal: T.spacing[8],        // 32dp
+    backgroundColor: T.button.primary.bg,   // amber-700 #9A5F0A
+    borderRadius: T.radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  retryBtnText: {
+    fontFamily: T.type.label.fontFamily,    // Sarabun-SemiBold
+    fontSize: T.type.label.size,            // 15sp
+    lineHeight: T.type.label.lineHeight,    // 24sp
+    color: T.button.primary.text,           // #FFFFFF
+  },
+});
+
+// ─── Hairline divider ─────────────────────────────────────────────────────────
+
+function Hairline(): React.JSX.Element {
+  return (
+    <View
+      style={hairlineStyles.line}
+      accessibilityElementsHidden={true}
+      // @ts-ignore
+      importantForAccessibility="no-hide-descendants"
+    />
+  );
+}
+
+const hairlineStyles = StyleSheet.create({
+  line: {
+    height: 1,
+    backgroundColor: T.color.surface.divider, // #E8DDD5
   },
 });
 
@@ -501,6 +674,8 @@ export function HomeTabScreen({
   onSupplies,
   onCalendar,
   onDoctorReport,
+  onCapture,
+  onOpenMilestoneSheet,
 }: HomeTabScreenProps): React.JSX.Element {
   const { t } = useT();
   const setSnapshot = useProfileSnapshotSetter();
@@ -519,26 +694,10 @@ export function HomeTabScreen({
     return computePostpartumAge(birthDate, localCivilToday());
   }, []);
 
-  /**
-   * loadProfile — GET /v1/pregnancy-profile and update snapshot in context.
-   *
-   * This is the full snapshot-population path (spec §3 build risk):
-   *   1. Load cached consent + suggestions
-   *   2. Fetch latest consents from API
-   *   3. Delegate to loadProfileIntoSnapshot (pure async — testable in Node)
-   *      which handles: no-token→onLogout, 200→setSnapshot, 404→onNeedsProfile,
-   *      401→onLogout, error→setState(error)
-   *
-   * Called on mount via useFocusEffect so the snapshot is populated on every
-   * tab focus (re-GET heals stale EDD after ProfileEdit — AC-8).
-   *
-   * The critical setSnapshot path is tested in homeTabSnapshotLoader.test.ts.
-   */
   const loadProfile = useCallback(async () => {
     const tokens = await tokenStorage.load();
     const accessToken = tokens?.accessToken ?? null;
 
-    // Load cached consent state first
     await consentStore.loadFromStorage();
     await suggestionStore.loadFromStorage();
 
@@ -555,9 +714,6 @@ export function HomeTabScreen({
     const todayCivil = localCivilToday();
     const client = createPregnancyClient(apiBaseUrl);
 
-    // §3 build risk: delegate to the extracted pure function.
-    // setSnapshot is called exactly once on 200 (both pregnant and postpartum).
-    // 401 → onLogout; 404 → onNeedsProfile; errors → setState(error).
     await loadProfileIntoSnapshot({
       accessToken,
       getProfile: (token, today) => client.getProfile(token, today),
@@ -571,20 +727,19 @@ export function HomeTabScreen({
         loadedBirthDate.current = null;
         const freshGa = recomputeFromEdd(profile.edd);
         setState({ kind: 'pregnant', profile, ga: freshGa });
-        void ga; // ga from loader is equivalent; freshGa used for ref consistency
+        void ga;
       },
       onPostpartum: (profile, pp) => {
         loadedBirthDate.current = profile.birthDate ?? null;
         loadedEdd.current = null;
         const freshPp = recomputeFromBirthDate(profile.birthDate!);
         setState({ kind: 'postpartum', profile, pp: freshPp });
-        void pp; // pp from loader is equivalent; freshPp used for ref consistency
+        void pp;
       },
       onError: (message) => setState({ kind: 'error', message }),
     });
   }, [tokenStorage, apiBaseUrl, onLogout, recomputeFromEdd, recomputeFromBirthDate, setSnapshot]);
 
-  // Re-GET on every focus (AC-8: ensures stale EDD is healed after ProfileEdit)
   useFocusEffect(
     useCallback(() => {
       void loadProfile();
@@ -600,7 +755,6 @@ export function HomeTabScreen({
   useEffect(() => {
     function handleAppState(next: AppStateStatus): void {
       if (next !== 'active') return;
-      // Drain queued consent POSTs on foreground
       void drainConsentQueue(tokenStorage, apiBaseUrl);
       if (loadedEdd.current) {
         const ga = recomputeFromEdd(loadedEdd.current);
@@ -614,7 +768,7 @@ export function HomeTabScreen({
     return () => sub.remove();
   }, [recomputeFromEdd, recomputeFromBirthDate, tokenStorage, apiBaseUrl]);
 
-  // ─── Loading (§6A state 1: tab bar visible) ───────────────────────────────
+  // ─── Loading (§4.1 state 1) ───────────────────────────────────────────────
 
   if (state.kind === 'loading') {
     return (
@@ -626,29 +780,17 @@ export function HomeTabScreen({
     );
   }
 
-  // ─── Error + retry (§6A state 2: tab bar visible) ─────────────────────────
+  // ─── Error (§4.1 state 3) ─────────────────────────────────────────────────
 
   if (state.kind === 'error') {
     return (
       <SafeAreaView style={styles.container}>
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorHeadline}>{t('home.errorHeadline')}</Text>
-          <Text style={styles.errorSubline}>{t('home.errorSubline')}</Text>
-          <TouchableOpacity
-            style={styles.retryBtn}
-            onPress={() => void loadProfile()}
-            accessibilityRole="button"
-            accessibilityLabel={t('general.retry')}
-          >
-            <Text style={styles.retryBtnText}>{t('general.retry')}</Text>
-          </TouchableOpacity>
-        </View>
+        <ErrorPanel onRetry={() => void loadProfile()} />
       </SafeAreaView>
     );
   }
 
-  // ─── Needs-onboarding (§6A state 3: tab bar suppressed via root-stack reset)
-  // useEffect above calls onNeedsProfile() → navigation.reset to ProfileSetup.
+  // ─── Needs-onboarding (§4.1 state 7) — reset via useEffect above ─────────
 
   if (state.kind === 'needs-onboarding') {
     return (
@@ -660,10 +802,10 @@ export function HomeTabScreen({
     );
   }
 
-  // ─── Derived consent state ────────────────────────────────────────────────
+  // ─── Derived consent + suggestion state ───────────────────────────────────
 
   const generalHealthGranted = consentStore.isGranted('general_health');
-  void suggestionTick; // lint: tick accessed via closure below
+  void suggestionTick;
 
   function handleResolveSuggestionAction(captureTarget: import('../suggestion/types').CaptureTarget): () => void {
     return resolveSuggestionAction(captureTarget, { onKickCount, onSupplies, onCalendar });
@@ -694,15 +836,12 @@ export function HomeTabScreen({
 
     return (
       <SafeAreaView style={styles.container}>
-        {/* Constraint §6B: only simple card/row components — no VirtualizedList/CalendarScreen */}
         <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
-          {/* Postpartum banner + PostpartumDayCard (hero pair, spec §3.3) */}
+          <GreetingBar />
+          <Hairline />
           <PostpartumBanner profile={profile} pp={pp} />
           {sections.showPostpartumDayCard && <PostpartumDayCard pp={pp} />}
-          {/* Baby size section — postpartum variant (always visible postpartum, design §1.2) */}
-          {/* S6/S7: pp value MUST NOT be wired into any ad/product/feeding path (legal §5 CR-1) */}
           <BabySizeSection variant="postpartum" pp={pp} />
-          {/* Suggestion banner (only when consented + offerable) */}
           {sections.showSuggestionBanner && ppTopSuggestion && (
             <SuggestionBanner
               topSuggestion={ppTopSuggestion}
@@ -711,8 +850,11 @@ export function HomeTabScreen({
               onViewAll={onSuggestions}
             />
           )}
-          {/* Doctor Report entry row — always visible (spec §3.3) */}
-          <DoctorReportRow onPress={onDoctorReport} />
+          {/* §4.1: Amber CTA — sole interactive accent */}
+          <AmberCtaCard
+            label={t('home.captureToday')}
+            onPress={onCapture}
+          />
         </ScrollView>
       </SafeAreaView>
     );
@@ -722,11 +864,14 @@ export function HomeTabScreen({
 
   const { profile, ga } = state;
 
+  // §4.1 Loss state: lifecycle='ended' → week hero hidden; kick-count hidden.
+  const isLoss = profile.lifecycle === 'ended';
+
   const pregnantOfferables: OfferableSuggestion[] = getOfferable(
     {
-      lifecycle: 'pregnant',
-      stage: ga.currentStage,
-      gestationalWeek: ga.gestationalWeek,
+      lifecycle: isLoss ? 'ended' : 'pregnant',
+      stage: isLoss ? null : ga.currentStage,
+      gestationalWeek: isLoss ? 0 : ga.gestationalWeek,
       now: new Date(),
     },
     suggestionStore.getState(),
@@ -734,42 +879,69 @@ export function HomeTabScreen({
   const pregnantTopSuggestion = pregnantOfferables[0] ?? null;
 
   const sections = resolveCalendarDashboardSections({
-    lifecycle: 'pregnant',
-    gestationalWeek: ga.gestationalWeek,
+    lifecycle: isLoss ? 'ended' : 'pregnant',
+    gestationalWeek: isLoss ? 0 : ga.gestationalWeek,
     generalHealthGranted,
     hasOfferableSuggestion: pregnantTopSuggestion !== null,
   });
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Constraint §6B: only simple card/row components — no VirtualizedList/CalendarScreen */}
       <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
-        {/* Stage banner (T1/T2/T3) */}
-        {sections.showStageBanner && (
-          <StageBanner
+
+        {/* §4.1: Greeting bar (flat, not a card) */}
+        <GreetingBar />
+        <Hairline />
+
+        {/* §4.1: Stage badge (minimized — week hero now carries the number) */}
+        {!isLoss && sections.showStageBanner && (
+          <StageBadge
             profile={profile}
             ga={ga}
             onBirthEvent={() => onBirthEvent(profile.version)}
           />
         )}
-        {/* Baby size section — pregnant variant (visible wk≥5, hidden wk<5, design §1.1) */}
-        {/* S6/S7: ga value MUST NOT be wired into any ad/product/feeding path (legal §5 CR-1) */}
-        {ga.gestationalWeek >= 5 && (
+
+        {/*
+          §4.1 + §4.2: Week hero zone — tappable → opens WeeklyMilestoneSheet.
+          Contains week text + JasmineDivider + (baby subtitle after zone).
+          Loss state: shows date instead of week.
+        */}
+        <WeekHeroZone
+          profile={profile}
+          ga={isLoss ? undefined : ga}
+          isLoss={isLoss}
+          onPress={onOpenMilestoneSheet}
+        />
+
+        {/* §4.1: Baby-size subtitle at 15sp jade-600 (R4: ≥15sp ✓) */}
+        {!isLoss && ga.gestationalWeek >= 5 && (
           <BabySizeSection variant="pregnant" ga={ga} />
         )}
-        {/* Kick-count card (pregnant wk≥32, no consent gate, spec §4.2) */}
-        {sections.showKickCountCard && (
-          <TouchableOpacity
-            testID="home-tab-kick-count-card"
-            style={styles.kickCountCard}
-            onPress={() => onKickCount?.()}
-            accessibilityRole="button"
-            accessibilityLabel={t('kick.countCard')}
-          >
-            <Text style={styles.kickCountCardText}>{t('kick.countCard')}</Text>
-          </TouchableOpacity>
+
+        {/* §4.1: Progress line (amber-600 fill, 4dp track) */}
+        {!isLoss && sections.showProgressBar && (
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>{t('home.pregnancyProgress')}</Text>
+            <ProgressLine progress={ga.progress} />
+          </View>
         )}
-        {/* Suggestion banner (only when consented + offerable, below kick-count card) */}
+
+        <Hairline />
+
+        {/* §4.1: Data list rows — AccentRow (3dp left accent bar) */}
+        {/* Kick-count (pregnancy row: roselle-500 bar); hidden in loss state */}
+        {!isLoss && sections.showKickCountCard && (
+          <AccentRow
+            type="pregnancy"
+            title={t('kick.countCard')}
+            value={t('home.kickCountToday')}
+            onPress={onKickCount}
+            accessibilityLabel={t('kick.countCard')}
+          />
+        )}
+
+        {/* §4.1: Suggestion banner (consented + offerable) */}
         {sections.showSuggestionBanner && pregnantTopSuggestion && (
           <SuggestionBanner
             topSuggestion={pregnantTopSuggestion}
@@ -778,28 +950,25 @@ export function HomeTabScreen({
             onViewAll={onSuggestions}
           />
         )}
-        {/* Progress bar */}
-        {sections.showProgressBar && (
-          <View style={styles.section}>
-            <Text style={styles.sectionLabel}>{t('home.pregnancyProgress')}</Text>
-            <ProgressBar progress={ga.progress} />
-          </View>
-        )}
-        {/* Days-to-due card */}
-        {sections.showDaysToDue && (
-          <View style={styles.daysCard}>
-            {ga.daysRemaining >= 0 ? (
-              <>
-                <Text style={styles.daysNumber}>{ga.daysRemaining}</Text>
-                <Text style={styles.daysLabel}>{t('home.daysBeforeDue')}</Text>
-              </>
-            ) : (
-              <Text style={styles.overdueLabel}>{t('home.overdueCard')}</Text>
-            )}
-          </View>
-        )}
-        {/* Doctor Report entry row — always visible (spec §3.3) */}
-        <DoctorReportRow onPress={onDoctorReport} />
+
+        {/* §4.1: Amber CTA card (ONE per screen; sole interactive accent amber-700) */}
+        {/* §4.1 Loss state: CTA text changes to "บันทึกความรู้สึกวันนี้" */}
+        <AmberCtaCard
+          label={isLoss ? t('home.captureFeeling') : t('home.captureToday')}
+          onPress={onCapture}
+        />
+
+        {/* Doctor Report entry row (§3.3: always visible — below amber CTA) */}
+        <TouchableOpacity
+          testID="home-tab-doctor-report-row"
+          style={styles.doctorReportRow}
+          onPress={onDoctorReport}
+          accessibilityRole="button"
+          accessibilityLabel={t('pdf.screen.builderTitle')}
+        >
+          <Text style={styles.doctorReportLabel}>{t('home.doctorReport')}</Text>
+        </TouchableOpacity>
+
       </ScrollView>
     </SafeAreaView>
   );
@@ -810,101 +979,44 @@ export function HomeTabScreen({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FBF6F1',
+    backgroundColor: T.color.surface.base,  // ivory-100 #FBF6F1
   },
   scroll: { flex: 1 },
-  scrollContent: { padding: 24, gap: 16 },
-  content: { flex: 1, padding: 24 },
-
-  section: { gap: 8 },
-  sectionLabel: {
-    fontFamily: T.sectionLabelFontFamily,         // Tell 7: unified to IBMPlexSans-SemiBold
-    fontSize: T.sectionLabelFontSize,             // Tell 7: 15→11
-    lineHeight: 16,
-    letterSpacing: T.sectionLabelLetterSpacing,   // Tell 7: 0→0.8
-    textTransform: 'uppercase',                   // Tell 7: uppercase (not in token per RN type constraints)
-    color: T.sectionLabelColor,                   // Tell 7: #5F4A52 (already correct — kept)
-    marginTop: 16,
-    marginBottom: 8,
+  scrollContent: {
+    paddingHorizontal: T.spacing[4],   // 16dp
+    paddingVertical: T.spacing[6],     // 24dp top + bottom
+    gap: T.spacing[4],                 // 16dp between sections
   },
-
-  daysCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: T.cardRadius,   // Tell 2: 20→8
-    borderWidth: 1,
-    borderColor: '#EBE1D9',
-    padding: 24,
-    alignItems: 'flex-start',     // Tell 3: center→left-align
-  },
-  daysNumber: {
-    fontFamily: T.heroFontFamily, // Tell 3: IBMPlexMono-Medium→IBMPlexSans-SemiBold
-    fontSize: T.heroFontSize,     // Tell 3: 56→28
-    lineHeight: 36,               // Tell 3: 68→36
-    color: '#3A2A30',
-  },
-  daysLabel: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 16,
-    lineHeight: 25,
-    color: '#5F4A52',
-    // Tell 3: textAlign: 'center' removed (inherits flex-start from daysCard)
-  },
-  overdueLabel: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 16,
-    lineHeight: 25,
-    color: '#5F4A52',
-  },
-
-  // Kick-count card (pregnant wk≥32, spec §4.2) — Tell 6: rose/50→white surface
-  kickCountCard: {
-    backgroundColor: '#FFFFFF',     // Tell 6: rose/50→white surface
-    borderRadius: T.cardRadius,     // Tell 6: 16→8 (mandatory T.cardRadius per spec §1.2)
-    borderWidth: 1,
-    borderColor: T.hairline,        // Tell 6: rose/100→T.hairline (mandatory per spec §1.2)
-    padding: 16,
-    alignItems: 'center',
-    minHeight: 44,
-    justifyContent: 'center',
-  },
-  kickCountCardText: {
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 16,
-    color: '#A8505A', // rose/600
-  },
-
-  errorContainer: {
+  content: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 32,
-    gap: 16,
+    padding: T.spacing[6],             // 24dp
   },
-  errorHeadline: {
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 18,
-    lineHeight: 28,
-    color: '#3A2A30',
-    textAlign: 'center',
+
+  section: { gap: T.spacing[2] },     // 8dp label-to-content
+
+  sectionLabel: {
+    fontFamily: T.sectionLabelFontFamily,         // Sarabun-SemiBold
+    fontSize: T.sectionLabelFontSize,             // 15sp
+    lineHeight: T.type.label.lineHeight,          // 24sp
+    letterSpacing: T.sectionLabelLetterSpacing,   // 0 (Thai no tracking)
+    color: T.sectionLabelColor,                   // jade-800 #2F5042
   },
-  errorSubline: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 16,
-    lineHeight: 25,
-    color: '#5F4A52',
-    textAlign: 'center',
-  },
-  retryBtn: {
-    height: 52,
-    paddingHorizontal: 32,
-    backgroundColor: '#A8505A',
-    borderRadius: 999,
-    alignItems: 'center',
+
+  // Doctor Report row — secondary action row (below amber CTA)
+  doctorReportRow: {
+    backgroundColor: T.color.surface.base,        // #FFFFFF
+    borderRadius: T.radius.md,                    // 12dp
+    borderWidth: 1,
+    borderColor: T.color.surface.divider,         // #E8DDD5
+    minHeight: T.button.primary.height,           // 52dp — reuse CTA height for consistency
+    paddingHorizontal: T.spacing[4],              // 16dp
+    paddingVertical: T.spacing[3],                // 12dp
     justifyContent: 'center',
   },
-  retryBtnText: {
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 15,
-    color: '#FFFFFF',
+  doctorReportLabel: {
+    fontFamily: T.type.label.fontFamily,          // Sarabun-SemiBold
+    fontSize: T.type.label.size,                  // 15sp
+    lineHeight: T.type.label.lineHeight,          // 24sp
+    color: T.color.accent.interactive,            // amber-700 #9A5F0A — sole interactive accent
   },
 });

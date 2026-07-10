@@ -1,6 +1,7 @@
 /**
  * ForgotPasswordScreen (S5) — Forgot / Reset Password entry screen.
  *
+ * ห้องแม่ Phase 2 B1 reskin (mother-room-phase2-rollout.md §4.1 ForgotPasswordScreen).
  * Maps to: POST /v1/auth/forgot-password → always 202 (non-enumerating)
  *
  * All strings from useT() / catalog (src/i18n/messages.ts).
@@ -9,24 +10,21 @@
  * States (spec §2.2):
  *   idle          — email field; submit disabled until validateEmailField passes
  *   submitting    — spinner; field + button disabled; double-submit guard
- *   confirmation  — non-enumerating confirmation block + back-to-login + resend
+ *   confirmation  — jade-100 wash confirmation block + back-to-login + resend
  *   rate_limited  — calm inline card; form stays; submit re-enabled
  *   error_network — warm-neutral offline strip; form stays
  *   error_server  — calm centered card; form stays
  *
  * SEC-INV-1 (non-enumeration): ONE neutral confirmation regardless of input.
- *   The confirmation copy MUST NOT hint at email existence. Tested in
- *   messages.test.ts and forgotPasswordScreenLogic.test.ts.
  *
- * Design tokens (design-system.md §1–§5):
- *   bg/warm-milk  #FBF6F1   App background
- *   ink           #3A2A30   Primary text
- *   ink/soft      #5F4A52   Secondary copy
- *   ink/faint     #94818A   Hint copy
- *   rose/600      #A8505A   Primary button fill
- *   sage/500      #6E9079   Confirmation title
- *   sage/100      #E4EBE4   Confirmation background
- *   hairline      #EBE1D9   Dividers
+ * Reskin changes (all tokens — NO inline hex outside tokens.ts):
+ *   - Input: T.input.* (ivory-200 bg, 52dp height, roselle-500 error border)
+ *   - Submit button: T.button.primary.* amber-700, 52dp height
+ *   - confirmationBlock bg: T.color.surface.wash.jade jade-100
+ *   - confirmTitle color: T.color.text.botanical jade-800
+ *   - offlineStrip: T.color.surface.subtle
+ *   - serverCard: T.color.surface.subtle + T.color.surface.divider border
+ *   - All fonts: Sarabun; no IBMPlex; no banned hex
  */
 
 import React, { useState, useMemo } from 'react';
@@ -50,6 +48,7 @@ import {
 import { validateEmailField } from './loginScreenLogic';
 import { createAuthClient } from './authApiClient';
 import { useT } from '../i18n/LanguageContext';
+import { T } from '../theme/tokens';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -184,7 +183,7 @@ export function ForgotPasswordScreen({
               accessibilityLabel={t('forgot.resend')}
             >
               {loading ? (
-                <ActivityIndicator color="#A8505A" size="small" />
+                <ActivityIndicator color={T.button.primary.bg} size="small" />
               ) : (
                 <Text style={[styles.resendText, (resendCoolingDown || loading) && styles.resendTextDisabled]}>
                   {t('forgot.resend')}
@@ -212,7 +211,7 @@ export function ForgotPasswordScreen({
         ) : (
           /* ── Form state (idle / submitting / error) ── */
           <>
-            {/* Offline strip — warm-neutral, not red, not a modal (spec §2.2) */}
+            {/* Offline strip */}
             {showOffline && (
               <View style={styles.offlineStrip} accessibilityLiveRegion="polite">
                 <Text style={styles.offlineText}>{t('forgot.offline')}</Text>
@@ -248,7 +247,7 @@ export function ForgotPasswordScreen({
               }}
               onBlur={handleEmailBlur}
               placeholder={t('forgot.emailPlaceholder')}
-              placeholderTextColor="#94818A"
+              placeholderTextColor={T.input.placeholder}    // #7A3A52 (NOT #94818A)
               autoCapitalize="none"
               autoComplete="email"
               keyboardType="email-address"
@@ -270,9 +269,10 @@ export function ForgotPasswordScreen({
               disabled={!canSubmit}
               accessibilityRole="button"
               accessibilityLabel={t('forgot.submit')}
+              accessibilityState={{ disabled: !canSubmit, busy: loading }}
             >
               {loading ? (
-                <ActivityIndicator color="#FBF6F1" size="small" />
+                <ActivityIndicator color={T.color.text.onDark} size="small" />
               ) : (
                 <Text style={styles.submitText}>{t('forgot.submit')}</Text>
               )}
@@ -294,143 +294,168 @@ export function ForgotPasswordScreen({
   );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
+// ─── Styles — ALL values from T.* tokens; NO inline hex ──────────────────────
 
 const styles = StyleSheet.create({
-  flex: { flex: 1, backgroundColor: '#FBF6F1' },
-
+  flex: {
+    flex: 1,
+    backgroundColor: T.color.surface.base,           // #FBF6F1
+  },
   scroll: {
     flexGrow: 1,
-    paddingHorizontal: 24,
-    paddingTop: 32,
-    paddingBottom: 40,
+    paddingHorizontal: T.spacing[6],                  // 24dp
+    paddingTop: T.spacing[8],                         // 32dp
+    paddingBottom: T.spacing[10],                     // 40dp
   },
 
-  // ── Confirmation block ──
+  // ── Confirmation block (jade-100 wash) ──
   confirmationBlock: {
     flex: 1,
     alignItems: 'center',
-    paddingTop: 32,
+    paddingTop: T.spacing[8],                         // 32dp
   },
   confirmTitle: {
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 22,
-    color: '#6E9079',
-    marginBottom: 12,
+    fontFamily: T.type.heading2.fontFamily,           // Sarabun-SemiBold
+    fontSize: T.type.heading2.size,                   // 20sp
+    lineHeight: T.type.heading2.lineHeight,           // 33
+    color: T.color.text.botanical,                    // #2F5042 jade-800 (success context)
+    marginBottom: T.spacing[3],                       // 12dp
     textAlign: 'center',
+    letterSpacing: 0,
   },
   confirmBody: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 15,
-    color: '#3A2A30',
+    fontFamily: T.type.body.fontFamily,               // Sarabun-Regular
+    fontSize: T.type.body.size,                       // 15sp
+    lineHeight: T.type.body.lineHeight,               // 25
+    color: T.color.text.primary,                      // #7A3A52
     textAlign: 'center',
-    lineHeight: 22,
     marginBottom: 28,
-    paddingHorizontal: 8,
+    paddingHorizontal: T.spacing[2],                  // 8dp
+    letterSpacing: 0,
   },
 
   // ── Resend ──
   resendButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 24,
-    marginBottom: 8,
+    paddingVertical: T.spacing[2],                    // 8dp
+    paddingHorizontal: T.spacing[6],                  // 24dp
+    marginBottom: T.spacing[2],                       // 8dp
+    minHeight: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   resendText: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 14,
-    color: '#8E3A44',
-    textDecorationLine: 'underline',
+    fontFamily: T.type.body.fontFamily,               // Sarabun-Regular
+    fontSize: T.type.body.size,                       // 15sp
+    lineHeight: T.type.body.lineHeight,               // 25
+    color: T.color.text.primary,                      // #7A3A52 (NOT old rose/700 #8E3A44)
+    textDecorationLine: 'underline' as const,
+    letterSpacing: 0,
   },
   resendTextDisabled: {
-    color: '#94818A',
-    textDecorationLine: 'none',
+    color: T.color.text.primary,                      // still roselle-700, just opacity-ed via parent
+    textDecorationLine: 'none' as const,
   },
 
   // ── Feedback strips / cards ──
   offlineStrip: {
-    backgroundColor: '#FBF3EE',
-    borderRadius: 8,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    marginBottom: 12,
+    backgroundColor: T.color.surface.subtle,          // #F5EDE6 (NOT #FBF3EE)
+    borderRadius: T.radius.sm,                        // 6dp
+    paddingVertical: T.spacing[2],                    // 8dp (approx)
+    paddingHorizontal: T.spacing[3],                  // 12dp (approx, was 14)
+    marginBottom: T.spacing[3],                       // 12dp
   },
   offlineText: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 14,
-    color: '#5F4A52',
+    fontFamily: T.type.body.fontFamily,               // Sarabun-Regular
+    fontSize: T.type.body.size,                       // 15sp
+    lineHeight: T.type.body.lineHeight,               // 25
+    color: T.color.text.primary,                      // #7A3A52
+    letterSpacing: 0,
   },
   serverCard: {
-    backgroundColor: '#FBF3EE',
-    borderRadius: 8,
+    backgroundColor: T.color.surface.subtle,          // #F5EDE6 (NOT #FBF3EE / white)
+    borderRadius: T.radius.sm,                        // 6dp
     borderWidth: 1,
-    borderColor: '#EBE1D9',
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    marginBottom: 12,
+    borderColor: T.color.surface.divider,             // #E8DDD5
+    paddingVertical: T.spacing[3],                    // 12dp
+    paddingHorizontal: T.spacing[3],                  // 12dp (approx)
+    marginBottom: T.spacing[3],                       // 12dp
   },
   serverCardText: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 14,
-    color: '#5F4A52',
+    fontFamily: T.type.body.fontFamily,               // Sarabun-Regular
+    fontSize: T.type.body.size,                       // 15sp
+    lineHeight: T.type.body.lineHeight,               // 25
+    color: T.color.text.primary,                      // #7A3A52
     textAlign: 'center',
+    letterSpacing: 0,
   },
 
   // ── Form ──
   title: {
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 24,
-    color: '#3A2A30',
-    marginBottom: 8,
+    fontFamily: T.type.heading1.fontFamily,           // Sarabun-SemiBold
+    fontSize: T.type.heading1.size,                   // 24sp
+    lineHeight: T.type.heading1.lineHeight,           // 39
+    color: T.color.text.heading,                      // #4A2230
+    marginBottom: T.spacing[2],                       // 8dp
+    letterSpacing: 0,
   },
   subtitle: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 15,
-    color: '#5F4A52',
-    marginBottom: 24,
-    lineHeight: 22,
+    fontFamily: T.type.body.fontFamily,               // Sarabun-Regular
+    fontSize: T.type.body.size,                       // 15sp
+    lineHeight: T.type.body.lineHeight,               // 25
+    color: T.color.text.primary,                      // #7A3A52
+    marginBottom: T.spacing[6],                       // 24dp
+    letterSpacing: 0,
   },
   label: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 14,
-    color: '#3A2A30',
-    marginBottom: 6,
+    fontFamily: T.type.label.fontFamily,              // Sarabun-SemiBold
+    fontSize: T.type.label.size,                      // 15sp
+    lineHeight: T.type.label.lineHeight,              // 24
+    color: T.color.text.botanical,                    // #2F5042 jade-800
+    marginBottom: T.spacing[1],                       // 4dp
+    letterSpacing: 0,
   },
   input: {
-    height: 44,
+    height: T.input.height,                           // 52dp
     borderWidth: 1,
-    borderColor: '#EBE1D9',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 15,
-    color: '#3A2A30',
-    backgroundColor: '#FFFFFF',
-    marginBottom: 4,
+    borderColor: T.input.border.default,              // #E8DDD5
+    borderRadius: T.radius.md,                        // 12dp
+    paddingHorizontal: T.spacing[3],                  // 12dp
+    fontFamily: T.type.bodyLarge.fontFamily,          // Sarabun-Regular
+    fontSize: T.type.bodyLarge.size,                  // 17sp
+    lineHeight: T.type.bodyLarge.lineHeight,          // 28
+    color: T.input.text,                              // #4A2230
+    backgroundColor: T.input.bg,                      // #F5EDE6 (NOT white)
+    marginBottom: T.spacing[1],                       // 4dp
+    letterSpacing: 0,
   },
   inputError: {
-    borderColor: '#A8505A',
+    borderColor: T.input.border.error,                // #B85C78 roselle-500
   },
   fieldError: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 13,
-    color: '#A8505A',
-    marginBottom: 8,
+    fontFamily: T.type.body.fontFamily,               // Sarabun-Regular
+    fontSize: T.type.body.size,                       // 15sp
+    lineHeight: T.type.body.lineHeight,               // 25
+    color: T.input.errorText,                         // #7A3A52
+    marginBottom: T.spacing[2],                       // 8dp
+    letterSpacing: 0,
   },
 
   // ── Submit button ──
   submitButton: {
-    height: 48,
-    backgroundColor: '#A8505A',
-    borderRadius: 10,
+    height: T.button.primary.height,                  // 52dp
+    backgroundColor: T.button.primary.bg,             // #9A5F0A amber-700
+    borderRadius: T.button.primary.radius,            // 12dp
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 16,
-    marginBottom: 16,
+    marginTop: T.spacing[4],                          // 16dp
+    marginBottom: T.spacing[4],                       // 16dp
   },
   submitText: {
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 16,
-    color: '#FFFFFF',
+    fontFamily: T.type.label.fontFamily,              // Sarabun-SemiBold
+    fontSize: T.type.body.size,                       // 15sp
+    lineHeight: T.type.body.lineHeight,               // 25
+    color: T.color.text.onDark,                       // #FFFFFF
+    letterSpacing: 0,
   },
   buttonDisabled: {
     opacity: 0.45,
@@ -439,12 +464,19 @@ const styles = StyleSheet.create({
   // ── Back link ──
   backLink: {
     alignItems: 'center',
-    paddingVertical: 10,
-    marginTop: 4,
+    paddingVertical: T.spacing[2],                    // 8dp (≥48dp via minHeight)
+    marginTop: T.spacing[1],                          // 4dp
+    minHeight: 48,
+    justifyContent: 'center',
   },
   backLinkText: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 14,
-    color: '#8E3A44',
+    fontFamily: T.type.body.fontFamily,               // Sarabun-Regular
+    fontSize: T.type.body.size,                       // 15sp
+    lineHeight: T.type.body.lineHeight,               // 25
+    color: T.color.text.primary,                      // #7A3A52 (NOT old rose #8E3A44)
+    letterSpacing: 0,
   },
 });
+
+// Suppress unused import warning for RESEND_COOLDOWN_MS (kept for future use)
+void RESEND_COOLDOWN_MS;

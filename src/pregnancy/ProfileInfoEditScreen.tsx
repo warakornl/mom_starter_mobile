@@ -46,6 +46,7 @@ import {
   runInfoEntryGet,
   runInfoSave,
 } from './profileInfoEditRuntimeWiring';
+import { T } from '../theme/tokens';
 import type { InfoScreenState } from './profileInfoEditRuntimeWiring';
 import {
   validateNameInput,
@@ -203,7 +204,7 @@ export function ProfileInfoEditScreen({
   if (screenState.mode === 'loading') {
     return (
       <SafeAreaView style={styles.container} testID="profile-info-edit-loading">
-        <ActivityIndicator size="large" color={ROSE} style={styles.loadingSpinner} />
+        <ActivityIndicator size="large" color={T.color.accent.interactive} style={styles.loadingSpinner} />
         <Text style={styles.loadingText}>{t('profile.editLoading')}</Text>
       </SafeAreaView>
     );
@@ -310,7 +311,7 @@ export function ProfileInfoEditScreen({
             testID="profile-info-edit-save-btn"
           >
             {isSaving ? (
-              <ActivityIndicator size="small" color="#FFFFFF" />
+              <ActivityIndicator size="small" color={T.color.text.onDark} />
             ) : (
               <Text style={styles.saveBtnText}>{t('profileInfo.save')}</Text>
             )}
@@ -321,17 +322,13 @@ export function ProfileInfoEditScreen({
   );
 }
 
-// ─── Theme constants ───────────────────────────────────────────────────────────
-// Rose palette (design-system.md §1): matches ProfileSetupScreen primaryBtn tokens.
-const ROSE = '#A8505A';         // rose/600 — primary button fill
-const ROSE_DISABLED = '#DDA0A6'; // rose/300 — disabled button fill
-
 // ─── Styles ────────────────────────────────────────────────────────────────────
+// ห้องแม่ Phase 2 B4: all token references migrated to semantic T.* namespace.
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: T.color.surface.base,
   },
   keyboardAvoid: {
     flex: 1,
@@ -346,93 +343,93 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     textAlign: 'center',
-    color: '#6B7280',
-    fontSize: 14,
+    color: T.color.text.primary,
+    fontSize: T.type.caption.size,
   },
   errorMessage: {
     margin: 20,
     textAlign: 'center',
-    color: '#6B7280',
-    fontSize: 14,
+    color: T.color.text.primary,
+    fontSize: T.type.caption.size,
   },
   retryBtn: {
     marginHorizontal: 20,
     paddingVertical: 10,
     paddingHorizontal: 20,
-    backgroundColor: ROSE,
-    borderRadius: 8,
+    backgroundColor: T.button.primary.bg,
+    borderRadius: T.radius.sm,
     alignSelf: 'center',
   },
   retryBtnText: {
-    color: '#FFFFFF',
-    fontSize: 14,
+    color: T.color.text.onDark,
+    fontSize: T.type.caption.size,
     fontWeight: '600',
   },
   subtitle: {
-    fontSize: 14,
-    color: '#6B7280',
+    fontSize: T.type.caption.size,
+    color: T.color.text.primary,
     marginBottom: 24,
-    lineHeight: 20,
+    lineHeight: T.type.caption.lineHeight,
   },
   fieldContainer: {
     marginBottom: 20,
   },
   fieldLabel: {
-    fontSize: 14,
+    fontSize: T.type.caption.size,
     fontWeight: '600',
-    color: '#111827',
+    color: T.color.text.heading,
     marginBottom: 6,
   },
   optionalTag: {
     fontWeight: '400',
-    color: '#9CA3AF',
-    fontSize: 12,
+    color: T.color.text.primary,
+    fontSize: T.type.micro.size,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#D1D5DB',
-    borderRadius: 8,
+    borderColor: T.input.border.default,
+    borderRadius: T.radius.sm,
     paddingVertical: 10,
     paddingHorizontal: 12,
-    fontSize: 16,
-    color: '#111827',
-    backgroundColor: '#FFFFFF',
+    fontSize: T.type.body.size,
+    color: T.input.text,
+    backgroundColor: T.input.bg,
   },
   inputError: {
-    borderColor: '#EF4444',
+    borderColor: T.input.border.error,
   },
   errorText: {
-    color: '#EF4444',
-    fontSize: 12,
+    color: T.input.errorText,
+    fontSize: T.type.micro.size,
     marginTop: 4,
   },
   privacyNote: {
-    fontSize: 12,
-    color: '#9CA3AF',
+    fontSize: T.type.micro.size,
+    color: T.color.text.primary,
     marginTop: 8,
     marginBottom: 24,
-    lineHeight: 18,
+    lineHeight: T.type.micro.lineHeight,
   },
   saveErrorText: {
-    color: '#EF4444',
-    fontSize: 14,
+    color: T.input.errorText,
+    fontSize: T.type.caption.size,
     marginBottom: 12,
     textAlign: 'center',
   },
   saveBtn: {
-    backgroundColor: ROSE,
+    backgroundColor: T.button.primary.bg,
     paddingVertical: 14,
-    borderRadius: 12,
+    borderRadius: T.button.primary.radius,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 50,
+    minHeight: T.button.primary.height,
   },
   saveBtnDisabled: {
-    backgroundColor: ROSE_DISABLED,
+    backgroundColor: T.scrim.amber,
   },
   saveBtnText: {
-    color: '#FFFFFF',
-    fontSize: 16,
+    color: T.color.text.onDark,
+    fontSize: T.type.body.size,
     fontWeight: '700',
   },
 });

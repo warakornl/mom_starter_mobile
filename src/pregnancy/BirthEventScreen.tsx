@@ -59,6 +59,11 @@ import { createPregnancyClient } from './pregnancyApiClient';
 import { localCivilToday } from './gestationalAge';
 import { useT } from '../i18n/LanguageContext';
 import { formatCivilDate, type MessageKey } from '../i18n/messages';
+import {
+  validateHospitalDates,
+  shouldWarnAdmissionFarFromBirth,
+  buildHospitalStayFields,
+} from './hospitalStayLogic';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -105,16 +110,29 @@ export function BirthEventScreen({
   const [deliveryType, setDeliveryType] = useState<DeliveryType | null>(null);
   const [birthNote, setBirthNote] = useState<string>('');
 
-  // ── Date picker modal ─────────────────────────────────────────────────────
+  // Hospital-stay fields (both optional — pregnancy-summary-design.md §1.3)
+  // NEVER log these values (health-adjacent PII, PDPA ม.26).
+  const [admissionDate, setAdmissionDate] = useState<string>('');
+  const [dischargeDate, setDischargeDate] = useState<string>('');
+  const [hospitalErrorMsg, setHospitalErrorMsg] = useState<string | null>(null);
+
+  // ── Date picker modals ────────────────────────────────────────────────────
+  // Birth date modal
   const [showDateModal, setShowDateModal] = useState(false);
   const [dateInputText, setDateInputText] = useState<string>('');
+  // Hospital admission modal
+  const [showAdmissionModal, setShowAdmissionModal] = useState(false);
+  const [admissionInputText, setAdmissionInputText] = useState<string>('');
+  // Hospital discharge modal
+  const [showDischargeModal, setShowDischargeModal] = useState(false);
+  const [dischargeInputText, setDischargeInputText] = useState<string>('');
 
   // ── UI state ──────────────────────────────────────────────────────────────
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   // ── Validation ────────────────────────────────────────────────────────────
-  const canSave = birthDate.length === 10 && !saving;
+  const canSave = birthDate.length === 10 && !saving && hospitalErrorMsg == null;
 
   // ─── Handlers ────────────────────────────────────────────────────────────
 
@@ -155,6 +173,84 @@ export function BirthEventScreen({
     setDeliveryType((prev) => (prev === value ? null : value));
   }
 
+  // ─── Hospital-stay handlers ────────────────────────────────────────────────
+
+  function validateAndSetAdmission(trimmed: string): void {
+    const today = localCivilToday();
+    const validation = validateHospitalDates(
+      trimmed || null,
+      dischargeDate || null,
+      today,
+    );
+    if (!validation.valid) {
+      if (validation.error === 'date-in-future') {
+        setHospitalErrorMsg(t('birth.errorHospitalDateFuture'));
+        return;
+      }
+    }
+    setAdmissionDate(trimmed);
+    setHospitalErrorMsg(null);
+    // OQ-PS4: warn (not block) if admission is far from birthDate
+    if (birthDate && shouldWarnAdmissionFarFromBirth(trimmed, birthDate)) {
+      Alert.alert(
+        t('birth.warnAdmissionFarFromBirthTitle'),
+        t('birth.warnAdmissionFarFromBirthMsg'),
+        [
+          { text: t('birth.warnFarCancel'), style: 'cancel', onPress: () => setAdmissionDate('') },
+          { text: t('birth.warnFarContinue') },
+        ],
+      );
+    }
+  }
+
+  function handleAdmissionConfirm(): void {
+    const trimmed = admissionInputText.trim();
+    if (!trimmed) {
+      setAdmissionDate('');
+      setHospitalErrorMsg(null);
+      setShowAdmissionModal(false);
+      return;
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+      Alert.alert(t('birth.dateFormatAlertTitle'), t('birth.dateFormatAlertMsg'));
+      return;
+    }
+    validateAndSetAdmission(trimmed);
+    setShowAdmissionModal(false);
+  }
+
+  function handleDischargeConfirm(): void {
+    const trimmed = dischargeInputText.trim();
+    if (!trimmed) {
+      setDischargeDate('');
+      setHospitalErrorMsg(null);
+      setShowDischargeModal(false);
+      return;
+    }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+      Alert.alert(t('birth.dateFormatAlertTitle'), t('birth.dateFormatAlertMsg'));
+      return;
+    }
+    const today = localCivilToday();
+    const validation = validateHospitalDates(
+      admissionDate || null,
+      trimmed,
+      today,
+    );
+    if (!validation.valid) {
+      if (validation.error === 'date-in-future') {
+        setHospitalErrorMsg(t('birth.errorHospitalDateFuture'));
+      } else if (validation.error === 'discharge-before-admission') {
+        setHospitalErrorMsg(t('birth.errorDischargeBeforeAdmission'));
+      }
+      setShowDischargeModal(false);
+      return;
+    }
+    setDischargeDate(trimmed);
+    setHospitalErrorMsg(null);
+    setShowDischargeModal(false);
+  }
+
   async function handleSave(): Promise<void> {
     if (!canSave) return;
     setSaving(true);
@@ -172,6 +268,14 @@ export function BirthEventScreen({
       const clientDate = localCivilToday();
       const client = createPregnancyClient(apiBaseUrl);
 
+      // Hospital-stay cipher fields (§1.4 PIN: presence of key = real mutation).
+      // buildHospitalStayFields applies Base64 no-op cipher and null-vs-absent semantics.
+      // NEVER log these values (health-adjacent PII).
+      const hospitalFields = buildHospitalStayFields(
+        admissionDate || undefined,
+        dischargeDate || undefined,
+      );
+
       // Build the birth-event input.
       // TODO (security): deliveryType and birthNote MUST be AES-GCM encrypted
       // before transmission per data-model §3.1 (ruling 4).  Coordinate with
@@ -180,6 +284,7 @@ export function BirthEventScreen({
         birthDate,
         ...(deliveryType != null ? { deliveryType } : {}),
         ...(birthNote.trim() ? { birthNote: birthNote.trim() } : {}),
+        ...hospitalFields,
       };
 
       const result = await client.recordBirthEvent(
@@ -326,6 +431,66 @@ export function BirthEventScreen({
           {t('birth.encryptionNote')}
         </Text>
 
+        {/* ── Hospital stay — both optional (pregnancy-summary-design.md §1.3) ── */}
+        <Text style={styles.sectionDividerLabel}>
+          {t('birth.fieldHospitalStaySection')}
+        </Text>
+
+        {/* Admission date */}
+        <Text style={styles.fieldLabel}>
+          {t('birth.fieldHospitalAdmission')}
+        </Text>
+        <TouchableOpacity
+          testID="birth-hospital-admission"
+          style={styles.dateField}
+          onPress={() => {
+            setAdmissionInputText(admissionDate);
+            setShowAdmissionModal(true);
+          }}
+          accessibilityRole="button"
+          accessibilityLabel={
+            admissionDate
+              ? `${t('birth.fieldHospitalAdmission')}, ${formatCivilDate(admissionDate, locale)}`
+              : `${t('birth.fieldHospitalAdmission')}, ${t('birth.hospitalAdmissionPlaceholder')}`
+          }
+        >
+          <Text style={[styles.dateFieldText, !admissionDate && styles.dateFieldPlaceholder]}>
+            {admissionDate ? formatCivilDate(admissionDate, locale) : t('birth.hospitalAdmissionPlaceholder')}
+          </Text>
+          <Text style={styles.chevron} accessibilityElementsHidden={true}>{' ›'}</Text>
+        </TouchableOpacity>
+
+        {/* Discharge date */}
+        <Text style={styles.fieldLabel}>
+          {t('birth.fieldHospitalDischarge')}
+        </Text>
+        <TouchableOpacity
+          testID="birth-hospital-discharge"
+          style={styles.dateField}
+          onPress={() => {
+            setDischargeInputText(dischargeDate);
+            setShowDischargeModal(true);
+          }}
+          accessibilityRole="button"
+          accessibilityLabel={
+            dischargeDate
+              ? `${t('birth.fieldHospitalDischarge')}, ${formatCivilDate(dischargeDate, locale)}`
+              : `${t('birth.fieldHospitalDischarge')}, ${t('birth.hospitalDischargePlaceholder')}`
+          }
+        >
+          <Text style={[styles.dateFieldText, !dischargeDate && styles.dateFieldPlaceholder]}>
+            {dischargeDate ? formatCivilDate(dischargeDate, locale) : t('birth.hospitalDischargePlaceholder')}
+          </Text>
+          <Text style={styles.chevron} accessibilityElementsHidden={true}>{' ›'}</Text>
+        </TouchableOpacity>
+
+        {/* Hospital validation error (inline) */}
+        {hospitalErrorMsg != null && (
+          <View style={styles.errorBox} accessibilityRole="alert">
+            <Text style={styles.errorText}>{hospitalErrorMsg}</Text>
+          </View>
+        )}
+
         {/* ── Consequence line (§4.2 — calm, not scary) ─────────────────── */}
         <View style={styles.consequenceBox}>
           <Text style={styles.consequenceText}>
@@ -426,6 +591,102 @@ export function BirthEventScreen({
           </View>
         </View>
       </Modal>
+
+      {/* ── Hospital admission date modal ─────────────────────────────────── */}
+      <Modal
+        visible={showAdmissionModal}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowAdmissionModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>
+              {t('birth.hospitalAdmissionModalTitle')}
+            </Text>
+            <Text style={styles.modalHint}>
+              {t('birth.hospitalAdmissionModalHint')}
+            </Text>
+            <TextInput
+              style={styles.modalInput}
+              value={admissionInputText}
+              onChangeText={setAdmissionInputText}
+              placeholder={'2026-06-29'}
+              placeholderTextColor={'#94818A'}
+              keyboardType="numeric"
+              autoFocus
+              accessibilityLabel={t('birth.fieldHospitalAdmission')}
+              maxLength={10}
+            />
+            <View style={styles.modalBtns}>
+              <TouchableOpacity
+                style={styles.modalCancelBtn}
+                onPress={() => setShowAdmissionModal(false)}
+                accessibilityRole="button"
+                accessibilityLabel={t('birth.dateModalCancel')}
+              >
+                <Text style={styles.modalCancelText}>{t('birth.dateModalCancel')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.modalConfirmBtn}
+                onPress={handleAdmissionConfirm}
+                accessibilityRole="button"
+                accessibilityLabel={t('birth.dateModalConfirm')}
+              >
+                <Text style={styles.modalConfirmText}>{t('birth.dateModalConfirm')}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ── Hospital discharge date modal ─────────────────────────────────── */}
+      <Modal
+        visible={showDischargeModal}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setShowDischargeModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalCard}>
+            <Text style={styles.modalTitle}>
+              {t('birth.hospitalDischargeModalTitle')}
+            </Text>
+            <Text style={styles.modalHint}>
+              {t('birth.hospitalDischargeModalHint')}
+            </Text>
+            <TextInput
+              style={styles.modalInput}
+              value={dischargeInputText}
+              onChangeText={setDischargeInputText}
+              placeholder={'2026-06-29'}
+              placeholderTextColor={'#94818A'}
+              keyboardType="numeric"
+              autoFocus
+              accessibilityLabel={t('birth.fieldHospitalDischarge')}
+              maxLength={10}
+            />
+            <View style={styles.modalBtns}>
+              <TouchableOpacity
+                style={styles.modalCancelBtn}
+                onPress={() => setShowDischargeModal(false)}
+                accessibilityRole="button"
+                accessibilityLabel={t('birth.dateModalCancel')}
+              >
+                <Text style={styles.modalCancelText}>{t('birth.dateModalCancel')}</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.modalConfirmBtn}
+                onPress={handleDischargeConfirm}
+                accessibilityRole="button"
+                accessibilityLabel={t('birth.dateModalConfirm')}
+              >
+                <Text style={styles.modalConfirmText}>{t('birth.dateModalConfirm')}</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -477,6 +738,14 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     color: '#5F4A52',
     marginTop: 4,
+  },
+  sectionDividerLabel: {
+    fontFamily: 'IBMPlexSans-SemiBold',
+    fontSize: 13,
+    lineHeight: 20,
+    color: '#5F4A52',
+    marginTop: 8,
+    marginBottom: 2,
   },
   required: {
     color: '#A8505A',

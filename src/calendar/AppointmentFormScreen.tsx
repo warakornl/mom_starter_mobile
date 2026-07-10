@@ -55,6 +55,8 @@ import {
   buildChecklistItemToCreate,
 } from './appointmentFormPrefill';
 import { buildAncReminderRecord } from './ancReminderBuilder';
+import { T } from '../theme/tokens';
+import type { Lifecycle } from '../pregnancy/types';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -80,6 +82,11 @@ export interface AppointmentFormScreenProps {
   onSave?: () => void;
   /** Called on cancel / back. */
   onCancel?: () => void;
+  /**
+   * ห้องแม่ B2 loss-state gate: lifecycle='ended' → suppress week-indexed dateLabel.
+   * Undefined = unknown/not loaded; must NEVER suppress content (GAP-2).
+   */
+  lifecycle?: Lifecycle;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -141,6 +148,7 @@ export function AppointmentFormScreen({
   apiBaseUrl,
   onSave,
   onCancel,
+  lifecycle,
 }: AppointmentFormScreenProps): React.JSX.Element {
   const { t, locale } = useT();
   const isEdit = !!existingItem;
@@ -382,7 +390,7 @@ export function AppointmentFormScreen({
         value={title}
         onChangeText={setTitle}
         placeholder={t('appointment.titlePlaceholder')}
-        placeholderTextColor="#94818A"
+        placeholderTextColor={T.input.placeholder}
         autoFocus={!isEdit}
         returnKeyType="next"
       />
@@ -394,9 +402,12 @@ export function AppointmentFormScreen({
       </Text>
 
       {/* Date — Pressable that opens DateTimePicker */}
-      {/* Flag-driven dateLabel: use prefill.dateLabel when from-suggestion, else generic key */}
+      {/* Flag-driven dateLabel: use prefill.dateLabel when from-suggestion, else generic key.
+          B2 loss-gate: suppress week-indexed dateLabel when lifecycle='ended' (spec §3). */}
       <Text style={styles.label}>
-        {initState.dateLabel || t('appointment.fieldDate')}
+        {lifecycle !== 'ended' && initState.dateLabel
+          ? initState.dateLabel
+          : t('appointment.fieldDate')}
       </Text>
       <TouchableOpacity
         testID="appointment-date"
@@ -451,7 +462,7 @@ export function AppointmentFormScreen({
         value={location}
         onChangeText={setLocation}
         placeholder={t('appointment.locationPlaceholder')}
-        placeholderTextColor="#94818A"
+        placeholderTextColor={T.input.placeholder}
       />
 
       {/* Doctor (R-A: folded into note) */}
@@ -461,7 +472,7 @@ export function AppointmentFormScreen({
         value={doctor}
         onChangeText={setDoctor}
         placeholder={t('appointment.doctorPlaceholder')}
-        placeholderTextColor="#94818A"
+        placeholderTextColor={T.input.placeholder}
       />
 
       {/* Extra note */}
@@ -472,7 +483,7 @@ export function AppointmentFormScreen({
         value={extraNote}
         onChangeText={setExtraNote}
         placeholder={t('appointment.notePlaceholder')}
-        placeholderTextColor="#94818A"
+        placeholderTextColor={T.input.placeholder}
         multiline
         numberOfLines={3}
       />
@@ -499,7 +510,7 @@ export function AppointmentFormScreen({
             testID="appointment-reminder-toggle"
             value={attachReminder}
             onValueChange={setAttachReminder}
-            trackColor={{ true: '#A8505A', false: '#EBE1D9' }}
+            trackColor={{ true: T.color.list.bar.pregnancy, false: T.color.surface.divider }}
             thumbColor="#FFFFFF"
             accessibilityLabel={t('appointment.reminder.toggleLabel')}
           />
@@ -643,41 +654,59 @@ export function AppointmentFormScreen({
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FBF6F1', padding: 16 },
+  container: { flex: 1, backgroundColor: T.color.surface.base, padding: 16 },
   /**
-   * Disclaimer header band — rose/50 bg, always-on, never truncated (INV-A6).
+   * Disclaimer header band — roselle wash bg, always-on, never truncated (INV-A6).
    * Full-width, no line limit, never behind a "read more" control.
    * PDPA-A4: doctor-signed copy only (INV-A5).
    */
   disclaimerBand: {
-    backgroundColor: '#FBEDEE', // rose/50
-    borderRadius: 10,
+    backgroundColor: T.color.surface.wash.roselle,
+    borderRadius: T.radius.sm,
     borderWidth: 1,
-    borderColor: '#F5D0D4', // rose/200
+    borderColor: T.color.list.bar.pregnancy,
     padding: 14,
     marginBottom: 4,
   },
   disclaimerText: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 13,
-    lineHeight: 20,
-    color: '#5F4A52', // ink/soft
+    fontFamily: T.type.caption.fontFamily,
+    fontSize: T.type.caption.size,
+    lineHeight: T.type.caption.lineHeight,
+    color: T.color.text.primary,
   },
-  label: { fontSize: 13, color: '#5F4A52', fontWeight: '600', marginTop: 16, marginBottom: 4 },
-  hint: { fontSize: 12, color: '#94818A', marginBottom: 4 },
+  label: {
+    fontFamily: T.type.caption.fontFamily,
+    fontSize: T.type.caption.size,
+    color: T.color.text.botanical,
+    fontWeight: '600',
+    marginTop: 16,
+    marginBottom: 4,
+  },
+  hint: {
+    fontFamily: T.type.caption.fontFamily,
+    fontSize: 12,
+    color: T.color.text.primary,
+    marginBottom: 4,
+  },
   input: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 10,
+    fontFamily: T.type.bodyLarge.fontFamily,
+    backgroundColor: T.input.bg,
+    borderRadius: T.radius.sm,
     borderWidth: 1,
-    borderColor: '#EBE1D9',
+    borderColor: T.color.surface.divider,
     paddingHorizontal: 14,
     paddingVertical: 12,
     fontSize: 15,
-    color: '#3A2A30',
+    color: T.color.text.heading,
   },
-  inputError: { borderColor: '#A8505A' },
+  inputError: { borderColor: T.input.border.error },
   textarea: { minHeight: 80, textAlignVertical: 'top' },
-  errorText: { fontSize: 12, color: '#A8505A', marginTop: 4 },
+  errorText: {
+    fontFamily: T.type.caption.fontFamily,
+    fontSize: 12,
+    color: T.input.errorText,
+    marginTop: 4,
+  },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -690,27 +719,32 @@ const styles = StyleSheet.create({
   pickerField: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 10,
+    backgroundColor: T.input.bg,
+    borderRadius: T.radius.sm,
     borderWidth: 1,
-    borderColor: '#EBE1D9',
+    borderColor: T.color.surface.divider,
     paddingHorizontal: 14,
     paddingVertical: 12,
     minHeight: 48,
   },
-  pickerFieldText: { flex: 1, fontSize: 15, color: '#3A2A30' },
-  pickerChevron: { fontSize: 18, color: '#94818A', marginLeft: 8 },
+  pickerFieldText: {
+    fontFamily: T.type.bodyLarge.fontFamily,
+    flex: 1,
+    fontSize: 15,
+    color: T.color.text.heading,
+  },
+  pickerChevron: { fontSize: 18, color: T.color.text.primary, marginLeft: 8 },
 
   // ── Bottom-sheet picker modal (iOS) ──
   pickerOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(58,42,48,0.4)',
+    backgroundColor: 'rgba(74,34,48,0.4)',
     justifyContent: 'flex-end',
   },
   pickerCard: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
+    backgroundColor: T.color.surface.base,
+    borderTopLeftRadius: T.radius.lg,
+    borderTopRightRadius: T.radius.lg,
     paddingBottom: 32,
   },
   pickerBtnRow: {
@@ -719,13 +753,28 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 14,
     borderBottomWidth: 1,
-    borderBottomColor: '#EBE1D9',
+    borderBottomColor: T.color.surface.divider,
   },
   pickerCancelBtn: { minHeight: 44, justifyContent: 'center' },
-  pickerCancelText: { fontSize: 15, color: '#94818A' },
-  pickerTitle: { fontSize: 15, color: '#3A2A30', fontWeight: '600', textAlign: 'center' },
+  pickerCancelText: {
+    fontFamily: T.type.bodyLarge.fontFamily,
+    fontSize: 15,
+    color: T.color.text.primary,
+  },
+  pickerTitle: {
+    fontFamily: T.type.bodyLarge.fontFamily,
+    fontSize: 15,
+    color: T.color.text.heading,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
   pickerDoneBtn: { minHeight: 44, justifyContent: 'center' },
-  pickerDoneText: { fontSize: 15, color: '#C0485F', fontWeight: '600' },
+  pickerDoneText: {
+    fontFamily: T.type.bodyLarge.fontFamily,
+    fontSize: 15,
+    color: T.color.accent.interactive,
+    fontWeight: '600',
+  },
   iosPicker: { alignSelf: 'center' },
 
   // Reminder toggle row (Surface 6)
@@ -734,10 +783,10 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     justifyContent: 'space-between',
     marginTop: 16,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 10,
+    backgroundColor: T.input.bg,
+    borderRadius: T.radius.sm,
     borderWidth: 1,
-    borderColor: '#EBE1D9',
+    borderColor: T.color.surface.divider,
     padding: 14,
     gap: 12,
   },
@@ -751,30 +800,44 @@ const styles = StyleSheet.create({
    * Screen-reader parity: accessibilityRole="none" so it's read naturally in flow.
    */
   pdpaNote: {
-    fontFamily: 'IBMPlexSans-Regular',
+    fontFamily: T.type.caption.fontFamily,
     fontSize: 12,
     lineHeight: 18,
-    color: '#94818A', // ink/faint
+    color: T.color.text.primary,
     marginTop: 4,
   },
 
   saveBtn: {
-    backgroundColor: '#A8505A',
-    borderRadius: 12,
+    backgroundColor: T.button.primary.bg,
+    borderRadius: T.radius.md,
     paddingVertical: 14,
     alignItems: 'center',
     marginTop: 24,
   },
-  saveBtnText: { color: '#FFFFFF', fontSize: 16, fontWeight: '700' },
+  saveBtnText: {
+    fontFamily: T.type.bodyLarge.fontFamily,
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+  },
   deleteBtn: {
-    borderColor: '#A8505A',
+    borderColor: T.color.list.bar.pregnancy,
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: T.radius.md,
     paddingVertical: 12,
     alignItems: 'center',
     marginTop: 12,
   },
-  deleteBtnText: { color: '#A8505A', fontSize: 15, fontWeight: '600' },
+  deleteBtnText: {
+    fontFamily: T.type.bodyLarge.fontFamily,
+    color: T.color.text.primary,
+    fontSize: 15,
+    fontWeight: '600',
+  },
   cancelBtn: { paddingVertical: 12, alignItems: 'center', marginTop: 8, marginBottom: 32 },
-  cancelBtnText: { color: '#94818A', fontSize: 15 },
+  cancelBtnText: {
+    fontFamily: T.type.bodyLarge.fontFamily,
+    color: T.color.text.primary,
+    fontSize: 15,
+  },
 });

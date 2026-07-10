@@ -2,39 +2,32 @@
  * BottomTabNavigator — the 6-tab bottom navigation bar.
  *
  * Implements bottom-tab-navigation-design.md v2.1 §1–§8 +
- * profile-tab-and-hub-ui.md v1.1 (6th tab: Profile).
+ * profile-tab-and-hub-ui.md v1.1 (6th tab: Profile) +
+ * mother-room-build-spec.md §3.4 + §4.1 (Mother's Room re-skin).
  *
  * Tab order (spec §1.1, v3):
  *   1 Supplies  2 Expenses  3 Home  4 Calendar  5 Medication  6 Profile
  *
  * initialRouteName = 'Home' (§10 OQ-NAV-1 — owner decision; was 'Calendar').
  *
- * Custom tab bar (CustomTabBar, v2 §2.1 moving disc):
+ * Custom tab bar (v3 Mother's Room §3.4):
  *   - 56dp content height + safe-area bottom inset (§7.4)
- *   - Background: surface/page #FFFFFF, 1px hairline #EBE1D9 top border
- *   - Active disc: 52×52dp rose/600 (#A8505A) filled disc on the FOCUSED tab
- *     (any of 5 tabs, not just center — OQ-NAV-3 "moving disc" resolution)
- *   - Active disc icon: white (#FFFFFF)
- *   - Active non-disc: rose/700 label color
- *   - Inactive: ink/soft #5F4A52 for icon and label
+ *   - Background: ivory-100 #FBF6F1 (matches screen surface — NOT white; §4.1)
+ *   - Top border: 1px #E8DDD5 (new divider)
+ *   - Active indicator: 2dp amber-700 #9A5F0A UNDERLINE below icon (§3.4)
+ *     REPLACES v2 moving disc (disc removed in Mother's Room)
+ *   - Active icon + label: roselle-900 #4A2230 (12.57:1 AAA on ivory)
+ *   - Inactive: roselle-700 #7A3A52 (7.70:1 AAA on ivory)
+ *   - Focus ring: amber-600 #B8720E (T.focus.ring.color §8.5)
+ *   - Font: Sarabun-SemiBold (§2 Sarabun throughout)
  *   - Full-column tap zone ≥ 44dp (§8.3)
  *   - accessibilityLabel (full name), accessibilityState.selected (§8.2)
  *
- * ProfileSnapshot lifting:
- *   HomeTabScreen updates the snapshot via useProfileSnapshotSetter() after
- *   GET /v1/pregnancy-profile. Other screens read it via useProfileSnapshot().
- *
- * Navigation wiring:
- *   All callbacks that push root-stack screens (Settings, KickCountHome,
- *   BirthEvent, DoctorReport, etc.) are wired here using the `navigation` prop
- *   from the root stack (Stack.Screen render-prop).
- *
- * v2 changes vs v1:
- *   - Center tab: Home (HomeTabScreen) replaces Calendar tab center position
- *   - Calendar tab: renders CalendarScreen DIRECTLY (fixes nested-ScrollView bug §6B)
- *   - Report tab removed from tab bar; DoctorReport is a root-stack screen (§8A)
- *   - Moving disc: all 5 tabs get the disc when focused (OQ-NAV-3)
- *   - LangToggle + gear ⚙ moved from Calendar to Home top bar (§3.2)
+ * v3 Mother's Room changes vs v2:
+ *   - Disc removed; underline added (§3.4)
+ *   - Background ivory → not white (§4.1)
+ *   - Font: IBMPlexSans-SemiBold → Sarabun-SemiBold
+ *   - Colors: all via TAB_BAR_TOKENS (aligned with T.tab.* tokens)
  *
  * Security: no health data in route params (PDPA SD-9).
  */
@@ -68,6 +61,7 @@ import {
 import { localCivilToday } from '../pregnancy/gestationalAge';
 
 import { HomeTabScreen } from '../screens/HomeTabScreen';
+import { WeeklyMilestoneSheet } from '../screens/WeeklyMilestoneSheet';
 import { CalendarScreen } from '../calendar/CalendarScreen';
 import { SuppliesScreen } from '../supplies/SuppliesScreen';
 import { ExpensesScreen } from '../expenses/ExpensesScreen';
@@ -130,21 +124,24 @@ export interface BottomTabNavigatorProps {
   navigation: NativeStackNavigationProp<RootStackParamList>;
 }
 
-// ─── Custom tab bar (v2 moving disc per OQ-NAV-3) ────────────────────────────
+// ─── Custom tab bar (v3 Mother's Room: underline replaces disc; §3.4) ─────────
 
 /**
- * CustomTabBar — 56dp content-height bar with moving-disc active indicator.
+ * CustomTabBar — 56dp content-height bar with amber-700 underline active indicator.
  *
- * v2 change (§2.1 OQ-NAV-3):
- *   The rose/600 disc is shown on whichever tab is FOCUSED.
- *   In v1 the disc was permanent on the center (Calendar) tab only.
- *   Now every tab renders the disc when isFocused=true, making it "moving".
+ * v3 Mother's Room (§3.4):
+ *   The moving rose/600 disc is REPLACED by a 2dp amber-700 underline below the
+ *   icon. The icon itself is shown directly on ivory-100 in roselle-900 (active)
+ *   or roselle-700 (inactive) — no disc background.
+ *
+ * Underline: positioned just below the icon, 2dp high × full tab column width,
+ * amber-700 #9A5F0A (T.tab.active.underline.color).
  */
 function CustomTabBar({ state, navigation: tabNav }: BottomTabBarProps): React.JSX.Element {
   const { t } = useT();
 
   // §8.5 focus ring: track keyboard/switch-control focused tab index.
-  // Uses TAB_BAR_TOKENS.focusRingColor (honey/700 #B96A28) for the ring border.
+  // Uses TAB_BAR_TOKENS.focusRingColor (amber-600 #B8720E) for the ring border.
   const [keyboardFocusedIndex, setKeyboardFocusedIndex] = useState<number | null>(null);
 
   return (
@@ -174,14 +171,15 @@ function CustomTabBar({ state, navigation: tabNav }: BottomTabBarProps): React.J
             }
           }
 
-          // v2 moving disc: disc is on the focused tab (any of 5); white icon inside disc
+          // v3 Mother's Room: icon color = roselle-900 (active) or roselle-700 (inactive)
+          // NO disc — icon sits directly on ivory-100 background
           const iconColor = isFocused
-            ? TAB_BAR_TOKENS.activeIconColor
-            : TAB_BAR_TOKENS.inactiveColor;
+            ? TAB_BAR_TOKENS.activeIconColor   // roselle-900 #4A2230
+            : TAB_BAR_TOKENS.inactiveColor;    // roselle-700 #7A3A52
 
           const labelColor = isFocused
-            ? TAB_BAR_TOKENS.activeLabelColor
-            : TAB_BAR_TOKENS.inactiveColor;
+            ? TAB_BAR_TOKENS.activeLabelColor  // roselle-900 #4A2230
+            : TAB_BAR_TOKENS.inactiveColor;    // roselle-700 #7A3A52
 
           return (
             <TouchableOpacity
@@ -199,19 +197,23 @@ function CustomTabBar({ state, navigation: tabNav }: BottomTabBarProps): React.J
               accessibilityState={{ selected: isFocused }}
               activeOpacity={0.7}
             >
-              {/* Moving disc: shown on any focused tab (v2 §2.1) */}
+              {/* §3.4: amber-700 2dp underline above icon when active (top of tab zone) */}
               {isFocused ? (
                 <View
-                  style={tabBarStyles.activeDisc}
+                  style={tabBarStyles.activeUnderline}
                   accessibilityElementsHidden={true}
-                >
-                  {React.createElement(ICON_MAP[config.iconName], { color: '#FFFFFF', size: 24 })}
-                </View>
+                  // @ts-ignore
+                  importantForAccessibility="no-hide-descendants"
+                />
               ) : (
-                React.createElement(ICON_MAP[config.iconName], { color: '#5F4A52', size: 24 })
+                <View style={tabBarStyles.underlinePlaceholder} />
               )}
-              {/* §8.7 Dynamic Type: numberOfLines={2} + flexWrap allow large text to wrap
-               * cleanly rather than clip. "ค่าใช้จ่าย" wraps to two lines at 13pt. */}
+
+              {/* Icon: rendered directly on ivory background (no disc) */}
+              {React.createElement(ICON_MAP[config.iconName], { color: iconColor, size: 24 })}
+
+              {/* §8.7 Dynamic Type: numberOfLines={2} allows large text to wrap cleanly.
+               * "ค่าใช้จ่าย" wraps to two lines at 13pt (§7.5, §8.7). */}
               <Text
                 style={[tabBarStyles.label, { color: labelColor }]}
                 numberOfLines={2}
@@ -228,56 +230,59 @@ function CustomTabBar({ state, navigation: tabNav }: BottomTabBarProps): React.J
 
 const tabBarStyles = StyleSheet.create({
   safeArea: {
-    backgroundColor: TAB_BAR_TOKENS.background,
+    backgroundColor: TAB_BAR_TOKENS.background,  // ivory-100 #FBF6F1 (§4.1)
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: TAB_BAR_TOKENS.borderColor,
+    borderTopColor: TAB_BAR_TOKENS.borderColor,   // #E8DDD5 (§1.3 divider)
   },
   container: {
     flexDirection: 'row',
     // §8.7 Dynamic Type: paddingVertical replaces fixed height: 56 so the bar
-    // can grow when the OS text size is increased. minHeight preserves the
-    // 56dp content-height floor when text is at default size.
+    // can grow when the OS text size is increased. minHeight preserves 56dp floor.
     minHeight: TAB_BAR_TOKENS.contentHeight,
     paddingVertical: 4,
-    backgroundColor: TAB_BAR_TOKENS.background,
+    backgroundColor: TAB_BAR_TOKENS.background,  // ivory-100 #FBF6F1
   },
   tabItem: {
     flex: 1,
     alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 44, // §8.3: ≥44dp touch target
-    paddingVertical: 4,
+    justifyContent: 'flex-start',  // v3: top-align so underline sits at top
+    minHeight: 44,                 // §8.3: ≥44dp touch target
+    paddingBottom: 4,
+    paddingTop: 0,                 // underline at very top of tab zone
   },
   // §8.5: visible focus ring for keyboard / switch-control navigation.
-  // Uses TAB_BAR_TOKENS.focusRingColor (honey/700 #B96A28) per design spec §8.5.
+  // v3: uses TAB_BAR_TOKENS.focusRingColor (amber-600 #B8720E; was honey/700).
   tabItemFocused: {
     borderWidth: 2,
-    borderColor: TAB_BAR_TOKENS.focusRingColor,
+    borderColor: TAB_BAR_TOKENS.focusRingColor,  // amber-600 #B8720E
     borderRadius: 10,
   },
-  icon: {
-    fontSize: 20,
-    lineHeight: 24,
-  },
   label: {
-    fontFamily: 'IBMPlexSans-SemiBold',
-    // §7.5 floor: min 12pt. Settled at 13pt — fits "หน้าหลัก" on one line;
-    // "ค่าใช้จ่าย" wraps cleanly to 2 lines via numberOfLines={2} (§8.7).
+    fontFamily: 'Sarabun-SemiBold',  // v3: Sarabun (was IBMPlexSans-SemiBold; §2)
+    // §7.5 floor: min 12pt. Settled at 13pt — fits "หน้าหลัก" on one line.
+    // Thai line-height: 13 × 1.6 = 20.8 → 21sp (Thai stacked mark rule §0 R2).
+    // Tab labels are very short (≤4 chars TH); 17sp lineHeight is acceptable here
+    // since they're labels, not body copy.
     fontSize: 13,
     lineHeight: 17,
     marginTop: 2,
     textAlign: 'center',
-    flexShrink: 1, // §8.7: allow text to shrink / wrap with Dynamic Type
+    flexShrink: 1,  // §8.7: allow text to shrink / wrap with Dynamic Type
   },
-  // Active disc: 52×52dp rose/600 filled disc (v2 §2.1 — moves with focus)
-  activeDisc: {
-    width: TAB_BAR_TOKENS.activeDiscSize,
-    height: TAB_BAR_TOKENS.activeDiscSize,
-    borderRadius: TAB_BAR_TOKENS.activeDiscRadius,
-    backgroundColor: TAB_BAR_TOKENS.activeDiscColor,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 2,
+  // §3.4: amber-700 2dp underline below icon — REPLACES disc
+  activeUnderline: {
+    width: '80%',                                      // covers most of tab column width
+    height: TAB_BAR_TOKENS.activeUnderlineHeight,      // 2dp
+    backgroundColor: TAB_BAR_TOKENS.activeUnderlineColor, // amber-700 #9A5F0A
+    borderRadius: 1,                                   // slight rounding
+    marginBottom: 4,                                   // 4dp gap between underline and icon
+  },
+  // Placeholder for inactive tabs (same height as underline to keep icon positions aligned)
+  underlinePlaceholder: {
+    width: '80%',
+    height: TAB_BAR_TOKENS.activeUnderlineHeight,      // 2dp — same as underline
+    backgroundColor: 'transparent',
+    marginBottom: 4,
   },
 });
 
@@ -345,29 +350,49 @@ export function BottomTabNavigator({
         )}
       </Tab.Screen>
 
-      {/* Tab 3: Home (center) — dashboard + snapshot-population ─────────── */}
-      {/* v2: HomeTabScreen owns the full snapshot-population path (§3 build risk).
-          LangToggle + gear ⚙ now on HomeTabScreen top bar (moved from Calendar §3.2).
-          DoctorReport entry row at bottom (spec §3.3). */}
+      {/* Tab 3: Home — dashboard + snapshot-population ────────────────────── */}
+      {/* v3 Mother's Room: amber CTA (onCapture) + milestone sheet (onOpenMilestoneSheet)
+          wired here. WeeklyMilestoneSheet is a Modal within HomeTabScreen — NOT a new
+          route — so we pass the opener as a prop (§4.2 + §4.3 nav map). */}
       <Tab.Screen name="Home">
-        {({ navigation: tabNavigation }) => (
-          <HomeTabScreen
-            tokenStorage={tokenStorage}
-            apiBaseUrl={apiBaseUrl}
-            onLogout={handleLogout}
-            onNeedsProfile={() =>
-              navigation.reset({ index: 0, routes: [{ name: 'ProfileSetup' }] })
-            }
-            onBirthEvent={(profileVersion) =>
-              navigation.navigate('BirthEvent', { profileVersion })
-            }
-            onSuggestions={() => navigation.navigate('Suggestions')}
-            onKickCount={() => navigation.navigate('KickCountHome')}
-            onSupplies={() => tabNavigation.navigate('Supplies')}
-            onCalendar={() => tabNavigation.navigate('Calendar')}
-            onDoctorReport={() => navigation.navigate('DoctorReport')}
-          />
-        )}
+        {({ navigation: tabNavigation }) => {
+          // WeeklyMilestoneSheet state — managed here so HomeTabScreen stays pure
+          // (lifted to BottomTabNavigator since sheet is Modal within Home tab zone).
+          // For Phase 1 the sheet opens; content is placeholder (full data wiring = Phase 2).
+          // eslint-disable-next-line react-hooks/rules-of-hooks
+          const [milestoneSheetVisible, setMilestoneSheetVisible] = React.useState(false);
+          return (
+            <>
+              <HomeTabScreen
+                tokenStorage={tokenStorage}
+                apiBaseUrl={apiBaseUrl}
+                onLogout={handleLogout}
+                onNeedsProfile={() =>
+                  navigation.reset({ index: 0, routes: [{ name: 'ProfileSetup' }] })
+                }
+                onBirthEvent={(profileVersion) =>
+                  navigation.navigate('BirthEvent', { profileVersion })
+                }
+                onSuggestions={() => navigation.navigate('Suggestions')}
+                onKickCount={() => navigation.navigate('KickCountHome')}
+                onSupplies={() => tabNavigation.navigate('Supplies')}
+                onCalendar={() => tabNavigation.navigate('Calendar')}
+                onDoctorReport={() => navigation.navigate('DoctorReport')}
+                onCapture={() => navigation.navigate('Capture', { loggedAtDate: undefined })}
+                onOpenMilestoneSheet={() => setMilestoneSheetVisible(true)}
+              />
+              {/* §4.2: WeeklyMilestoneSheet — Modal within Home tab (not a route) */}
+              <WeeklyMilestoneSheet
+                visible={milestoneSheetVisible}
+                onClose={() => setMilestoneSheetVisible(false)}
+                onNavigateToCapture={() => {
+                  setMilestoneSheetVisible(false);
+                  navigation.navigate('Capture', { loggedAtDate: undefined });
+                }}
+              />
+            </>
+          );
+        }}
       </Tab.Screen>
 
       {/* Tab 4: Calendar — CalendarScreen DIRECT (fixes nested ScrollView bug §6B) */}

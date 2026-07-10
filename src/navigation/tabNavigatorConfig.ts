@@ -122,30 +122,47 @@ export const INITIAL_TAB: 'Home' = 'Home';
 /** Zero-indexed position of the center tab (Home = index 2 of 5). */
 export const CENTER_TAB_INDEX = 2;
 
-// ─── Design tokens (tab bar visual spec v2 §2.1, §7.5) ───────────────────────
+// ─── Design tokens (tab bar v3 Mother's Room §3.4 + §4.1) ────────────────────
+//
+// Mother's Room changes from v2:
+//   - Background: #FFFFFF → ivory-100 #FBF6F1 (matches screen surface; §4.1)
+//   - Border: #EBE1D9 → #E8DDD5 (new divider token; §1.3)
+//   - Active indicator: DISC (rose/600 52dp) → 2dp amber-700 UNDERLINE below icon (§3.4)
+//   - Active icon: #FFFFFF (white on disc) → roselle-900 #4A2230 (no disc)
+//   - Active label: rose/700 #8E3A44 → roselle-900 #4A2230 (§3.4)
+//   - Inactive: ink/soft #5F4A52 → roselle-700 #7A3A52 (§3.4)
+//   - Focus ring: honey/700 #B96A28 → amber-600 #B8720E (T.focus.ring.color §8.5)
+//   - Disc tokens REMOVED: activeDiscColor, activeDiscSize, activeDiscRadius
 
 export const TAB_BAR_TOKENS = {
-  /** Tab bar container background (surface/page). */
-  background: '#FFFFFF',
-  /** Top border hairline color. */
-  borderColor: '#EBE1D9',
+  /** Tab bar container background — ivory-100 #FBF6F1 (matches screen background; §4.1). */
+  background: '#FBF6F1',
+  /** Top border hairline color — divider #E8DDD5 (§1.3). */
+  borderColor: '#E8DDD5',
   /** Tab bar content height in dp (above safe-area inset). */
   contentHeight: 56,
   /**
-   * Active disc: rose/600 fill — shown on FOCUSED tab (any of 5 tabs, v2 §2.1).
-   * Renamed from centerDiscColor to reflect moving-disc behavior.
+   * Active underline: amber-700 #9A5F0A — 2dp underline BELOW icon (§3.4).
+   * Replaces the v2 moving disc (disc removed in Mother's Room).
+   * Aligned with T.tab.active.underline.color.
    */
-  activeDiscColor: '#A8505A',
-  /** Active disc: icon color (white on rose/600 background). */
-  activeIconColor: '#FFFFFF',
-  /** Active disc size in dp (52×52dp per spec §2.1). */
-  activeDiscSize: 52,
-  /** Active disc border radius (pill = 999). */
-  activeDiscRadius: 999,
-  /** Active tab label color (rose/700). */
-  activeLabelColor: '#8E3A44', // rose/700
-  /** Inactive tab icon + label color (ink/soft — meets 4.5:1 AA contrast). */
-  inactiveColor: '#5F4A52',
-  /** Focus ring color (honey/700, keyboard / switch-control §8.5). */
-  focusRingColor: '#B96A28',
+  activeUnderlineColor: '#9A5F0A',
+  /** Active underline height in dp (§3.4: 2dp). Aligned with T.tab.active.underline.height. */
+  activeUnderlineHeight: 2,
+  /**
+   * Active tab icon color — roselle-900 #4A2230 (no disc; icon shown directly on ivory).
+   * WCAG: 12.57:1 AAA on ivory-100 background.
+   * Aligned with T.tab.active.icon.color.
+   */
+  activeIconColor: '#4A2230',
+  /** Active tab label color — roselle-900 #4A2230. Aligned with T.tab.active.label.color. */
+  activeLabelColor: '#4A2230',
+  /**
+   * Inactive tab icon + label color — roselle-700 #7A3A52.
+   * WCAG: 7.70:1 AAA on ivory-100 background.
+   * Aligned with T.tab.inactive.icon.color.
+   */
+  inactiveColor: '#7A3A52',
+  /** Focus ring color — amber-600 #B8720E (T.focus.ring.color; keyboard / switch-control §8.5). */
+  focusRingColor: '#B8720E',
 } as const;

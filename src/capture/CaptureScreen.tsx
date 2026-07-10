@@ -316,7 +316,7 @@ function TextRegion({ metricLabel, value, onChangeText, placeholder }: TextRegio
         multiline
         numberOfLines={3}
         placeholder={placeholder}
-        placeholderTextColor="#94818A"
+        placeholderTextColor={T.input.placeholder}
         accessibilityLabel={`${metricLabel}, ช่องข้อความ / edit text`}
         textAlignVertical="top"
       />
@@ -1370,13 +1370,13 @@ const styles = StyleSheet.create({
     minHeight: 52, // a11y ≥ 48dp
   },
   saveBtnDisabled: {
-    backgroundColor: 'rgba(154, 95, 10, 0.45)', // amber-700 at 45% opacity
+    backgroundColor: T.scrim.amber,
   },
   saveBtnText: {
     fontFamily: T.type.bodyLarge.fontFamily,
     fontSize: 17,
     lineHeight: 22,
-    color: '#FFFFFF',
+    color: T.color.text.onDark,
   },
 
   // Saved confirmation (§5.1)
@@ -1434,7 +1434,7 @@ const styles = StyleSheet.create({
   savedPrimaryBtnText: {
     fontFamily: T.type.bodyLarge.fontFamily,
     fontSize: 15,
-    color: '#FFFFFF',
+    color: T.color.text.onDark,
   },
 
   bottomSpacer: { height: 8 },
@@ -1626,7 +1626,7 @@ const segStyles = StyleSheet.create({
 const pickerStyles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(74,34,48,0.4)',
+    backgroundColor: T.scrim.color,
     justifyContent: 'flex-end',
   },
   card: {

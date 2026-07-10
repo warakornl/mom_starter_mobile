@@ -156,13 +156,13 @@ const styles = StyleSheet.create({
     fontFamily: T.type.label.fontFamily,   // Sarabun-SemiBold
     fontSize: T.type.label.size,           // 15sp
     lineHeight: T.type.label.lineHeight,   // 24sp (1.6× — Thai rule)
-    color: T.color.text.primary,           // roselle-900 #4A2230
+    color: T.color.text.primary,           // roselle-700 #7A3A52
   },
   valueText: {
     fontFamily: T.type.label.fontFamily,   // Sarabun-SemiBold
     fontSize: T.type.label.size,           // 15sp
     lineHeight: T.type.label.lineHeight,   // 24sp
-    color: T.color.text.primary,           // roselle-900 #4A2230
+    color: T.color.text.primary,           // roselle-700 #7A3A52
     textAlign: 'right',
   },
   subtitleText: {

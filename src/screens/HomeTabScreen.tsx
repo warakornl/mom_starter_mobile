@@ -307,7 +307,7 @@ const greetingStyles = StyleSheet.create({
     fontFamily: T.type.body.fontFamily,   // Sarabun-Regular
     fontSize: T.type.body.size,           // 15sp
     lineHeight: T.type.body.lineHeight,   // 25sp
-    color: T.color.text.primary,          // roselle-900 #4A2230 (matches roselle family)
+    color: T.color.text.primary,          // roselle-700 #7A3A52 (7.70:1 AAA)
   },
 });
 
@@ -464,7 +464,7 @@ function PostpartumDayCard({ pp }: { pp: PostpartumAge }): React.JSX.Element {
 
 const ppCardStyles = StyleSheet.create({
   card: {
-    backgroundColor: T.color.surface.base,  // #FFFFFF
+    backgroundColor: T.color.surface.base,  // ivory-100 #FBF6F1
     borderRadius: T.radius.md,              // 12dp
     borderWidth: 1,
     borderColor: T.color.surface.divider,   // #E8DDD5

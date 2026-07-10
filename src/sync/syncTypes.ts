@@ -62,6 +62,11 @@ export type SupplyCategory =
 /**
  * SupplyItem — full record including the <sync> block.
  * version = 0 on first create (create sentinel); server assigns version ≥ 1.
+ *
+ * Auto stock-decrement additions (api-contract.md §SupplyItemInput):
+ *   usesPerContainer — SYNCED; int ≥ 1; NULL = discrete/manual item (unchanged path).
+ *   usesRemainingInOpenContainer — MOBILE-LOCAL-ONLY; NEVER in push/pull payload;
+ *     a per-scoop mutation NEVER bumps version/updatedAt (INV-ASD-8).
  */
 export interface SupplyItemRecord {
   id: string;
@@ -71,6 +76,18 @@ export interface SupplyItemRecord {
   onHandQty: number;
   lowThreshold?: number;
   lowNotifiedAtVersion?: number;
+  /**
+   * Uses per container (pack/tin/bottle) — SYNCED config.
+   * int ≥ 1; NULL = discrete/manual item (whole-unit path unchanged).
+   * See auto-stock-decrement-architecture.md §3.1.
+   */
+  usesPerContainer?: number | null;
+  /**
+   * Uses remaining in the currently open container — MOBILE-LOCAL-ONLY.
+   * NEVER pushed or pulled (INV-ASD-8). Range: [0, usesPerContainer].
+   * Absent from server schema. A per-scoop mutation NEVER bumps version/updatedAt.
+   */
+  usesRemainingInOpenContainer?: number;
   // <sync>
   version: number;
   createdAt: string;
@@ -138,6 +155,12 @@ export type ReminderSourceRefType =
  *
  * Security: displayTitle is NOT encrypted (lock-screen-generic-title rule
  * removes the need — ruling 3); it is plaintext on the server.
+ *
+ * Auto stock-decrement (api-contract.md §ReminderInput):
+ *   careActivityType — nullable; SYNCED, general_health. Self-identifies a
+ *   care-activity reminder whose terminal done occurrence is the canonical T-D
+ *   decrement signal (auto-stock-decrement-architecture.md §1.1).
+ *   feeding is intentionally absent (structural anti-double-count, US-AS6).
  */
 export interface ReminderRecord {
   id: string;
@@ -147,6 +170,14 @@ export interface ReminderRecord {
   hideOnLockScreen?: boolean;
   sourceRefType?: ReminderSourceRefType;
   sourceRefId?: string;
+  /**
+   * Care-activity type — auto-stock-decrement T-D signal (INV-ASD-9).
+   * NULL = ordinary reminder, never decrements.
+   * diaper_change | bathing → terminal done occurrence is the T-D trigger.
+   * feeding is NOT a valid value here (structural anti-double-count US-AS6).
+   * SYNCED, gated general_health.
+   */
+  careActivityType?: 'diaper_change' | 'bathing' | null;
   /** FLAG-4 recurrence grammar — expanded with startAt. */
   recurrenceRule: RecurrenceRuleWire;
   /** Floating-civil anchor "YYYY-MM-DDTHH:mm" for expansion + first-day guard. */
@@ -714,6 +745,123 @@ export interface SelfLog {
   deletedAt?: string | null;
 }
 
+// ─── FeedingSession (api-contract.md §FeedingSessionInput / §2 ASD) ──────────
+
+/**
+ * Activity type enum for auto-stock-decrement mappings.
+ * feeding is intentionally absent (structural anti-double-count US-AS6):
+ * a feeding reminder-done never decrements — only a FeedingSession(kind=formula) does.
+ */
+export type CareActivityType = 'diaper_change' | 'bathing';
+
+/**
+ * FeedingSessionRecord — an immutable feeding event.
+ *
+ * Auto stock-decrement extension: kind gains 'formula'; amountSubUnits added.
+ *   kind=formula → the canonical T-F decrement trigger (arch §2).
+ *   amountSubUnits: nullable int ≥ 0 — meaningful only for kind=formula.
+ *     null = fall back to enabled feeding_formula mapping's defaultQty (D-2).
+ *     0   = no-op draw (still logs, no decrement — D-2).
+ *     n≥1 = verbatim amount used this feed (overrides defaultQty).
+ *   HEALTH-side (SD-10) — dual-gated infant_feeding + general_health.
+ *   amountSubUnits NEVER copied to the supplies side (INV-ASD-4).
+ *
+ * Immutable event: create-only; corrections = new row + tombstone of old.
+ * MOTHER-health: gated cloud_storage (whole-batch) + infant_feeding (per-collection).
+ * Security: NEVER log amountSubUnits or any feeding value (SD-5 / K-8).
+ */
+export interface FeedingSessionRecord {
+  /** UUIDv4 client-generated (canonical lowercase 8-4-4-4-12). */
+  id: string;
+  /** Feed kind — breastfeed/pump unchanged; formula = T-F decrement trigger. */
+  kind: 'breastfeed' | 'pump' | 'formula';
+  /** Which breast — left | right | both. Meaningful for breastfeed only. */
+  side?: 'left' | 'right' | 'both' | null;
+  /**
+   * Floating-civil "YYYY-MM-DDTHH:mm" — bucket key (FLAG-1).
+   * NEVER UTC-normalized; calendar bucketing uses the date-part.
+   */
+  startedAt: string;
+  /** Session duration in seconds (optional). */
+  durationSeconds?: number | null;
+  /** Volume in mL (optional, orthogonal to amountSubUnits). */
+  volumeMl?: number | null;
+  /**
+   * Servings/scoops given this feed — meaningful only when kind=formula.
+   * null = fall back to mapping.defaultQty (D-2 defensive branch).
+   * 0   = no-op draw (valid; still logs — D-2 / E-1).
+   * n≥1 = verbatim sub-unit amount for this feed.
+   * NEVER interpreted server-side. HEALTH-side, NEVER on supplies row (INV-ASD-4).
+   * NEVER log this value (K-8 / SD-5).
+   */
+  amountSubUnits?: number | null;
+  /** Optional free-text note — encrypted (SD-10). Never parsed. */
+  note?: string | null;
+  // ── <sync> block ─────────────────────────────────────────────────────────
+  /** Create sentinel = 0; server assigns ≥ 1 on first apply. */
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt?: string | null;
+}
+
+// ─── ConsumptionMapping (api-contract.md §ConsumptionMappingInput / ASD §4) ──
+
+/**
+ * ActivityType for ConsumptionMapping — the three supported activity triggers.
+ * feeding_formula → gated infant_feeding + general_health (dual, like FeedingSession).
+ * diaper_change / bathing → gated general_health only.
+ */
+export type MappingActivityType = 'feeding_formula' | 'diaper_change' | 'bathing';
+
+/**
+ * ConsumptionMappingRecord — health-side mapping of an activity → supply item.
+ *
+ * Mutable → LWW on server updatedAt + optimistic version (like SupplyItem).
+ * Per-row consent by activityType (api-contract.md §ConsumptionMappingInput).
+ * Stored in the feed-log crypto-shred / GC circle.
+ *
+ * HEALTH-side (INV-ASD-9): the supply row carries ZERO activity linkage.
+ * The health→supply reference lives HERE, never the reverse.
+ *
+ * D-4 steer-to-pack: enabled=true is only valid when the linked item has
+ * usesPerContainer ≥ 2. Client enforces; trigger-time backstop (functional §5.3).
+ *
+ * Milk-Code (FW-1): no brand/product/price/vendor field on this record.
+ * NEVER log supplyItemId or defaultQty (health-adjacent, SD-5 / INV-ASD-5).
+ */
+export interface ConsumptionMappingRecord {
+  /** UUIDv4 client-generated. */
+  id: string;
+  /** Which completion event drives this mapping (one mapping per activity per device). */
+  activityType: MappingActivityType;
+  /**
+   * Soft ref to SupplyItem.id — NO server FK cascade (INV-ASD-9).
+   * null/absent = mapping configured but not yet linked to an item → skip (E-2).
+   */
+  supplyItemId?: string | null;
+  /**
+   * Per-use decrement amount (int ≥ 0).
+   * 0 = no-op draw (valid; still records the marker).
+   * For T-F, this is the default; the mother may override per feed via amountSubUnits.
+   * For T-D, this is always used (no per-occurrence override).
+   * NEVER log this value (health-adjacent, INV-ASD-5).
+   */
+  defaultQty: number;
+  /**
+   * Whether this mapping is currently active.
+   * D-4 steer-to-pack: enabled=true only if linked item usesPerContainer ≥ 2.
+   * Client enforces; trigger-time backstop (functional §5.3 E-9).
+   */
+  enabled: boolean;
+  // ── <sync> block ─────────────────────────────────────────────────────────
+  /** Create sentinel = 0; server assigns ≥ 1 on first apply. */
+  version: number;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt?: string | null;
+}
+
 // ─── Union of all sync records (for ConflictRecord.serverRecord) ──────────────
 
 export type SyncRecord =
@@ -725,7 +873,9 @@ export type SyncRecord =
   | ExpenseRecord
   | SelfLog
   | MedicationPlan
-  | MedicationLog;
+  | MedicationLog
+  | FeedingSessionRecord
+  | ConsumptionMappingRecord;
 
 // ─── Push request ─────────────────────────────────────────────────────────────
 
@@ -854,6 +1004,44 @@ export interface SyncChangeSet {
     created: MedicationLog[];
     /** Always empty — immutable event, no in-place rewrites (D3). */
     updated: MedicationLog[];
+    /** Bare uuids for tombstone-wins (soft-delete). */
+    deleted: string[];
+  };
+  /**
+   * feedingSessions — immutable event union (arch §2 / FeedingSessionRecord).
+   *
+   * Create-only: each session has a distinct client-gen UUIDv4.
+   * updated[] is ALWAYS EMPTY — immutable event.
+   * kind=formula rows are the T-F auto-decrement trigger (arch §1.1).
+   * amountSubUnits is transmitted but NEVER interpreted server-side (INV-ASD-4).
+   * HEALTH-side: gated cloud_storage (whole-batch) + infant_feeding (per-collection, ruling 6).
+   * Security: NEVER log amountSubUnits or any feeding value (SD-5 / K-8).
+   */
+  feedingSessions?: {
+    /** New feeding session events from this device's offline queue. */
+    created: FeedingSessionRecord[];
+    /** Always empty — immutable event union (no in-place rewrites). */
+    updated: FeedingSessionRecord[];
+    /** Bare uuids for tombstone-wins (soft-delete). */
+    deleted: string[];
+  };
+  /**
+   * consumptionMappings — mutable LWW health-side mappings (arch §4 / INV-ASD-9).
+   *
+   * Like SupplyItem/MedicationPlan: all three buckets are live.
+   * Per-row consent by activityType (api-contract.md §ConsumptionMappingInput):
+   *   feeding_formula → infant_feeding + general_health (dual).
+   *   diaper_change / bathing → general_health only.
+   * The supply row carries ZERO activity linkage (INV-ASD-9).
+   * HEALTH-side: gated cloud_storage (whole-batch) + per-row consent.
+   * Milk-Code (FW-1): no brand/product/price/vendor field.
+   * Security: NEVER log supplyItemId or defaultQty (INV-ASD-5 / SD-5).
+   */
+  consumptionMappings?: {
+    /** New mappings (create sentinel version=0). */
+    created: ConsumptionMappingRecord[];
+    /** Edited mappings — LWW merge. */
+    updated: ConsumptionMappingRecord[];
     /** Bare uuids for tombstone-wins (soft-delete). */
     deleted: string[];
   };

@@ -49,6 +49,7 @@ import type { OfferableSuggestion, SuggestionKey, CaptureTarget, SuggestionCatal
 import type { Stage } from '../pregnancy/gestationalAge';
 import type { Lifecycle } from '../pregnancy/types';
 import { useT } from '../i18n/LanguageContext';
+import { T } from '../theme/tokens';
 import { buildAncStartPayload } from './ancHandleStart';
 import { ANC_PREFILL_DATE, ANC_CATALOG_COPY } from './ancConfig';
 
@@ -290,21 +291,15 @@ function SuggestionCard({
 
 const cardStyles = StyleSheet.create({
   card: {
-    backgroundColor: '#FFFFFF', // surface/page
-    borderRadius: 20,           // radius/lg
+    backgroundColor: T.color.surface.subtle,
+    borderRadius: T.radius.lg,
     borderWidth: 1,
-    borderColor: '#EBE1D9',     // hairline
+    borderColor: T.color.surface.divider,
     padding: 16,
     gap: 10,
-    // elev/1
-    shadowColor: '#3A2A30',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 1,
-    // rose/50 left inset (design-system §5.3 "soft rose/50 left inset")
+    ...T.elev[1],
     borderLeftWidth: 4,
-    borderLeftColor: '#FBEDEE', // rose/50
+    borderLeftColor: T.color.surface.wash.amber,
   },
   titleRow: {
     flexDirection: 'row',
@@ -317,29 +312,24 @@ const cardStyles = StyleSheet.create({
   },
   title: {
     flex: 1,
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 17,
-    lineHeight: 26,
-    color: '#3A2A30', // ink
+    fontFamily: T.type.label.fontFamily,
+    fontSize: T.type.bodyLarge.size,
+    lineHeight: T.type.bodyLarge.lineHeight,
+    color: T.color.text.heading,
   },
   reason: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 16,
-    lineHeight: 25,
-    color: '#5F4A52', // ink/soft
+    fontFamily: T.type.body.fontFamily,
+    fontSize: T.type.body.size,
+    lineHeight: T.type.body.lineHeight,
+    color: T.color.text.primary,
   },
-  /**
-   * ANC inline disclaimer block (INV-A6 / design-system §2.4):
-   *   - caption (13pt), ink/soft (#5F4A52), 8dp top margin from headline
-   *   - NEVER truncated — no numberOfLines cap (design spec: wraps to required lines)
-   *   - Always-on for anc_next_checkup card; absent for all other cards
-   */
+  // ANC inline disclaimer (INV-A6 — always-on, NEVER truncated)
   ancDisclaimer: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 13,
-    lineHeight: 19,
-    color: '#5F4A52', // ink/soft (design-system §2.4)
-    marginTop: 8, // space/2 (8dp) per design spec §2.4
+    fontFamily: T.type.caption.fontFamily,
+    fontSize: T.type.caption.size,
+    lineHeight: T.type.caption.lineHeight,
+    color: T.color.text.primary,
+    marginTop: 8,
   },
   ribbon: {
     flexDirection: 'row',
@@ -347,21 +337,21 @@ const cardStyles = StyleSheet.create({
     gap: 6,
     paddingTop: 4,
     borderTopWidth: 1,
-    borderTopColor: '#EBE1D9', // hairline
+    borderTopColor: T.color.surface.divider,
   },
   ribbonDot: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 11,
-    lineHeight: 19,
-    color: '#94818A', // ink/faint
+    fontFamily: T.type.micro.fontFamily,
+    fontSize: T.type.micro.size,
+    lineHeight: T.type.caption.lineHeight,
+    color: T.color.text.primary,
     flexShrink: 0,
   },
   ribbonText: {
     flex: 1,
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 13,
-    lineHeight: 19,
-    color: '#94818A', // ink/faint
+    fontFamily: T.type.caption.fontFamily,
+    fontSize: T.type.caption.size,
+    lineHeight: T.type.caption.lineHeight,
+    color: T.color.text.primary,
   },
   actions: {
     flexDirection: 'row',
@@ -372,32 +362,32 @@ const cardStyles = StyleSheet.create({
   startBtn: {
     height: 40,
     paddingHorizontal: 20,
-    backgroundColor: '#A8505A', // rose/600
-    borderRadius: 999,
+    backgroundColor: T.button.primary.bg,
+    borderRadius: T.radius.pill,
     alignItems: 'center',
     justifyContent: 'center',
     minWidth: 80,
   },
   startBtnText: {
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 15,
-    color: '#FFFFFF',
+    fontFamily: T.type.label.fontFamily,
+    fontSize: T.type.body.size,
+    color: T.color.text.onDark,
   },
   snoozeBtn: {
     height: 40,
     paddingHorizontal: 14,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: T.color.surface.subtle,
     borderWidth: 1.5,
-    borderColor: '#EBE1D9',
-    borderRadius: 999,
+    borderColor: T.color.surface.divider,
+    borderRadius: T.radius.pill,
     alignItems: 'center',
     justifyContent: 'center',
     minWidth: 72,
   },
   snoozeBtnText: {
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 14,
-    color: '#3A2A30',
+    fontFamily: T.type.label.fontFamily,
+    fontSize: T.type.caption.size,
+    color: T.color.text.heading,
   },
   dismissBtn: {
     height: 40,
@@ -406,9 +396,9 @@ const cardStyles = StyleSheet.create({
     justifyContent: 'center',
   },
   dismissBtnText: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 14,
-    color: '#8E3A44', // rose/700
+    fontFamily: T.type.caption.fontFamily,
+    fontSize: T.type.caption.size,
+    color: T.color.text.primary,
   },
 });
 
@@ -458,20 +448,20 @@ const dismissedStyles = StyleSheet.create({
     paddingTop: 8,
   },
   sectionTitle: {
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 13,
-    lineHeight: 19,
-    color: '#94818A', // ink/faint
+    fontFamily: T.type.label.fontFamily,
+    fontSize: T.type.caption.size,
+    lineHeight: T.type.caption.lineHeight,
+    color: T.color.text.primary,
     marginBottom: 4,
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    backgroundColor: T.color.surface.subtle,
+    borderRadius: T.radius.md,
     borderWidth: 1,
-    borderColor: '#EBE1D9',
+    borderColor: T.color.surface.divider,
     padding: 12,
   },
   glyph: {
@@ -481,25 +471,25 @@ const dismissedStyles = StyleSheet.create({
   },
   title: {
     flex: 1,
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 14,
-    lineHeight: 21,
-    color: '#94818A', // ink/faint — dimmed since dismissed
+    fontFamily: T.type.caption.fontFamily,
+    fontSize: T.type.caption.size,
+    lineHeight: T.type.caption.lineHeight,
+    color: T.color.text.primary,
   },
   reenableBtn: {
     height: 32,
     paddingHorizontal: 12,
     borderWidth: 1,
-    borderColor: '#A8505A', // rose/600
-    borderRadius: 999,
+    borderColor: T.color.accent.identity,
+    borderRadius: T.radius.pill,
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
   },
   reenableBtnText: {
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 13,
-    color: '#A8505A', // rose/600
+    fontFamily: T.type.label.fontFamily,
+    fontSize: T.type.caption.size,
+    color: T.color.text.primary,
   },
 });
 
@@ -700,21 +690,21 @@ export function SuggestionFlowScreen({
   );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
+// ─── Styles — ห้องแม่ Phase 2 B4: full semantic T.* migration ────────────────
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FBF6F1', // bg/warm-milk
+    backgroundColor: T.color.surface.base,
   },
 
   header: {
     paddingHorizontal: 24,
     paddingTop: Platform.OS === 'ios' ? 56 : 24,
     paddingBottom: 12,
-    backgroundColor: '#FBF6F1',
+    backgroundColor: T.color.surface.base,
     borderBottomWidth: 1,
-    borderBottomColor: '#EBE1D9',
+    borderBottomColor: T.color.surface.divider,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
@@ -724,18 +714,18 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   backBtnText: {
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 15,
-    color: '#8E3A44', // rose/700
+    fontFamily: T.type.label.fontFamily,
+    fontSize: T.type.body.size,
+    color: T.color.text.primary,
   },
   navTitle: {
     flex: 1,
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 18,
-    lineHeight: 28,
-    color: '#3A2A30',
+    fontFamily: T.type.label.fontFamily,
+    fontSize: T.type.heading2.size,
+    lineHeight: T.type.heading2.lineHeight,
+    color: T.color.text.heading,
     textAlign: 'center',
-    marginRight: 60, // balance the back button width
+    marginRight: 60,
   },
 
   scroll: {
@@ -750,16 +740,16 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   stageStripText: {
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 15,
-    lineHeight: 22,
-    color: '#5F4A52', // ink/soft
+    fontFamily: T.type.label.fontFamily,
+    fontSize: T.type.body.size,
+    lineHeight: T.type.body.lineHeight,
+    color: T.color.text.primary,
   },
   offersSubline: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 14,
-    lineHeight: 21,
-    color: '#94818A', // ink/faint
+    fontFamily: T.type.caption.fontFamily,
+    fontSize: T.type.caption.size,
+    lineHeight: T.type.caption.lineHeight,
+    color: T.color.text.primary,
   },
 
   emptyState: {
@@ -768,10 +758,10 @@ const styles = StyleSheet.create({
     gap: 16,
   },
   emptyText: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 16,
-    lineHeight: 25,
-    color: '#5F4A52',
+    fontFamily: T.type.body.fontFamily,
+    fontSize: T.type.body.size,
+    lineHeight: T.type.body.lineHeight,
+    color: T.color.text.primary,
     textAlign: 'center',
   },
   viewHiddenBtn: {
@@ -779,9 +769,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   viewHiddenText: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 14,
-    color: '#8E3A44',
+    fontFamily: T.type.caption.fontFamily,
+    fontSize: T.type.caption.size,
+    color: T.color.text.primary,
     textDecorationLine: 'underline',
   },
 
@@ -789,14 +779,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderTopWidth: 1,
-    borderTopColor: '#EBE1D9',
-    backgroundColor: '#FBF6F1',
+    borderTopColor: T.color.surface.divider,
+    backgroundColor: T.color.surface.base,
   },
   footerText: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 13,
-    lineHeight: 19,
-    color: '#94818A',
+    fontFamily: T.type.caption.fontFamily,
+    fontSize: T.type.caption.size,
+    lineHeight: T.type.caption.lineHeight,
+    color: T.color.text.primary,
     textAlign: 'center',
   },
 });

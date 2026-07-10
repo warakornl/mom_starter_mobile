@@ -131,8 +131,9 @@ export function SubUnitSetupScreen(
       version: item.version + 1,
       updatedAt: new Date().toISOString(),
     };
-    // INV-ASD-8: usesRemainingInOpenContainer must NOT be included in the push payload;
-    // we spread the full record but the sync client strips mobile-local-only fields.
+    // INV-ASD-8: usesRemainingInOpenContainer must NOT be included in the push payload.
+    // The egress sanitizer in supplySyncStore.drainQueue() strips this field from every
+    // supply item before the wire (structural allow-list on the push changeset).
     supplySyncStore.enqueueUpdate(updated);
     backgroundPush(props);
   }

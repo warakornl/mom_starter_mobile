@@ -50,6 +50,7 @@ import {
 } from './medicationPlanFormLogic';
 import type { MedicationPlan } from '../sync/syncTypes';
 import { decodeFieldFromBase64 } from '../capture/captureScreenLogic';
+import { T } from '../theme/tokens';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -371,7 +372,7 @@ export function MedicationPlanFormSheet({
             value={name}
             onChangeText={setName}
             placeholder={t('medication.fieldName')}
-            placeholderTextColor="#94818A"
+            placeholderTextColor={T.input.placeholder}
             autoCorrect={false}
             autoComplete="off"
             // Disable autocomplete/suggestions — spec §5.1 verbatim entry
@@ -397,7 +398,7 @@ export function MedicationPlanFormSheet({
             value={dose}
             onChangeText={setDose}
             placeholder={t('medication.fieldDose')}
-            placeholderTextColor="#94818A"
+            placeholderTextColor={T.input.placeholder}
             autoCorrect={false}
             autoComplete="off"
             textContentType="none"
@@ -615,8 +616,8 @@ export function MedicationPlanFormSheet({
               testID="med-active-toggle"
               value={active}
               onValueChange={setActive}
-              trackColor={{ false: '#EBE1D9', true: '#A8505A' }}
-              thumbColor={active ? '#FFFFFF' : '#94818A'}
+              trackColor={{ false: T.color.surface.divider, true: T.color.list.bar.pregnancy }}
+              thumbColor={T.color.text.onDark}
               accessibilityRole="switch"
               accessibilityLabel={t('medication.fieldActive')}
               accessibilityState={{ checked: active }}
@@ -657,7 +658,7 @@ export function MedicationPlanFormSheet({
           >
             {/* M5: 16dp inline spinner instead of '…' text */}
             {isSaving
-              ? <ActivityIndicator size={16} color="#FFFFFF" />
+              ? <ActivityIndicator size={16} color={T.color.text.onDark} />
               : <Text style={styles.saveBtnText}>{t('medication.save')}</Text>
             }
           </TouchableOpacity>
@@ -808,12 +809,12 @@ export function MedicationPlanFormSheet({
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(58, 42, 48, 0.4)',
+    backgroundColor: T.scrim.color,               // rgba(74,34,48,0.40) (from rgba(58,42,48,0.4))
   },
   sheet: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    backgroundColor: T.color.surface.base,         // #FBF6F1 ivory-100 (from #FFFFFF — no white surfaces)
+    borderTopLeftRadius: T.radius.lg,              // 20dp
+    borderTopRightRadius: T.radius.lg,             // 20dp
     maxHeight: '90%',
     // Sheet is anchored to the bottom via the Modal's default layout
   },
@@ -825,17 +826,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 16,
+    marginBottom: T.spacing[4],                    // 16dp
   },
   sheetTitle: {
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#3A2A30',
+    fontFamily: T.type.heading2.fontFamily,        // Sarabun-SemiBold (from IBMPlexSans-SemiBold)
+    fontSize: T.type.heading2.size,                // 20sp (from 18sp — heading2 is nearest standard)
+    lineHeight: T.type.heading2.lineHeight,        // 33
+    fontWeight: T.type.heading2.fontWeight,        // '600'
+    color: T.color.text.heading,                   // #4A2230 roselle-900 (from #3A2A30)
   },
   closeBtn: {
-    fontSize: 18,
-    color: '#94818A',
+    fontSize: T.type.bodyLarge.size,               // 17sp (from 18sp)
+    color: T.color.text.primary,                   // #7A3A52 roselle-700 (from #94818A)
     padding: 4,
     minWidth: 44,
     minHeight: 44,
@@ -845,17 +847,18 @@ const styles = StyleSheet.create({
 
   // ── Consent nudge ─────────────────────────────────────────────────────────
   consentNudge: {
-    backgroundColor: '#FBEDEE',
-    borderRadius: 10,
+    backgroundColor: T.color.surface.wash.roselle, // #F2D0DC roselle-200 (from #FBEDEE)
+    borderRadius: T.radius.sm,                     // 6dp (from 10dp)
     padding: 14,
-    marginBottom: 16,
-    borderLeftWidth: 3,
-    borderLeftColor: '#A8505A',
+    marginBottom: T.spacing[4],                    // 16dp
+    borderLeftWidth: T.list.row.accentBar.width,   // 3dp
+    borderLeftColor: T.color.accent.identity,      // #B85C78 roselle-500 (from #A8505A)
   },
   consentNudgeTitle: {
-    fontFamily: 'IBMPlexSans-Medium',
-    fontSize: 14,
-    color: '#3A2A30',
+    fontFamily: T.type.body.fontFamily,            // Sarabun-Regular (from IBMPlexSans-Medium)
+    fontSize: T.type.body.size,                    // 15sp (from 14sp)
+    lineHeight: T.type.body.lineHeight,            // 25
+    color: T.color.text.heading,                   // #4A2230 roselle-900 (from #3A2A30)
     marginBottom: 8,
   },
   consentNudgeBtn: {
@@ -865,38 +868,42 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   consentNudgeBtnText: {
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 14,
-    color: '#A8505A',
+    fontFamily: T.type.label.fontFamily,           // Sarabun-SemiBold (from IBMPlexSans-SemiBold)
+    fontSize: T.type.body.size,                    // 15sp (from 14sp)
+    lineHeight: T.type.body.lineHeight,            // 25
+    color: T.color.text.primary,                   // #7A3A52 roselle-700 (from #A8505A)
     textDecorationLine: 'underline',
   },
 
   // ── Fields ────────────────────────────────────────────────────────────────
   fieldLabel: {
-    fontFamily: 'IBMPlexSans-Medium',
-    fontSize: 14,
-    color: '#5F4A52',
+    fontFamily: T.type.body.fontFamily,            // Sarabun-Regular (from IBMPlexSans-Medium)
+    fontSize: T.type.body.size,                    // 15sp (from 14sp)
+    lineHeight: T.type.body.lineHeight,            // 25
+    color: T.color.text.primary,                   // #7A3A52 roselle-700 (from #5F4A52)
     marginBottom: 6,
     marginTop: 14,
   },
   input: {
-    backgroundColor: '#FBF6F1',
+    backgroundColor: T.input.bg,                  // #F5EDE6 ivory-200 (from #FBF6F1)
     borderWidth: 1,
-    borderColor: '#EBE1D9',
-    borderRadius: 10,
+    borderColor: T.input.border.default,           // #E8DDD5 (from #EBE1D9)
+    borderRadius: T.radius.sm,                     // 6dp (from 10dp)
     padding: 12,
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 16,
-    color: '#3A2A30',
-    minHeight: 48,
+    fontFamily: T.type.body.fontFamily,            // Sarabun-Regular (from IBMPlexSans-Regular)
+    fontSize: T.type.bodyLarge.size,               // 17sp (from 16sp — form input text)
+    lineHeight: T.type.bodyLarge.lineHeight,       // 28
+    color: T.input.text,                           // #4A2230 roselle-900 (from #3A2A30)
+    minHeight: T.input.height,                     // 52dp
   },
   inputError: {
-    borderColor: '#A8505A',
+    borderColor: T.input.border.error,             // #B85C78 roselle-500 (from #A8505A)
   },
   errorText: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 13,
-    color: '#A8505A',
+    fontFamily: T.type.caption.fontFamily,         // Sarabun-Regular (from IBMPlexSans-Regular)
+    fontSize: T.type.caption.size,                 // 13sp — text.primary (R4: not jade-600 at 13sp)
+    lineHeight: T.type.caption.lineHeight,         // 21
+    color: T.input.errorText,                      // #7A3A52 roselle-700 (from #A8505A — per input.errorText)
     marginTop: 4,
   },
   // F7: privacy row with lock glyph
@@ -907,14 +914,15 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   privacyIcon: {
-    fontSize: 12,
-    color: '#94818A',
-    lineHeight: 18,
+    fontSize: T.type.micro.size,                   // 11sp (from 12sp)
+    color: T.color.text.primary,                   // #7A3A52 roselle-700 (from #94818A)
+    lineHeight: T.type.micro.lineHeight,           // 18
   },
   privacyLine: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 12,
-    color: '#94818A',
+    fontFamily: T.type.micro.fontFamily,           // Sarabun-Regular (from IBMPlexSans-Regular)
+    fontSize: T.type.micro.size,                   // 11sp (from 12sp) — footnote per §1.7
+    lineHeight: T.type.micro.lineHeight,           // 18
+    color: T.color.text.primary,                   // #7A3A52 roselle-700 (from #94818A)
     flex: 1,
   },
 
@@ -927,9 +935,9 @@ const styles = StyleSheet.create({
   chip: {
     flex: 1,
     minHeight: 48,
-    borderRadius: 8,
+    borderRadius: T.radius.sm,                    // 6dp (from 8dp)
     borderWidth: 1.5,
-    borderColor: '#EBE1D9',
+    borderColor: T.color.surface.divider,          // #E8DDD5 (from #EBE1D9)
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 4,
@@ -937,21 +945,22 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   chipActive: {
-    borderColor: '#A8505A',
-    backgroundColor: '#FBEDEE',
+    borderColor: T.color.accent.identity,          // #B85C78 roselle-500 (from #A8505A)
+    backgroundColor: T.color.surface.wash.roselle, // #F2D0DC roselle-200 (from #FBEDEE)
   },
   chipCheck: {
-    fontSize: 12,
-    color: '#A8505A',
+    fontSize: T.type.caption.size,                 // 13sp (from 12sp)
+    color: T.color.accent.identity,                // #B85C78 roselle-500 (from #A8505A)
     fontWeight: '700',
   },
   chipText: {
-    fontFamily: 'IBMPlexSans-Medium',
-    fontSize: 13,
-    color: '#5F4A52',
+    fontFamily: T.type.caption.fontFamily,         // Sarabun-Regular (from IBMPlexSans-Medium)
+    fontSize: T.type.caption.size,                 // 13sp — text.primary (R4)
+    lineHeight: T.type.caption.lineHeight,         // 21
+    color: T.color.text.primary,                   // #7A3A52 roselle-700 (from #5F4A52)
   },
   chipTextActive: {
-    color: '#A8505A',
+    color: T.color.accent.identity,                // #B85C78 roselle-500 (from #A8505A)
     fontWeight: '700',
   },
 
@@ -963,19 +972,20 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   timeChip: {
-    backgroundColor: '#FBF6F1',
+    backgroundColor: T.input.bg,                  // #F5EDE6 ivory-200 (from #FBF6F1)
     borderWidth: 1,
-    borderColor: '#EBE1D9',
-    borderRadius: 8,
+    borderColor: T.input.border.default,           // #E8DDD5 (from #EBE1D9)
+    borderRadius: T.radius.sm,                     // 6dp (from 8dp)
     paddingVertical: 10,
-    paddingHorizontal: 16,
+    paddingHorizontal: T.spacing[4],              // 16dp
     minHeight: 48,
     justifyContent: 'center',
   },
   timeChipText: {
-    fontFamily: 'IBMPlexMono-Regular',
-    fontSize: 16,
-    color: '#3A2A30',
+    fontFamily: T.type.bodyLarge.fontFamily,       // Sarabun-Regular (from IBMPlexMono-Regular — no mono token)
+    fontSize: T.type.bodyLarge.size,               // 17sp (from 16sp — time display)
+    lineHeight: T.type.bodyLarge.lineHeight,       // 28
+    color: T.input.text,                           // #4A2230 roselle-900 (from #3A2A30)
   },
   timeChipRemove: {
     minWidth: 48,
@@ -984,8 +994,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   timeChipRemoveText: {
-    fontSize: 16,
-    color: '#94818A',
+    fontSize: T.type.bodyLarge.size,               // 17sp (from 16sp)
+    color: T.color.text.primary,                   // #7A3A52 roselle-700 (from #94818A)
   },
   addTimeBtn: {
     minHeight: 48,
@@ -994,9 +1004,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
   },
   addTimeBtnText: {
-    fontFamily: 'IBMPlexSans-Medium',
-    fontSize: 14,
-    color: '#A8505A',
+    fontFamily: T.type.body.fontFamily,            // Sarabun-Regular (from IBMPlexSans-Medium)
+    fontSize: T.type.body.size,                    // 15sp (from 14sp)
+    lineHeight: T.type.body.lineHeight,            // 25
+    color: T.color.text.primary,                   // #7A3A52 roselle-700 (from #A8505A)
   },
 
   // ── Interval stepper ──────────────────────────────────────────────────────
@@ -1013,51 +1024,54 @@ const styles = StyleSheet.create({
     height: 48,
     borderRadius: 24,
     borderWidth: 1.5,
-    borderColor: '#A8505A',
+    borderColor: T.color.accent.identity,          // #B85C78 roselle-500 (from #A8505A)
     alignItems: 'center',
     justifyContent: 'center',
   },
   stepperBtnText: {
     fontSize: 22,
-    color: '#A8505A',
+    color: T.color.accent.identity,                // #B85C78 roselle-500 (from #A8505A)
     lineHeight: 28,
   },
   stepperValue: {
-    fontFamily: 'IBMPlexMono-Regular',
-    fontSize: 24,
-    color: '#3A2A30',
+    fontFamily: T.type.heading1.fontFamily,        // Sarabun-SemiBold (from IBMPlexMono-Regular)
+    fontSize: T.type.heading1.size,                // 24sp ✓ (same)
+    lineHeight: T.type.heading1.lineHeight,        // 39
+    color: T.color.text.heading,                   // #4A2230 roselle-900 (from #3A2A30)
     minWidth: 40,
     textAlign: 'center',
   },
 
   // ── Date button ───────────────────────────────────────────────────────────
   dateBtn: {
-    backgroundColor: '#FBF6F1',
+    backgroundColor: T.input.bg,                  // #F5EDE6 ivory-200 (from #FBF6F1)
     borderWidth: 1,
-    borderColor: '#EBE1D9',
-    borderRadius: 10,
+    borderColor: T.input.border.default,           // #E8DDD5 (from #EBE1D9)
+    borderRadius: T.radius.sm,                     // 6dp (from 10dp)
     paddingVertical: 12,
     paddingHorizontal: 14,
     minHeight: 48,
     justifyContent: 'center',
   },
   dateBtnText: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 15,
-    color: '#3A2A30',
+    fontFamily: T.type.body.fontFamily,            // Sarabun-Regular (from IBMPlexSans-Regular)
+    fontSize: T.type.body.size,                    // 15sp ✓
+    lineHeight: T.type.body.lineHeight,            // 25
+    color: T.input.text,                           // #4A2230 roselle-900 (from #3A2A30)
   },
 
   // ── Echo line (F1: open-ring mark + verbatim + inactive treatment) ───────
   echoRow: {
     marginTop: 14,
-    backgroundColor: '#FBF6F1',
-    borderRadius: 8,
+    backgroundColor: T.color.surface.subtle,       // #F5EDE6 ivory-200 (from #FBF6F1)
+    borderRadius: T.radius.sm,                     // 6dp (from 8dp)
     padding: 10,
   },
   echoPrefix: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 12,
-    color: '#94818A',
+    fontFamily: T.type.micro.fontFamily,           // Sarabun-Regular (from IBMPlexSans-Regular)
+    fontSize: T.type.micro.size,                   // 11sp (from 12sp)
+    lineHeight: T.type.micro.lineHeight,           // 18
+    color: T.color.text.primary,                   // #7A3A52 roselle-700 (from #94818A)
     marginBottom: 4,
   },
   echoOccurrenceRow: {
@@ -1066,34 +1080,37 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   echoRingMark: {
-    fontSize: 14,
-    color: '#9A7E86', // due ring color (accessibility-notes §1.2)
-    lineHeight: 20,
+    fontSize: T.type.body.size,                    // 15sp (from 14sp) — due ring ◯
+    color: T.color.text.primary,                   // #7A3A52 roselle-700 (from #9A7E86 — no exact token)
+    lineHeight: T.type.body.lineHeight,            // 25
   },
   echoRingMarkInactive: {
-    color: '#94818A',
+    color: T.color.text.primary,                   // #7A3A52 roselle-700 (from #94818A — same; opacity handled by parent)
   },
   echoOccurrenceText: {
-    fontFamily: 'IBMPlexSans-Medium',
-    fontSize: 14,
-    color: '#3A2A30',
+    fontFamily: T.type.body.fontFamily,            // Sarabun-Regular (from IBMPlexSans-Medium)
+    fontSize: T.type.body.size,                    // 15sp (from 14sp)
+    lineHeight: T.type.body.lineHeight,            // 25
+    color: T.color.text.heading,                   // #4A2230 roselle-900 (from #3A2A30)
     flex: 1,
   },
   echoOccurrenceTextInactive: {
-    color: '#5F4A52',
+    color: T.color.text.primary,                   // #7A3A52 roselle-700 (from #5F4A52)
   },
   echoPlannedTag: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 12,
-    color: '#5F4A52',
+    fontFamily: T.type.micro.fontFamily,           // Sarabun-Regular (from IBMPlexSans-Regular)
+    fontSize: T.type.micro.size,                   // 11sp (from 12sp)
+    lineHeight: T.type.micro.lineHeight,           // 18
+    color: T.color.text.primary,                   // #7A3A52 roselle-700 (from #5F4A52)
     marginTop: 4,
     fontStyle: 'italic',
   },
   // (legacy echoText retained for potential external use)
   echoText: {
-    fontFamily: 'IBMPlexSans-Medium',
-    fontSize: 14,
-    color: '#3A2A30',
+    fontFamily: T.type.body.fontFamily,            // Sarabun-Regular (from IBMPlexSans-Medium)
+    fontSize: T.type.body.size,                    // 15sp (from 14sp)
+    lineHeight: T.type.body.lineHeight,            // 25
+    color: T.color.text.heading,                   // #4A2230 roselle-900 (from #3A2A30)
   },
 
   // ── Active toggle ─────────────────────────────────────────────────────────
@@ -1101,7 +1118,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 16,
+    marginTop: T.spacing[4],                       // 16dp
     paddingVertical: 8,
   },
   toggleLabelGroup: {
@@ -1109,22 +1126,24 @@ const styles = StyleSheet.create({
     marginRight: 12,
   },
   toggleLabel: {
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 15,
-    color: '#3A2A30',
+    fontFamily: T.type.label.fontFamily,           // Sarabun-SemiBold (from IBMPlexSans-SemiBold)
+    fontSize: T.type.label.size,                   // 15sp ✓
+    lineHeight: T.type.label.lineHeight,           // 24
+    color: T.color.text.heading,                   // #4A2230 roselle-900 (from #3A2A30)
   },
   toggleSubLabel: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 12,
-    color: '#5F4A52',
+    fontFamily: T.type.micro.fontFamily,           // Sarabun-Regular (from IBMPlexSans-Regular)
+    fontSize: T.type.micro.size,                   // 11sp (from 12sp — sub-label footnote)
+    lineHeight: T.type.micro.lineHeight,           // 18
+    color: T.color.text.primary,                   // #7A3A52 roselle-700 (from #5F4A52)
     marginTop: 2,
   },
 
-  // ── Save button (Primary rose/600, pill, min-h 52) ────────────────────────
+  // ── Save button (Primary amber-700 CTA) ───────────────────────────────────
   saveBtn: {
-    backgroundColor: '#A8505A',
-    borderRadius: 100,
-    minHeight: 52,
+    backgroundColor: T.button.primary.bg,         // #9A5F0A amber-700 (from #A8505A)
+    borderRadius: T.button.primary.radius,         // 12dp (from 100/pill — spec: md radius for CTA)
+    minHeight: T.button.primary.height,            // 52dp
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 20,
@@ -1133,10 +1152,11 @@ const styles = StyleSheet.create({
     opacity: 0.4,
   },
   saveBtnText: {
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 16,
-    color: '#FFFFFF',
-    fontWeight: '700',
+    fontFamily: T.type.label.fontFamily,           // Sarabun-SemiBold (from IBMPlexSans-SemiBold)
+    fontSize: T.type.body.size,                    // 15sp (from 16sp)
+    lineHeight: T.type.body.lineHeight,            // 25
+    color: T.color.text.onDark,                    // #FFFFFF
+    fontWeight: T.type.label.fontWeight,           // '600'
   },
 
   // ── Edit-mode secondary actions (F4: Quiet variant + sub-copy) ────────────
@@ -1146,8 +1166,8 @@ const styles = StyleSheet.create({
   },
   hairlineDivider: {
     height: 1,
-    backgroundColor: '#EBE1D9',
-    marginBottom: 16,
+    backgroundColor: T.color.surface.divider,      // #E8DDD5 (from #EBE1D9)
+    marginBottom: T.spacing[4],                    // 16dp
   },
   actionGroup: {
     marginBottom: 12,
@@ -1159,52 +1179,57 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   actionBtnText: {
-    fontFamily: 'IBMPlexSans-Medium',
-    fontSize: 15,
-    color: '#5F4A52',
+    fontFamily: T.type.body.fontFamily,            // Sarabun-Regular (from IBMPlexSans-Medium)
+    fontSize: T.type.body.size,                    // 15sp ✓
+    lineHeight: T.type.body.lineHeight,            // 25
+    color: T.color.text.primary,                   // #7A3A52 roselle-700 (from #5F4A52)
   },
   actionSubCopy: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 12,
-    color: '#94818A',
+    fontFamily: T.type.micro.fontFamily,           // Sarabun-Regular (from IBMPlexSans-Regular)
+    fontSize: T.type.micro.size,                   // 11sp (from 12sp)
+    lineHeight: T.type.micro.lineHeight,           // 18
+    color: T.color.text.primary,                   // #7A3A52 roselle-700 (from #94818A)
     marginTop: 2,
   },
 
   // ── Delete confirm panel ──────────────────────────────────────────────────
   deletePanel: {
-    marginTop: 16,
-    backgroundColor: '#FBEDEE',
-    borderRadius: 12,
-    padding: 16,
+    marginTop: T.spacing[4],                       // 16dp
+    backgroundColor: T.color.surface.wash.roselle, // #F2D0DC roselle-200 (from #FBEDEE)
+    borderRadius: T.radius.md,                     // 12dp ✓
+    padding: T.spacing[4],                         // 16dp
     borderWidth: 1,
-    borderColor: '#EBE1D9',
+    borderColor: T.color.surface.divider,          // #E8DDD5 (from #EBE1D9)
   },
   deletePanelTitle: {
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 16,
-    color: '#3A2A30',
+    fontFamily: T.type.label.fontFamily,           // Sarabun-SemiBold (from IBMPlexSans-SemiBold)
+    fontSize: T.type.bodyLarge.size,               // 17sp (from 16sp)
+    lineHeight: T.type.bodyLarge.lineHeight,       // 28
+    color: T.color.text.heading,                   // #4A2230 roselle-900 (from #3A2A30)
     marginBottom: 8,
   },
   deletePanelBody: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 14,
-    color: '#5F4A52',
+    fontFamily: T.type.body.fontFamily,            // Sarabun-Regular (from IBMPlexSans-Regular)
+    fontSize: T.type.body.size,                    // 15sp (from 14sp)
+    lineHeight: T.type.body.lineHeight,            // 25
+    color: T.color.text.primary,                   // #7A3A52 roselle-700 (from #5F4A52)
     marginBottom: 4,
   },
-  // Cancel = Primary (rose/600) — spec §6 "Cancel-as-primary" UX pattern
+  // Cancel = Primary (amber-700) — spec §6 "Cancel-as-primary" UX pattern
   deleteCancelBtn: {
-    backgroundColor: '#A8505A',
-    borderRadius: 100,
-    minHeight: 52,
+    backgroundColor: T.button.primary.bg,         // #9A5F0A amber-700 (from #A8505A)
+    borderRadius: T.button.primary.radius,         // 12dp (from 100/pill)
+    minHeight: T.button.primary.height,            // 52dp
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 14,
   },
   deleteCancelBtnText: {
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 16,
-    color: '#FFFFFF',
-    fontWeight: '700',
+    fontFamily: T.type.label.fontFamily,           // Sarabun-SemiBold (from IBMPlexSans-SemiBold)
+    fontSize: T.type.body.size,                    // 15sp (from 16sp)
+    lineHeight: T.type.body.lineHeight,            // 25
+    color: T.color.text.onDark,                    // #FFFFFF
+    fontWeight: T.type.label.fontWeight,           // '600'
   },
   deleteConfirmBtn: {
     minHeight: 48,
@@ -1213,9 +1238,10 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   deleteConfirmBtnText: {
-    fontFamily: 'IBMPlexSans-Medium',
-    fontSize: 15,
-    color: '#94818A',
+    fontFamily: T.type.body.fontFamily,            // Sarabun-Regular (from IBMPlexSans-Medium)
+    fontSize: T.type.body.size,                    // 15sp ✓
+    lineHeight: T.type.body.lineHeight,            // 25
+    color: T.color.text.primary,                   // #7A3A52 roselle-700 (from #94818A)
     textDecorationLine: 'underline',
   },
 
@@ -1223,12 +1249,12 @@ const styles = StyleSheet.create({
   iosPickerBackdrop: {
     flex: 1,
     justifyContent: 'flex-end',
-    backgroundColor: 'rgba(58, 42, 48, 0.3)',
+    backgroundColor: T.scrim.color,               // rgba(74,34,48,0.40) (from rgba(58,42,48,0.3))
   },
   iosPickerPanel: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
+    backgroundColor: T.color.surface.base,         // #FBF6F1 ivory-100 (from #FFFFFF)
+    borderTopLeftRadius: T.radius.lg,              // 20dp (from 16dp)
+    borderTopRightRadius: T.radius.lg,             // 20dp (from 16dp)
     paddingBottom: 24,
   },
   iosPickerToolbar: {
@@ -1236,24 +1262,24 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     padding: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#EBE1D9',
+    borderBottomColor: T.color.surface.divider,    // #E8DDD5 (from #EBE1D9)
   },
   iosPickerCancel: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 16,
-    color: '#94818A',
+    fontFamily: T.type.body.fontFamily,            // Sarabun-Regular (from IBMPlexSans-Regular)
+    fontSize: T.type.bodyLarge.size,               // 17sp (from 16sp)
+    lineHeight: 44,
+    color: T.color.text.primary,                   // #7A3A52 roselle-700 (from #94818A)
     minWidth: 48,
     minHeight: 44,
-    lineHeight: 44,
   },
   iosPickerDone: {
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 18,
-    color: '#A8505A',
+    fontFamily: T.type.label.fontFamily,           // Sarabun-SemiBold (from IBMPlexSans-SemiBold)
+    fontSize: T.type.heading2.size,                // 20sp (from 18sp)
+    lineHeight: 44,
+    color: T.color.text.primary,                   // #7A3A52 roselle-700 (from #A8505A)
     minWidth: 48,
     minHeight: 44,
     textAlign: 'right',
-    lineHeight: 44,
   },
   iosPickerControl: {
     height: 216,

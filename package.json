@@ -12,6 +12,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@expo-google-fonts/fraunces": "^0.4.1",
+    "@expo-google-fonts/sarabun": "^0.4.1",
     "@react-native-community/datetimepicker": "8.0.1",
     "@react-navigation/bottom-tabs": "^6.6.1",
     "@react-navigation/native": "^6.1.0",
@@ -25,6 +27,7 @@
     "expo-print": "^57.0.0",
     "expo-secure-store": "~13.0.0",
     "expo-sharing": "^57.0.1",
+    "expo-splash-screen": "~0.27.7",
     "expo-status-bar": "~1.12.0",
     "react": "18.2.0",
     "react-native": "0.74.0",

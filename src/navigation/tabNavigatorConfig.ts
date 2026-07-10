@@ -32,6 +32,7 @@
  */
 
 import type { MessageKey } from '../i18n/messages';
+import { T } from '../theme/tokens';
 
 // ─── Tab config shape ─────────────────────────────────────────────────────────
 
@@ -135,34 +136,31 @@ export const CENTER_TAB_INDEX = 2;
 //   - Disc tokens REMOVED: activeDiscColor, activeDiscSize, activeDiscRadius
 
 export const TAB_BAR_TOKENS = {
-  /** Tab bar container background — ivory-100 #FBF6F1 (matches screen background; §4.1). */
-  background: '#FBF6F1',
-  /** Top border hairline color — divider #E8DDD5 (§1.3). */
-  borderColor: '#E8DDD5',
+  /** Tab bar container background — T.color.surface.base ivory-100 (matches screen background; §4.1). */
+  background: T.color.surface.base,
+  /** Top border hairline color — T.color.surface.divider (§1.3). */
+  borderColor: T.color.surface.divider,
   /** Tab bar content height in dp (above safe-area inset). */
   contentHeight: 56,
   /**
-   * Active underline: amber-700 #9A5F0A — 2dp underline BELOW icon (§3.4).
+   * Active underline: T.tab.active.underline.color amber-700 — 2dp underline BELOW icon (§3.4).
    * Replaces the v2 moving disc (disc removed in Mother's Room).
-   * Aligned with T.tab.active.underline.color.
    */
-  activeUnderlineColor: '#9A5F0A',
-  /** Active underline height in dp (§3.4: 2dp). Aligned with T.tab.active.underline.height. */
-  activeUnderlineHeight: 2,
+  activeUnderlineColor: T.tab.active.underline.color,
+  /** Active underline height in dp (§3.4: 2dp). */
+  activeUnderlineHeight: T.tab.active.underline.height,
   /**
-   * Active tab icon color — roselle-900 #4A2230 (no disc; icon shown directly on ivory).
+   * Active tab icon color — T.tab.active.icon.color roselle-900 (no disc; icon shown directly on ivory).
    * WCAG: 12.57:1 AAA on ivory-100 background.
-   * Aligned with T.tab.active.icon.color.
    */
-  activeIconColor: '#4A2230',
-  /** Active tab label color — roselle-900 #4A2230. Aligned with T.tab.active.label.color. */
-  activeLabelColor: '#4A2230',
+  activeIconColor: T.tab.active.icon.color,
+  /** Active tab label color — T.tab.active.label.color roselle-900. */
+  activeLabelColor: T.tab.active.label.color,
   /**
-   * Inactive tab icon + label color — roselle-700 #7A3A52.
+   * Inactive tab icon + label color — T.tab.inactive.icon.color roselle-700.
    * WCAG: 7.70:1 AAA on ivory-100 background.
-   * Aligned with T.tab.inactive.icon.color.
    */
-  inactiveColor: '#7A3A52',
-  /** Focus ring color — amber-600 #B8720E (T.focus.ring.color; keyboard / switch-control §8.5). */
-  focusRingColor: '#B8720E',
+  inactiveColor: T.tab.inactive.icon.color,
+  /** Focus ring color — T.focus.ring.color amber-600 (keyboard / switch-control §8.5). */
+  focusRingColor: T.focus.ring.color,
 } as const;

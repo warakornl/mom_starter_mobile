@@ -20,7 +20,7 @@
  * ห้องแม่ Phase 2 B1 reskin (mother-room-phase2-rollout.md §4.1 ProfileSetupScreen).
  * All tokens from T.* — NO inline hex outside tokens.ts.
  *
- * Loss-state gate: when pregnancyStatus === 'LOSS' the forward-looking
+ * Loss-state gate: when lifecycle === 'ended' the forward-looking
  * confirmation preview card (week count / stage name) is suppressed. The
  * form itself remains so the user can still update dates.
  *
@@ -47,7 +47,7 @@ import type { TokenStorage } from '../auth/tokenStorage';
 import { runSave } from './profileEditRuntimeWiring';
 import { localCivilToday, computeGestationalAge } from './gestationalAge';
 import type { Stage } from './gestationalAge';
-import type { PregnancyProfile } from './types';
+import type { PregnancyProfile, Lifecycle } from './types';
 import { useT } from '../i18n/LanguageContext';
 import { formatCivilDate, type MessageKey } from '../i18n/messages';
 import { T } from '../theme/tokens';
@@ -90,13 +90,21 @@ export interface ProfileSetupScreenProps {
   onDirty?: () => void;
   /**
    * Loss-state gate (Phase 2 B1):
-   * When `pregnancyStatus === 'LOSS'`, the forward-looking confirmation preview
+   * When `lifecycle === 'ended'`, the forward-looking confirmation preview
    * card (trimester stage + gestational week countdown) is suppressed.
    * The EDD form itself remains so the user can still update dates.
-   * Caller reads this from PregnancyProfileContext.pregnancyStatus.
+   *
+   * Wiring sources:
+   *   - Edit mode (ProfileEditScreen): pass `profile.lifecycle` from the
+   *     freshly-GETted PregnancyProfile (show-form outcome).
+   *   - Fresh setup (RootNavigator): omit the prop (undefined) — a brand-new
+   *     setup is never a loss; omission correctly yields no suppression.
+   *
+   * Lifecycle type: 'pregnant' | 'postpartum' | 'ended' (src/pregnancy/types.ts).
+   * Only 'ended' suppresses the preview.
    * Undefined / absent → treated as non-loss (no suppression).
    */
-  pregnancyStatus?: string;
+  lifecycle?: Lifecycle;
 }
 
 // ─── Input method ─────────────────────────────────────────────────────────────
@@ -153,7 +161,7 @@ export function ProfileSetupScreen({
   onSessionExpired,
   onConflict,
   onDirty,
-  pregnancyStatus,
+  lifecycle,
 }: ProfileSetupScreenProps): React.JSX.Element {
   const { t, locale } = useT();
 
@@ -295,9 +303,10 @@ export function ProfileSetupScreen({
   // ─── Live confirmation preview (client-side derived, no network) ──────────
   function renderConfirmationPreview(): React.JSX.Element | null {
     if (!isValid) return null;
-    // Loss-state gate: suppress forward-looking pregnancy preview in loss state.
+    // Loss-state gate: suppress forward-looking pregnancy preview when lifecycle
+    // is 'ended' (pregnancy ended without a birth event — the loss state).
     // The form itself (EDD entry) remains available.
-    if (pregnancyStatus === 'LOSS') return null;
+    if (lifecycle === 'ended') return null;
 
     const today = localCivilToday();
     let previewEdd: string;

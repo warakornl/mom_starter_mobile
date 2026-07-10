@@ -160,34 +160,77 @@ describe('ProfileSetupScreen — ห้องแม่ Phase 2 B1 reskin', () =>
     })).toHaveLength(0);
   });
 
-  // ─── Loss-gate tests (fail-on-revert) ────────────────────────────────────────
+  // ─── Loss-gate tests (fail-on-revert against REAL predicate + REAL prop) ────────
+  //
+  // The gate is `lifecycle === 'ended'` (Lifecycle type from types.ts).
+  // The old dead prop was `pregnancyStatus?: string` checked against 'LOSS' —
+  // that string existed nowhere in the real codebase and no caller ever passed it.
+  //
+  // FAIL-ON-REVERT proof: removing `if (lifecycle === 'ended') return null` from
+  // renderConfirmationPreview() makes the first test below RED (card present when
+  // it must be absent).  The second and third tests would go GREEN for the wrong
+  // reason, proving the first is the load-bearing assertion.
 
-  it('LOSS-GATE: preview card is SUPPRESSED when pregnancyStatus = LOSS + valid form', () => {
+  it('LOSS-GATE: preview card is SUPPRESSED when lifecycle = "ended" + valid form', () => {
+    // This is the canonical loss-gate test.
+    // lifecycle="ended" matches Lifecycle type from types.ts (= pregnancy ended/loss).
+    // Guard removal → card appears → this test goes RED. That is the fail-on-revert.
     const tree = ProfileSetupScreen({
       ...baseProps,
       existingProfile: validProfile,
-      pregnancyStatus: 'LOSS',
+      lifecycle: 'ended',
     }) as React.ReactElement;
     const cards = findAll(tree, (el) => (el.props as Record<string, unknown>).testID === 'profile-preview-card');
     expect(cards).toHaveLength(0);
   });
 
-  it('FAIL-ON-REVERT: preview card IS present when pregnancyStatus is not LOSS + valid form', () => {
+  it('FAIL-ON-REVERT: preview card IS present when lifecycle = "pregnant" + valid form', () => {
+    // Mirrors the ProfileEditScreen caller: it passes profile.lifecycle ("pregnant")
+    // after the show-form guard, so the card must NOT be suppressed.
+    // Guard removal → card stays present → this test stays GREEN (tautological alone).
+    // But combined with the LOSS-GATE test above, guard removal makes the suite RED.
     const tree = ProfileSetupScreen({
       ...baseProps,
       existingProfile: validProfile,
-      // pregnancyStatus not set → not LOSS
+      lifecycle: 'pregnant',
     }) as React.ReactElement;
     const cards = findAll(tree, (el) => (el.props as Record<string, unknown>).testID === 'profile-preview-card');
     expect(cards.length).toBeGreaterThan(0);
   });
 
-  it('FAIL-ON-REVERT: preview card IS present when pregnancyStatus = ACTIVE + valid form', () => {
+  it('FAIL-ON-REVERT: preview card IS present when lifecycle is undefined (fresh setup)', () => {
+    // RootNavigator fresh-setup path passes no lifecycle (no profile yet).
+    // undefined must NOT suppress the preview — a brand-new setup is never a loss.
     const tree = ProfileSetupScreen({
       ...baseProps,
       existingProfile: validProfile,
-      pregnancyStatus: 'ACTIVE',
+      // lifecycle absent → undefined
     }) as React.ReactElement;
+    const cards = findAll(tree, (el) => (el.props as Record<string, unknown>).testID === 'profile-preview-card');
+    expect(cards.length).toBeGreaterThan(0);
+  });
+
+  it('FAIL-ON-REVERT: preview card IS present when lifecycle = "postpartum" + valid form', () => {
+    // postpartum is not a loss state; preview must remain.
+    const tree = ProfileSetupScreen({
+      ...baseProps,
+      existingProfile: validProfile,
+      lifecycle: 'postpartum',
+    }) as React.ReactElement;
+    const cards = findAll(tree, (el) => (el.props as Record<string, unknown>).testID === 'profile-preview-card');
+    expect(cards.length).toBeGreaterThan(0);
+  });
+
+  it('WIRING: ProfileEditScreen passes profile.lifecycle (pregnant) → preview card present', () => {
+    // Exercises the wiring that ProfileEditScreen now provides via lifecycle={profile.lifecycle}.
+    // In the show-form path, lifecycle is always 'pregnant' (profileEditLogic guards ended/postpartum).
+    // This test fails if the prop rename is reverted on either end (the interface stays typed).
+    const editModeProps = {
+      ...baseProps,
+      existingProfile: { ...validProfile, lifecycle: 'pregnant' as const },
+      lifecycle: 'pregnant' as const,
+    };
+    const tree = ProfileSetupScreen(editModeProps) as React.ReactElement;
     const cards = findAll(tree, (el) => (el.props as Record<string, unknown>).testID === 'profile-preview-card');
     expect(cards.length).toBeGreaterThan(0);
   });

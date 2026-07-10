@@ -270,6 +270,14 @@ export function ProfileEditScreen({
         tokenStorage={tokenStorage}
         apiBaseUrl={apiBaseUrl}
         existingProfile={profile}
+        // Loss-state gate (Phase 2 B1): pass the real lifecycle from the
+        // freshly-GETted profile so the confirmation preview is correctly
+        // suppressed when lifecycle === 'ended'.
+        // Note: resolveEditGetOutcome() already guards lifecycle !== 'pregnant'
+        // → 'guard-not-editable', so in practice this will always be 'pregnant'
+        // here. Passing the explicit value closes the wiring gap class: if the
+        // guard ever weakens, the UI still shows the honest state.
+        lifecycle={profile.lifecycle}
         // AC-7 / R-2: goBack to Settings on 200 (NOT reset-to-Home).
         // isDirtyRef cleared BEFORE calling onEditComplete so the subsequent
         // navigation.goBack() is not intercepted by the beforeRemove guard.

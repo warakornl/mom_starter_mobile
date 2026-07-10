@@ -59,6 +59,21 @@ export interface LogoutDeps {
    * CRITICAL: required (not optional) — immutable events are still health data.
    */
   resetMedicationLogStore: () => void;
+  /**
+   * Reset the consumption mapping store (health→supply config, INV-ASD-9).
+   * Prevents User A's activity→supply mapping config from leaking to User B
+   * in the same JS session (PDPA SD-5 cross-account isolation).
+   * Optional (backward-compat) — added alongside auto-stock-decrement feature.
+   */
+  resetConsumptionMappingStore?: () => void;
+  /**
+   * Reset the stock decrement marker store (on-device-only idempotency set,
+   * INV-ASD-8). completionEventId is health-adjacent — NEVER logged (K-8/SD-5).
+   * Clearing on logout prevents User A's skip-if-seen markers from suppressing
+   * User B's first auto-decrement for the same event id (E-10 cross-account fence).
+   * Optional (backward-compat) — added alongside auto-stock-decrement feature.
+   */
+  resetStockDecrementMarkerStore?: () => void;
   /** Clear the in-progress kick-count draft from secure store (best-effort). */
   clearKickCountDraft: () => Promise<void>;
   /** Runs LAST — navigate to the unauthenticated entry (e.g. Welcome). */
@@ -74,7 +89,7 @@ export async function performLogout(deps: LogoutDeps): Promise<void> {
   // Health-store isolation (order irrelevant — independent singletons). Each is
   // guarded so a synchronous throw in one still attempts the others and never
   // strands the user before onComplete.
-  for (const reset of [deps.resetSupplyStore, deps.resetKickCountStore, deps.resetCalendarStore, deps.resetSelfLogStore, deps.resetMedicationPlanStore, deps.resetMedicationLogStore, ...(deps.resetConsentStore ? [deps.resetConsentStore] : []), ...(deps.resetSuggestionStore ? [deps.resetSuggestionStore] : []), ...(deps.resetExpensesStore ? [deps.resetExpensesStore] : [])]) {
+  for (const reset of [deps.resetSupplyStore, deps.resetKickCountStore, deps.resetCalendarStore, deps.resetSelfLogStore, deps.resetMedicationPlanStore, deps.resetMedicationLogStore, ...(deps.resetConsentStore ? [deps.resetConsentStore] : []), ...(deps.resetSuggestionStore ? [deps.resetSuggestionStore] : []), ...(deps.resetExpensesStore ? [deps.resetExpensesStore] : []), ...(deps.resetConsumptionMappingStore ? [deps.resetConsumptionMappingStore] : []), ...(deps.resetStockDecrementMarkerStore ? [deps.resetStockDecrementMarkerStore] : [])]) {
     try {
       reset();
     } catch {

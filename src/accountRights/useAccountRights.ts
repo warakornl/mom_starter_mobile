@@ -40,6 +40,8 @@ import { expensesSyncStore } from '../expenses/expensesSyncStore';
 import { selfLogSyncStore } from '../selfLog/selfLogSyncStore';
 import { medicationPlanSyncStore } from '../medication/medicationPlanSyncStore';
 import { medicationLogSyncStore } from '../medication/medicationLogSyncStore';
+import { consumptionMappingStore } from '../autoStockDecrement/consumptionMappingStore';
+import { stockDecrementMarkerStore } from '../autoStockDecrement/stockDecrementMarkerStore';
 import { performLogout } from '../auth/performLogout';
 
 // ── Account Rights imports ────────────────────────────────────────────────────
@@ -141,6 +143,8 @@ function buildPerformLogout(
       resetSelfLogStore: () => selfLogSyncStore.reset(),
       resetMedicationPlanStore: () => medicationPlanSyncStore.reset(),
       resetMedicationLogStore: () => medicationLogSyncStore.reset(),
+      resetConsumptionMappingStore: () => consumptionMappingStore.reset(),
+      resetStockDecrementMarkerStore: () => stockDecrementMarkerStore.reset(),
       clearKickCountDraft: () => clearDraft(),
       onComplete,
     });
@@ -196,6 +200,8 @@ export function useAccountRights({
       resetSelfLogStore: () => selfLogSyncStore.reset(),
       resetMedicationPlanStore: () => medicationPlanSyncStore.reset(),
       resetMedicationLogStore: () => medicationLogSyncStore.reset(),
+      resetConsumptionMappingStore: () => consumptionMappingStore.reset(),
+      resetStockDecrementMarkerStore: () => stockDecrementMarkerStore.reset(),
       clearKickCountDraft: () => clearDraft(),
       onComplete: onSessionExpired ?? onLogout,
     })();

@@ -234,3 +234,68 @@ describe('performLogout — resetMedicationLogStore (PDPA: no cross-account medi
     expect(calls[calls.length - 1]).toBe('onComplete');
   });
 });
+
+// ─── resetConsumptionMappingStore — PDPA SD-5: no cross-account mapping leak ──
+//
+// consumptionMappingStore holds which activities link to which supply items
+// (health→supply, INV-ASD-9). It is health-adjacent data and MUST be cleared on
+// logout so User A's mapping config cannot leak to User B in the same JS session.
+// Optional dep (backward-compat) — same posture as resetSuggestionStore.
+
+describe('performLogout — resetConsumptionMappingStore (PDPA SD-5: no cross-account mapping leak)', () => {
+  it('calls resetConsumptionMappingStore when provided', async () => {
+    const { deps, calls } = makeDeps({
+      resetConsumptionMappingStore: () => { calls.push('resetConsumptionMappingStore'); },
+    });
+    await performLogout(deps);
+    expect(calls).toContain('resetConsumptionMappingStore');
+    expect(calls[calls.length - 1]).toBe('onComplete');
+  });
+
+  it('still navigates when resetConsumptionMappingStore is omitted (backward-compat, optional dep)', async () => {
+    const { deps, calls } = makeDeps(); // no resetConsumptionMappingStore
+    await performLogout(deps);
+    expect(calls[calls.length - 1]).toBe('onComplete');
+  });
+
+  it('still navigates + continues even if resetConsumptionMappingStore throws synchronously', async () => {
+    const { deps, calls } = makeDeps({
+      resetConsumptionMappingStore: () => { throw new Error('consumption mapping store reset failure'); },
+    });
+    await performLogout(deps);
+    expect(calls[calls.length - 1]).toBe('onComplete');
+  });
+});
+
+// ─── resetStockDecrementMarkerStore — INV-ASD-8: on-device-only idempotency ──
+//
+// stockDecrementMarkerStore is health-adjacent (completionEventId = FeedingSession/
+// ReminderOccurrence id). It NEVER leaves the device (INV-ASD-8) and MUST be
+// cleared on logout so User A's skip-if-seen markers cannot suppress User B's
+// first auto-decrement for the same supply event id (E-10 cross-account fence).
+// Optional dep (backward-compat) — same posture as resetSuggestionStore.
+
+describe('performLogout — resetStockDecrementMarkerStore (INV-ASD-8: E-10 cross-account fence)', () => {
+  it('calls resetStockDecrementMarkerStore when provided', async () => {
+    const { deps, calls } = makeDeps({
+      resetStockDecrementMarkerStore: () => { calls.push('resetStockDecrementMarkerStore'); },
+    });
+    await performLogout(deps);
+    expect(calls).toContain('resetStockDecrementMarkerStore');
+    expect(calls[calls.length - 1]).toBe('onComplete');
+  });
+
+  it('still navigates when resetStockDecrementMarkerStore is omitted (backward-compat, optional dep)', async () => {
+    const { deps, calls } = makeDeps(); // no resetStockDecrementMarkerStore
+    await performLogout(deps);
+    expect(calls[calls.length - 1]).toBe('onComplete');
+  });
+
+  it('still navigates + continues even if resetStockDecrementMarkerStore throws synchronously', async () => {
+    const { deps, calls } = makeDeps({
+      resetStockDecrementMarkerStore: () => { throw new Error('marker store reset failure'); },
+    });
+    await performLogout(deps);
+    expect(calls[calls.length - 1]).toBe('onComplete');
+  });
+});

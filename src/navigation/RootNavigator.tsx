@@ -99,6 +99,8 @@ import { expensesSyncStore } from '../expenses/expensesSyncStore';
 import { selfLogSyncStore } from '../selfLog/selfLogSyncStore';
 import { medicationPlanSyncStore } from '../medication/medicationPlanSyncStore';
 import { medicationLogSyncStore } from '../medication/medicationLogSyncStore';
+import { consumptionMappingStore } from '../autoStockDecrement/consumptionMappingStore';
+import { stockDecrementMarkerStore } from '../autoStockDecrement/stockDecrementMarkerStore';
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
@@ -401,6 +403,8 @@ function StackNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps): React
                 resetSelfLogStore: () => selfLogSyncStore.reset(),
                 resetMedicationPlanStore: () => medicationPlanSyncStore.reset(),
                 resetMedicationLogStore: () => medicationLogSyncStore.reset(),
+                resetConsumptionMappingStore: () => consumptionMappingStore.reset(),
+                resetStockDecrementMarkerStore: () => stockDecrementMarkerStore.reset(),
                 resetConsentStore: () => consentStore.reset(),
                 resetConsentQueue: () => resetConsentQueue(),
                 resetSuggestionStore: () => suggestionStore.reset(),
@@ -664,6 +668,8 @@ function StackNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps): React
                 resetSelfLogStore: () => selfLogSyncStore.reset(),
                 resetMedicationPlanStore: () => medicationPlanSyncStore.reset(),
                 resetMedicationLogStore: () => medicationLogSyncStore.reset(),
+                resetConsumptionMappingStore: () => consumptionMappingStore.reset(),
+                resetStockDecrementMarkerStore: () => stockDecrementMarkerStore.reset(),
                 resetConsentStore: () => consentStore.reset(),
                 resetConsentQueue: () => resetConsentQueue(),
                 resetSuggestionStore: () => suggestionStore.reset(),
@@ -700,6 +706,8 @@ function StackNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps): React
                 resetSelfLogStore: () => selfLogSyncStore.reset(),
                 resetMedicationPlanStore: () => medicationPlanSyncStore.reset(),
                 resetMedicationLogStore: () => medicationLogSyncStore.reset(),
+                resetConsumptionMappingStore: () => consumptionMappingStore.reset(),
+                resetStockDecrementMarkerStore: () => stockDecrementMarkerStore.reset(),
                 resetConsentStore: () => consentStore.reset(),
                 resetConsentQueue: () => resetConsentQueue(),
                 resetSuggestionStore: () => suggestionStore.reset(),
@@ -744,6 +752,8 @@ function StackNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps): React
                 resetSelfLogStore: () => selfLogSyncStore.reset(),
                 resetMedicationPlanStore: () => medicationPlanSyncStore.reset(),
                 resetMedicationLogStore: () => medicationLogSyncStore.reset(),
+                resetConsumptionMappingStore: () => consumptionMappingStore.reset(),
+                resetStockDecrementMarkerStore: () => stockDecrementMarkerStore.reset(),
                 resetConsentStore: () => consentStore.reset(),
                 resetConsentQueue: () => resetConsentQueue(),
                 resetSuggestionStore: () => suggestionStore.reset(),

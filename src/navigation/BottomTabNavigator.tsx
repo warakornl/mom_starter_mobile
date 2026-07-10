@@ -363,7 +363,6 @@ export function BottomTabNavigator({
             }
             onSuggestions={() => navigation.navigate('Suggestions')}
             onKickCount={() => navigation.navigate('KickCountHome')}
-            onKickCountHistory={() => navigation.navigate('KickCountHistory')}
             onSupplies={() => tabNavigation.navigate('Supplies')}
             onCalendar={() => tabNavigation.navigate('Calendar')}
             onDoctorReport={() => navigation.navigate('DoctorReport')}

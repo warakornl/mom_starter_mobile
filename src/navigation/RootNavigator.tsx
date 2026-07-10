@@ -761,8 +761,8 @@ function StackNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps): React
       />
 
       {/* SC-K4: History list.
-       * Entry (postpartum): quiet history link in HomeTabScreen (v2 §4.3, direct entry).
-       * Entry (pregnant): from KickCountHome.
+       * Entry: from KickCountHome (pregnant) or KickCountSummary (all lifecycles).
+       * Note: postpartum direct-entry link in HomeTabScreen was removed per UX change.
        */}
       <Stack.Screen
         name="KickCountHistory"

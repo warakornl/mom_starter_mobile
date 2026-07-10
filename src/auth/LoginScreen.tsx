@@ -1,15 +1,24 @@
 /**
  * LoginScreen — Sign-in screen (S4)
  *
+ * ห้องแม่ Phase 2 B1 reskin (mother-room-phase2-rollout.md §4.1 LoginScreen).
  * All strings from useT() / catalog (src/i18n/messages.ts).
  * Locale is read from LanguageContext — not a prop.
  *
- * Design tokens (design-system.md §1–§5):
- *   bg/warm-milk  #FBF6F1   App background
- *   ink           #3A2A30   Primary text
- *   ink/soft      #5F4A52   Secondary / error copy
- *   rose/600      #A8505A   Primary button fill
- *   hairline      #EBE1D9   Dividers
+ * Reskin changes (all tokens — NO inline hex outside tokens.ts):
+ *   - Input bg: T.input.bg ivory-200 (#F5EDE6, NOT white)
+ *   - placeholderTextColor: T.input.placeholder roselle-700 (NOT #94818A — BANNED)
+ *   - inputError border: T.input.border.error roselle-500 (NOT old #C0762B)
+ *   - fieldError/wrongCreds: T.input.errorText roselle-700
+ *   - Primary CTA: T.button.primary.* amber-700
+ *   - primaryButtonDisabled: rgba(154,95,10,0.45) (NOT old rose #DDA0A6)
+ *   - dividerLine: T.color.surface.divider; dividerText: T.color.text.primary
+ *   - Google button: T.color.surface.subtle bg (NOT white)
+ *   - comingSoonBadge: T.color.surface.divider bg; T.color.text.primary text
+ *   - successBanner bg: T.color.surface.wash.jade jade-100; text: T.color.text.botanical jade-800
+ *   - offlineStrip bg: T.color.surface.subtle
+ *   - serverCard bg: T.color.surface.subtle; border: T.color.surface.divider
+ *   - Fonts: Sarabun throughout (no IBMPlexSans)
  */
 
 import React, { useState, useMemo, useEffect } from 'react';
@@ -35,6 +44,7 @@ import { InMemoryTokenStorage, type TokenStorage } from './tokenStorage';
 import { createAuthClient } from './authApiClient';
 import { useT } from '../i18n/LanguageContext';
 import { takePendingLoginSuccessToast } from './loginSuccessToast';
+import { T } from '../theme/tokens';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -87,9 +97,7 @@ export function LoginScreen({
   const [outcome, setOutcome] = useState<SignInOutcome | null>(null);
 
   // §3.3 success banner — seeded from the cleared-on-read pending store when
-  // LoginScreen mounts after a successful password reset.  The store is written
-  // by RootNavigator's performLogout onComplete just before navigation.reset,
-  // so the message is always available by the time this effect runs.
+  // LoginScreen mounts after a successful password reset.
   const [successBanner, setSuccessBanner] = useState<string | null>(null);
   useEffect(() => {
     const msg = takePendingLoginSuccessToast();
@@ -165,7 +173,7 @@ export function LoginScreen({
         contentContainerStyle={styles.scroll}
         keyboardShouldPersistTaps="handled"
       >
-        {/* §3.3 reset-success banner — shown once on mount after password reset */}
+        {/* §3.3 reset-success banner — jade-100 wash (7.18:1 AAA on jade-800 text) */}
         {successBanner !== null && (
           <View
             style={styles.successBanner}
@@ -202,7 +210,7 @@ export function LoginScreen({
           }}
           onBlur={handleEmailBlur}
           placeholder={t('login.emailPlaceholder')}
-          placeholderTextColor="#94818A"
+          placeholderTextColor={T.input.placeholder}        // #7A3A52 — NOT #94818A
           autoCapitalize="none"
           autoComplete="email"
           keyboardType="email-address"
@@ -226,6 +234,7 @@ export function LoginScreen({
             autoComplete="current-password"
             textContentType="password"
             accessibilityLabel={t('login.passwordLabel')}
+            placeholderTextColor={T.input.placeholder}
           />
           <TouchableOpacity
             style={styles.eyeButton}
@@ -234,7 +243,9 @@ export function LoginScreen({
             accessibilityRole="button"
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Text style={styles.eyeIcon}>{showPassword ? '🙈' : '👁'}</Text>
+            <Text style={styles.eyeIcon} accessibilityElementsHidden={true}>
+              {showPassword ? '🙈' : '👁'}
+            </Text>
           </TouchableOpacity>
         </View>
 
@@ -256,7 +267,7 @@ export function LoginScreen({
           accessibilityState={{ disabled: !canSubmit || loading, busy: loading }}
         >
           {loading ? (
-            <ActivityIndicator color="#FFFFFF" size="small" />
+            <ActivityIndicator color={T.color.text.onDark} size="small" />
           ) : (
             <Text style={styles.primaryButtonText}>{t('login.submit')}</Text>
           )}
@@ -276,7 +287,7 @@ export function LoginScreen({
           accessibilityState={{ disabled: true }}
         >
           <View style={styles.googleButtonInner}>
-            <Text style={[styles.googleButtonText, styles.googleButtonTextDisabled]}>
+            <Text style={styles.googleButtonText}>
               {`G  ${t('login.googleCta')}`}
             </Text>
             <View style={styles.comingSoonBadge}>
@@ -307,41 +318,51 @@ export function LoginScreen({
   );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
+// ─── Styles — ALL values from T.* tokens; NO inline hex ──────────────────────
 
 const styles = StyleSheet.create({
-  flex: { flex: 1, backgroundColor: '#FBF6F1' },
-  scroll: { flexGrow: 1, padding: 24 },
+  flex: {
+    flex: 1,
+    backgroundColor: T.color.surface.base,        // #FBF6F1
+  },
+  scroll: {
+    flexGrow: 1,
+    padding: T.spacing[6],                         // 24dp
+  },
 
   title: {
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 28,
-    lineHeight: 38,
-    color: '#3A2A30',
-    marginBottom: 32,
+    fontFamily: T.type.heading1.fontFamily,        // Sarabun-SemiBold
+    fontSize: T.type.heading1.size,                // 24sp
+    lineHeight: T.type.heading1.lineHeight,        // 39
+    color: T.color.text.heading,                   // #4A2230 roselle-900
+    marginBottom: T.spacing[8],                    // 32dp
   },
 
   label: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 14,
-    color: '#5F4A52',
-    marginBottom: 6,
-    marginTop: 16,
+    fontFamily: T.type.label.fontFamily,           // Sarabun-SemiBold
+    fontSize: T.type.label.size,                   // 15sp
+    lineHeight: T.type.label.lineHeight,           // 24
+    color: T.color.text.botanical,                 // #2F5042 jade-800 (8.36:1 AAA)
+    marginBottom: T.spacing[1],                    // 4dp (was 6, using 4 to align to 4dp grid)
+    marginTop: T.spacing[4],                       // 16dp
+    letterSpacing: 0,
   },
 
   input: {
-    height: 52,
+    height: T.input.height,                        // 52dp
     borderWidth: 1,
-    borderColor: '#EBE1D9',
-    borderRadius: 12,
-    backgroundColor: '#FFFFFF',
-    paddingHorizontal: 16,
-    fontSize: 16,
-    color: '#3A2A30',
-    fontFamily: 'IBMPlexSans-Regular',
+    borderColor: T.input.border.default,           // #E8DDD5
+    borderRadius: T.radius.md,                     // 12dp
+    backgroundColor: T.input.bg,                   // #F5EDE6 ivory-200 (NOT white)
+    paddingHorizontal: T.spacing[4],               // 16dp
+    fontSize: T.type.bodyLarge.size,               // 17sp
+    lineHeight: T.type.bodyLarge.lineHeight,       // 28
+    color: T.input.text,                           // #4A2230 roselle-900
+    fontFamily: T.type.bodyLarge.fontFamily,       // Sarabun-Regular
+    letterSpacing: 0,
   },
   inputError: {
-    borderColor: '#C0762B',
+    borderColor: T.input.border.error,             // #B85C78 roselle-500 (NOT old #C0762B)
   },
 
   passwordRow: { flexDirection: 'row', alignItems: 'center' },
@@ -349,67 +370,80 @@ const styles = StyleSheet.create({
   eyeButton: {
     position: 'absolute',
     right: 0,
-    height: 52,
-    width: 52,
+    height: T.input.height,                        // 52dp
+    width: T.input.height,                         // 52dp (≥48dp tap target)
     justifyContent: 'center',
     alignItems: 'center',
   },
   eyeIcon: { fontSize: 18 },
 
   fieldError: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 14,
-    color: '#5F4A52',
-    marginTop: 4,
+    fontFamily: T.type.body.fontFamily,            // Sarabun-Regular
+    fontSize: T.type.body.size,                    // 15sp
+    lineHeight: T.type.body.lineHeight,            // 25
+    color: T.input.errorText,                      // #7A3A52 roselle-700
+    marginTop: T.spacing[1],                       // 4dp
+    letterSpacing: 0,
   },
 
   wrongCreds: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 14,
-    color: '#5F4A52',
-    marginTop: 8,
-    marginBottom: 4,
+    fontFamily: T.type.body.fontFamily,            // Sarabun-Regular
+    fontSize: T.type.body.size,                    // 15sp
+    lineHeight: T.type.body.lineHeight,            // 25
+    color: T.color.text.primary,                   // #7A3A52
+    marginTop: T.spacing[2],                       // 8dp
+    marginBottom: T.spacing[1],                    // 4dp
+    letterSpacing: 0,
   },
 
   primaryButton: {
-    height: 52,
-    backgroundColor: '#A8505A',
-    borderRadius: 12,
+    height: T.button.primary.height,               // 52dp
+    backgroundColor: T.button.primary.bg,          // #9A5F0A amber-700
+    borderRadius: T.button.primary.radius,         // 12dp
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 24,
+    marginTop: T.spacing[6],                       // 24dp
   },
   primaryButtonDisabled: {
-    backgroundColor: '#DDA0A6',
+    // rgba amber-700 at 45% opacity per spec §1.4 (NOT old rose #DDA0A6)
+    backgroundColor: 'rgba(154, 95, 10, 0.45)',
   },
   primaryButtonText: {
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 16,
-    color: '#FFFFFF',
+    fontFamily: T.type.label.fontFamily,           // Sarabun-SemiBold
+    fontSize: T.type.body.size,                    // 15sp
+    lineHeight: T.type.body.lineHeight,            // 25
+    color: T.color.text.onDark,                    // #FFFFFF
+    letterSpacing: 0,
   },
 
   dividerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginVertical: 16,
+    marginVertical: T.spacing[4],                  // 16dp
   },
-  dividerLine: { flex: 1, height: 1, backgroundColor: '#EBE1D9' },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: T.color.surface.divider,      // #E8DDD5
+  },
   dividerText: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 12,
-    color: '#94818A',
-    marginHorizontal: 12,
+    fontFamily: T.type.caption.fontFamily,         // Sarabun-Regular
+    fontSize: T.type.caption.size,                 // 13sp
+    lineHeight: T.type.caption.lineHeight,         // 21
+    color: T.color.text.primary,                   // #7A3A52 (NOT #94818A — BANNED)
+    marginHorizontal: T.spacing[3],                // 12dp
+    letterSpacing: 0,
   },
 
   googleButton: {
-    height: 52,
+    height: T.button.primary.height,               // 52dp
     borderWidth: 1,
-    borderColor: '#EBE1D9',
-    borderRadius: 12,
-    backgroundColor: '#FFFFFF',
+    borderColor: T.color.surface.divider,          // #E8DDD5
+    borderRadius: T.radius.md,                     // 12dp
+    backgroundColor: T.color.surface.subtle,       // #F5EDE6 (NOT white)
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: T.spacing[4],               // 16dp
   },
   googleButtonDisabled: {
     opacity: 0.55,
@@ -417,75 +451,85 @@ const styles = StyleSheet.create({
   googleButtonInner: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: T.spacing[2],                             // 8dp
   },
   googleButtonText: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 16,
-    color: '#3A2A30',
-  },
-  googleButtonTextDisabled: {
-    color: '#94818A',
+    fontFamily: T.type.body.fontFamily,            // Sarabun-Regular
+    fontSize: T.type.body.size,                    // 15sp
+    lineHeight: T.type.body.lineHeight,            // 25
+    color: T.color.text.primary,                   // #7A3A52 (disabled opacity via parent)
+    letterSpacing: 0,
   },
   comingSoonBadge: {
-    backgroundColor: '#EBE1D9',
-    borderRadius: 6,
-    paddingHorizontal: 6,
+    backgroundColor: T.color.surface.divider,      // #E8DDD5
+    borderRadius: T.radius.sm,                     // 6dp
+    paddingHorizontal: T.spacing[1],               // 4dp (approx)
     paddingVertical: 2,
   },
   comingSoonBadgeText: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 11,
-    color: '#5F4A52',
+    fontFamily: T.type.micro.fontFamily,           // Sarabun-Regular
+    fontSize: T.type.micro.size,                   // 11sp → type.micro
+    lineHeight: T.type.micro.lineHeight,           // 18
+    color: T.color.text.primary,                   // #7A3A52
+    letterSpacing: 0,
   },
 
-  quietLink: { marginTop: 16, alignItems: 'center' },
+  quietLink: { marginTop: T.spacing[4], alignItems: 'center' },
   quietLinkText: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 14,
-    color: '#5F4A52',
+    fontFamily: T.type.body.fontFamily,            // Sarabun-Regular
+    fontSize: T.type.body.size,                    // 15sp
+    lineHeight: T.type.body.lineHeight,            // 25
+    color: T.color.text.primary,                   // #7A3A52
+    letterSpacing: 0,
   },
 
+  // §3.3 success banner — jade-100 wash (#E4EDE7); jade-800 text (7.18:1 AAA)
   successBanner: {
-    backgroundColor: '#EAF5EC',
-    borderRadius: 8,
+    backgroundColor: T.color.surface.wash.jade,    // #E4EDE7
+    borderRadius: T.radius.sm,                     // 6dp (was 8)
     borderWidth: 1,
-    borderColor: '#A8D5B0',
-    padding: 12,
-    marginBottom: 12,
+    borderColor: T.color.surface.divider,          // #E8DDD5
+    padding: T.spacing[3],                         // 12dp
+    marginBottom: T.spacing[3],                    // 12dp
   },
   successBannerText: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 14,
-    color: '#2D6A35',
+    fontFamily: T.type.body.fontFamily,            // Sarabun-Regular
+    fontSize: T.type.body.size,                    // 15sp
+    lineHeight: T.type.body.lineHeight,            // 25
+    color: T.color.text.botanical,                 // #2F5042 jade-800 (7.18:1 on jade-100 AAA)
+    letterSpacing: 0,
   },
 
   offlineStrip: {
-    backgroundColor: '#FBF3EE',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 12,
+    backgroundColor: T.color.surface.subtle,       // #F5EDE6 (NOT #FBF3EE)
+    borderRadius: T.radius.sm,                     // 6dp
+    padding: T.spacing[3],                         // 12dp
+    marginBottom: T.spacing[3],                    // 12dp
     flexDirection: 'row',
     alignItems: 'center',
   },
   offlineText: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 14,
-    color: '#5F4A52',
+    fontFamily: T.type.body.fontFamily,            // Sarabun-Regular
+    fontSize: T.type.body.size,                    // 15sp
+    lineHeight: T.type.body.lineHeight,            // 25
+    color: T.color.text.primary,                   // #7A3A52
     flex: 1,
+    letterSpacing: 0,
   },
   serverCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
+    backgroundColor: T.color.surface.subtle,       // #F5EDE6 (NOT white)
+    borderRadius: T.radius.md,                     // 12dp
+    padding: T.spacing[4],                         // 16dp
+    marginBottom: T.spacing[4],                    // 16dp
     borderWidth: 1,
-    borderColor: '#EBE1D9',
+    borderColor: T.color.surface.divider,          // #E8DDD5
   },
   serverCardText: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 16,
-    color: '#3A2A30',
+    fontFamily: T.type.body.fontFamily,            // Sarabun-Regular
+    fontSize: T.type.body.size,                    // 15sp
+    lineHeight: T.type.body.lineHeight,            // 25
+    color: T.color.text.primary,                   // #7A3A52
     textAlign: 'center',
+    letterSpacing: 0,
   },
 });

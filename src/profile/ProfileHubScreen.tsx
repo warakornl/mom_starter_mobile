@@ -157,8 +157,9 @@ export function ProfileHubScreen({
     }
 
     let badgeText = '';
-    let badgeStyle = styles.badgePregnant;
-    let badgeTextStyle = styles.badgePregnantText;
+    // Widen type so pregnant/postpartum badge styles can be swapped:
+    let badgeStyle: typeof styles.badgePregnant | typeof styles.badgePostpartum = styles.badgePregnant;
+    let badgeTextStyle: typeof styles.badgePregnantText | typeof styles.badgePostpartumText = styles.badgePregnantText;
     let mainText = '';
     let subText: string | null = null;
 
@@ -351,7 +352,7 @@ export function ProfileHubScreen({
             {isExportInProgress ? (
               <ActivityIndicator
                 size="small"
-                color="#9B1C35"
+                color={T.color.accent.interactive}
                 testID={PROFILE_HUB_TESTIDS.downloadSpinner}
                 accessibilityElementsHidden
               />
@@ -500,41 +501,30 @@ export function ProfileHubScreen({
 }
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
-
-const ROSE_700 = '#8E3A44';
-const HONEY_100 = '#FBE9D2';
-const HONEY_BORDER = '#E9C097';
-const INK = '#3A2A30';
-const INK_SOFT = '#5F4A52';
-const INK_FAINT = '#94818A';
-const SURFACE_PAGE_SUNK = '#F5F0ED';
-const HAIRLINE_COLOR = '#EBE1D9';
-const ROSE_50 = '#FBEDEE';    // icon background (rose/50)
-const SKELETON_COLOR = '#FBF3EE'; // skeleton bone fill
+// ห้องแม่ Phase 2 B4: all token references migrated to semantic T.* namespace.
+// No inline hex constants. No IBMPlex fonts. No textTransform:uppercase.
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FBF6F1',
+    backgroundColor: T.color.surface.base,
   },
 
   // ── Inline header bar (§1 feat-profile-header-settings-row) ──────────────────
-  // Mirrors RootNavigator headerStyle tokens: bg #FBF6F1, tint #3A2A30 (INK),
-  // IBMPlexSans-SemiBold. minHeight ≥ standard header height (44pt iOS, 56dp Android).
-  // No back button: Profile is a tab, not a pushed screen.
   headerBar: {
     minHeight: 56,
-    backgroundColor: '#FBF6F1',
+    backgroundColor: T.color.surface.base,
     borderBottomWidth: StyleSheet.hairlineWidth,
-    borderBottomColor: HAIRLINE_COLOR,
+    borderBottomColor: T.color.surface.divider,
     justifyContent: 'center',
     paddingHorizontal: 20,
     paddingVertical: 12,
   },
   headerTitle: {
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 18,
-    color: INK,
+    fontFamily: T.type.heading2.fontFamily,
+    fontSize: T.type.heading2.size,
+    lineHeight: T.type.heading2.lineHeight,
+    color: T.color.text.heading,
   },
 
   scrollContent: {
@@ -545,98 +535,97 @@ const styles = StyleSheet.create({
 
   // ── Profile Summary Card (§3.3) ─────────────────────────────────────────────
   summaryCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: T.cardRadius,   // Tell 2: 16→8
+    backgroundColor: T.color.surface.subtle,
+    borderRadius: T.radius.md,
     borderWidth: 1,
-    borderColor: T.hairline,      // updated to new hairline token
+    borderColor: T.color.surface.divider,
     padding: 16,
     minHeight: 80,
     marginBottom: 16,
   },
   badge: {
     alignSelf: 'flex-start',
-    borderRadius: 999,
+    borderRadius: T.radius.pill,
     paddingHorizontal: 10,
     paddingVertical: 3,
     marginBottom: 8,
   },
   badgePregnant: {
-    backgroundColor: ROSE_50,
+    backgroundColor: T.color.surface.wash.roselle,
   },
   badgePostpartum: {
-    backgroundColor: '#EBF2EC', // sage/50
+    backgroundColor: T.color.surface.wash.jade,
   },
   badgeText: {
-    fontSize: 12,
-    fontFamily: 'IBMPlexSans-SemiBold',
+    fontSize: T.type.caption.size,
+    fontFamily: T.type.label.fontFamily,
   },
   badgePregnantText: {
-    color: ROSE_700, // rose/700
+    color: T.color.text.heading,
   },
   badgePostpartumText: {
-    color: '#3D6647', // sage/700
+    color: T.color.text.botanical,
   },
   // Mother name display (PDPA minimization: first name only on card — OQ-N-SEC2)
   summaryMotherName: {
-    fontSize: 14,
-    fontFamily: 'IBMPlexSans-Regular',
-    color: INK_SOFT,
+    fontSize: T.type.caption.size,
+    lineHeight: T.type.caption.lineHeight,
+    fontFamily: T.type.caption.fontFamily,
+    color: T.color.text.primary,
     marginBottom: 6,
   },
   summaryMainText: {
-    fontSize: 20,
-    fontFamily: 'IBMPlexSans-SemiBold',
-    color: INK,
+    fontSize: T.type.heading2.size,
+    lineHeight: T.type.heading2.lineHeight,
+    fontFamily: T.type.heading2.fontFamily,
+    color: T.color.text.heading,
     marginBottom: 4,
   },
   summarySubText: {
-    fontSize: 14,
-    color: INK_SOFT,
+    fontSize: T.type.caption.size,
+    lineHeight: T.type.caption.lineHeight,
+    color: T.color.text.primary,
   },
 
   // ── Skeleton bones (loading state §4 State 1) ────────────────────────────────
   skeletonBone1: {
     height: 12,
     width: '50%',
-    borderRadius: 8,
-    backgroundColor: SKELETON_COLOR,
+    borderRadius: T.radius.sm,
+    backgroundColor: T.skeleton.color,
     marginBottom: 8,
   },
   skeletonBone2: {
     height: 20,
     width: '70%',
-    borderRadius: 8,
-    backgroundColor: SKELETON_COLOR,
+    borderRadius: T.radius.sm,
+    backgroundColor: T.skeleton.color,
     marginBottom: 8,
   },
   skeletonBone3: {
     height: 12,
     width: '40%',
-    borderRadius: 8,
-    backgroundColor: SKELETON_COLOR,
+    borderRadius: T.radius.sm,
+    backgroundColor: T.skeleton.color,
   },
 
-  // ── Section labels (§3.2, Tell 7) ────────────────────────────────────────────
-  // Unified: 11pt SemiBold UPPERCASE #5F4A52 (inkSoft, ~7.6:1 WCAG AAA on bg).
-  // Previously fontSize:13, color:#94818A (~3.4:1 — WCAG fail at 11pt).
+  // ── Section labels (§3.2) — T.type.label, botanical color, NO uppercase ───────
+  // B4 migration: letterSpacing→0, textTransform removed (Thai rule §0 R1).
   sectionLabel: {
-    fontFamily: T.sectionLabelFontFamily,
-    fontSize: T.sectionLabelFontSize,
-    lineHeight: 16,
-    letterSpacing: T.sectionLabelLetterSpacing,
-    textTransform: 'uppercase',
-    color: T.sectionLabelColor,   // #5F4A52 unified UP from #94818A
+    fontFamily: T.type.label.fontFamily,
+    fontSize: T.type.label.size,
+    lineHeight: T.type.label.lineHeight,
+    letterSpacing: T.type.label.letterSpacing,
+    color: T.color.text.botanical,
     marginBottom: 8,
     marginLeft: 4,
     marginTop: 16,
   },
 
-  // ── Shared menu row (§3.2 — same as SettingsScreen menuRow) ─────────────────
-  // Tell 2: borderRadius 12→8, shadow removed, borderColor (hairline) added.
-  // Tell 1D: menuRowIconWrap + menuRowIconText removed from here and JSX.
+  // ── Shared menu row ─────────────────────────────────────────────────────────
   menuRow: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: T.cardRadius,   // Tell 2: 12→8
+    backgroundColor: T.color.surface.subtle,
+    borderRadius: T.radius.md,
     paddingVertical: 14,
     paddingHorizontal: 16,
     minHeight: 56,
@@ -644,81 +633,80 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 8,
     borderWidth: 1,
-    borderColor: T.hairline,      // Tell 2: hairline replaces elevation shadow
-    // elevation, shadowColor, shadowOpacity, shadowRadius, shadowOffset REMOVED
+    borderColor: T.color.surface.divider,
   },
   menuRowInProgress: {
-    backgroundColor: SURFACE_PAGE_SUNK,
+    backgroundColor: T.color.surface.subtle,
   },
-  // Tell 1D: menuRowIconWrap + menuRowIconText deleted from StyleSheet
   menuRowTextGroup: {
     flex: 1,
   },
   menuRowText: {
-    fontSize: 16,
-    color: INK,
+    fontSize: T.type.body.size,
+    lineHeight: T.type.body.lineHeight,
+    color: T.color.text.heading,
     fontWeight: '500',
   },
   menuRowSubtext: {
-    fontSize: 13,
-    color: INK_FAINT,
+    fontSize: T.type.caption.size,
+    lineHeight: T.type.caption.lineHeight,
+    color: T.color.text.primary,
     marginTop: 2,
   },
   menuRowChevron: {
     fontSize: 18,
-    color: INK_FAINT,
+    color: T.color.text.primary,
     marginLeft: 8,
   },
 
-  // ── Logout row (§3.6, §7.2 — minHeight 52dp) ────────────────────────────────
-  // Tell 2: borderRadius 12→8, add borderColor (hairline) for visual separation.
+  // ── Logout row (§3.6) ────────────────────────────────────────────────────────
   logoutRow: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: T.cardRadius,   // Tell 2: 12→8
+    backgroundColor: T.color.surface.subtle,
+    borderRadius: T.radius.md,
     paddingVertical: 16,
     paddingHorizontal: 16,
-    minHeight: 52,   // intentional carry-over from Settings logout row spec §7.2
+    minHeight: 52,
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: T.hairline,      // Tell 2: shadow → hairline border
+    borderColor: T.color.surface.divider,
   },
   logoutText: {
-    color: ROSE_700,
-    fontSize: 16,
+    color: T.color.text.primary,
+    fontSize: T.type.body.size,
+    lineHeight: T.type.body.lineHeight,
     fontWeight: '500',
   },
 
-  // ── Delete row (§3.5 — rose/700 destructive styling) ──────────────────────────
-  // Tell 1D: deleteRowIconWrap + deleteRowIconText removed.
-  // Destructive signal carried by rose/700 label text + chevron color (spec §8.2).
+  // ── Delete row (§3.5) ────────────────────────────────────────────────────────
+  // Destructive signal carried by text.primary + chevron. No alarming red.
   deleteRowLabelText: {
-    color: ROSE_700,
+    color: T.color.text.primary,
   },
   deleteRowChevron: {
     fontSize: 18,
-    color: ROSE_700,
+    color: T.color.text.primary,
     marginLeft: 8,
   },
 
-  // ── EXPORT_ERROR card (amber) ─────────────────────────────────────────────────
+  // ── EXPORT_ERROR card (amber wash) ───────────────────────────────────────────
   exportErrorCard: {
-    backgroundColor: HONEY_100,
+    backgroundColor: T.color.surface.wash.amber,
     borderWidth: 1,
-    borderColor: HONEY_BORDER,
-    borderRadius: T.cardRadius,   // Tell 2: 12→8
+    borderColor: T.color.surface.divider,
+    borderRadius: T.radius.md,
     padding: 14,
     marginBottom: 8,
   },
   exportErrorTitle: {
-    fontSize: 14,
+    fontSize: T.type.caption.size,
     fontWeight: '700',
-    color: INK,
+    color: T.color.text.heading,
     marginBottom: 4,
   },
   exportErrorBody: {
-    fontSize: 13,
-    lineHeight: 20,
-    color: INK_SOFT,
+    fontSize: T.type.caption.size,
+    lineHeight: T.type.caption.lineHeight,
+    color: T.color.text.primary,
     marginBottom: 12,
   },
   exportErrorActions: {
@@ -729,16 +717,16 @@ const styles = StyleSheet.create({
   exportRetryBtn: {
     minHeight: 44,
     paddingHorizontal: 16,
-    borderRadius: 8,
+    borderRadius: T.radius.sm,
     borderWidth: 1.5,
-    borderColor: ROSE_700,
+    borderColor: T.color.accent.identity,
     alignItems: 'center',
     justifyContent: 'center',
   },
   exportRetryBtnLabel: {
-    fontSize: 14,
+    fontSize: T.type.caption.size,
     fontWeight: '700',
-    color: ROSE_700,
+    color: T.color.text.primary,
   },
   exportDismissBtn: {
     minHeight: 44,
@@ -747,24 +735,24 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   exportDismissBtnLabel: {
-    fontSize: 14,
-    color: INK_FAINT,
+    fontSize: T.type.caption.size,
+    color: T.color.text.primary,
     textDecorationLine: 'underline',
   },
 
-  // ── EXPORT_UNAVAILABLE_404 notice (neutral/sunk) ──────────────────────────────
+  // ── EXPORT_UNAVAILABLE_404 notice ──────────────────────────────────────────────
   export404Card: {
-    backgroundColor: SURFACE_PAGE_SUNK,
+    backgroundColor: T.color.surface.subtle,
     borderWidth: 1,
-    borderColor: T.hairline,      // updated to new hairline token
-    borderRadius: T.cardRadius,   // Tell 2: 12→8
+    borderColor: T.color.surface.divider,
+    borderRadius: T.radius.md,
     padding: 14,
     marginBottom: 8,
     alignItems: 'center',
   },
   export404Title: {
-    fontSize: 14,
-    color: INK_SOFT,
+    fontSize: T.type.caption.size,
+    color: T.color.text.primary,
     textAlign: 'center',
     marginBottom: 12,
   },
@@ -775,8 +763,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   export404BackBtnLabel: {
-    fontSize: 14,
-    color: ROSE_700,
+    fontSize: T.type.caption.size,
+    color: T.color.text.primary,
     fontWeight: '600',
   },
 });

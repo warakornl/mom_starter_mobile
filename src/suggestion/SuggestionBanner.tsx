@@ -35,6 +35,7 @@ import {
 } from 'react-native';
 import type { OfferableSuggestion } from './types';
 import { useT } from '../i18n/LanguageContext';
+import { T } from '../theme/tokens';
 
 // ─── Capture-type glyph map ───────────────────────────────────────────────────
 // Emoji glyphs — consistent with SuggestionFlowScreen.tsx CAPTURE_GLYPHS.
@@ -149,24 +150,20 @@ export function SuggestionBanner({
   );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
-// design-system.md §5.3: rose/50 card, radius/lg, elev/1
+// ─── Styles — ห้องแม่ Phase 2 B4: full semantic T.* migration ────────────────
+// Card surface: T.color.surface.wash.amber (amber-100) per B4 spec.
+// CTA: T.button.primary.bg (amber-700). Border: T.color.surface.divider.
 
 const styles = StyleSheet.create({
-  // Soft rose/50 surface card (design-system §5.3)
+  // Amber-100 surface card (B4 reskin — was rose/50)
   card: {
-    backgroundColor: '#FBEDEE', // rose/50
-    borderRadius: 20,           // radius/lg
+    backgroundColor: T.color.surface.wash.amber,
+    borderRadius: T.radius.lg,
     borderWidth: 1,
-    borderColor: '#F4D9DC',     // rose/100
+    borderColor: T.color.surface.divider,
     padding: 16,
     gap: 10,
-    // elev/1 (design-system §3.3)
-    shadowColor: '#3A2A30',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    elevation: 1,
+    ...T.elev[1],
   },
 
   topRow: {
@@ -175,12 +172,12 @@ const styles = StyleSheet.create({
     gap: 10,
   },
 
-  // Sprout glyph disc — rose/50 family (design-system §5.3 "sprout/new glyph")
+  // Glyph disc — ivory-200 subtle surface
   glyphDisc: {
     width: 36,
     height: 36,
-    borderRadius: 12,
-    backgroundColor: '#F4D9DC', // rose/100
+    borderRadius: T.radius.md,
+    backgroundColor: T.color.surface.subtle,
     alignItems: 'center',
     justifyContent: 'center',
     flexShrink: 0,
@@ -197,17 +194,17 @@ const styles = StyleSheet.create({
   },
 
   headline: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 13,
-    lineHeight: 19,
-    color: '#5F4A52', // ink/soft
+    fontFamily: T.type.caption.fontFamily,
+    fontSize: T.type.caption.size,
+    lineHeight: T.type.caption.lineHeight,
+    color: T.color.text.primary,
   },
 
   title: {
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 15,
-    lineHeight: 22,
-    color: '#3A2A30', // ink
+    fontFamily: T.type.label.fontFamily,
+    fontSize: T.type.body.size,
+    lineHeight: T.type.body.lineHeight,
+    color: T.color.text.heading,
   },
 
   dismissBtn: {
@@ -220,7 +217,7 @@ const styles = StyleSheet.create({
   },
   dismissIcon: {
     fontSize: 14,
-    color: '#94818A', // ink/faint
+    color: T.color.text.primary,
   },
 
   // Actions
@@ -233,15 +230,15 @@ const styles = StyleSheet.create({
   startBtn: {
     height: 36,
     paddingHorizontal: 16,
-    backgroundColor: '#A8505A', // rose/600
-    borderRadius: 999,          // radius/pill
+    backgroundColor: T.button.primary.bg,
+    borderRadius: T.radius.pill,
     alignItems: 'center',
     justifyContent: 'center',
   },
   startBtnText: {
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 14,
-    color: '#FFFFFF',
+    fontFamily: T.type.label.fontFamily,
+    fontSize: T.type.caption.size,
+    color: T.color.text.onDark,
   },
 
   viewAllBtn: {
@@ -251,16 +248,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   viewAllText: {
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 14,
-    color: '#8E3A44', // rose/700
+    fontFamily: T.type.label.fontFamily,
+    fontSize: T.type.caption.size,
+    color: T.color.text.primary,
     textDecorationLine: 'underline',
   },
 
   disclaimer: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 11,
-    lineHeight: 16,
-    color: '#94818A', // ink/faint
+    fontFamily: T.type.micro.fontFamily,
+    fontSize: T.type.micro.size,
+    lineHeight: T.type.micro.lineHeight,
+    color: T.color.text.primary,
   },
 });

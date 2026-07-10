@@ -45,6 +45,8 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import type { RootStackParamList } from './types';
 import type { TokenStorage } from '../auth/tokenStorage';
+import type { Lifecycle } from '../pregnancy/types';
+import { T } from '../theme/tokens';
 import { localCivilToday } from '../pregnancy/gestationalAge';
 import { PregnancyProfileProvider, useProfileSnapshot } from '../pregnancy/PregnancyProfileContext';
 import type { AncFormPrefill } from '../suggestion/types';
@@ -135,6 +137,8 @@ interface PregnancySummaryWrapperProps {
   onBack: () => void;
   onSetEdd: () => void;
   onSessionExpired: () => void;
+  /** B4 loss gate: passed from snapshot?.lifecycle — undefined when profile not yet loaded. */
+  lifecycle?: Lifecycle | null;
 }
 
 /**
@@ -150,6 +154,7 @@ function PregnancySummaryWrapper({
   onBack,
   onSetEdd,
   onSessionExpired,
+  lifecycle,
 }: PregnancySummaryWrapperProps): React.JSX.Element {
   const { t } = useT();
   const [loadState, setLoadState] = useState<PregnancySummaryLoadState>({ mode: 'loading' });
@@ -202,7 +207,7 @@ function PregnancySummaryWrapper({
   if (loadState.mode === 'loading') {
     return (
       <View style={pregnancySummaryWrapperStyles.center}>
-        <ActivityIndicator size="small" color="#9B1C35" />
+        <ActivityIndicator size="small" color={T.color.accent.interactive} />
         <Text style={pregnancySummaryWrapperStyles.loadingText}>{t('home.loading')}</Text>
       </View>
     );
@@ -218,6 +223,8 @@ function PregnancySummaryWrapper({
 
   // loadState.mode === 'ready' — pass decoded data to the approved screen.
   // SD-9: all health data comes from this GET result, NOT from route params.
+  // B4 loss gate: lifecycle comes from snapshot?.lifecycle (NOT the GET result) so
+  // partialNote is suppressed immediately when lifecycle='ended', even before profile loads.
   return (
     <PregnancySummaryScreen
       edd={loadState.edd}
@@ -225,6 +232,7 @@ function PregnancySummaryWrapper({
       deliveryType={loadState.deliveryType}
       hospitalAdmissionDate={loadState.hospitalAdmissionDate}
       hospitalDischargeDate={loadState.hospitalDischargeDate}
+      lifecycle={lifecycle}
       onBack={onBack}
       onSetEdd={onSetEdd}
     />
@@ -236,18 +244,18 @@ const pregnancySummaryWrapperStyles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FBF6F1',
+    backgroundColor: T.color.surface.base,
     gap: 12,
   },
   loadingText: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 16,
-    color: '#94818A',
+    fontFamily: T.type.body.fontFamily,
+    fontSize: T.type.body.size,
+    color: T.color.text.primary,
   },
   errorText: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 14,
-    color: '#94818A',
+    fontFamily: T.type.body.fontFamily,
+    fontSize: T.type.caption.size,
+    color: T.color.text.primary,
     textAlign: 'center',
     paddingHorizontal: 24,
   },
@@ -720,6 +728,7 @@ function StackNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps): React
           <PregnancySummaryWrapper
             tokenStorage={tokenStorage}
             apiBaseUrl={apiBaseUrl}
+            lifecycle={snapshot?.lifecycle}
             onBack={() => stackNav.goBack()}
             onSetEdd={() =>
               stackNav.reset({ index: 0, routes: [{ name: 'ProfileSetup' }] })

@@ -762,3 +762,101 @@ describe('[B3 LossGate Wiring] RootNavigator → KickCountHome', () => {
     expect(block).not.toMatch(/lifecycle=\{kickProps\.lifecycle\}/);
   });
 });
+
+// ─── H. [B4] StackNavigator → PregnancySummaryWrapper ────────────────────────
+//
+// PregnancySummaryWrapper is an unexported inner component of RootNavigator.
+// The lifecycle prop is threaded: snapshot?.lifecycle → wrapper prop → PregnancySummaryScreen.
+//
+// BEHAVIORAL: render-prop for 'PregnancySummary' screen returns a React element
+// whose props contain `lifecycle`. We verify the element's props — the wrapper is
+// NOT rendered (hooks are mocked), so this tests the call-site binding only.
+//
+// SOURCE-GREP: verifies the internal pass-through inside the wrapper to PregnancySummaryScreen.
+
+describe('[B4 Behavioral] StackNavigator → PregnancySummaryWrapper prop-flow', () => {
+  let StackNavigatorFn: NavigatorFn;
+
+  beforeAll(() => {
+    mockUseProfileSnapshot.mockReturnValue(ENDED_SNAPSHOT);
+    StackNavigatorFn = getStackNavigatorFn();
+  });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('PregnancySummary render-prop delivers lifecycle:"ended" to PregnancySummaryWrapper', () => {
+    mockUseProfileSnapshot.mockReturnValue(ENDED_SNAPSHOT);
+
+    const stackElement = StackNavigatorFn({ tokenStorage: mockTokenStorage, apiBaseUrl: '' });
+    const renderProp = findScreenRenderProp(stackElement, 'PregnancySummary');
+    expect(renderProp).not.toBeNull();
+
+    // Invoking the render-prop returns a <PregnancySummaryWrapper ...> element (not yet rendered).
+    // The wrapper IS the real function (not mocked), so we inspect its props directly.
+    const wrapperElement = renderProp!({ navigation: { goBack: jest.fn(), reset: jest.fn() } });
+
+    // The wrapper element should carry lifecycle: 'ended' from snapshot?.lifecycle
+    expect((wrapperElement.props as Record<string, unknown>).lifecycle).toBe('ended');
+  });
+
+  it('PregnancySummary render-prop delivers lifecycle:undefined when snapshot is null (GAP-2)', () => {
+    mockUseProfileSnapshot.mockReturnValue(null);
+
+    const stackElement = StackNavigatorFn({ tokenStorage: mockTokenStorage, apiBaseUrl: '' });
+    const renderProp = findScreenRenderProp(stackElement, 'PregnancySummary');
+    const wrapperElement = renderProp!({ navigation: { goBack: jest.fn(), reset: jest.fn() } });
+
+    // GAP-2: must be undefined, NOT 'pregnant'
+    expect((wrapperElement.props as Record<string, unknown>).lifecycle).toBeUndefined();
+    expect((wrapperElement.props as Record<string, unknown>).lifecycle).not.toBe('pregnant');
+  });
+
+  it('FAIL-ON-REVERT: PregnancySummaryWrapper element carries a lifecycle prop (guards wiring site)', () => {
+    mockUseProfileSnapshot.mockReturnValue(ENDED_SNAPSHOT);
+
+    const stackElement = StackNavigatorFn({ tokenStorage: mockTokenStorage, apiBaseUrl: '' });
+    const renderProp = findScreenRenderProp(stackElement, 'PregnancySummary');
+    const wrapperElement = renderProp!({ navigation: { goBack: jest.fn(), reset: jest.fn() } });
+
+    // Goes RED the moment lifecycle= is removed from the PregnancySummary Stack.Screen
+    expect(Object.keys(wrapperElement.props as object)).toContain('lifecycle');
+  });
+});
+
+// ─── I. [B4] Source-grep: PregnancySummary wiring ───────────────────────────
+
+const ROOT_NAV_SRC_B4 = ROOT_NAV_SRC; // already loaded above
+
+describe('[B4 LossGate Wiring] RootNavigator → PregnancySummary call-site', () => {
+  it('PregnancySummary Stack.Screen block passes lifecycle to PregnancySummaryWrapper', () => {
+    const block = extractScreenBlock(ROOT_NAV_SRC_B4, 'PregnancySummary');
+    expect(block).toMatch(/lifecycle=\{snapshot\?\.lifecycle\}/);
+  });
+
+  it('FAIL-ON-REVERT: PregnancySummary Stack.Screen block contains lifecycle prop', () => {
+    const block = extractScreenBlock(ROOT_NAV_SRC_B4, 'PregnancySummary');
+    expect(block).toContain('lifecycle=');
+  });
+
+  it('PregnancySummary wrapper threads lifecycle to PregnancySummaryScreen (source-grep)', () => {
+    // Verify the internal pass-through: PregnancySummaryWrapper passes lifecycle to the screen.
+    // The pattern is: <PregnancySummaryScreen ... lifecycle={lifecycle} .../>
+    expect(ROOT_NAV_SRC_B4).toMatch(/lifecycle=\{lifecycle\}/);
+  });
+});
+
+// ─── J. [B4] Source-grep: DoctorReport lifecycle wiring (already present) ────
+
+describe('[B4 LossGate Wiring] RootNavigator → DoctorReport lifecycle', () => {
+  it('DoctorReport Stack.Screen passes lifecycle: snapshot.lifecycle to DoctorPdfScreen', () => {
+    const block = extractScreenBlock(ROOT_NAV_SRC_B4, 'DoctorReport');
+    expect(block).toContain('lifecycle: snapshot.lifecycle');
+  });
+
+  it('FAIL-ON-REVERT: DoctorReport block contains lifecycle key', () => {
+    const block = extractScreenBlock(ROOT_NAV_SRC_B4, 'DoctorReport');
+    expect(block).toContain('lifecycle');
+  });
+});

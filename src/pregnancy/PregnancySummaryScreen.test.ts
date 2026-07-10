@@ -4,7 +4,7 @@
  * Tests (no RNTL — pure-node, source-inspection + catalog checks):
  *
  * Group A: Module exports
- * Group B: Design token usage (Clean — T.hairline, T.cardRadius, T.sectionLabel*)
+ * Group B: Design token usage (ห้องแม่ Phase 2 B4 — T.radius.md, T.color.surface.divider, T.type.label.*)
  * Group C: Disclaimer i18n keys (VERBATIM — legal §3 G-summary-1)
  * Group D: Structural source guards (INV-PS1: no verdict/trend/badge copy in source)
  * Group E: ProfileHub prop contract (onPregnancySummary prop)
@@ -80,24 +80,24 @@ describe('PregnancySummaryScreen — module export', () => {
 
 // ─── Group B: Design token usage ─────────────────────────────────────────────
 
-describe('PregnancySummaryScreen — design tokens (Mother Room migration §1.8)', () => {
-  it('uses T.cardRadius=12 (radius.md; updated from 8 in Clean to 12 in Mother Room)', () => {
-    expect(T.cardRadius).toBe(12);
-    // Source must reference T.cardRadius
-    expect(SCREEN_SRC).toContain('T.cardRadius');
+describe('PregnancySummaryScreen — design tokens (ห้องแม่ Phase 2 B4)', () => {
+  it('uses T.radius.md=12 for card radius (B4: replaces deprecated T.cardRadius alias)', () => {
+    expect(T.radius.md).toBe(12);
+    // Source must reference T.radius.md (B4 replaced T.cardRadius with semantic token)
+    expect(SCREEN_SRC).toContain('T.radius.md');
   });
 
-  it('uses T.hairline for dividers/borders (#E8DDD5 — new divider color per §1.8)', () => {
-    expect(T.hairline).toBe('#E8DDD5');
-    expect(SCREEN_SRC).toContain('T.hairline');
+  it('uses T.color.surface.divider for dividers/borders (B4: replaces deprecated T.hairline alias)', () => {
+    expect(T.color.surface.divider).toBe('#E8DDD5');
+    expect(SCREEN_SRC).toContain('T.color.surface.divider');
   });
 
-  it('uses T.sectionLabel* for section label styling', () => {
-    // At least one of the section label tokens must be referenced
+  it('uses T.type.label.* for section label styling (B4: replaces deprecated T.sectionLabel* aliases)', () => {
+    // B4 Phase 2 migrated T.sectionLabelFontFamily/Size/Color → T.type.label.fontFamily/size/lineHeight
     const usesLabelToken =
-      SCREEN_SRC.includes('T.sectionLabelFontSize') ||
-      SCREEN_SRC.includes('T.sectionLabelFontFamily') ||
-      SCREEN_SRC.includes('T.sectionLabelColor');
+      SCREEN_SRC.includes('T.type.label.fontFamily') ||
+      SCREEN_SRC.includes('T.type.label.size') ||
+      SCREEN_SRC.includes('T.type.label.lineHeight');
     expect(usesLabelToken).toBe(true);
   });
 

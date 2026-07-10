@@ -17,8 +17,8 @@
  * G-PS-f (INV-PS2 / K-8): avgKicksPerDay computed on-device, NEVER logged/sent to analytics.
  * G-PS-g: NOT framed as a complete medical record; disclaimer makes this explicit.
  *
- * ── DESIGN: Clean (flat, no shadow) ───────────────────────────────────────────
- * Uses T.cardRadius, T.hairline, T.sectionLabel* from src/theme/tokens.ts.
+ * ── DESIGN: ห้องแม่ Phase 2 B4 (flat, no shadow) ──────────────────────────────
+ * Uses T.radius.md, T.color.surface.divider, T.type.label.* from src/theme/tokens.ts.
  * No elevation, no shadowColor.
  *
  * ── ACCESSIBILITY ─────────────────────────────────────────────────────────────

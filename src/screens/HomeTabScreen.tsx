@@ -188,9 +188,7 @@ const progressStyles = StyleSheet.create({
     fontFamily: T.type.caption.fontFamily,  // Sarabun-Regular
     fontSize: T.type.caption.size,          // 13sp
     lineHeight: T.type.caption.lineHeight,  // 21sp
-    color: T.color.text.secondary,          // jade-600 #4A7A5C — ≥15sp constraint does NOT apply to captions
-    // §0 R4: jade-600 ≥15sp only for body text. 13sp caption must use text.botanical.
-    // Correction: using text.botanical (#2F5042 jade-800, AAA safe at any size).
+    color: T.color.text.botanical,          // jade-800 #2F5042 — AAA at any size (R4 §0)
     textAlign: 'right',
   },
 });

@@ -1330,6 +1330,82 @@ const th = {
   'reset.rateLimited': 'ลองใหม่ภายหลัง',
   'reset.offline': 'คุณออฟไลน์อยู่',
   'reset.serverError': 'มีบางอย่างผิดพลาดทางฝั่งเรา · ลองอีกครั้ง',
+
+  // ── Pregnancy Summary Screen ──────────────────────────────────────────────────
+  // ProfileHub row — lifecycle-agnostic (pregnant + postpartum, §3.2 product spec)
+  'pregnancySummary.rowLabel': 'สรุปการตั้งครรภ์',
+  'pregnancySummary.rowSubtitle': 'ดูย้อนหลังตามไตรมาส',
+
+  // Screen navigation
+  'pregnancySummary.navTitle': 'สรุปการตั้งครรภ์',
+
+  // Trimester section headers
+  // G-PS-d: each trimester is a separate fact — no cross-trimester arrows/trend copy.
+  'pregnancySummary.t1': 'ไตรมาสที่ 1',
+  'pregnancySummary.t2': 'ไตรมาสที่ 2',
+  'pregnancySummary.t3': 'ไตรมาสที่ 3',
+
+  // Kicks section
+  // G-PS-b (INV-PS1): no verdict/badge/color.
+  // G-PS-c: "จาก {days} วันที่บันทึก" must appear adjacent to avg — always-on.
+  // K-8: movementCount / sums / avg must NOT egress to logs or analytics.
+  'pregnancySummary.kicks.sectionLabel': 'ลูกดิ้น',
+  /** template: {avg} = formatted avg kicks/day (e.g. "12.5") */
+  'pregnancySummary.kicks.avgPerDay': 'เฉลี่ย {avg} ครั้ง/วัน',
+  /** template: {days} = number of distinct calendar days with data */
+  'pregnancySummary.kicks.daysWithData': 'จาก {days} วันที่บันทึก',
+  'pregnancySummary.kicks.noData': 'ยังไม่มีข้อมูล',
+
+  // Medication section
+  'pregnancySummary.meds.sectionLabel': 'ยา',
+  /** template: {days} = distinct calendar days on which this medication was logged */
+  'pregnancySummary.meds.distinctDays': '{days} วันที่บันทึก',
+  'pregnancySummary.meds.noData': 'ยังไม่มีข้อมูล',
+
+  // Delivery section
+  'pregnancySummary.delivery.sectionLabel': 'การคลอด',
+  'pregnancySummary.delivery.typeLabel': 'วิธีคลอด',
+  'pregnancySummary.delivery.admissionLabel': 'วันแอดมิต',
+  'pregnancySummary.delivery.dischargeLabel': 'วันจำหน่าย',
+  'pregnancySummary.delivery.noData': 'ยังไม่มีข้อมูลการคลอด',
+  'pregnancySummary.delivery.notSpecified': 'ยังไม่ได้ระบุ',
+
+  // Screen states
+  'pregnancySummary.noEddPrompt': 'ยังไม่ได้ตั้งวันกำหนดคลอด',
+  'pregnancySummary.noEddAction': 'ตั้งค่าวันกำหนดคลอด',
+  'pregnancySummary.partialNote': 'กำลังตั้งครรภ์ · ข้อมูลบางส่วนอาจยังไม่ครบ',
+
+  // Disclaimer — VERBATIM (legal §3 G-summary-1; DO NOT paraphrase or auto-translate).
+  // Short form: always-on inline at top of screen.
+  // Full form: tappable link ≥ 44dp (link must NOT be inside accessibilityRole="text" parent).
+  // G-PS-a: both forms must be present. G-PS-b: disclaimer is exempt from denylist.
+  'pregnancySummary.disclaimer.short':
+    'ข้อมูลที่คุณบันทึกไว้เอง เพื่อการทบทวน · ไม่ใช่การประเมินหรือคำแนะนำทางการแพทย์',
+  'pregnancySummary.disclaimer.seeMore': 'ดูเพิ่มเติม',
+  'pregnancySummary.disclaimer.full':
+    'ข้อมูลในหน้านี้เป็นสิ่งที่คุณบันทึกไว้เอง นำมารวบรวมและจัดกลุ่มตามช่วงการตั้งครรภ์เพื่อให้คุณย้อนทบทวน ไม่ใช่การประเมิน การวินิจฉัย หรือคำแนะนำทางการแพทย์ หากมีข้อสงสัยหรือกังวลเกี่ยวกับสุขภาพของคุณหรือลูกน้อย โปรดปรึกษาแพทย์หรือผู้ให้บริการด้านสุขภาพของคุณ',
+
+  // Hospital-stay fields in BirthEventScreen
+  // Design: pregnancy-summary-design.md §1.3 — optional, client-validated.
+  // OQ-PS4: warn (not block) if admission is far from birthDate.
+  'birth.fieldHospitalStaySection': 'การนอนโรงพยาบาล (ไม่บังคับ)',
+  'birth.fieldHospitalAdmission': 'วันแอดมิต (ไม่บังคับ)',
+  'birth.fieldHospitalDischarge': 'วันจำหน่าย (ไม่บังคับ)',
+  'birth.hospitalAdmissionPlaceholder': 'เลือกวันที่ (ไม่บังคับ)',
+  'birth.hospitalDischargePlaceholder': 'เลือกวันที่ (ไม่บังคับ)',
+  'birth.hospitalAdmissionModalTitle': 'เลือกวันแอดมิต',
+  'birth.hospitalDischargeModalTitle': 'เลือกวันจำหน่าย',
+  'birth.hospitalAdmissionModalHint': 'กรอกในรูปแบบ YYYY-MM-DD เช่น 2026-06-29',
+  'birth.hospitalDischargeModalHint': 'กรอกในรูปแบบ YYYY-MM-DD เช่น 2026-06-29',
+  /** OQ-PS4 warn-not-block: admission date is far from birthDate */
+  'birth.warnAdmissionFarFromBirthTitle': 'ตรวจสอบวันที่',
+  'birth.warnAdmissionFarFromBirthMsg': 'วันแอดมิตห่างจากวันคลอดมาก — ต้องการใช้วันที่นี้ต่อไหมคะ?',
+  'birth.warnFarContinue': 'ใช้ต่อ',
+  'birth.warnFarCancel': 'ยกเลิก',
+  /** Client validation: discharge must be ≥ admission */
+  'birth.errorDischargeBeforeAdmission': 'วันจำหน่ายต้องไม่ก่อนวันแอดมิต',
+  /** Client validation: hospital date must be ≤ today */
+  'birth.errorHospitalDateFuture': 'วันที่ที่เลือกยังมาไม่ถึง',
 };
 
 // ─── English catalog (must match th shape exactly) ────────────────────────────
@@ -2388,6 +2464,71 @@ const en: MsgShape = {
   'reset.rateLimited': 'Please try again later.',
   'reset.offline': "You're offline",
   'reset.serverError': 'Something went wrong on our end — try again.',
+
+  // ── Pregnancy Summary Screen ──────────────────────────────────────────────────
+  'pregnancySummary.rowLabel': 'Pregnancy Summary',
+  'pregnancySummary.rowSubtitle': 'Review by trimester',
+
+  'pregnancySummary.navTitle': 'Pregnancy Summary',
+
+  // G-PS-d: each trimester shown as a separate fact — no cross-trimester trend copy.
+  'pregnancySummary.t1': 'Trimester 1',
+  'pregnancySummary.t2': 'Trimester 2',
+  'pregnancySummary.t3': 'Trimester 3',
+
+  // Kicks section
+  // G-PS-b (INV-PS1): no verdict/badge/color.
+  // G-PS-c: daysWithData must appear adjacent to avg — always-on.
+  'pregnancySummary.kicks.sectionLabel': 'Kicks',
+  'pregnancySummary.kicks.avgPerDay': 'Avg {avg} kicks/day',
+  'pregnancySummary.kicks.daysWithData': 'from {days} days recorded',
+  'pregnancySummary.kicks.noData': 'No data yet',
+
+  // Medication section
+  'pregnancySummary.meds.sectionLabel': 'Medications',
+  'pregnancySummary.meds.distinctDays': '{days} days recorded',
+  'pregnancySummary.meds.noData': 'No data yet',
+
+  // Delivery section
+  'pregnancySummary.delivery.sectionLabel': 'Delivery',
+  'pregnancySummary.delivery.typeLabel': 'Delivery type',
+  'pregnancySummary.delivery.admissionLabel': 'Admission date',
+  'pregnancySummary.delivery.dischargeLabel': 'Discharge date',
+  'pregnancySummary.delivery.noData': 'No delivery record yet',
+  'pregnancySummary.delivery.notSpecified': 'Not specified',
+
+  // Screen states
+  'pregnancySummary.noEddPrompt': 'No due date set yet',
+  'pregnancySummary.noEddAction': 'Set due date',
+  'pregnancySummary.partialNote': 'Pregnancy in progress · some data may still be incomplete',
+
+  // Disclaimer — VERBATIM (legal §3 G-summary-1; DO NOT paraphrase).
+  // EN is a reviewed sign-off, NOT auto-translated (Z-2).
+  // G-PS-a: both forms must be present.
+  'pregnancySummary.disclaimer.short':
+    'Your own recorded data, for personal review · not an assessment or medical advice',
+  'pregnancySummary.disclaimer.seeMore': 'See more',
+  'pregnancySummary.disclaimer.full':
+    'The information on this screen is data you recorded yourself, gathered and grouped by stage of pregnancy so you can look back on it. It is not an assessment, diagnosis, or medical advice. If you have any questions or concerns about your health or your baby, please consult your doctor or healthcare provider.',
+
+  // Hospital-stay fields in BirthEventScreen
+  // OQ-PS4: warn (not block) if admission is far from birthDate.
+  'birth.fieldHospitalStaySection': 'Hospital stay (optional)',
+  'birth.fieldHospitalAdmission': 'Admission date (optional)',
+  'birth.fieldHospitalDischarge': 'Discharge date (optional)',
+  'birth.hospitalAdmissionPlaceholder': 'Choose a date (optional)',
+  'birth.hospitalDischargePlaceholder': 'Choose a date (optional)',
+  'birth.hospitalAdmissionModalTitle': 'Select admission date',
+  'birth.hospitalDischargeModalTitle': 'Select discharge date',
+  'birth.hospitalAdmissionModalHint': 'Enter date as YYYY-MM-DD, e.g. 2026-06-29',
+  'birth.hospitalDischargeModalHint': 'Enter date as YYYY-MM-DD, e.g. 2026-06-29',
+  'birth.warnAdmissionFarFromBirthTitle': 'Check the date',
+  'birth.warnAdmissionFarFromBirthMsg':
+    'The admission date is quite far from the birth date — continue with this date?',
+  'birth.warnFarContinue': 'Continue',
+  'birth.warnFarCancel': 'Cancel',
+  'birth.errorDischargeBeforeAdmission': 'Discharge date must not be before admission date',
+  'birth.errorHospitalDateFuture': "This date hasn't happened yet",
 };
 
 // ─── Exports ──────────────────────────────────────────────────────────────────

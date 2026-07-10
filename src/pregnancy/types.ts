@@ -98,6 +98,19 @@ export interface PregnancyProfileInput {
  *   appsec-engineer to provide encryption utility before production.
  * - `birthNote` optional — free-text note.
  *   TODO: AES-GCM client-encrypted (same ruling 4).
+ * - `hospitalAdmissionDate` / `hospitalDischargeDate` optional — civil dates YYYY-MM-DD.
+ *   pregnancy-summary-design.md §1.3: wire format = Base64 no-op cipher (MVP:
+ *   base64(utf8(date))), same pattern as deliveryType/birthNote.
+ *   Null-vs-absent semantics (CONTRACT-PINNED §1.3):
+ *     absent key → leave stored value UNCHANGED (participates in no-op)
+ *     present value (Base64 string) → set/replace
+ *     explicit null → clear column to NULL
+ *   §1.4 PIN: presence of ANY hospital-stay key in PUT body = REAL mutation
+ *   (bumps version) even when birthDate is unchanged; no-op byte-diff must NOT
+ *   apply to these ciphers (random-IV produces different bytes for same plaintext).
+ *   Future-FieldCipher note: when real AES-GCM ships, AAD recordId = accountId
+ *   (row-per-account — RULING 2b), NOT the profile row id.
+ *   NEVER log these values (health-adjacent PII).
  */
 export interface BirthEventInput {
   /** YYYY-MM-DD civil date of birth (required). */
@@ -112,6 +125,18 @@ export interface BirthEventInput {
    * TODO (security): encrypt with AES-GCM before transmission (data-model §3.1).
    */
   birthNote?: string;
+  /**
+   * Optional hospital admission date — Base64 no-op cipher (MVP: base64(utf8(YYYY-MM-DD))).
+   * absent → leave unchanged; null → clear to NULL; string → set/replace.
+   * NEVER log this value (health-adjacent PII).
+   */
+  hospitalAdmissionDate?: string | null;
+  /**
+   * Optional hospital discharge date — Base64 no-op cipher (MVP: base64(utf8(YYYY-MM-DD))).
+   * absent → leave unchanged; null → clear to NULL; string → set/replace.
+   * NEVER log this value (health-adjacent PII).
+   */
+  hospitalDischargeDate?: string | null;
 }
 
 // ─── Derived snapshot ─────────────────────────────────────────────────────────

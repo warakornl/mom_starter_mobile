@@ -62,6 +62,7 @@ import {
 } from './medicationPlanFormLogic';
 import { MedicationPlanFormSheet } from './MedicationPlanFormSheet';
 import { shouldShowLogDose } from './logDoseParams';
+import { T } from '../theme/tokens';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -110,17 +111,18 @@ const toastStyles = StyleSheet.create({
     bottom: 80,
     left: 16,
     right: 16,
-    backgroundColor: '#3A2A30',
-    borderRadius: 10,
+    backgroundColor: T.color.text.heading,        // #4A2230 roselle-900 (from #3A2A30)
+    borderRadius: T.radius.md,                    // 12dp (from 10dp)
     paddingHorizontal: 16,
     paddingVertical: 12,
     zIndex: 100,
     elevation: 8,
   },
   text: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 14,
-    color: '#FFFFFF',
+    fontFamily: T.type.body.fontFamily,           // Sarabun-Regular (from IBMPlexSans-Regular)
+    fontSize: T.type.body.size,                   // 15sp (from 14sp)
+    lineHeight: T.type.body.lineHeight,           // 25
+    color: T.color.text.onDark,                   // #FFFFFF
     textAlign: 'center',
   },
 });
@@ -141,8 +143,8 @@ const skeletonStyles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#F0E9E4',
-    borderRadius: 12,
+    backgroundColor: T.skeleton.color,            // #F5EDE6 ivory-200 (from #F0E9E4)
+    borderRadius: T.radius.md,                    // 12dp
     marginBottom: 10,
     height: 72,
     paddingHorizontal: 16,
@@ -150,13 +152,13 @@ const skeletonStyles = StyleSheet.create({
   textBlock: {
     width: 160,
     height: 16,
-    backgroundColor: '#E0D7D0',
-    borderRadius: 6,
+    backgroundColor: T.color.surface.divider,     // #E8DDD5 (from #E0D7D0)
+    borderRadius: T.radius.sm,                    // 6dp
   },
   toggleBone: {
     width: 48,
     height: 28,
-    backgroundColor: '#E0D7D0',
+    backgroundColor: T.color.surface.divider,     // #E8DDD5 (from #E0D7D0)
     borderRadius: 14,
   },
 });
@@ -636,8 +638,8 @@ export function MedicationPlanListScreen({
                           handleDeactivate(plan.id);
                         }
                       }}
-                      trackColor={{ false: '#EBE1D9', true: '#A8505A' }}
-                      thumbColor={plan.active ? '#FFFFFF' : '#94818A'}
+                      trackColor={{ false: T.color.surface.divider, true: T.color.list.bar.pregnancy }}
+                      thumbColor={T.color.text.onDark}
                       accessibilityRole="switch"
                       accessibilityLabel={toggleSrLabel}
                       accessibilityState={{ checked: plan.active }}
@@ -696,7 +698,7 @@ export function MedicationPlanListScreen({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FBF6F1',
+    backgroundColor: T.color.surface.base,        // #FBF6F1 ivory-100 (was #FBF6F1 literal)
   },
 
   // ── Top bar (M4: title + connectivity pill + Add) ─────────────────────────
@@ -704,14 +706,15 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
+    paddingHorizontal: T.spacing[4],              // 16dp
     paddingVertical: 10,
   },
   topBarTitle: {
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 20,
-    color: '#3A2A30',
-    fontWeight: '700',
+    fontFamily: T.type.heading2.fontFamily,        // Sarabun-SemiBold (from IBMPlexSans-SemiBold)
+    fontSize: T.type.heading2.size,                // 20sp
+    lineHeight: T.type.heading2.lineHeight,        // 33
+    color: T.color.text.heading,                   // #4A2230 roselle-900 (from #3A2A30)
+    fontWeight: T.type.heading2.fontWeight,        // '600'
   },
   topBarRight: {
     flexDirection: 'row',
@@ -719,15 +722,16 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   offlinePill: {
-    backgroundColor: '#EBE1D9',
-    borderRadius: 100,
+    backgroundColor: T.offlinePill.bg,            // #F5EDE6 ivory-200 (from #EBE1D9)
+    borderRadius: T.radius.pill,                  // 999
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
   offlinePillText: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 12,
-    color: '#5F4A52',
+    fontFamily: T.type.caption.fontFamily,         // Sarabun-Regular (from IBMPlexSans-Regular)
+    fontSize: T.type.caption.size,                 // 13sp (from 12sp — caption; at 13sp use text.primary R4)
+    lineHeight: T.type.caption.lineHeight,         // 21
+    color: T.color.text.primary,                   // #7A3A52 roselle-700 (from #5F4A52 — jade-600 banned at 13sp R4)
   },
   topAddBtn: {
     minWidth: 48,
@@ -736,28 +740,29 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   topAddBtnText: {
-    fontFamily: 'IBMPlexSans-SemiBold',
+    fontFamily: T.type.label.fontFamily,           // Sarabun-SemiBold (from IBMPlexSans-SemiBold)
     fontSize: 22,
-    color: '#A8505A',
+    color: T.color.accent.interactive,             // #9A5F0A amber-700 (from #A8505A)
   },
 
   // ── Consent nudge banner (B4 — §7.1) ──────────────────────────────────────
   consentBanner: {
-    backgroundColor: '#FBEDEE',
-    marginHorizontal: 16,
+    backgroundColor: T.color.surface.wash.roselle, // #F2D0DC roselle-200 (from #FBEDEE)
+    marginHorizontal: T.spacing[4],               // 16dp
     marginBottom: 8,
-    borderRadius: 10,
-    paddingHorizontal: 16,
+    borderRadius: T.radius.sm,                    // 6dp (from 10dp)
+    paddingHorizontal: T.spacing[4],              // 16dp
     paddingVertical: 12,
     minHeight: 48,
     justifyContent: 'center',
-    borderLeftWidth: 3,
-    borderLeftColor: '#A8505A',
+    borderLeftWidth: T.list.row.accentBar.width,  // 3dp
+    borderLeftColor: T.color.accent.identity,     // #B85C78 roselle-500 (from #A8505A)
   },
   consentBannerText: {
-    fontFamily: 'IBMPlexSans-Medium',
-    fontSize: 14,
-    color: '#A8505A',
+    fontFamily: T.type.body.fontFamily,            // Sarabun-Regular (from IBMPlexSans-Medium)
+    fontSize: T.type.body.size,                    // 15sp (from 14sp)
+    lineHeight: T.type.body.lineHeight,            // 25
+    color: T.color.text.primary,                   // #7A3A52 roselle-700 (from #A8505A)
   },
 
   // ── Error panel (B5 — §8.9: calm + data-still-here + Retry Primary) ───────
@@ -769,32 +774,35 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   errorHeadline: {
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 17,
-    color: '#3A2A30',
+    fontFamily: T.type.bodyLarge.fontFamily,       // Sarabun-Regular (from IBMPlexSans-SemiBold)
+    fontSize: T.type.bodyLarge.size,               // 17sp
+    lineHeight: T.type.bodyLarge.lineHeight,       // 28
+    color: T.color.text.heading,                   // #4A2230 roselle-900 (from #3A2A30)
     textAlign: 'center',
     fontWeight: '600',
   },
   errorSubtitle: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 15,
-    color: '#5F4A52',
+    fontFamily: T.type.body.fontFamily,            // Sarabun-Regular (from IBMPlexSans-Regular)
+    fontSize: T.type.body.size,                    // 15sp
+    lineHeight: T.type.body.lineHeight,            // 25
+    color: T.color.text.primary,                   // #7A3A52 roselle-700 (from #5F4A52)
     textAlign: 'center',
   },
   retryBtn: {
-    backgroundColor: '#A8505A',
-    borderRadius: 100,
-    minHeight: 52,
+    backgroundColor: T.button.primary.bg,         // #9A5F0A amber-700 (from #A8505A)
+    borderRadius: T.button.primary.radius,         // 12dp (from 100/pill — spec: CTA uses md radius)
+    minHeight: T.button.primary.height,            // 52dp
     paddingHorizontal: 28,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 8,
   },
   retryBtnText: {
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 16,
-    color: '#FFFFFF',
-    fontWeight: '700',
+    fontFamily: T.type.label.fontFamily,           // Sarabun-SemiBold (from IBMPlexSans-SemiBold)
+    fontSize: T.type.body.size,                    // 15sp (from 16sp)
+    lineHeight: T.type.body.lineHeight,            // 25
+    color: T.color.text.onDark,                    // #FFFFFF
+    fontWeight: T.type.label.fontWeight,           // '600'
   },
 
   // ── Empty state ────────────────────────────────────────────────────────────
@@ -810,42 +818,44 @@ const styles = StyleSheet.create({
     width: 120,
     height: 120,
     borderRadius: 60,
-    backgroundColor: '#EBE1D9',
+    backgroundColor: T.color.surface.subtle,      // #F5EDE6 ivory-200 (from #EBE1D9)
     marginBottom: 8,
   },
   emptyHeadline: {
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 20,
-    color: '#3A2A30',
+    fontFamily: T.type.heading2.fontFamily,        // Sarabun-SemiBold (from IBMPlexSans-SemiBold)
+    fontSize: T.type.heading2.size,                // 20sp
+    lineHeight: T.type.heading2.lineHeight,        // 33
+    color: T.color.text.heading,                   // #4A2230 roselle-900 (from #3A2A30)
     textAlign: 'center',
-    fontWeight: '700',
+    fontWeight: T.type.heading2.fontWeight,        // '600'
   },
   emptyBody: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 15,
-    color: '#5F4A52',
+    fontFamily: T.type.body.fontFamily,            // Sarabun-Regular (from IBMPlexSans-Regular)
+    fontSize: T.type.body.size,                    // 15sp
+    lineHeight: T.type.body.lineHeight,            // 25
+    color: T.color.text.primary,                   // #7A3A52 roselle-700 (from #5F4A52)
     textAlign: 'center',
-    lineHeight: 22,
   },
   addFirstBtn: {
-    backgroundColor: '#A8505A',
-    borderRadius: 100,
-    minHeight: 52,
+    backgroundColor: T.button.primary.bg,         // #9A5F0A amber-700 (from #A8505A)
+    borderRadius: T.button.primary.radius,         // 12dp (from 100/pill)
+    minHeight: T.button.primary.height,            // 52dp
     paddingHorizontal: 28,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 8,
   },
   addFirstBtnText: {
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 16,
-    color: '#FFFFFF',
-    fontWeight: '700',
+    fontFamily: T.type.label.fontFamily,           // Sarabun-SemiBold (from IBMPlexSans-SemiBold)
+    fontSize: T.type.body.size,                    // 15sp (from 16sp)
+    lineHeight: T.type.body.lineHeight,            // 25
+    color: T.color.text.onDark,                    // #FFFFFF
+    fontWeight: T.type.label.fontWeight,           // '600'
   },
 
   // ── List ───────────────────────────────────────────────────────────────────
   listContent: {
-    paddingHorizontal: 16,
+    paddingHorizontal: T.spacing[4],              // 16dp
     paddingBottom: 24,
   },
 
@@ -859,28 +869,28 @@ const styles = StyleSheet.create({
   dividerLine: {
     flex: 1,
     height: 1,
-    backgroundColor: '#EBE1D9',
+    backgroundColor: T.color.surface.divider,     // #E8DDD5 (from #EBE1D9)
   },
   dividerLabel: {
-    fontFamily: 'IBMPlexSans-Medium',
-    fontSize: 12,
-    color: '#94818A',
-    textTransform: 'uppercase',
-    letterSpacing: 0.8,
+    fontFamily: T.type.caption.fontFamily,         // Sarabun-Regular (from IBMPlexSans-Medium)
+    fontSize: T.type.caption.size,                 // 13sp (from 12sp — text.primary R4 at 13sp)
+    lineHeight: T.type.caption.lineHeight,         // 21
+    color: T.color.text.primary,                   // #7A3A52 roselle-700 (from #94818A — not jade-600 at 13sp R4)
+    // textTransform: 'uppercase' REMOVED — Thai typography rule (no uppercase Thai)
   },
 
   // ── Plan card (F2: leading glyph + dose + encryption notice; B1: Switch) ───
   planCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    backgroundColor: T.input.bg,                  // #F5EDE6 ivory-200 (from #FFFFFF — no white surfaces)
+    borderRadius: T.radius.md,                    // 12dp
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: '#EBE1D9',
+    borderColor: T.color.surface.divider,          // #E8DDD5 (from #EBE1D9)
     // flexDirection changed to column so logDoseBtn sits below the row
     flexDirection: 'column',
   },
   planCardInactive: {
-    backgroundColor: '#FBF6F1',
+    backgroundColor: T.color.surface.base,         // #FBF6F1 ivory-100 (from #FBF6F1 literal)
     opacity: 0.75,
   },
   // Inner row: edit-body + trailing switch, side-by-side
@@ -894,7 +904,7 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: T.spacing[4],              // 16dp
     paddingVertical: 14,
     gap: 10,
     minHeight: 72,
@@ -902,7 +912,7 @@ const styles = StyleSheet.create({
   // F2: leading medication glyph
   pillGlyph: {
     fontSize: 20,
-    color: '#A8505A', // rose/500 when active
+    color: T.color.accent.interactive,             // #9A5F0A amber-700 (from #A8505A)
   },
   pillGlyphInactive: {
     opacity: 0.4,
@@ -911,32 +921,36 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   planName: {
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 16,
-    color: '#3A2A30',
+    fontFamily: T.type.bodyLarge.fontFamily,       // Sarabun-Regular (from IBMPlexSans-SemiBold)
+    fontSize: T.type.bodyLarge.size,               // 17sp (from 16sp — per spec "type.body.large 17sp")
+    lineHeight: T.type.bodyLarge.lineHeight,       // 28
+    color: T.color.text.primary,                   // #7A3A52 roselle-700 (from #3A2A30)
     fontWeight: '600',
   },
   planNameInactive: {
-    color: '#5F4A52',
+    color: T.color.text.primary,                   // #7A3A52 roselle-700 (from #5F4A52)
   },
   // F2: dose segment
   planDose: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 13,
-    color: '#5F4A52',
+    fontFamily: T.type.caption.fontFamily,         // Sarabun-Regular (from IBMPlexSans-Regular)
+    fontSize: T.type.caption.size,                 // 13sp — text.primary (not jade-600 at 13sp R4)
+    lineHeight: T.type.caption.lineHeight,         // 21
+    color: T.color.text.primary,                   // #7A3A52 roselle-700 (from #5F4A52)
     marginTop: 1,
   },
   planPreview: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 13,
-    color: '#5F4A52',
+    fontFamily: T.type.caption.fontFamily,         // Sarabun-Regular (from IBMPlexSans-Regular)
+    fontSize: T.type.caption.size,                 // 13sp — per spec "type.caption text.primary 13sp"
+    lineHeight: T.type.caption.lineHeight,         // 21
+    color: T.color.text.primary,                   // #7A3A52 roselle-700 (from #5F4A52)
     marginTop: 2,
   },
   // F2: encryption notice
   encryptionNotice: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 12,
-    color: '#94818A',
+    fontFamily: T.type.micro.fontFamily,           // Sarabun-Regular (from IBMPlexSans-Regular)
+    fontSize: T.type.micro.size,                   // 11sp (from 12sp)
+    lineHeight: T.type.micro.lineHeight,           // 18
+    color: T.color.text.primary,                   // #7A3A52 roselle-700 (from #94818A)
     marginTop: 3,
   },
 
@@ -963,7 +977,7 @@ const styles = StyleSheet.create({
   //      the log-dose link.
   logDoseBtn: {
     alignSelf: 'flex-start',
-    paddingHorizontal: 16,
+    paddingHorizontal: T.spacing[4],              // 16dp
     paddingBottom: 12,
     paddingTop: 4,
     marginTop: 8,
@@ -971,9 +985,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   logDoseBtnText: {
-    fontFamily: 'IBMPlexSans-Medium',
-    fontSize: 13,
-    color: '#8E3A44', // rose/700 — token-consistent (was rose/600 #A8505A)
+    fontFamily: T.type.caption.fontFamily,         // Sarabun-Regular (from IBMPlexSans-Medium)
+    fontSize: T.type.caption.size,                 // 13sp (from 13sp — not jade-600 at 13sp R4)
+    lineHeight: T.type.caption.lineHeight,         // 21
+    color: T.color.text.primary,                   // #7A3A52 roselle-700 (from #8E3A44)
     textDecorationLine: 'underline',
   },
 });

@@ -143,6 +143,24 @@ export type RootStackParamList = {
   ProfileInfoEdit: undefined;
 
   /**
+   * PregnancySummary — read-only pregnancy recap screen (trimester + delivery).
+   *
+   * Entry: ProfileHubScreen > "สรุปการตั้งครรภ์" row (lifecycle-agnostic:
+   * shown for BOTH pregnant and postpartum profiles).
+   *
+   * SD-9 / PDPA: params = undefined — health data (edd, birthDate,
+   * deliveryType, hospitalAdmissionDate, hospitalDischargeDate) is NEVER
+   * passed in route params. The screen obtains its inputs by performing a
+   * GET /v1/pregnancy-profile on mount and decoding cipher fields client-side
+   * (mirror of ProfileInfoEditScreen GET-on-mount pattern).
+   *
+   * SD-5: GET 401 → full performLogout teardown → Welcome.
+   *
+   * See docs/product/pregnancy-summary.md §3.2 / pregnancy-summary-design.md §2.
+   */
+  PregnancySummary: undefined;
+
+  /**
    * Consent — S3 first-run PDPA consent screen.
    * Entry: after VerifyEmail (new registrations only).
    * No params — uses tokenStorage from context / props.

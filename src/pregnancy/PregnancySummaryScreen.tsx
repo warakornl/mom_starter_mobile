@@ -103,7 +103,9 @@ export function PregnancySummaryScreen({
 
   // ── Build on-device summary ───────────────────────────────────────────────
   // INV-PS3: read-only — no store writes. K-8: raw counts never logged.
-  const sessions = kickCountSyncStore.getActiveSessions();
+  // Spec §3.2: MUST use getCompletedSessions() — getActiveSessions() is banned
+  // by name for summary aggregation (DEFECT-PS-1 guard).
+  const sessions = kickCountSyncStore.getCompletedSessions();
   const logs = medicationLogSyncStore.getLogs();
   const rawPlans = medicationPlanSyncStore.getPlans();
 

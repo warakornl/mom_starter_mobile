@@ -19,8 +19,8 @@
  * ── INVARIANTS (legal + product): ────────────────────────────────────────────
  * INV-PS1: PregnancySummary output type has NO verdict/badge/severity field.
  *          No assessment, no normal/abnormal, no trend/delta/comparison.
- * INV-PS2 / K-8: NEVER console.log movementCount, sums, or avg (raw or derived).
- *                This pure fn structurally cannot egress values.
+ * INV-PS2 / K-8: Raw health values (movementCount, sums, avg) must NEVER appear
+ *                in any log/analytics call. This pure fn structurally cannot egress.
  * INV-PS3: Returns a view model only — NO writes to any store.
  * INV-PS4: Aggregates only the caller-supplied current-user data.
  *
@@ -70,7 +70,7 @@ export interface BuildPregnancySummaryInput {
   hospitalDischargeDate: string | null;
   /**
    * COMPLETED sessions ONLY (status === 'completed', no in_progress drafts — K-8 / B1).
-   * K-8: NEVER log movementCount from these sessions.
+   * K-8: health data — raw counts must never egress to analytics.
    */
   completedKickSessions: KickCountSessionRecord[];
   /** All live medication log records for this user. */
@@ -205,7 +205,7 @@ function buildEmptyTrimester(): TrimesterData {
 /**
  * computeKicksForTrimester — pure kick-count aggregation per §3.2.
  *
- * K-8 invariant: NEVER log movementCount, totalMovements, or avgKicksPerDay.
+ * K-8 invariant: raw health values (count, total, avg) must not egress to analytics.
  *
  * @param sessions  All completed sessions that map to this trimester.
  * @returns KicksSummaryData or null (when no sessions).
@@ -221,7 +221,7 @@ function computeKicksForTrimester(
   for (const session of sessions) {
     const civilDate = bucketCivilDay(session.startedAt);
     const current = dayMap.get(civilDate) ?? 0;
-    // K-8: do NOT log session.movementCount individually
+    // K-8: accumulate only — no egress of raw counts
     dayMap.set(civilDate, current + session.movementCount);
   }
 
@@ -229,7 +229,7 @@ function computeKicksForTrimester(
   // (a 0-count session still counts as a day — §3.2 must-pin)
   const daysWithData = dayMap.size;
 
-  // K-8: do NOT log totalMovements or avgKicksPerDay
+  // K-8: aggregation on-device only; result must not egress to analytics
   let totalMovements = 0;
   for (const count of dayMap.values()) {
     totalMovements += count;

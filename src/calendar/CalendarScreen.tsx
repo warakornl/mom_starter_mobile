@@ -74,6 +74,9 @@ import { bucketCivilDay } from './civilDayBucketer';
 import type { TokenStorage } from '../auth/tokenStorage';
 import type { Locale } from '../auth/types';
 import type { ChecklistItemRecord, ReminderOccurrenceRecord, OccurrenceStatus, ReminderType, MedicationLogInput } from '../sync/syncTypes';
+import { T } from '../theme/tokens';
+import type { Lifecycle } from '../pregnancy/types';
+import { PandanEmptyState } from '../illustrations/PandanEmptyState';
 import { consumePendingCalendarFocusDate } from './pendingCalendarFocusDate';
 import { reanchor, cancelForOccurrence, scheduleSnooze, MEDICATION_TITLE_TH } from '../notifications';
 import { medicationPlanSyncStore } from '../medication/medicationPlanSyncStore';
@@ -339,6 +342,34 @@ function dayDotColor(items: CalendarItem[]): DotColor {
   return 'sage';
 }
 
+// ─── Loss-state gate (B2 — ห้องแม่ Phase 2) ─────────────────────────────────
+
+/**
+ * Filters CalendarItems to suppress pregnancy-progress content when lifecycle='ended'.
+ *
+ * Rules (spec §3 / B2 Loss-State Gate Registry):
+ *   - lifecycle='ended' (loss/bereavement state): suppress kick_count occurrences.
+ *     Kick counting is a pregnancy-progress activity with no meaning after loss.
+ *   - lifecycle=undefined (snapshot unavailable): MUST NOT suppress — not a loss state (GAP-2).
+ *   - lifecycle='pregnant'|'postpartum': retain all items.
+ *   - Checklist items (appointments) are ALWAYS retained.
+ *
+ * NOTE: 'milestone' and 'countdown' ReminderTypes are not yet in the ReminderType union.
+ * When added (future slice), add them here too.
+ *
+ * Exported as a pure function for unit-testable TDD loss-gate tests.
+ */
+export function filterLossStateItems(
+  items: CalendarItem[],
+  lifecycle?: Lifecycle,
+): CalendarItem[] {
+  if (lifecycle !== 'ended') return items;
+  return items.filter((item) => {
+    if (item.kind === 'checklist') return true; // appointments always shown
+    return item.reminderType !== 'kick_count';
+  });
+}
+
 // ─── Props ────────────────────────────────────────────────────────────────────
 
 export interface CalendarScreenProps {
@@ -357,6 +388,11 @@ export interface CalendarScreenProps {
    * Spec: capture-ui.md §2, calendar-home-screens §4.4.
    */
   onAddCapture?: (loggedAtDate: string) => void;
+  /**
+   * ห้องแม่ B2 loss-state gate: lifecycle='ended' → suppress kick_count occurrences.
+   * Undefined = unknown/not loaded; must NEVER suppress items (GAP-2).
+   */
+  lifecycle?: Lifecycle;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -369,6 +405,7 @@ export function CalendarScreen({
   onAddReminder,
   onEditReminder,
   onAddCapture,
+  lifecycle,
 }: CalendarScreenProps): React.JSX.Element {
   const { t, locale } = useT();
   const today = localCivilToday();
@@ -562,13 +599,15 @@ export function CalendarScreen({
     (date: string): CalendarItem[] => {
       const checklist = checklistMap.get(date) ?? [];
       const occurrences = occurrenceMap.get(date) ?? [];
-      return [...checklist, ...occurrences].sort((a, b) => {
+      const raw = [...checklist, ...occurrences].sort((a, b) => {
         const ta = a.kind === 'checklist' ? (a.item.scheduledAt ?? '') : a.scheduledLocalTime;
         const tb = b.kind === 'checklist' ? (b.item.scheduledAt ?? '') : b.scheduledLocalTime;
         return ta.localeCompare(tb);
       });
+      // B2 loss-state gate: suppress pregnancy-progress items when lifecycle='ended'.
+      return filterLossStateItems(raw, lifecycle);
     },
-    [checklistMap, occurrenceMap],
+    [checklistMap, occurrenceMap, lifecycle],
   );
 
   const selectedItems = getItemsForDate(selectedDate);
@@ -980,6 +1019,7 @@ export function CalendarScreen({
         {/* ── Agenda list ──────────────────────────────────────────────── */}
         {selectedItems.length === 0 && kickCountItems.length === 0 ? (
           <View style={styles.emptyState}>
+            <PandanEmptyState />
             <Text style={styles.emptyText}>{t('calendar.empty')}</Text>
           </View>
         ) : (
@@ -1131,30 +1171,32 @@ const CELL_SIZE = 44;
 const DOT_SIZE = 6;
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FBF6F1' },
+  container: { flex: 1, backgroundColor: T.color.surface.base },
 
-  // Sync banners
+  // Sync banners — ห้องแม่ B2: caption (13sp) + text.primary (roselle-700)
   syncBar: {
-    backgroundColor: '#EBF2EC',
+    backgroundColor: T.offlinePill.bg,
     paddingVertical: 6,
     paddingHorizontal: 16,
     alignItems: 'center',
   },
   syncBarText: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 13,
-    color: '#4A7A56',
+    fontFamily: T.type.caption.fontFamily,
+    fontSize: T.type.caption.size,
+    lineHeight: T.type.caption.lineHeight,
+    color: T.color.text.primary,
   },
   errorBar: {
-    backgroundColor: '#FBEDEE',
+    backgroundColor: T.color.surface.wash.roselle,
     paddingVertical: 8,
     paddingHorizontal: 16,
     alignItems: 'center',
   },
   errorBarText: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 13,
-    color: '#8E3A44',
+    fontFamily: T.type.caption.fontFamily,
+    fontSize: T.type.caption.size,
+    lineHeight: T.type.caption.lineHeight,
+    color: T.color.text.primary,
   },
 
   monthHeader: {
@@ -1165,8 +1207,8 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   monthArrow: { padding: 8 },
-  monthArrowText: { fontSize: 24, color: '#3A2A30' },
-  monthLabel: { fontSize: 17, fontWeight: '600', color: '#3A2A30' },
+  monthArrowText: { fontSize: 24, color: T.color.text.heading },
+  monthLabel: { fontSize: 17, fontWeight: '600', color: T.color.text.heading },
 
   dowRow: {
     flexDirection: 'row',
@@ -1176,7 +1218,7 @@ const styles = StyleSheet.create({
     width: `${100 / 7}%` as unknown as number,
     textAlign: 'center',
     fontSize: 12,
-    color: '#94818A',
+    color: T.color.text.primary,
     paddingBottom: 4,
   },
 
@@ -1194,15 +1236,15 @@ const styles = StyleSheet.create({
   },
   dayCellToday: {
     borderRadius: 22,
-    backgroundColor: '#FBEDEE',
+    backgroundColor: T.color.surface.wash.roselle,
   },
   dayCellSelected: {
     borderRadius: 22,
     borderWidth: 2,
-    borderColor: '#A8505A',
+    borderColor: T.color.list.bar.pregnancy,
   },
-  dayNumber: { fontSize: 14, color: '#3A2A30' },
-  dayNumberToday: { color: '#A8505A', fontWeight: '700' },
+  dayNumber: { fontSize: 14, color: T.color.text.heading },
+  dayNumberToday: { color: T.color.text.primary, fontWeight: '700' },
   dayNumberSelected: { fontWeight: '700' },
 
   dot: {
@@ -1211,9 +1253,12 @@ const styles = StyleSheet.create({
     borderRadius: DOT_SIZE / 2,
     marginTop: 2,
   },
-  dotRose: { backgroundColor: '#A8505A' },
-  dotTeal: { backgroundColor: '#3B8C8C' },
-  dotSage: { backgroundColor: '#4A7A56' },
+  // missed → roselle-500 (pregnancy bar colour — urgent)
+  dotRose: { backgroundColor: T.color.list.bar.pregnancy },
+  // due → roselle-500 (reminder colour)
+  dotTeal: { backgroundColor: T.color.list.bar.pregnancy },
+  // done / checklist → jade-600 (success state)
+  dotSage: { backgroundColor: T.color.state.success },
   /** Kick-count dot — violet, distinct from rose/teal/sage (feat-kickcount-in-calendar). */
   dotViolet: { backgroundColor: '#7B5EA7' },
 
@@ -1223,32 +1268,36 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 6,
     borderRadius: 16,
-    backgroundColor: '#F4D9DC',
+    backgroundColor: T.color.surface.wash.roselle,
   },
-  todayBtnText: { fontSize: 13, color: '#A8505A', fontWeight: '600' },
+  todayBtnText: { fontSize: 13, color: T.color.text.primary, fontWeight: '600' },
 
   agendaHeader: {
     paddingHorizontal: 16,
     paddingTop: 16,
     paddingBottom: 8,
     borderTopWidth: 1,
-    borderTopColor: '#EBE1D9',
+    borderTopColor: T.color.surface.divider,
   },
-  agendaHeading: { fontSize: 15, fontWeight: '600', color: '#3A2A30' },
+  agendaHeading: { fontSize: 15, fontWeight: '600', color: T.color.text.heading },
   addBtns: { flexDirection: 'row', gap: 8, marginTop: 8 },
   addBtn: {
     paddingHorizontal: 12,
     paddingVertical: 6,
     minHeight: 48,
     justifyContent: 'center' as const,
-    borderRadius: 14,
-    backgroundColor: '#A8505A',
+    borderRadius: T.radius.md,
+    backgroundColor: T.color.accent.interactive,
   },
-  addBtnSecondary: { backgroundColor: '#3B8C8C' },
-  /** Capture / self-log add button — design-system sage status/logged token #4C6B57
-   *  (design-system.md §1.3/§5.8). Replaces off-token #4A7A56. */
-  addBtnCapture: { backgroundColor: '#4C6B57' },
-  addBtnText: { fontSize: 12, color: '#FFFFFF', fontWeight: '600' },
+  addBtnSecondary: { backgroundColor: T.color.list.bar.health },
+  /** Capture / self-log add button — jade-800 (health bar token). */
+  addBtnCapture: { backgroundColor: T.color.list.bar.health },
+  addBtnText: {
+    fontFamily: T.type.caption.fontFamily,
+    fontSize: 12,
+    color: '#FFFFFF',
+    fontWeight: '600',
+  },
   addBtnTextSecondary: { color: '#FFFFFF' },
   addBtnTextCapture: { color: '#FFFFFF' },
 
@@ -1256,14 +1305,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 32,
   },
-  emptyText: { fontSize: 14, color: '#94818A' },
+  emptyText: {
+    fontFamily: T.type.caption.fontFamily,
+    fontSize: T.type.caption.size,
+    lineHeight: T.type.caption.lineHeight,
+    color: T.color.text.primary,
+    marginTop: 12,
+  },
 
   agendaItem: {
     flexDirection: 'row',
     paddingHorizontal: 16,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#EBE1D9',
+    borderBottomColor: T.color.surface.divider,
     alignItems: 'flex-start',
   },
   agendaDot: {
@@ -1275,9 +1330,29 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   agendaContent: { flex: 1 },
-  agendaTitle: { fontSize: 15, color: '#3A2A30', fontWeight: '500' },
+  agendaTitle: {
+    fontFamily: T.type.bodyLarge.fontFamily,
+    fontSize: 15,
+    color: T.color.text.heading,
+    fontWeight: '500',
+  },
   /** Dose subtitle for medication occurrences (design §5.2 / §5.3). */
-  agendaDose: { fontSize: 13, color: '#5F4A52', marginTop: 1 },
-  agendaTime: { fontSize: 13, color: '#5F4A52', marginTop: 2 },
-  agendaStatus: { fontSize: 12, color: '#94818A', marginTop: 2 },
+  agendaDose: {
+    fontFamily: T.type.caption.fontFamily,
+    fontSize: T.type.caption.size,
+    color: T.color.text.primary,
+    marginTop: 1,
+  },
+  agendaTime: {
+    fontFamily: T.type.caption.fontFamily,
+    fontSize: T.type.caption.size,
+    color: T.color.text.primary,
+    marginTop: 2,
+  },
+  agendaStatus: {
+    fontFamily: T.type.caption.fontFamily,
+    fontSize: 12,
+    color: T.color.text.primary,
+    marginTop: 2,
+  },
 });

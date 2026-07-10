@@ -31,7 +31,8 @@
  *   the full performLogout SD-5 teardown (all health stores) via onSuccess.
  *   `reset.revokeNotice` is shown pre-submit so the all-device logout is expected.
  *
- * Design tokens: same as Login/Register (bg #FBF6F1, rose #A8505A, ink #3A2A30).
+ * ห้องแม่ Phase 2 B1 reskin (mother-room-phase2-rollout.md §4.1 ResetPasswordScreen).
+ * All tokens from T.* — NO inline hex outside tokens.ts.
  */
 
 import React, { useState, useEffect, useMemo } from 'react';
@@ -58,6 +59,7 @@ import type { TokenStorage } from './tokenStorage';
 import { InMemoryTokenStorage } from './tokenStorage';
 import { useT } from '../i18n/LanguageContext';
 import { clearResetToken } from '../deepLink/resetDeepLink';
+import { T } from '../theme/tokens';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -190,6 +192,7 @@ export function ResetPasswordScreen({
       <View style={styles.centeredState}>
         <Text style={styles.stateTitle}>{t('reset.tokenInvalid')}</Text>
         <TouchableOpacity
+          testID="reset-submit"
           style={styles.submitButton}
           onPress={onRequestNewLink}
           accessibilityRole="button"
@@ -208,6 +211,7 @@ export function ResetPasswordScreen({
       <View style={styles.centeredState}>
         <Text style={styles.stateTitle}>{t('reset.linkMissing')}</Text>
         <TouchableOpacity
+          testID="reset-submit"
           style={styles.submitButton}
           onPress={onRequestNewLink}
           accessibilityRole="button"
@@ -265,6 +269,7 @@ export function ResetPasswordScreen({
             secureTextEntry={!showNewPassword}
             autoComplete="new-password"
             textContentType="newPassword"
+            placeholderTextColor={T.input.placeholder}
             accessibilityLabel={t('reset.newPasswordLabel')}
             editable={!loading}
           />
@@ -302,6 +307,7 @@ export function ResetPasswordScreen({
             secureTextEntry={!showConfirm}
             autoComplete="new-password"
             textContentType="newPassword"
+            placeholderTextColor={T.input.placeholder}
             accessibilityLabel={t('reset.confirmLabel')}
             editable={!loading}
           />
@@ -343,17 +349,20 @@ export function ResetPasswordScreen({
   );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
+// ─── Styles — ALL values from T.* tokens; NO inline hex ──────────────────────
 
 // Expose resetStrings for use by RootNavigator's successToast
 export { resetStrings };
 
 const styles = StyleSheet.create({
-  flex: { flex: 1, backgroundColor: '#FBF6F1' },
+  flex: {
+    flex: 1,
+    backgroundColor: T.color.surface.base,           // #FBF6F1
+  },
 
   scroll: {
     flexGrow: 1,
-    paddingHorizontal: 24,
+    paddingHorizontal: T.spacing[6],                  // 24dp
     paddingTop: 32,
     paddingBottom: 40,
   },
@@ -364,129 +373,144 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 32,
-    backgroundColor: '#FBF6F1',
+    backgroundColor: T.color.surface.base,            // #FBF6F1
   },
   stateTitle: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 16,
-    color: '#3A2A30',
+    fontFamily: T.type.body.fontFamily,               // Sarabun-Regular
+    fontSize: T.type.body.size,                       // 15sp
+    color: T.color.text.heading,                      // #4A2230 roselle-900
     textAlign: 'center',
-    lineHeight: 24,
-    marginBottom: 24,
+    lineHeight: T.type.body.lineHeight,               // 25
+    marginBottom: T.spacing[6],                       // 24dp
+    letterSpacing: 0,
   },
 
   // ── Feedback strips / cards ──
   offlineStrip: {
-    backgroundColor: '#FBF3EE',
-    borderRadius: 8,
+    backgroundColor: T.color.surface.subtle,          // #F5EDE6 (not #FBF3EE)
+    borderRadius: T.radius.sm,                        // 6dp
     paddingVertical: 10,
     paddingHorizontal: 14,
-    marginBottom: 12,
+    marginBottom: T.spacing[3],                       // 12dp
   },
   offlineText: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 14,
-    color: '#5F4A52',
+    fontFamily: T.type.body.fontFamily,               // Sarabun-Regular
+    fontSize: T.type.body.size,                       // 15sp
+    color: T.color.text.primary,                      // #7A3A52 roselle-700
+    letterSpacing: 0,
   },
   serverCard: {
-    backgroundColor: '#FBF3EE',
-    borderRadius: 8,
+    backgroundColor: T.color.surface.subtle,          // #F5EDE6 (not #FBF3EE)
+    borderRadius: T.radius.sm,                        // 6dp
     borderWidth: 1,
-    borderColor: '#EBE1D9',
+    borderColor: T.color.surface.divider,             // #E8DDD5 (not #EBE1D9)
     paddingVertical: 12,
     paddingHorizontal: 14,
-    marginBottom: 12,
+    marginBottom: T.spacing[3],                       // 12dp
   },
   serverCardText: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 14,
-    color: '#5F4A52',
+    fontFamily: T.type.body.fontFamily,               // Sarabun-Regular
+    fontSize: T.type.body.size,                       // 15sp
+    color: T.color.text.primary,                      // #7A3A52
     textAlign: 'center',
+    letterSpacing: 0,
   },
 
   // ── Form ──
   title: {
-    fontFamily: 'IBMPlexSans-SemiBold',
+    fontFamily: T.type.heading2.fontFamily,           // Sarabun-SemiBold
     fontSize: 24,
-    color: '#3A2A30',
+    lineHeight: 38,                                   // ~1.6× for Thai
+    color: T.color.text.heading,                      // #4A2230 roselle-900
     marginBottom: 20,
+    letterSpacing: 0,
   },
   label: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 14,
-    color: '#3A2A30',
-    marginBottom: 6,
+    fontFamily: T.type.body.fontFamily,               // Sarabun-Regular
+    fontSize: T.type.body.size,                       // 15sp
+    lineHeight: T.type.body.lineHeight,               // 25
+    color: T.color.text.heading,                      // #4A2230
+    marginBottom: T.spacing[1],                       // 4dp (was 6)
+    letterSpacing: 0,
   },
   labelSpacing: {
-    marginTop: 12,
+    marginTop: T.spacing[3],                          // 12dp
   },
   input: {
-    height: 44,
+    height: T.input.height,                           // 52dp
     borderWidth: 1,
-    borderColor: '#EBE1D9',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 15,
-    color: '#3A2A30',
-    backgroundColor: '#FFFFFF',
+    borderColor: T.input.border.default,              // #E8DDD5
+    borderRadius: T.radius.md,                        // 12dp
+    paddingHorizontal: T.spacing[3],                  // 12dp
+    fontFamily: T.type.bodyLarge.fontFamily,          // Sarabun-Regular
+    fontSize: T.type.body.size,                       // 15sp
+    color: T.input.text,                              // #4A2230 roselle-900
+    backgroundColor: T.input.bg,                      // #F5EDE6 ivory-200 (NOT white)
     flex: 1,
+    letterSpacing: 0,
   },
   inputError: {
-    borderColor: '#A8505A',
+    borderColor: T.input.border.error,                // #B85C78 roselle-500 (NOT #A8505A)
   },
   passwordRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 4,
+    marginBottom: T.spacing[1],                       // 4dp
   },
   passwordInput: {
     marginBottom: 0,
   },
   eyeButton: {
     paddingHorizontal: 10,
-    height: 44,
+    height: T.input.height,                           // 52dp (match input)
     justifyContent: 'center',
   },
   eyeIcon: {
     fontSize: 18,
   },
   passwordHint: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 13,
-    color: '#94818A',
-    marginBottom: 4,
+    fontFamily: T.type.caption.fontFamily,            // Sarabun-Regular
+    fontSize: T.type.caption.size,                    // 13sp
+    lineHeight: T.type.caption.lineHeight,            // 21
+    color: T.color.text.primary,                      // #7A3A52 (NOT banned #94818A)
+    marginBottom: T.spacing[1],                       // 4dp
+    letterSpacing: 0,
   },
   fieldError: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 13,
-    color: '#A8505A',
-    marginBottom: 6,
+    fontFamily: T.type.caption.fontFamily,            // Sarabun-Regular
+    fontSize: T.type.caption.size,                    // 13sp
+    lineHeight: T.type.caption.lineHeight,            // 21
+    color: T.input.errorText,                         // #7A3A52 roselle-700 (NOT #A8505A)
+    marginBottom: T.spacing[1],                       // 4dp (was 6)
+    letterSpacing: 0,
   },
 
   // ── Revoke notice (SEC-INV-4) ──
   revokeNotice: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 13,
-    color: '#5F4A52',
-    marginTop: 12,
-    marginBottom: 4,
-    lineHeight: 20,
+    fontFamily: T.type.caption.fontFamily,            // Sarabun-Regular
+    fontSize: T.type.caption.size,                    // 13sp
+    lineHeight: T.type.caption.lineHeight,            // 21
+    color: T.color.text.primary,                      // #7A3A52 (NOT raw #5F4A52)
+    marginTop: T.spacing[3],                          // 12dp
+    marginBottom: T.spacing[1],                       // 4dp
+    letterSpacing: 0,
   },
 
-  // ── Submit button ──
+  // ── Submit button — amber-700 CTA, 52dp height ──
   submitButton: {
-    height: 48,
-    backgroundColor: '#A8505A',
-    borderRadius: 10,
+    height: T.button.primary.height,                  // 52dp
+    backgroundColor: T.button.primary.bg,             // #9A5F0A amber-700 (NOT #A8505A)
+    borderRadius: T.button.primary.radius,            // 14dp
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 16,
+    marginTop: T.spacing[4],                          // 16dp
   },
   submitText: {
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 16,
-    color: '#FFFFFF',
+    fontFamily: T.type.label.fontFamily,              // Sarabun-SemiBold
+    fontSize: T.type.label.size,                      // 15sp
+    lineHeight: T.type.label.lineHeight,              // 25
+    color: T.button.primary.text,                     // #FBF6F1
+    letterSpacing: 0,
   },
   buttonDisabled: {
     opacity: 0.45,

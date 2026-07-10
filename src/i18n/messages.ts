@@ -428,7 +428,94 @@ const th = {
   'supplies.deleteConfirmOk': 'ลบ',
   'supplies.shortcutBtn': 'รายการเตรียมคลอด ›',
 
-  // ── Calendar (ปฏิทิน) ─────────────────────────────────────────────────────────
+  // ── Auto-stock-decrement (ตัดสต็อกอัตโนมัติ) ──────────────────────────────────
+  //
+  // FW-1 HARD RULE: ALL formula-path strings MUST contain zero brand/promo/order
+  // copy. Allowed: verbatim item name, integers, neutral verbs in allowlist.
+  // See fw1Scanner.ts for the blocklist. Scan these on every CI run.
+  //
+  // Screen 1 — Auto-decrement settings
+  'autoDecrement.navTitle': 'ตัดสต็อกอัตโนมัติ',
+  'autoDecrement.backToSupplies': 'ของใช้ในบ้าน',
+  'autoDecrement.loading': 'กำลังโหลด',
+  'autoDecrement.offline': 'ออฟไลน์ · แสดงข้อมูลในเครื่อง',
+
+  // Activity section headers (neutral Thai only — FW-1)
+  'autoDecrement.activity.diaperChange': 'เปลี่ยนผ้าอ้อม',
+  'autoDecrement.activity.formulaFeed': 'ให้นมผง',   // FW-1: no brand, no "formula brand"
+  'autoDecrement.activity.bathing': 'อาบน้ำ',
+
+  // Toggle
+  'autoDecrement.toggleOn': 'เปิด',
+  'autoDecrement.toggleOff': 'ปิด',
+  /** accessibilityLabel for master toggle: "ตัดสต็อกอัตโนมัติ {activityName} {state}" */
+  'autoDecrement.toggle.a11yLabel': 'ตัดสต็อกอัตโนมัติ {activityName} {state}',
+
+  // Item-link row
+  'autoDecrement.linkItem': '+ เชื่อมต่อของใช้',
+  'autoDecrement.unlinkItem.a11yLabel': 'ยกเลิกการเชื่อมต่อ {itemName}',
+
+  // Per-use units (caption, 13sp — FW-1 neutral verbs)
+  'autoDecrement.unit.piece': 'ชิ้น/ครั้ง',    // pieces per use (diapers, cotton pads)
+  'autoDecrement.unit.meal': 'มื้อ/ครั้ง',     // scoops/meals per use (formula) — FW-1 ✓
+  'autoDecrement.unit.time': 'ครั้ง/ครั้ง',    // times per use (soap, shampoo)
+
+  // Advisory states (Screen 1 inline advisories)
+  // SP-4: no item name in advisory copy
+  'autoDecrement.advisory.packSetupRequired': 'ตั้งค่าบรรจุภัณฑ์ก่อนเปิดใช้งาน',
+  'autoDecrement.advisory.packSetupCta': 'ตั้งค่าบรรจุภัณฑ์ ›',
+  'autoDecrement.advisory.consentRequired': 'เปิดใช้ได้เมื่อยินยอมบันทึกการให้นม',
+  'autoDecrement.advisory.consentCta': 'เปิดสิทธิ์ ›',
+  'autoDecrement.advisory.noItemLinked': 'ยังไม่ได้เชื่อมต่อของใช้',
+
+  // Screen 2 — Sub-unit setup (การตั้งค่าบรรจุภัณฑ์)
+  'subUnitSetup.sectionTitle': 'การตัดสต็อกอัตโนมัติ',
+  'subUnitSetup.usesPerContainerLabel': 'บรรจุภัณฑ์นี้มีกี่มื้อ/ครั้ง',
+  'subUnitSetup.defaultQtyLabel': 'ตัดออกกี่มื้อ/ครั้ง (ค่าตั้งต้น)',
+  'subUnitSetup.usesPerContainerError': 'บรรจุภัณฑ์ต้องมีอย่างน้อย 1 มื้อ',
+  'subUnitSetup.echoPreviewLabel': 'จะแสดงเป็น:',
+  /**
+   * Echo line — FW-1 strict: {name} verbatim, {p} int, {q} int only.
+   * Template: "{name} 1 บรรจุภัณฑ์ = {p} มื้อ · ตัดออก {q} มื้อ/ครั้ง"
+   */
+  'subUnitSetup.echoLine': '{name} 1 บรรจุภัณฑ์ = {p} มื้อ · ตัดออก {q} มื้อ/ครั้ง',
+
+  // Steer-to-pack guided conversion (D-4)
+  'subUnitSetup.steerToPack.title': 'เปลี่ยนวิธีนับเป็น "แพ็ค/บรรจุภัณฑ์"',
+  /** Template: "ตอนนี้คุณมี: {name} {qty} ชิ้น" */
+  'subUnitSetup.steerToPack.currentQty': 'ตอนนี้คุณมี: {name} {qty} ชิ้น',
+  'subUnitSetup.steerToPack.itemsPerPackLabel': '1 แพ็ค มีกี่ชิ้น?',
+  'subUnitSetup.steerToPack.echoPreviewLabel': 'จะเปลี่ยนเป็น:',
+  /** Template: "{name}: 1 แพ็ค (เหลือ {remaining} ชิ้น)" */
+  'subUnitSetup.steerToPack.echoLine': '{name}: 1 แพ็ค (เหลือ {remaining} ชิ้น)',
+  'subUnitSetup.steerToPack.confirmBtn': 'ยืนยันการเปลี่ยน',
+  'subUnitSetup.steerToPack.cancelBtn': 'ยกเลิก',
+  'subUnitSetup.steerToPack.itemsPerPackError': 'ต้องมีอย่างน้อย 2 ชิ้น/แพ็ค เพื่อตัดสต็อกอัตโนมัติ',
+
+  // Screen 3 — Formula-feed chip (on existing feeding surface, SD-10 dual-gate)
+  // FW-1 HARD: chip label is "ให้นมผง" only — no brand, no product name.
+  'formulaFeed.chip': 'ให้นมผง',
+  'formulaFeed.amountLabel': 'จำนวน (มื้อ/สกูป)',
+  'formulaFeed.amountPlaceholder': '0',
+  'formulaFeed.consentGate': 'เปิดสิทธิ์บันทึกการให้นมก่อนเพื่อใช้งาน',
+
+  // Screen 4 — Care-activity tag on reminder form (ReminderFormScreen extension)
+  'reminder.careActivityType.fieldLabel': 'ประเภทกิจกรรมดูแล (ไม่บังคับ)',
+  'reminder.careActivityType.none': 'ไม่ระบุ',
+  'reminder.careActivityType.diaperChange': 'เปลี่ยนผ้าอ้อม',
+  'reminder.careActivityType.bathing': 'อาบน้ำ',
+  'reminder.careActivityType.a11yLabel': 'ประเภทกิจกรรมดูแล: {value}',
+
+  // Low-supply cue (Screen 5 — in-app toast + push notification body)
+  // SP-4/FW-1: generic only — no item name in push body, no brand.
+  // Push notification body is scanned by fw1Scanner on CI.
+  'lowSupply.cue.inApp': 'นมผงของคุณใกล้หมด',         // FW-1 ✓ no brand
+  'lowSupply.cue.push.title': 'มีของใกล้หมด',          // generic — SP-4 ✓ no item name
+  'lowSupply.cue.push.body': 'ของใช้ในบ้านใกล้หมด กรุณาตรวจสอบ', // FW-1 ✓ no brand/buy
+  'lowSupply.restock.push.title': 'เติมสต็อก',
+  'lowSupply.restock.push.body': 'ถึงเวลาเติมสต็อกของบ้าน',   // FW-1 ✓ neutral
+
+  // Calendar (ปฏิทิน) ─────────────────────────────────────────────────────────
   'calendar.navTitle': 'ปฏิทิน',
   'calendar.today': 'วันนี้',
   'calendar.empty': 'ไม่มีกิจกรรมในวันนี้',
@@ -1716,6 +1803,78 @@ const en: MsgShape = {
   'supplies.deleteConfirmCancel': 'Cancel',
   'supplies.deleteConfirmOk': 'Delete',
   'supplies.shortcutBtn': 'Supply checklist ›',
+
+  // ── Auto-stock-decrement ───────────────────────────────────────────────────────
+
+  // Screen 1 — Auto-decrement settings
+  'autoDecrement.navTitle': 'Auto stock decrement',
+  'autoDecrement.backToSupplies': 'Supplies',
+  'autoDecrement.loading': 'Loading',
+  'autoDecrement.offline': 'Offline · showing local data',
+
+  // Activity section headers (neutral only — FW-1)
+  'autoDecrement.activity.diaperChange': 'Diaper change',
+  'autoDecrement.activity.formulaFeed': 'Formula feed',  // FW-1: no brand
+  'autoDecrement.activity.bathing': 'Bath time',
+
+  // Toggle
+  'autoDecrement.toggleOn': 'On',
+  'autoDecrement.toggleOff': 'Off',
+  'autoDecrement.toggle.a11yLabel': 'Auto-decrement {activityName} {state}',
+
+  // Item-link row
+  'autoDecrement.linkItem': '+ Link a supply',
+  'autoDecrement.unlinkItem.a11yLabel': 'Unlink {itemName}',
+
+  // Per-use units
+  'autoDecrement.unit.piece': 'pieces/use',
+  'autoDecrement.unit.meal': 'scoops/feed',   // FW-1 neutral
+  'autoDecrement.unit.time': 'uses/use',
+
+  // Advisory states
+  'autoDecrement.advisory.packSetupRequired': 'Set up packaging before enabling',
+  'autoDecrement.advisory.packSetupCta': 'Set up packaging ›',
+  'autoDecrement.advisory.consentRequired': 'Enable when feeding log is consented',
+  'autoDecrement.advisory.consentCta': 'Grant permission ›',
+  'autoDecrement.advisory.noItemLinked': 'No supply item linked yet',
+
+  // Screen 2 — Sub-unit setup
+  'subUnitSetup.sectionTitle': 'Auto stock decrement',
+  'subUnitSetup.usesPerContainerLabel': 'How many uses does 1 container hold?',
+  'subUnitSetup.defaultQtyLabel': 'Default amount per use',
+  'subUnitSetup.usesPerContainerError': 'A container must hold at least 1 use',
+  'subUnitSetup.echoPreviewLabel': 'Will appear as:',
+  'subUnitSetup.echoLine': '{name} 1 container = {p} uses · deduct {q} uses/feed',
+
+  // Steer-to-pack guided conversion (D-4)
+  'subUnitSetup.steerToPack.title': 'Switch to counting by pack / container',
+  'subUnitSetup.steerToPack.currentQty': 'You currently have: {name} {qty} pieces',
+  'subUnitSetup.steerToPack.itemsPerPackLabel': 'How many pieces per pack?',
+  'subUnitSetup.steerToPack.echoPreviewLabel': 'Will change to:',
+  'subUnitSetup.steerToPack.echoLine': '{name}: 1 pack ({remaining} pieces remaining)',
+  'subUnitSetup.steerToPack.confirmBtn': 'Confirm change',
+  'subUnitSetup.steerToPack.cancelBtn': 'Cancel',
+  'subUnitSetup.steerToPack.itemsPerPackError': 'At least 2 pieces/pack required for auto-decrement',
+
+  // Screen 3 — Formula-feed chip (FW-1: no brand)
+  'formulaFeed.chip': 'Formula feed',
+  'formulaFeed.amountLabel': 'Amount (scoops/feeds)',
+  'formulaFeed.amountPlaceholder': '0',
+  'formulaFeed.consentGate': 'Enable feeding log first to use this',
+
+  // Screen 4 — Care-activity tag on reminder form
+  'reminder.careActivityType.fieldLabel': 'Care activity type (optional)',
+  'reminder.careActivityType.none': 'None',
+  'reminder.careActivityType.diaperChange': 'Diaper change',
+  'reminder.careActivityType.bathing': 'Bath time',
+  'reminder.careActivityType.a11yLabel': 'Care activity type: {value}',
+
+  // Low-supply cue (FW-1: no brand/buy copy)
+  'lowSupply.cue.inApp': 'Your formula supply is running low',
+  'lowSupply.cue.push.title': 'Item running low',
+  'lowSupply.cue.push.body': 'A household supply is running low — please check',
+  'lowSupply.restock.push.title': 'Restock reminder',
+  'lowSupply.restock.push.body': "It's time to top up your supplies",
 
   // ── Calendar ──────────────────────────────────────────────────────────────────
   'calendar.navTitle': 'Calendar',

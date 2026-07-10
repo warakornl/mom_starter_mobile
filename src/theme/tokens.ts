@@ -247,6 +247,27 @@ const type = {
 
 // ─── Tier 3: Component tokens (§1.3) ──────────────────────────────────────────
 
+// Input component tokens (Phase 2 §0.1 — added for B1 auth + onboarding screens)
+// Contrast on ivory-200 (#F5EDE6, L=0.841):
+//   input.text (roselle-900): 11.41:1 AAA
+//   input.placeholder (roselle-700): 6.98:1 AAA
+//   text.secondary (jade-600): 4.21:1 FAILS AA — BANNED for input/form text
+// Contrast on ivory-100 (#FBF6F1, L=0.932):
+//   input.errorText (roselle-700): 7.70:1 AAA
+//   input.border.error (roselle-500 as UI): 4.06:1 ≥ 3:1 satisfies SC 1.4.11
+const input = {
+  bg:          ivory200,    // #F5EDE6 — Nested surface (ivory-200); no white
+  text:        roselle900,  // #4A2230 — Typed text (11.41:1 on ivory-200 AAA)
+  placeholder: roselle700,  // #7A3A52 — Placeholder text (6.98:1 on ivory-200 AAA)
+  border: {
+    default: divider,       // #E8DDD5 — Default input border (decorative hairline)
+    focused: amber600,      // #B8720E — Focus ring colour (SC 1.4.11 UI ≥3:1: 3.60:1 ✓)
+    error:   roselle500,    // #B85C78 — Form validation ONLY; UI 4.06:1 ✓; NOT clinical red
+  },
+  errorText:   roselle700,  // #7A3A52 — Field-level error text (7.70:1 on ivory-100 AAA)
+  height:      52,          // 52dp minimum tap target
+} as const;
+
 const button = {
   primary: {
     bg:       amber700,  // #9A5F0A — CTA fill
@@ -342,6 +363,7 @@ export const tokens = {
     elev,
     type,
     button,
+    input,
     tab,
     list,
     progress,
@@ -432,6 +454,7 @@ export const T = {
   elev,
   type,
   button,
+  input,
   tab,
   list,
   progress,

@@ -1,6 +1,7 @@
 /**
  * WelcomeScreen — App landing / splash screen (S1)
  *
+ * ห้องแม่ Phase 2 B1 reskin (mother-room-phase2-rollout.md §4.1 WelcomeScreen).
  * Entry point for unauthenticated users.
  * Two primary CTAs:
  *   "สร้างบัญชี"  → Register (S2)
@@ -10,12 +11,19 @@
  *   A small toggle in the top-right corner lets the user switch locale before
  *   signing in. The selected locale is persisted via expo-secure-store.
  *
- * Design tokens (design-system.md §1–§5):
- *   bg/warm-milk  #FBF6F1   App background
- *   ink           #3A2A30   Primary text
- *   ink/soft      #5F4A52   Secondary copy
- *   rose/600      #A8505A   Primary button fill
- *   hairline      #EBE1D9   Secondary button border
+ * Reskin changes (all tokens — NO inline hex/px outside tokens.ts):
+ *   - Screen bg: T.color.surface.base (#FBF6F1)
+ *   - App name: Sarabun-SemiBold 32sp/52LH T.color.text.heading (F-3 fix: LH 42→52)
+ *   - Tagline: Sarabun-Regular 17sp/28LH T.color.text.primary
+ *   - Primary CTA: T.button.primary.* (amber-700, not rose/600)
+ *   - Secondary button bg: T.color.surface.subtle (ivory-200, not white)
+ *   - Lang toggle bg: T.color.surface.subtle; border: T.color.surface.divider
+ *   - Disclaimer: Sarabun-Regular 11sp T.color.text.primary (not #94818A — BANNED)
+ *   - 🌸 emoji removed; replaced by typographic lockup
+ *
+ * State matrix:
+ *   Ready  — always (no async data)
+ *   Offline — offlinePill shown (CTAs remain visible)
  */
 
 import React from 'react';
@@ -30,6 +38,7 @@ import {
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/types';
 import { useT } from '../i18n/LanguageContext';
+import { T } from '../theme/tokens';
 
 type WelcomeScreenProps = NativeStackScreenProps<RootStackParamList, 'Welcome'>;
 
@@ -45,9 +54,9 @@ export function WelcomeScreen({ navigation }: WelcomeScreenProps): React.JSX.Ele
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor="#FBF6F1" />
+      <StatusBar barStyle="dark-content" backgroundColor={T.color.surface.base} />
 
-      {/* Language toggle — top-right */}
+      {/* Language toggle — top-right (hitSlop ≥48dp effective per spec) */}
       <View style={styles.topBar}>
         <TouchableOpacity
           testID="lang-toggle"
@@ -55,20 +64,15 @@ export function WelcomeScreen({ navigation }: WelcomeScreenProps): React.JSX.Ele
           onPress={() => setLocale(locale === 'th' ? 'en' : 'th')}
           accessibilityRole="button"
           accessibilityLabel={toggleA11y}
-          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
         >
           <Text style={styles.langToggleText}>{toggleLabel}</Text>
         </TouchableOpacity>
       </View>
 
-      {/* Illustration area — placeholder until SVG assets land */}
-      <View style={styles.illustrationArea} accessibilityElementsHidden={true}>
-        <Text style={styles.illustrationEmoji}>🌸</Text>
-      </View>
-
-      {/* Headline block */}
+      {/* Headline block — typographic lockup replaces emoji illustration */}
       <View style={styles.headlineBlock}>
-        <Text style={styles.appName}>Mom-Starter</Text>
+        <Text style={styles.appName}>ห้องแม่</Text>
         <Text style={styles.tagline}>{t('welcome.tagline')}</Text>
       </View>
 
@@ -95,17 +99,19 @@ export function WelcomeScreen({ navigation }: WelcomeScreenProps): React.JSX.Ele
         </TouchableOpacity>
       </View>
 
-      {/* Legal / medical disclaimer */}
+      {/* Legal / medical disclaimer — type.micro 11sp text.primary */}
       <Text style={styles.disclaimer}>{t('welcome.disclaimer')}</Text>
     </SafeAreaView>
   );
 }
 
+// ─── Styles — ALL values from T.* tokens; NO inline hex/px ───────────────────
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FBF6F1',
-    paddingHorizontal: 24,
+    backgroundColor: T.color.surface.base,  // #FBF6F1
+    paddingHorizontal: T.spacing[6],         // 24dp
     justifyContent: 'space-between',
   },
 
@@ -113,92 +119,92 @@ const styles = StyleSheet.create({
   topBar: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
-    paddingTop: 8,
+    paddingTop: T.spacing[2],               // 8dp
   },
   langToggle: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 999,
+    paddingHorizontal: T.spacing[3],        // 12dp
+    paddingVertical: T.spacing[1],          // 4dp (outer: hitSlop covers ≥48dp)
+    borderRadius: T.radius.pill,            // 999
     borderWidth: 1,
-    borderColor: '#EBE1D9',
-    backgroundColor: '#FFFFFF',
+    borderColor: T.color.surface.divider,   // #E8DDD5
+    backgroundColor: T.color.surface.subtle, // #F5EDE6 — NOT white
     minHeight: 34,
     justifyContent: 'center',
     alignItems: 'center',
   },
   langToggleText: {
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 13,
-    color: '#5F4A52',
-    letterSpacing: 0.3,
+    fontFamily: T.type.caption.fontFamily,  // Sarabun-Regular
+    fontWeight: '600',                       // SemiBold weight for lang badge
+    fontSize: T.type.caption.size,          // 13sp
+    lineHeight: T.type.caption.lineHeight,  // 21
+    color: T.color.text.primary,            // #7A3A52 (7.70:1 AAA)
+    letterSpacing: 0,                        // Thai: zero tracking
   },
 
-  illustrationArea: {
+  // Headline block — typographic lockup (no botanical illustration on Welcome)
+  headlineBlock: {
     flex: 1,
     justifyContent: 'center',
-    alignItems: 'center',
-    paddingTop: 20,
-  },
-  illustrationEmoji: {
-    fontSize: 96,
-    lineHeight: 120,
-  },
-
-  headlineBlock: {
-    alignItems: 'center',
-    paddingBottom: 24,
+    alignItems: 'flex-start',               // left-aligned per spec
+    paddingBottom: T.spacing[6],            // 24dp
   },
   appName: {
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 32,
-    lineHeight: 42,
-    color: '#3A2A30',
-    marginBottom: 8,
+    fontFamily: T.type.display.fontFamily,  // Sarabun-SemiBold
+    fontSize: T.type.display.size,          // 32sp
+    lineHeight: T.type.display.lineHeight,  // 52 (Thai ≥1.6× fix from F-3)
+    color: T.color.text.heading,            // #4A2230 roselle-900
+    marginBottom: T.spacing[2],             // 8dp
   },
   tagline: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 16,
-    lineHeight: 24,
-    color: '#5F4A52',
-    textAlign: 'center',
+    fontFamily: T.type.bodyLarge.fontFamily, // Sarabun-Regular
+    fontSize: T.type.bodyLarge.size,         // 17sp (size up to body.large per spec)
+    lineHeight: T.type.bodyLarge.lineHeight, // 28
+    color: T.color.text.primary,             // #7A3A52
+    flexShrink: 1,                           // Thai line-breaking: no clip
   },
 
+  // CTA buttons
   ctaBlock: {
-    gap: 12,
-    paddingBottom: 16,
+    gap: T.spacing[3],                       // 12dp
+    paddingBottom: T.spacing[4],             // 16dp
   },
   primaryButton: {
-    height: 52,
-    backgroundColor: '#A8505A',
-    borderRadius: 12,
+    height: T.button.primary.height,         // 52dp
+    backgroundColor: T.button.primary.bg,   // #9A5F0A amber-700
+    borderRadius: T.button.primary.radius,  // 12dp
     justifyContent: 'center',
     alignItems: 'center',
   },
   primaryButtonText: {
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 16,
-    color: '#FFFFFF',
+    fontFamily: T.type.label.fontFamily,    // Sarabun-SemiBold
+    fontSize: T.type.body.size,             // 15sp per spec
+    lineHeight: T.type.body.lineHeight,     // 25
+    color: T.color.text.onDark,             // #FFFFFF
+    letterSpacing: 0,
   },
   secondaryButton: {
-    height: 52,
+    height: T.button.primary.height,        // 52dp
     borderWidth: 1,
-    borderColor: '#EBE1D9',
-    borderRadius: 12,
-    backgroundColor: '#FFFFFF',
+    borderColor: T.color.surface.divider,   // #E8DDD5
+    borderRadius: T.button.primary.radius,  // 12dp
+    backgroundColor: T.color.surface.subtle, // #F5EDE6 — NOT white
     justifyContent: 'center',
     alignItems: 'center',
   },
   secondaryButtonText: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 16,
-    color: '#3A2A30',
+    fontFamily: T.type.body.fontFamily,     // Sarabun-Regular
+    fontSize: T.type.body.size,             // 15sp
+    lineHeight: T.type.body.lineHeight,     // 25
+    color: T.color.text.primary,            // #7A3A52
+    letterSpacing: 0,
   },
 
   disclaimer: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 12,
-    color: '#94818A',
+    fontFamily: T.type.micro.fontFamily,    // Sarabun-Regular
+    fontSize: T.type.micro.size,            // 11sp (micro token)
+    lineHeight: T.type.micro.lineHeight,    // 18
+    color: T.color.text.primary,            // #7A3A52 7.70:1 AAA (not #94818A — BANNED)
     textAlign: 'center',
-    paddingBottom: 16,
+    paddingBottom: T.spacing[4],            // 16dp
   },
 });

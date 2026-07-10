@@ -709,8 +709,8 @@ export function ReminderFormScreen({
         <Switch
           value={active}
           onValueChange={setActive}
-          trackColor={{ true: '#A8505A', false: '#EBE1D9' }}
-          thumbColor="#FFFFFF"
+          trackColor={{ true: T.color.list.bar.pregnancy, false: T.color.surface.divider }}
+          thumbColor={T.color.text.onDark}
         />
       </View>
 
@@ -940,7 +940,7 @@ const styles = StyleSheet.create({
   // ── Bottom-sheet picker modal (iOS) ──
   pickerOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(74,34,48,0.4)',
+    backgroundColor: T.scrim.color,
     justifyContent: 'flex-end',
   },
   pickerCard: {
@@ -988,7 +988,7 @@ const styles = StyleSheet.create({
   },
   saveBtnText: {
     fontFamily: T.type.bodyLarge.fontFamily,
-    color: '#FFFFFF',
+    color: T.color.text.onDark,
     fontSize: 16,
     fontWeight: '700',
   },

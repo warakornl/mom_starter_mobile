@@ -56,6 +56,18 @@ export interface FormulaFeedSectionProps {
   onAmountChange: (amount: number) => void;
   /** Navigate to consent flow when advisory CTA is pressed */
   onNavigateConsent?: (consentType: ConsentType) => void;
+  /**
+   * Called when the mother confirms the formula feed (T-F trigger entry point).
+   *
+   * The parent must wire this to commitFormulaFeedDecrement (via feedingSessionStore)
+   * to fire the stock-decrement side-effect. Required for the T-F path to run.
+   *
+   * Only called when: isActive=true, consent granted, amount > 0 (or null for default).
+   * Receives the amount in sub-units (null = use mapping.defaultQty per D-2).
+   *
+   * NEVER log the amount value (K-8 / INV-ASD-8).
+   */
+  onSubmitFormulaFeed?: (amountSubUnits: number | null) => void;
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
@@ -76,7 +88,7 @@ function formulaFeedConsentGranted(): boolean {
  * useT() is mocked as a plain function in unit tests.
  */
 export function FormulaFeedSection(props: FormulaFeedSectionProps): React.JSX.Element {
-  const { isActive, onToggle, amount, onAmountChange, onNavigateConsent } = props;
+  const { isActive, onToggle, amount, onAmountChange, onNavigateConsent, onSubmitFormulaFeed } = props;
   const { t } = useT();
 
   // Synchronous consent check (offline-first — consentStore is always in-memory)
@@ -158,6 +170,26 @@ export function FormulaFeedSection(props: FormulaFeedSectionProps): React.JSX.El
             maxLength={3}
           />
         </View>
+      )}
+
+      {/*
+       * Submit button — T-F trigger entry point (auto-stock-decrement-functional.md §2).
+       * Shown only when: chip is active + consent granted + onSubmitFormulaFeed wired.
+       * Containment rule: standalone TouchableOpacity sibling (not inside accessible View).
+       * FW-1: label key 'formulaFeed.submit' → neutral Thai verb only, no brand copy.
+       * NEVER log amountSubUnits (K-8 / INV-ASD-8).
+       */}
+      {showAmountField && onSubmitFormulaFeed && (
+        <TouchableOpacity
+          style={styles.submitBtn}
+          onPress={() => onSubmitFormulaFeed(amount > 0 ? amount : null)}
+          accessibilityRole="button"
+          accessibilityLabel={t('formulaFeed.submit')}
+        >
+          <Text style={styles.submitBtnText}>
+            {t('formulaFeed.submit')}
+          </Text>
+        </TouchableOpacity>
       )}
     </View>
   );
@@ -243,5 +275,20 @@ const styles = StyleSheet.create({
     fontSize: T.type.body.size,
     fontFamily: T.type.body.fontFamily,
     textAlign: 'center',
+  },
+  submitBtn: {
+    alignSelf: 'flex-start',
+    backgroundColor: T.color.accent.interactive,
+    borderRadius: T.radius.sm,
+    paddingHorizontal: T.spacing[4],
+    minHeight: 48,
+    justifyContent: 'center',
+    marginTop: T.spacing[2],
+  },
+  submitBtnText: {
+    color: T.color.surface.base,
+    fontSize: T.type.body.size,
+    fontFamily: T.type.label.fontFamily,
+    fontWeight: T.type.label.fontWeight,
   },
 });

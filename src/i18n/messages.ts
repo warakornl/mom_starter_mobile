@@ -502,6 +502,7 @@ const th = {
   'formulaFeed.amountLabel': 'จำนวน (มื้อ/สกูป)',
   'formulaFeed.amountPlaceholder': '0',
   'formulaFeed.consentGate': 'เปิดสิทธิ์บันทึกการให้นมก่อนเพื่อใช้งาน',
+  'formulaFeed.submit': 'บันทึกการให้นม',
 
   // Screen 4 — Care-activity tag on reminder form (ReminderFormScreen extension)
   'reminder.careActivityType.fieldLabel': 'ประเภทกิจกรรมดูแล (ไม่บังคับ)',
@@ -1869,6 +1870,7 @@ const en: MsgShape = {
   'formulaFeed.amountLabel': 'Amount (scoops/feeds)',
   'formulaFeed.amountPlaceholder': '0',
   'formulaFeed.consentGate': 'Enable feeding log first to use this',
+  'formulaFeed.submit': 'Save feeding record',
 
   // Screen 4 — Care-activity tag on reminder form
   'reminder.careActivityType.fieldLabel': 'Care activity type (optional)',

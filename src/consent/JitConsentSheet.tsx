@@ -39,6 +39,7 @@ import {
 } from 'react-native';
 
 import { useT } from '../i18n/LanguageContext';
+import { T } from '../theme/tokens';
 import {
   requiresParentalAttestation,
   isGrantEnabled,
@@ -249,7 +250,7 @@ export function JitConsentSheet({
               accessibilityState={{ disabled: !grantEnabled }}
             >
               {isLoading ? (
-                <ActivityIndicator color="#FFFFFF" />
+                <ActivityIndicator color={T.color.text.onDark} />
               ) : (
                 <Text style={[styles.grantBtnLabel, !grantEnabled && styles.grantBtnLabelDisabled]}>
                   {t(GRANT_BTN_KEY[type] as Parameters<typeof t>[0])}
@@ -283,18 +284,18 @@ export function JitConsentSheet({
   );
 }
 
-// ─── Styles ───────────────────────────────────────────────────────────────────
+// ─── Styles — ห้องแม่ Phase 2 B4: full semantic T.* migration ────────────────
 
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(58, 42, 48, 0.4)',
+    backgroundColor: T.scrim.color,
     justifyContent: 'flex-end',
   },
   sheet: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    backgroundColor: T.color.surface.base,
+    borderTopLeftRadius: T.radius.lg,
+    borderTopRightRadius: T.radius.lg,
     maxHeight: '85%',
   },
   scrollContent: {
@@ -303,34 +304,37 @@ const styles = StyleSheet.create({
   },
 
   title: {
-    fontFamily: 'Looped-SemiBold',
-    fontSize: 18,
-    lineHeight: 28,
-    color: '#3A2A30', // ink
+    fontFamily: T.type.label.fontFamily,  // Sarabun-SemiBold (was Looped-SemiBold — B4 fix)
+    fontSize: T.type.heading2.size,
+    lineHeight: T.type.heading2.lineHeight,
+    color: T.color.text.heading,
     marginBottom: 12,
   },
   body: {
-    fontSize: 16,
-    lineHeight: 24,
-    color: '#5F4A52', // ink/soft
+    fontFamily: T.type.body.fontFamily,
+    fontSize: T.type.body.size,
+    lineHeight: T.type.body.lineHeight,
+    color: T.color.text.primary,
     marginBottom: 12,
   },
   noteCaption: {
-    fontSize: 13,
-    lineHeight: 18,
-    color: '#94818A', // ink/faint
+    fontFamily: T.type.caption.fontFamily,
+    fontSize: T.type.caption.size,
+    lineHeight: T.type.caption.lineHeight,
+    color: T.color.text.primary,
     marginBottom: 8,
   },
   versionCaption: {
-    fontSize: 12,
-    color: '#94818A',
+    fontFamily: T.type.micro.fontFamily,
+    fontSize: T.type.micro.size,
+    color: T.color.text.primary,
     marginBottom: 16,
   },
 
   // Error panel
   errorPanel: {
-    backgroundColor: '#F5F0ED',
-    borderRadius: 8,
+    backgroundColor: T.color.surface.subtle,
+    borderRadius: T.radius.sm,
     padding: 12,
     marginBottom: 16,
     flexDirection: 'row',
@@ -339,14 +343,15 @@ const styles = StyleSheet.create({
   },
   errorText: {
     flex: 1,
-    fontSize: 14,
-    color: '#5F4A52',
+    fontFamily: T.type.caption.fontFamily,
+    fontSize: T.type.caption.size,
+    color: T.color.text.primary,
   },
   retryBtn: { marginLeft: 8 },
   retryBtnLabel: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#A8505A', // rose/600
+    fontFamily: T.type.label.fontFamily,
+    fontSize: T.type.caption.size,
+    color: T.color.text.primary,
   },
 
   // Parental attestation checkbox
@@ -359,54 +364,56 @@ const styles = StyleSheet.create({
   checkboxOuter: {
     width: 22,
     height: 22,
-    borderRadius: 4,
+    borderRadius: T.radius.sm,
     borderWidth: 2,
-    borderColor: '#A8505A',
+    borderColor: T.color.accent.identity,
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,
     marginTop: 1,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: T.color.surface.subtle,
   },
   checkboxOuterChecked: {
-    backgroundColor: '#A8505A',
-    borderColor: '#A8505A',
+    backgroundColor: T.color.surface.wash.roselle,
+    borderColor: T.color.accent.identity,
   },
   checkmark: {
+    fontFamily: T.type.label.fontFamily,
     fontSize: 14,
-    color: '#FFFFFF',
+    color: T.color.text.heading,
     lineHeight: 18,
   },
   attestLabel: {
     flex: 1,
-    fontSize: 15,
-    lineHeight: 22,
-    color: '#3A2A30', // ink
+    fontFamily: T.type.body.fontFamily,
+    fontSize: T.type.body.size,
+    lineHeight: T.type.body.lineHeight,
+    color: T.color.text.heading,
   },
 
-  // Grant button (Primary rose/600)
+  // Grant button (amber-700 — B4 spec)
   grantBtn: {
-    backgroundColor: '#A8505A',
-    borderRadius: 10,
-    minHeight: 52,
+    backgroundColor: T.button.primary.bg,
+    borderRadius: T.radius.md,
+    minHeight: T.button.primary.height,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 12,
   },
   grantBtnDisabled: {
-    backgroundColor: '#D4B8BC', // rose/200 (dimmed)
+    backgroundColor: T.scrim.amber,
   },
   grantBtnLabel: {
-    fontWeight: '700',
-    fontSize: 16,
-    color: '#FFFFFF',
+    fontFamily: T.type.label.fontFamily,
+    fontSize: T.type.body.size,
+    color: T.color.text.onDark,
   },
   grantBtnLabelDisabled: {
-    color: '#FFFFFF',
+    color: T.color.text.onDark,
     opacity: 0.7,
   },
 
-  // Decline / Hide notes button (Quiet rose/700 text-only)
+  // Decline / Hide notes button (quiet text-only)
   declineBtn: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -414,9 +421,9 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   declineBtnLabel: {
-    fontWeight: '700',
-    fontSize: 16,
-    color: '#8E3A44', // rose/700
+    fontFamily: T.type.label.fontFamily,
+    fontSize: T.type.body.size,
+    color: T.color.text.primary,
   },
   declineBtnDisabled: {
     opacity: 0.5,
@@ -424,8 +431,9 @@ const styles = StyleSheet.create({
 
   // Change-later note
   changeLaterNote: {
-    fontSize: 13,
-    color: '#94818A', // ink/faint
+    fontFamily: T.type.caption.fontFamily,
+    fontSize: T.type.caption.size,
+    color: T.color.text.primary,
     textAlign: 'center',
     marginTop: 4,
   },

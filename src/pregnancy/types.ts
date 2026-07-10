@@ -281,6 +281,34 @@ export interface PregnancyProfile extends GestationalAgeSnapshot {
    * NEVER log this value (PDPA identity PII).
    */
   babyName?: string | null;
+
+  // ── Birth-event detail fields (present when lifecycle === 'postpartum') ────────
+  // Written by POST /birth-event; returned in subsequent GET responses.
+  // These are cipher / health-adjacent fields — NEVER log or pass in route params.
+
+  /**
+   * Delivery type — client-encrypted field (TODO: AES-GCM; MVP: plaintext).
+   * Values: "vaginal" | "cesarean" | "other" | "prefer_not" (or absent/null).
+   * Returned in GET response for postpartum profiles.
+   * NEVER log this value (health PII).
+   */
+  deliveryType?: string | null;
+
+  /**
+   * Hospital admission date — Base64 no-op cipher (MVP: base64(utf8(date))).
+   * Decode with decodeDateFromWire() before display (→ "YYYY-MM-DD" or null).
+   * Returned in GET response for postpartum profiles.
+   * NEVER log the decoded value (health-adjacent PII).
+   */
+  hospitalAdmissionDate?: string | null;
+
+  /**
+   * Hospital discharge date — Base64 no-op cipher (MVP: base64(utf8(date))).
+   * Decode with decodeDateFromWire() before display (→ "YYYY-MM-DD" or null).
+   * Returned in GET response for postpartum profiles.
+   * NEVER log the decoded value (health-adjacent PII).
+   */
+  hospitalDischargeDate?: string | null;
 }
 
 // ─── API result shapes (discriminated unions) ─────────────────────────────────

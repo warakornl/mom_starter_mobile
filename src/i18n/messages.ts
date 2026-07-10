@@ -491,6 +491,9 @@ const th = {
   'subUnitSetup.steerToPack.confirmBtn': 'ยืนยันการเปลี่ยน',
   'subUnitSetup.steerToPack.cancelBtn': 'ยกเลิก',
   'subUnitSetup.steerToPack.itemsPerPackError': 'ต้องมีอย่างน้อย 2 ชิ้น/แพ็ค เพื่อตัดสต็อกอัตโนมัติ',
+  'subUnitSetup.itemNotFound': 'ไม่พบรายการสินค้า',
+  'subUnitSetup.a11y.decrement': 'ลดจำนวน',
+  'subUnitSetup.a11y.increment': 'เพิ่มจำนวน',
 
   // Screen 3 — Formula-feed chip (on existing feeding surface, SD-10 dual-gate)
   // FW-1 HARD: chip label is "ให้นมผง" only — no brand, no product name.
@@ -1855,6 +1858,9 @@ const en: MsgShape = {
   'subUnitSetup.steerToPack.confirmBtn': 'Confirm change',
   'subUnitSetup.steerToPack.cancelBtn': 'Cancel',
   'subUnitSetup.steerToPack.itemsPerPackError': 'At least 2 pieces/pack required for auto-decrement',
+  'subUnitSetup.itemNotFound': 'Item not found',
+  'subUnitSetup.a11y.decrement': 'Decrease count',
+  'subUnitSetup.a11y.increment': 'Increase count',
 
   // Screen 3 — Formula-feed chip (FW-1: no brand)
   'formulaFeed.chip': 'Formula feed',

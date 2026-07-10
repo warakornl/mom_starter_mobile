@@ -1245,8 +1245,6 @@ const th = {
   'home.doctorReport': 'รายงานสำหรับแพทย์ ›',
   // Kick-count card (pregnant wk≥32, spec §4.2) — warm & inviting, not clinical
   'kick.countCard': 'ได้เวลานับลูกดิ้นแล้ว ›',
-  // Postpartum kick-count history link (spec §4.3) — always visible postpartum
-  'kick.historyLink': 'ดูประวัติการนับลูกดิ้น ›',
 
   // ── Baby Size Comparison — Home Section (baby-size-home-section.md) ───────────
   // Design §7.7 — new i18n keys. Fruit names live in babySizeData.ts (static table).
@@ -2331,8 +2329,6 @@ const en: MsgShape = {
   'home.doctorReport': 'Doctor report ›',
   // Kick-count card (pregnant wk≥32, spec §4.2)
   'kick.countCard': 'Time to count kicks ›',
-  // Postpartum kick-count history link (spec §4.3)
-  'kick.historyLink': 'View kick-count history ›',
 
   // ── Baby Size Comparison — Home Section ───────────────────────────────────────
   // EN disclaimer strings: LEGAL-APPROVED verbatim (G-size-1 advisory sign-off 2026-07-10).

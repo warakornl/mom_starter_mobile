@@ -481,8 +481,7 @@ describe('tab navigation i18n keys — bottom-tab-nav v2', () => {
     'tab.home.a11y',
     'tab.calendar.a11y',
     'tab.medication.a11y',
-    // Kick-count card and postpartum history link (spec §4.2, §4.3)
-    'kick.historyLink',
+    // Kick-count card (spec §4.2) — postpartum history link removed from Home (spec §4.3 retired)
     'kick.countCard',
   ];
 
@@ -516,10 +515,6 @@ describe('tab navigation i18n keys — bottom-tab-nav v2', () => {
 
   it('tab.calendar.a11y (th) includes ปฏิทิน (spec §8.2 — grid-only tab v2)', () => {
     expect(catalog.th['tab.calendar.a11y']).toContain('ปฏิทิน');
-  });
-
-  it('kick.historyLink (th) contains ประวัติ (postpartum history link text)', () => {
-    expect(catalog.th['kick.historyLink']).toContain('ประวัติ');
   });
 
   it('kick.countCard (th) is non-empty (kick-count card text for wk≥32 pregnant)', () => {

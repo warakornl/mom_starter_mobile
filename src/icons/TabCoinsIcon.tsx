@@ -22,7 +22,7 @@ export function TabCoinsIcon({ color = 'currentColor', size = 24 }: Props): Reac
         rx="8"
         ry="2.5"
         stroke={color}
-        strokeWidth="1.75"
+        strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
@@ -33,7 +33,7 @@ export function TabCoinsIcon({ color = 'currentColor', size = 24 }: Props): Reac
         rx="8"
         ry="2.5"
         stroke={color}
-        strokeWidth="1.75"
+        strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
@@ -44,7 +44,7 @@ export function TabCoinsIcon({ color = 'currentColor', size = 24 }: Props): Reac
         rx="8"
         ry="2.5"
         stroke={color}
-        strokeWidth="1.75"
+        strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
@@ -55,7 +55,7 @@ export function TabCoinsIcon({ color = 'currentColor', size = 24 }: Props): Reac
         x2="4"
         y2="19.5"
         stroke={color}
-        strokeWidth="1.75"
+        strokeWidth="1.5"
         strokeLinecap="round"
       />
       {/* Right side of coin stack */}
@@ -65,7 +65,7 @@ export function TabCoinsIcon({ color = 'currentColor', size = 24 }: Props): Reac
         x2="20"
         y2="19.5"
         stroke={color}
-        strokeWidth="1.75"
+        strokeWidth="1.5"
         strokeLinecap="round"
       />
     </Svg>

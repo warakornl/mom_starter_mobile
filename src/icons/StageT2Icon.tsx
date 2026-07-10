@@ -19,7 +19,7 @@ export function StageT2Icon({ color = 'currentColor', size = 24 }: Props): React
       <Path
         d="M12 22 C12 22 4 18 4 10 C4 4 8 2 12 2 C16 2 20 4 20 10 C20 18 12 22 12 22 Z"
         stroke={color}
-        strokeWidth="1.75"
+        strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"
         fill="none"
@@ -31,7 +31,7 @@ export function StageT2Icon({ color = 'currentColor', size = 24 }: Props): React
         x2="12"
         y2="4"
         stroke={color}
-        strokeWidth="1.75"
+        strokeWidth="1.5"
         strokeLinecap="round"
       />
       {/* Side veins — pair at y=8 */}

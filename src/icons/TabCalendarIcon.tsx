@@ -22,7 +22,7 @@ export function TabCalendarIcon({ color = 'currentColor', size = 24 }: Props): R
         height="17"
         rx="2"
         stroke={color}
-        strokeWidth="1.75"
+        strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
@@ -34,7 +34,7 @@ export function TabCalendarIcon({ color = 'currentColor', size = 24 }: Props): R
         height="4"
         rx="1"
         stroke={color}
-        strokeWidth="1.75"
+        strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
@@ -46,7 +46,7 @@ export function TabCalendarIcon({ color = 'currentColor', size = 24 }: Props): R
         height="4"
         rx="1"
         stroke={color}
-        strokeWidth="1.75"
+        strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
@@ -57,7 +57,7 @@ export function TabCalendarIcon({ color = 'currentColor', size = 24 }: Props): R
         x2="22"
         y2="10"
         stroke={color}
-        strokeWidth="1.75"
+        strokeWidth="1.5"
         strokeLinecap="round"
       />
       {/* Date grid: 3 columns × 2 rows of small circles */}

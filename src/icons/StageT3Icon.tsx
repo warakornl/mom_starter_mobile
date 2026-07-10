@@ -21,7 +21,7 @@ export function StageT3Icon({ color = 'currentColor', size = 24 }: Props): React
         cy="9"
         r="7"
         stroke={color}
-        strokeWidth="1.75"
+        strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
@@ -33,7 +33,7 @@ export function StageT3Icon({ color = 'currentColor', size = 24 }: Props): React
         height="6"
         rx="1"
         stroke={color}
-        strokeWidth="1.75"
+        strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"
       />

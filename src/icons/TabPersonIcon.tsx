@@ -20,7 +20,7 @@ export function TabPersonIcon({ color = 'currentColor', size = 24 }: Props): Rea
         cy="7"
         r="4"
         stroke={color}
-        strokeWidth="1.75"
+        strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
@@ -28,7 +28,7 @@ export function TabPersonIcon({ color = 'currentColor', size = 24 }: Props): Rea
       <Path
         d="M4 22 C4 16 8 13 12 13 C16 13 20 16 20 22"
         stroke={color}
-        strokeWidth="1.75"
+        strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"
         fill="none"

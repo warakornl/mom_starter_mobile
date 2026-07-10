@@ -18,7 +18,7 @@ export function TabHomeIcon({ color = 'currentColor', size = 24 }: Props): React
       <Path
         d="M2 12 L12 3 L22 12"
         stroke={color}
-        strokeWidth="1.75"
+        strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"
         fill="none"
@@ -31,7 +31,7 @@ export function TabHomeIcon({ color = 'currentColor', size = 24 }: Props): React
         height="9"
         rx="1"
         stroke={color}
-        strokeWidth="1.75"
+        strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
@@ -43,7 +43,7 @@ export function TabHomeIcon({ color = 'currentColor', size = 24 }: Props): React
         height="7"
         rx="1"
         stroke={color}
-        strokeWidth="1.75"
+        strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"
       />

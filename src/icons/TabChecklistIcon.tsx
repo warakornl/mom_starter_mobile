@@ -22,7 +22,7 @@ export function TabChecklistIcon({ color = 'currentColor', size = 24 }: Props): 
         height="17"
         rx="2"
         stroke={color}
-        strokeWidth="1.75"
+        strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
@@ -34,7 +34,7 @@ export function TabChecklistIcon({ color = 'currentColor', size = 24 }: Props): 
         height="4"
         rx="1.5"
         stroke={color}
-        strokeWidth="1.75"
+        strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
@@ -45,7 +45,7 @@ export function TabChecklistIcon({ color = 'currentColor', size = 24 }: Props): 
         x2="17"
         y2="10"
         stroke={color}
-        strokeWidth="1.75"
+        strokeWidth="1.5"
         strokeLinecap="round"
       />
       {/* Content line 2 — medium */}
@@ -55,7 +55,7 @@ export function TabChecklistIcon({ color = 'currentColor', size = 24 }: Props): 
         x2="14"
         y2="14"
         stroke={color}
-        strokeWidth="1.75"
+        strokeWidth="1.5"
         strokeLinecap="round"
       />
       {/* Content line 3 — shortest */}
@@ -65,7 +65,7 @@ export function TabChecklistIcon({ color = 'currentColor', size = 24 }: Props): 
         x2="12"
         y2="18"
         stroke={color}
-        strokeWidth="1.75"
+        strokeWidth="1.5"
         strokeLinecap="round"
       />
     </Svg>

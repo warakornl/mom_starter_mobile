@@ -22,14 +22,14 @@ export function StageT1Icon({ color = 'currentColor', size = 24 }: Props): React
         x2="12"
         y2="10"
         stroke={color}
-        strokeWidth="1.75"
+        strokeWidth="1.5"
         strokeLinecap="round"
       />
       {/* Left leaf: small teardrop */}
       <Path
         d="M12 16 C12 16 6 14 6 8 C6 8 10 8 12 12"
         stroke={color}
-        strokeWidth="1.75"
+        strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"
         fill="none"
@@ -38,7 +38,7 @@ export function StageT1Icon({ color = 'currentColor', size = 24 }: Props): React
       <Path
         d="M12 16 C12 16 18 14 18 8 C18 8 14 8 12 12"
         stroke={color}
-        strokeWidth="1.75"
+        strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"
         fill="none"

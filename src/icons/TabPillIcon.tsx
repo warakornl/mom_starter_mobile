@@ -25,7 +25,7 @@ export function TabPillIcon({ color = 'currentColor', size = 24 }: Props): React
           height="20"
           rx="6"
           stroke={color}
-          strokeWidth="1.75"
+          strokeWidth="1.5"
           strokeLinecap="round"
           strokeLinejoin="round"
         />
@@ -36,7 +36,7 @@ export function TabPillIcon({ color = 'currentColor', size = 24 }: Props): React
           x2="18"
           y2="12"
           stroke={color}
-          strokeWidth="1.75"
+          strokeWidth="1.5"
           strokeLinecap="round"
         />
       </G>

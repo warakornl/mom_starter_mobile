@@ -24,7 +24,7 @@ export function PostpartumStageIcon({ color = 'currentColor', size = 24 }: Props
         rx="6"
         ry="5"
         stroke={color}
-        strokeWidth="1.75"
+        strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
@@ -32,7 +32,7 @@ export function PostpartumStageIcon({ color = 'currentColor', size = 24 }: Props
       <Path
         d="M4 18 Q12 12 20 18"
         stroke={color}
-        strokeWidth="1.75"
+        strokeWidth="1.5"
         strokeLinecap="round"
         strokeLinejoin="round"
         fill="none"
@@ -44,7 +44,7 @@ export function PostpartumStageIcon({ color = 'currentColor', size = 24 }: Props
         x2="4"
         y2="21"
         stroke={color}
-        strokeWidth="1.75"
+        strokeWidth="1.5"
         strokeLinecap="round"
       />
       {/* Right leg tip */}
@@ -54,7 +54,7 @@ export function PostpartumStageIcon({ color = 'currentColor', size = 24 }: Props
         x2="20"
         y2="21"
         stroke={color}
-        strokeWidth="1.75"
+        strokeWidth="1.5"
         strokeLinecap="round"
       />
     </Svg>

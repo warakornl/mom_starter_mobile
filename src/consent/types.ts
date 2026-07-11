@@ -13,14 +13,17 @@
  * only consent metadata (type, granted boolean, text version, timestamp).
  */
 
-/** The six PDPA consent purpose identifiers. */
+/** The seven PDPA consent purpose identifiers. */
 export type ConsentType =
   | 'general_health'
   | 'cloud_storage'
   | 'sensitive_lab_results'
   | 'pdf_egress'
   | 'infant_feeding'
-  | 'child_health';
+  | 'child_health'
+  /** Consent type #7 — calendar_sync: write ANC appointments to device calendar (Approach A).
+   *  Dual-gated with general_health (architecture §5.2). Added per compliance §1.1. */
+  | 'calendar_sync';
 
 /** A single consent event returned by GET /v1/account/consents. */
 export interface ConsentRecord {

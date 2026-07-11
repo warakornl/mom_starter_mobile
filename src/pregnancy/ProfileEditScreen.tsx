@@ -68,6 +68,15 @@ export interface EditNavigationProp {
     callback: (e: BeforeRemoveEvent) => void,
   ): () => void;
   dispatch(action: Readonly<{ type: string }>): void;
+  /**
+   * pregnancy-loss-recording-ui.md §2 / §4.1: navigates to LossConfirm
+   * (Screen B) or ReopenConfirm (Screen C confirmation). Both routes take
+   * only `profileVersion` (a number, not health data — SD-9).
+   */
+  navigate(
+    screen: 'LossConfirm' | 'ReopenConfirm',
+    params: { profileVersion: number },
+  ): void;
 }
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -295,6 +304,50 @@ export function ProfileEditScreen({
         // AC-15: user changed a field → mark form dirty → beforeRemove guard activates
         onDirty={handleDirty}
       />
+
+      {/* pregnancy-loss-recording-ui.md §2 (Screen A entry) / §4.1 (Screen C
+       * entry) — quiet text link, bottom of screen, below Save. INV-ENTRY-2:
+       * loss entry shown ONLY when lifecycle === 'pregnant' (raw profile
+       * value from the fresh GET — never defaulted). Reopen entry shown
+       * ONLY when lifecycle === 'ended', occupying the exact same slot 1:1
+       * (mutually exclusive — never both visible, §4.1).
+       */}
+      {profile.lifecycle === 'pregnant' && (
+        <TouchableOpacity
+          testID="loss-entry-link"
+          style={styles.lossEntryLink}
+          onPress={() =>
+            navigation.navigate('LossConfirm', { profileVersion: profile.version })
+          }
+          accessibilityRole="link"
+          accessibilityLabel={t('loss.entry.link')}
+        >
+          <Text testID="loss-entry-link-text" style={styles.lossEntryLinkText}>
+            {t('loss.entry.link')}
+          </Text>
+          <Text style={styles.lossEntryChevron} accessibilityElementsHidden={true}>
+            {' ›'}
+          </Text>
+        </TouchableOpacity>
+      )}
+      {profile.lifecycle === 'ended' && (
+        <TouchableOpacity
+          testID="reopen-entry-link"
+          style={styles.lossEntryLink}
+          onPress={() =>
+            navigation.navigate('ReopenConfirm', { profileVersion: profile.version })
+          }
+          accessibilityRole="link"
+          accessibilityLabel={t('loss.reopen.entry')}
+        >
+          <Text testID="reopen-entry-link-text" style={styles.lossEntryLinkText}>
+            {t('loss.reopen.entry')}
+          </Text>
+          <Text style={styles.lossEntryChevron} accessibilityElementsHidden={true}>
+            {' ›'}
+          </Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
@@ -359,5 +412,27 @@ const styles = StyleSheet.create({
     fontSize: T.type.caption.size,
     lineHeight: T.type.caption.lineHeight,
     color: T.color.text.primary,
+  },
+  // pregnancy-loss-recording-ui.md §2.2 — quiet entry link (Screen A / Screen C).
+  // Plain text only, no fill, no icon, no badge (INV-ENTRY-3). ≥48dp tap target
+  // via padding; visual text stays caption-size (13sp equivalent).
+  lossEntryLink: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 48,
+    paddingVertical: 12,
+    marginTop: T.spacing[6], // 24dp — keeps it visually distant from the Save CTA
+  },
+  lossEntryLinkText: {
+    fontFamily: T.type.caption.fontFamily,
+    fontSize: T.type.caption.size,
+    lineHeight: T.type.caption.lineHeight,
+    color: T.color.text.primary, // roselle-700, 7.70:1 AAA — quiet via size/placement, not under-contrast
+  },
+  lossEntryChevron: {
+    fontFamily: T.type.caption.fontFamily,
+    fontSize: T.type.caption.size,
+    color: T.color.text.secondary, // jade-600 — decorative chevron only
   },
 });

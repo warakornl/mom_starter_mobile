@@ -1,0 +1,223 @@
+/**
+ * profileEditScreenLossEntry.test.tsx — TDD for the loss/reopen entry links
+ * on Account ▸ การตั้งครรภ์ (ProfileEditScreen), Screen A / Screen C entry.
+ *
+ * pregnancy-loss-recording-ui.md §2 (Screen A entry) + §4.1 (Screen C entry).
+ *
+ * INV-ENTRY-2: the loss entry link renders ONLY when lifecycle === 'pregnant'
+ * (raw snapshot — never a `?? 'pregnant'` fallback). null/postpartum/ended →
+ * absent (not disabled — absent).
+ *
+ * Screen C's reopen entry renders ONLY when lifecycle === 'ended', occupying
+ * the exact same slot 1:1 — the two links are NEVER both visible at once.
+ */
+
+jest.mock('react-native', () => ({
+  View: 'View', Text: 'Text', TouchableOpacity: 'TouchableOpacity',
+  ScrollView: 'ScrollView', StyleSheet: { create: (o: unknown) => o },
+  ActivityIndicator: 'ActivityIndicator', Platform: { OS: 'ios' },
+}));
+jest.mock('react-native-safe-area-context', () => ({ SafeAreaView: 'SafeAreaView' }));
+jest.mock('../i18n/LanguageContext', () => ({
+  useT: () => ({ t: (k: string) => k, locale: 'th' }),
+}));
+jest.mock('./profileEditRuntimeWiring', () => ({ runEntryGet: jest.fn() }));
+jest.mock('./profileEditBeforeRemoveHandler', () => ({ buildBeforeRemoveHandler: jest.fn(() => jest.fn()) }));
+jest.mock('./ProfileSetupScreen', () => ({ ProfileSetupScreen: () => null }));
+
+import React from 'react';
+import { T } from '../theme/tokens';
+import type { PregnancyProfile, Lifecycle } from './types';
+
+const mockTokenStorage = { load: jest.fn(), save: jest.fn(), clear: jest.fn() };
+const mockNavigation = { addListener: jest.fn(() => jest.fn()), dispatch: jest.fn(), goBack: jest.fn() };
+
+function makeProfile(lifecycle: Lifecycle): PregnancyProfile {
+  return {
+    id: 'p1',
+    version: 3,
+    edd: '2026-12-25',
+    eddBasis: 'due_date',
+    lifecycle,
+    gestationalWeek: 20,
+    gestationalDay: 0,
+    daysRemaining: 100,
+    progress: 0.5,
+    currentStage: 'T2',
+    deliveryWindowActive: false,
+    createdAt: '2026-01-01T00:00:00Z',
+    updatedAt: '2026-07-01T00:00:00Z',
+  };
+}
+
+/**
+ * Renders ProfileEditScreen with `outcome` pre-seeded to 'show-form' for the
+ * given profile — mocks React's useState so the FIRST call (outcome) returns
+ * the desired seeded value; every other useState/useCallback/useRef call
+ * falls back to the generic "return the initializer" pattern used elsewhere
+ * in this test suite (profileEditScreen.motherRoom.test.tsx).
+ */
+function renderShowForm(profile: PregnancyProfile): React.ReactElement {
+  jest.resetModules();
+  jest.doMock('react', () => {
+    const actual = jest.requireActual<typeof import('react')>('react');
+    let callIndex = 0;
+    return {
+      ...actual,
+      useState: jest.fn((init: unknown) => {
+        callIndex += 1;
+        if (callIndex === 1) {
+          return [{ type: 'show-form', profile }, jest.fn()];
+        }
+        return [init, jest.fn()];
+      }),
+      useEffect: jest.fn(),
+      useCallback: jest.fn((fn: unknown) => fn),
+      useRef: jest.fn((init: unknown) => ({ current: init })),
+    };
+  });
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { ProfileEditScreen } = require('./ProfileEditScreen') as typeof import('./ProfileEditScreen');
+  return ProfileEditScreen({
+    tokenStorage: mockTokenStorage,
+    apiBaseUrl: 'https://api.example.com',
+    navigation: mockNavigation as never,
+    onEditComplete: jest.fn(),
+    onSessionExpired: jest.fn(),
+  }) as React.ReactElement;
+}
+
+function findAll(node: unknown, pred: (el: React.ReactElement) => boolean): React.ReactElement[] {
+  const acc: React.ReactElement[] = [];
+  function walk(n: unknown): void {
+    if (n == null || n === false) return;
+    if (Array.isArray(n)) { (n as unknown[]).forEach(walk); return; }
+    if (!React.isValidElement(n)) return;
+    const el = n as React.ReactElement;
+    if (pred(el)) acc.push(el);
+    walk((el.props as { children?: unknown }).children);
+  }
+  walk(node);
+  return acc;
+}
+
+function byTestId(tree: unknown, id: string): React.ReactElement | undefined {
+  return findAll(tree, (el) => (el.props as { testID?: string }).testID === id)[0];
+}
+
+describe('ProfileEditScreen — loss entry link (Screen A) + reopen entry (Screen C)', () => {
+  afterEach(() => {
+    jest.dontMock('react');
+    jest.resetModules();
+  });
+
+  it('lifecycle=pregnant: loss entry link IS shown; reopen entry is absent (INV-ENTRY-2)', () => {
+    const tree = renderShowForm(makeProfile('pregnant'));
+    expect(byTestId(tree, 'loss-entry-link')).toBeDefined();
+    expect(byTestId(tree, 'reopen-entry-link')).toBeUndefined();
+  });
+
+  it('lifecycle=ended: reopen entry link IS shown; loss entry link is absent (mutually exclusive, §4.1)', () => {
+    const tree = renderShowForm(makeProfile('ended'));
+    expect(byTestId(tree, 'reopen-entry-link')).toBeDefined();
+    expect(byTestId(tree, 'loss-entry-link')).toBeUndefined();
+  });
+
+  it('lifecycle=postpartum: NEITHER link is shown', () => {
+    const tree = renderShowForm(makeProfile('postpartum'));
+    expect(byTestId(tree, 'loss-entry-link')).toBeUndefined();
+    expect(byTestId(tree, 'reopen-entry-link')).toBeUndefined();
+  });
+
+  it('loss entry link is accessibilityRole="link" with the entry i18n key label', () => {
+    const tree = renderShowForm(makeProfile('pregnant'));
+    const link = byTestId(tree, 'loss-entry-link');
+    expect((link!.props as { accessibilityRole?: string }).accessibilityRole).toBe('link');
+    expect((link!.props as { accessibilityLabel?: string }).accessibilityLabel).toBe('loss.entry.link');
+  });
+
+  it('tapping the loss entry link calls onNavigateToLossConfirm with the profile version', () => {
+    jest.resetModules();
+    jest.doMock('react', () => {
+      const actual = jest.requireActual<typeof import('react')>('react');
+      let callIndex = 0;
+      return {
+        ...actual,
+        useState: jest.fn((init: unknown) => {
+          callIndex += 1;
+          if (callIndex === 1) {
+            return [{ type: 'show-form', profile: makeProfile('pregnant') }, jest.fn()];
+          }
+          return [init, jest.fn()];
+        }),
+        useEffect: jest.fn(),
+        useCallback: jest.fn((fn: unknown) => fn),
+        useRef: jest.fn((init: unknown) => ({ current: init })),
+      };
+    });
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { ProfileEditScreen } = require('./ProfileEditScreen') as typeof import('./ProfileEditScreen');
+    const navigateSpy = jest.fn();
+    const navWithLoss = {
+      ...mockNavigation,
+      navigate: navigateSpy,
+    };
+    const tree = ProfileEditScreen({
+      tokenStorage: mockTokenStorage,
+      apiBaseUrl: 'https://api.example.com',
+      navigation: navWithLoss as never,
+      onEditComplete: jest.fn(),
+      onSessionExpired: jest.fn(),
+    }) as React.ReactElement;
+
+    const link = byTestId(tree, 'loss-entry-link');
+    (link!.props as { onPress: () => void }).onPress();
+    expect(navigateSpy).toHaveBeenCalledWith('LossConfirm', { profileVersion: 3 });
+  });
+
+  it('tapping the reopen entry link calls navigation.navigate("ReopenConfirm", ...)', () => {
+    jest.resetModules();
+    jest.doMock('react', () => {
+      const actual = jest.requireActual<typeof import('react')>('react');
+      let callIndex = 0;
+      return {
+        ...actual,
+        useState: jest.fn((init: unknown) => {
+          callIndex += 1;
+          if (callIndex === 1) {
+            return [{ type: 'show-form', profile: makeProfile('ended') }, jest.fn()];
+          }
+          return [init, jest.fn()];
+        }),
+        useEffect: jest.fn(),
+        useCallback: jest.fn((fn: unknown) => fn),
+        useRef: jest.fn((init: unknown) => ({ current: init })),
+      };
+    });
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { ProfileEditScreen } = require('./ProfileEditScreen') as typeof import('./ProfileEditScreen');
+    const navigateSpy = jest.fn();
+    const navWithReopen = {
+      ...mockNavigation,
+      navigate: navigateSpy,
+    };
+    const tree = ProfileEditScreen({
+      tokenStorage: mockTokenStorage,
+      apiBaseUrl: 'https://api.example.com',
+      navigation: navWithReopen as never,
+      onEditComplete: jest.fn(),
+      onSessionExpired: jest.fn(),
+    }) as React.ReactElement;
+
+    const link = byTestId(tree, 'reopen-entry-link');
+    (link!.props as { onPress: () => void }).onPress();
+    expect(navigateSpy).toHaveBeenCalledWith('ReopenConfirm', { profileVersion: 3 });
+  });
+
+  it('loss entry link uses T.color.text.primary (ห้องแม่ token, no Clean-palette hex)', () => {
+    const tree = renderShowForm(makeProfile('pregnant'));
+    const link = byTestId(tree, 'loss-entry-link-text');
+    const style = (link!.props as { style?: { color?: string } }).style;
+    expect(style?.color).toBe(T.color.text.primary);
+  });
+});

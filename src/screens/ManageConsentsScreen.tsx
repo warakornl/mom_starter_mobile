@@ -49,6 +49,7 @@ import type { TokenStorage } from '../auth/tokenStorage';
 import { createConsentApiClient } from '../consent/consentApiClient';
 import { consentStore } from '../consent/consentStore';
 import { consentQueue } from '../consent/consentSync';
+import { refreshCalendarBridgeConsent } from '../deviceCalendar/deviceCalendarSingleton';
 import { useT } from '../i18n/LanguageContext';
 import type { ConsentType } from '../consent/types';
 import {
@@ -163,6 +164,10 @@ export function ManageConsentsScreen({
         if (cancelled) return;
         if (result.ok) {
           consentStore.hydrate(result.page.items);
+          // Trigger self-heal if server refresh discovers a consent withdrawal
+          // (CAL-SA-30/31/32 — onConsentRefreshResult deletes app-created events
+          // and disables the feature if calendar_sync was withdrawn remotely).
+          void refreshCalendarBridgeConsent();
           setGrantedState(initialGrantedState());
           setScreenStatus('loaded');
         } else {

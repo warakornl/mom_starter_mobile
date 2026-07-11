@@ -1355,6 +1355,9 @@ const th = {
   'tab.profile.a11y': 'โปรไฟล์และบัญชี',
   // Doctor Report entry row in Home tab scroll (spec §3.3)
   'home.doctorReport': 'รายงานสำหรับแพทย์ ›',
+  // Feeding-log entry row in Home tab (Bug #4 — moved from Supplies tab).
+  // Neutral verb only (FW-1) — no brand/product/promo copy.
+  'home.feedingLog': 'บันทึกการให้นม ›',
   // Kick-count card (pregnant wk≥32, spec §4.2) — warm & inviting, not clinical
   'kick.countCard': 'ได้เวลานับลูกดิ้นแล้ว ›',
 
@@ -2631,6 +2634,8 @@ const en: MsgShape = {
   'tab.profile.a11y': 'Profile and Account',
   // Doctor Report entry row in Home tab scroll
   'home.doctorReport': 'Doctor report ›',
+  // Feeding-log entry row in Home tab (Bug #4 — moved from Supplies tab).
+  'home.feedingLog': 'Log feeding ›',
   // Kick-count card (pregnant wk≥32, spec §4.2)
   'kick.countCard': 'Time to count kicks ›',
 

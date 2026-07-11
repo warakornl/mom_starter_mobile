@@ -119,6 +119,13 @@ export interface HomeTabScreenProps {
    * §4.1: amber CTA → CaptureScreen.
    */
   onCapture?: () => void;
+  /**
+   * Navigate to FeedingLogScreen (Bug #4 — entry moved here from Supplies tab).
+   * Shown in non-loss states only (pregnant !isLoss, and postpartum).
+   * SD-9: no health data in this prop — it is a navigation callback only.
+   * FW-1: row label is a neutral Thai verb ("บันทึกการให้นม") only.
+   */
+  onFeedingLog?: () => void;
   // WeeklyMilestoneSheet is managed internally — week-zone tap opens it via local state (§4.2).
 }
 
@@ -670,6 +677,7 @@ export function HomeTabScreen({
   onCalendar,
   onDoctorReport,
   onCapture,
+  onFeedingLog,
 }: HomeTabScreenProps): React.JSX.Element {
   const { t } = useT();
   const setSnapshot = useProfileSnapshotSetter();
@@ -851,6 +859,22 @@ export function HomeTabScreen({
             label={t('home.captureToday')}
             onPress={onCapture}
           />
+
+          {/*
+           * Bug #4: feeding-log entry — postpartum is a non-loss state, always shown here.
+           * Inlined (not a helper sub-component) so plain-function-call unit tests can
+           * traverse the full element tree without a renderer (same convention as the
+           * Doctor Report row above / AutoDecrementSettingsScreen's all-inline body).
+           */}
+          <TouchableOpacity
+            testID="home-feeding-log-row"
+            style={styles.doctorReportRow}
+            onPress={onFeedingLog}
+            accessibilityRole="button"
+            accessibilityLabel={t('home.feedingLog')}
+          >
+            <Text style={styles.doctorReportLabel}>{t('home.feedingLog')}</Text>
+          </TouchableOpacity>
         </ScrollView>
       </SafeAreaView>
     );
@@ -964,6 +988,22 @@ export function HomeTabScreen({
         >
           <Text style={styles.doctorReportLabel}>{t('home.doctorReport')}</Text>
         </TouchableOpacity>
+
+        {/*
+         * Bug #4: feeding-log entry — non-loss pregnant state only (loss-gate discipline).
+         * Inlined (not a helper sub-component) — see postpartum branch comment above.
+         */}
+        {!isLoss && (
+          <TouchableOpacity
+            testID="home-feeding-log-row"
+            style={styles.doctorReportRow}
+            onPress={onFeedingLog}
+            accessibilityRole="button"
+            accessibilityLabel={t('home.feedingLog')}
+          >
+            <Text style={styles.doctorReportLabel}>{t('home.feedingLog')}</Text>
+          </TouchableOpacity>
+        )}
 
       </ScrollView>
 

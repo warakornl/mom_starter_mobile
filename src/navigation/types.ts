@@ -238,4 +238,18 @@ export type RootStackParamList = {
    * Screen reads item from supplySyncStore.getSupplyItem(supplyItemId) on render.
    */
   SubUnitSetup: { supplyItemId: string };
+
+  /**
+   * FeedingLog — Screen 3: feeding-log surface.
+   * Records a feeding event with kind ∈ {breastfeed, pump, formula}.
+   * Formula kind triggers the T-F auto-stock-decrement path.
+   * Entry: Supplies tab "บันทึกการให้นม ›" button.
+   *
+   * No params — SD-9: no health values in route params. All data read from
+   * stores on render. Consent checked at write path (SD-10 dual-gate).
+   *
+   * INV-ASD-8: usesRemainingInOpenContainer never in route params or session record.
+   * FW-1: formula copy = verbatim item name + integers + neutral verbs only.
+   */
+  FeedingLog: undefined;
 };

@@ -30,10 +30,13 @@ import type { FetchFn } from '../auth/authApiClient';
 import type {
   PregnancyProfileInput,
   BirthEventInput,
+  LossEventInput,
   PregnancyProfile,
   GetProfileResult,
   PutProfileResult,
   RecordBirthEventResult,
+  RecordLossEventResult,
+  ReopenResult,
   PregnancyApiError,
 } from './types';
 
@@ -270,6 +273,140 @@ export function createPregnancyClient(baseUrl: string, fetchFn: FetchFn = fetch)
       if (res.ok) {
         const profile = (await res.json()) as PregnancyProfile;
         return { ok: true, profile };
+      }
+
+      return makeError(res.status, await parseError(res));
+    },
+
+    /**
+     * POST /v1/pregnancy-profile/loss-event → lifecycle: pregnant → ended.
+     *
+     * LOSS-INV-1: the ONLY pregnant → ended writer. api-contract.md L604 /
+     * functional-spec §7.1-§7.3.
+     *
+     * Headers REQUIRED:
+     *   Authorization: Bearer <accessToken>
+     *   If-Match: "<version>" — required (absent server-side → 428; stale → 409).
+     *   X-Client-Date: <clientDate> — evaluates the lossDate sanity window (§7.2).
+     *
+     * Body: LossEventInput { lossDate? } — OPTIONAL, omit for a dateless record
+     * (LOSS-INV-11 — never mandatory; empty body is a full success).
+     *
+     * Idempotent (§7.6): already-ended + same lossDate → 200 no-op (no version
+     * bump); already-ended + differing lossDate → corrects the date.
+     *
+     * Status codes: 200 success/no-op · 403 consent_required · 404 not_found ·
+     * 409 version_conflict | invalid_lifecycle_state (+ currentProfile body,
+     * mirrors G-4 — client adopts on conflict, §10.4) · 412 precondition_failed
+     * (unparseable If-Match) · 422 validation_error (loss_date_range|malformed) ·
+     * 428 precondition_required.
+     *
+     * NEVER log accessToken or the resolved lossDate beyond what the UI shows.
+     */
+    async recordLossEvent(
+      input: LossEventInput,
+      accessToken: string,
+      ifMatch: string,
+      clientDate: string,
+    ): Promise<RecordLossEventResult> {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${accessToken}`,
+        'X-Client-Date': clientDate,
+        'If-Match': `"${ifMatch}"`,
+      };
+
+      const res = await fetchFn(`${baseUrl}/v1/pregnancy-profile/loss-event`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(input),
+      });
+
+      if (res.ok) {
+        const profile = (await res.json()) as PregnancyProfile;
+        return { ok: true, profile };
+      }
+
+      // Mirrors G-4 putProfile: 409 carries the current authoritative profile
+      // so the caller can adopt-on-conflict / treat-intent-as-satisfied (§10.4).
+      if (res.status === 409) {
+        let body: { code?: string; message?: string; currentProfile?: PregnancyProfile } = {};
+        try {
+          body = (await res.json()) as typeof body;
+        } catch {
+          // non-fatal — surface as bare 409 with null profile
+        }
+        return {
+          ok: false,
+          status: 409,
+          code: body.code ?? 'version_conflict',
+          message: body.message ?? res.statusText,
+          currentProfile: body.currentProfile ?? null,
+        };
+      }
+
+      return makeError(res.status, await parseError(res));
+    },
+
+    /**
+     * POST /v1/pregnancy-profile/reopen → lifecycle: ended → pregnant.
+     *
+     * LOSS-INV-1: the ONLY ended → pregnant writer. Always available, NOT a
+     * timed undo (AC-4.3). No request body (server ignores any body sent).
+     * api-contract.md L605 / functional-spec §7.4.
+     *
+     * Headers REQUIRED:
+     *   Authorization: Bearer <accessToken>
+     *   If-Match: "<version>" — required (absent server-side → 428; stale → 409).
+     *
+     * S4: server clears loss_date to NULL in the same transaction — nothing
+     * for the client to send or track for that postcondition.
+     *
+     * Idempotent (§7.6): already-pregnant → 200 no-op (no version bump, no
+     * re-activation sweep).
+     *
+     * Status codes: 200 success/no-op · 403 consent_required · 404 not_found ·
+     * 409 version_conflict | invalid_lifecycle_state (+ currentProfile body,
+     * client adopts on conflict, §10.4) · 412 precondition_failed (unparseable
+     * If-Match) · 428 precondition_required.
+     *
+     * NEVER log accessToken.
+     */
+    async reopenPregnancy(
+      accessToken: string,
+      ifMatch: string,
+    ): Promise<ReopenResult> {
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${accessToken}`,
+        'If-Match': `"${ifMatch}"`,
+      };
+
+      const res = await fetchFn(`${baseUrl}/v1/pregnancy-profile/reopen`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({}),
+      });
+
+      if (res.ok) {
+        const profile = (await res.json()) as PregnancyProfile;
+        return { ok: true, profile };
+      }
+
+      if (res.status === 409) {
+        let body: { code?: string; message?: string; currentProfile?: PregnancyProfile } = {};
+        try {
+          body = (await res.json()) as typeof body;
+        } catch {
+          // non-fatal — surface as bare 409 with null profile
+        }
+        return {
+          ok: false,
+          status: 409,
+          code: body.code ?? 'version_conflict',
+          message: body.message ?? res.statusText,
+          currentProfile: body.currentProfile ?? null,
+        };
       }
 
       return makeError(res.status, await parseError(res));

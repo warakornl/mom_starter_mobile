@@ -223,12 +223,14 @@ const styles = StyleSheet.create({
   chipLabel: {
     color: T.color.text.primary,
     fontSize: T.type.body.size,
+    lineHeight: T.type.body.lineHeight,
     fontFamily: T.type.body.fontFamily,
   },
   chipLabelActive: {
     color: T.color.accent.interactive,
     fontFamily: T.type.label.fontFamily,
     fontWeight: T.type.label.fontWeight,
+    lineHeight: T.type.label.lineHeight,
   },
   consentAdvisory: {
     backgroundColor: T.color.surface.wash.amber,
@@ -239,6 +241,7 @@ const styles = StyleSheet.create({
   consentAdvisoryText: {
     color: T.color.text.heading,
     fontSize: T.type.body.size,
+    lineHeight: T.type.body.lineHeight,
     fontFamily: T.type.body.fontFamily,
   },
   consentLink: {
@@ -248,7 +251,8 @@ const styles = StyleSheet.create({
   },
   consentLinkText: {
     color: T.color.accent.interactive,
-    fontSize: T.type.body.size,
+    fontSize: T.type.label.size,
+    lineHeight: T.type.label.lineHeight,
     fontFamily: T.type.label.fontFamily,
     fontWeight: T.type.label.fontWeight,
   },
@@ -262,6 +266,7 @@ const styles = StyleSheet.create({
     flex: 1,
     color: T.color.text.primary,
     fontSize: T.type.body.size,
+    lineHeight: T.type.body.lineHeight,
     fontFamily: T.type.body.fontFamily,
   },
   amountInput: {
@@ -287,7 +292,8 @@ const styles = StyleSheet.create({
   },
   submitBtnText: {
     color: T.color.surface.base,
-    fontSize: T.type.body.size,
+    fontSize: T.type.label.size,
+    lineHeight: T.type.label.lineHeight,
     fontFamily: T.type.label.fontFamily,
     fontWeight: T.type.label.fontWeight,
   },

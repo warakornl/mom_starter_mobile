@@ -12,7 +12,7 @@
  * NEVER log the resolved date value beyond what the UI already displays.
  */
 
-import type { LossEventInput } from './types';
+import type { LossEventInput, GetProfileResult, PregnancyProfile } from './types';
 
 export type LossDateValidationResult =
   | { valid: true }
@@ -90,4 +90,46 @@ export function buildLossEventInput(rawInput: string): LossEventInput {
   const trimmed = rawInput.trim();
   if (trimmed.length === 0) return {};
   return { lossDate: trimmed };
+}
+
+// ─── ReopenConfirmScreen entry GET outcome (mobile-reviewer BLOCKER-1 fix) ────
+
+/** Outcome of resolving a GET /v1/pregnancy-profile result for the reopen entry. */
+export type ReopenEntryGetOutcome =
+  | { type: 'loading' }
+  | { type: 'show-form'; profile: PregnancyProfile }
+  | { type: 'session-expired' }
+  | { type: 'not-found' }
+  | { type: 'guard-not-editable' }
+  | { type: 'error'; retryable: true };
+
+/**
+ * Resolve the outcome of a GET /v1/pregnancy-profile call during reopen entry.
+ *
+ * Unlike resolveEditGetOutcome (profileEditLogic.ts — pregnant-only, AC-2),
+ * ReopenConfirmScreen is reachable ONLY when `lifecycle === 'ended'` (this is
+ * the whole point of BLOCKER-1: reopen must actually be reachable in that
+ * state, not gated behind a pregnant-only host). Any OTHER lifecycle here is
+ * defense-in-depth (e.g. a stale route hit after another device already
+ * reopened) — surfaced as the same calm 'guard-not-editable' backstop.
+ */
+export function resolveReopenEntryGetOutcome(
+  result: GetProfileResult | null,
+): ReopenEntryGetOutcome {
+  if (result === null) {
+    return { type: 'loading' };
+  }
+
+  if (!result.ok) {
+    if (result.status === 401) return { type: 'session-expired' };
+    if (result.status === 404) return { type: 'not-found' };
+    return { type: 'error', retryable: true };
+  }
+
+  const { profile } = result;
+  if (profile.lifecycle !== 'ended') {
+    return { type: 'guard-not-editable' };
+  }
+
+  return { type: 'show-form', profile };
 }

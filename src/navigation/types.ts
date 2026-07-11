@@ -136,9 +136,8 @@ export type RootStackParamList = {
    * when lifecycle === 'pregnant' (INV-ENTRY-2). No deep-link, no push
    * (LOSS-INV-9) — this screen is reachable ONLY via that in-app tap.
    *
-   * No route params — SD-9: the screen reads `profileVersion` from its own
-   * fresh state (passed as a plain number, not health data) since the only
-   * thing needed is the If-Match version; no health values travel via params.
+   * `profileVersion` is a plain number (If-Match version only) — NOT health
+   * data, consistent with SD-9 (no health VALUES travel via route params).
    *
    * On confirm success: POST /pregnancy-profile/loss-event → lifecycle:'ended'.
    * pregnancy-loss-recording-ui.md §3 / functional-spec §14.
@@ -148,14 +147,23 @@ export type RootStackParamList = {
   /**
    * ReopenConfirm — Screen C: reopen (correction) confirmation.
    *
-   * Entry: ProfileEdit (Account ▸ Pregnancy) quiet reopen entry, shown ONLY
-   * when lifecycle === 'ended' — mutually exclusive with LossConfirm's entry
-   * (pregnancy-loss-recording-ui.md §4.1). Always available, no expiry (AC-4.3).
+   * Entry: ProfileHubScreen quiet reopen entry, shown ONLY when
+   * lifecycle === 'ended' (mobile-reviewer BLOCKER-1 fix — mutually
+   * exclusive in intent with LossConfirm's entry, pregnancy-loss-recording-
+   * ui.md §4.1, but the reopen entry now lives in ProfileHub, not
+   * ProfileEditScreen, because ProfileEditScreen is gated pregnant-only
+   * (AC-2) and can never render for an 'ended' profile). Always available,
+   * no expiry (AC-4.3).
+   *
+   * NO route params — SD-9: this screen performs its own GET on mount
+   * (mirrors ProfileInfoEditScreen's lifecycle-agnostic pattern) to obtain
+   * the authoritative profile + version, rather than depending on a caller
+   * that may not have a fresh version available.
    *
    * On confirm success: POST /pregnancy-profile/reopen → lifecycle:'pregnant',
    * loss_date cleared (S4). pregnancy-loss-recording-ui.md §4 / functional-spec §15.
    */
-  ReopenConfirm: { profileVersion: number };
+  ReopenConfirm: undefined;
 
   /**
    * ProfileInfoEdit — edit mother first/last name + optional baby name.

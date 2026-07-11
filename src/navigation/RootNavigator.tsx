@@ -782,12 +782,14 @@ function StackNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps): React
        * when lifecycle === 'pregnant' (INV-ENTRY-2). No push/deep-link ever
        * reaches this screen (LOSS-INV-9).
        *
-       * On success (or 409-already-ended / offline optimistic-apply): reset
-       * to MainTabs — HomeTabScreen's own focus-triggered GET refreshes the
-       * snapshot to lifecycle:'ended', which re-evaluates every loss-gated
-       * surface in the same render cycle (§5.7/§12.1). Same convention as
-       * BirthEvent's onBirthRecorded → reset(MainTabs).
+       * On success (200 ended, or 409-already-ended): reset to MainTabs —
+       * HomeTabScreen's own focus-triggered GET refreshes the snapshot to
+       * lifecycle:'ended', which re-evaluates every loss-gated surface in
+       * the same render cycle (§5.7/§12.1). Same convention as BirthEvent's
+       * onBirthRecorded → reset(MainTabs).
        * "Go back" / benign-postpartum-terminal → goBack() (nothing recorded).
+       * BLOCKER-2: network/5xx failure NEVER resets/records — the screen
+       * itself shows a calm inline error and stays open (no false-success).
        */}
       <Stack.Screen
         name="LossConfirm"
@@ -803,15 +805,39 @@ function StackNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps): React
               navigation.reset({ index: 0, routes: [{ name: 'MainTabs' }] })
             }
             onGoBack={() => navigation.goBack()}
+            onSessionExpired={() => {
+              void performLogout({
+                clearTokens: () => tokenStorage.clear(),
+                resetSupplyStore: () => supplySyncStore.reset(),
+                resetKickCountStore: () => kickCountSyncStore.reset(),
+                resetCalendarStore: () => calendarSyncStore.reset(),
+                resetSelfLogStore: () => selfLogSyncStore.reset(),
+                resetMedicationPlanStore: () => medicationPlanSyncStore.reset(),
+                resetMedicationLogStore: () => medicationLogSyncStore.reset(),
+                resetConsumptionMappingStore: () => consumptionMappingStore.reset(),
+                resetStockDecrementMarkerStore: () => stockDecrementMarkerStore.reset(),
+                resetConsentStore: () => consentStore.reset(),
+                resetConsentQueue: () => resetConsentQueue(),
+                resetSuggestionStore: () => suggestionStore.reset(),
+                resetExpensesStore: () => expensesSyncStore.reset(),
+                clearKickCountDraft: () => clearDraft(),
+                onComplete: () =>
+                  navigation.reset({ index: 0, routes: [{ name: 'Welcome' }] }),
+              });
+            }}
+            onGoToConsent={() => navigation.navigate('ManageConsents')}
           />
         )}
       </Stack.Screen>
 
       {/* ReopenConfirm — Screen C confirmation: reopen (correction).
        *
-       * Entry: ProfileEdit (Account ▸ Pregnancy) quiet reopen entry, shown
-       * ONLY when lifecycle === 'ended' — mutually exclusive with
-       * LossConfirm's entry link (§4.1). Always available, no expiry (AC-4.3).
+       * Entry: ProfileHubScreen quiet reopen entry, shown ONLY when
+       * lifecycle === 'ended' (mobile-reviewer BLOCKER-1 fix — ProfileHub
+       * reads the raw snapshot directly and renders regardless of
+       * lifecycle, unlike ProfileEditScreen which is gated pregnant-only and
+       * can never surface an 'ended' profile). No route params (SD-9) — the
+       * screen GETs its own fresh profile + version on mount.
        *
        * On success: reset to MainTabs — HomeTabScreen's focus-triggered GET
        * refreshes the snapshot to lifecycle:'pregnant' (loss_date cleared,
@@ -821,15 +847,34 @@ function StackNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps): React
         name="ReopenConfirm"
         options={{ title: t('loss.navTitle'), headerBackTitle: t('general.back') }}
       >
-        {({ route, navigation }) => (
+        {({ navigation }) => (
           <ReopenConfirmScreen
             tokenStorage={tokenStorage}
             apiBaseUrl={apiBaseUrl}
-            profileVersion={route.params.profileVersion}
             onReopened={() =>
               navigation.reset({ index: 0, routes: [{ name: 'MainTabs' }] })
             }
             onGoBack={() => navigation.goBack()}
+            onSessionExpired={() => {
+              void performLogout({
+                clearTokens: () => tokenStorage.clear(),
+                resetSupplyStore: () => supplySyncStore.reset(),
+                resetKickCountStore: () => kickCountSyncStore.reset(),
+                resetCalendarStore: () => calendarSyncStore.reset(),
+                resetSelfLogStore: () => selfLogSyncStore.reset(),
+                resetMedicationPlanStore: () => medicationPlanSyncStore.reset(),
+                resetMedicationLogStore: () => medicationLogSyncStore.reset(),
+                resetConsumptionMappingStore: () => consumptionMappingStore.reset(),
+                resetStockDecrementMarkerStore: () => stockDecrementMarkerStore.reset(),
+                resetConsentStore: () => consentStore.reset(),
+                resetConsentQueue: () => resetConsentQueue(),
+                resetSuggestionStore: () => suggestionStore.reset(),
+                resetExpensesStore: () => expensesSyncStore.reset(),
+                clearKickCountDraft: () => clearDraft(),
+                onComplete: () =>
+                  navigation.reset({ index: 0, routes: [{ name: 'Welcome' }] }),
+              });
+            }}
           />
         )}
       </Stack.Screen>

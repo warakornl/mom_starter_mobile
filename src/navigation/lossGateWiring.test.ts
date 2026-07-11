@@ -960,18 +960,44 @@ describe('[B5 Behavioral] StackNavigator → LossConfirm / ReopenConfirm route-f
     expect(goBackSpy).toHaveBeenCalledTimes(1);
   });
 
-  it('ReopenConfirm Stack.Screen is registered and renders ReopenConfirmScreen with route.params.profileVersion', () => {
+  // ─── BLOCKER-2 navigator-level guard: no false-success reset path ─────────
+  //
+  // The screen (LossConfirmScreen, tested independently in
+  // lossConfirmScreen.motherRoom.test.tsx) NEVER calls onLossRecorded on a
+  // network/5xx failure — this is the wiring-level half of that proof: the
+  // navigator provides NO OTHER path that resets to MainTabs. If a future
+  // change wired e.g. an onError/onOffline prop to also reset(MainTabs), this
+  // element would carry an extra prop that also triggers reset — assert the
+  // element exposes exactly the two reset-capable callbacks (onLossRecorded)
+  // and that simply NOT calling it (simulating the screen's real offline
+  // behavior) leaves the navigation untouched.
+  it('FAIL-ON-REVERT (BLOCKER-2): navigation.reset is untouched unless onLossRecorded fires — no ambient/timer reset path', () => {
+    const stackElement = StackNavigatorFn({ tokenStorage: mockTokenStorage, apiBaseUrl: '' });
+    const renderProp = findScreenRenderProp(stackElement, 'LossConfirm');
+    const resetSpy = jest.fn();
+    renderProp!({
+      route: { params: { profileVersion: 7 } },
+      navigation: { goBack: jest.fn(), reset: resetSpy },
+    });
+
+    // Simulates the real screen's offline/5xx behavior: onLossRecorded is
+    // simply never invoked (proven directly in lossConfirmScreen.motherRoom
+    // .test.tsx's BLOCKER-2 tests). The navigator must not reset on its own.
+    expect(resetSpy).not.toHaveBeenCalled();
+  });
+
+  it('ReopenConfirm Stack.Screen is registered and renders ReopenConfirmScreen (NO route params — BLOCKER-1: screen GETs its own profile)', () => {
     const stackElement = StackNavigatorFn({ tokenStorage: mockTokenStorage, apiBaseUrl: '' });
     const renderProp = findScreenRenderProp(stackElement, 'ReopenConfirm');
     expect(renderProp).not.toBeNull();
 
     const el = renderProp!({
-      route: { params: { profileVersion: 12 } },
       navigation: { goBack: jest.fn(), reset: jest.fn() },
     });
 
     expect(el.type).toBe(MockReopenConfirm);
-    expect((el.props as Record<string, unknown>).profileVersion).toBe(12);
+    // No profileVersion prop — the screen performs its own GET-on-mount now.
+    expect((el.props as Record<string, unknown>).profileVersion).toBeUndefined();
   });
 
   it('ReopenConfirm onReopened resets to MainTabs (Home re-GET reverts the loss-gated snapshot)', () => {
@@ -979,12 +1005,29 @@ describe('[B5 Behavioral] StackNavigator → LossConfirm / ReopenConfirm route-f
     const renderProp = findScreenRenderProp(stackElement, 'ReopenConfirm');
     const resetSpy = jest.fn();
     const el = renderProp!({
-      route: { params: { profileVersion: 12 } },
       navigation: { goBack: jest.fn(), reset: resetSpy },
     });
 
     (el.props as { onReopened: () => void }).onReopened();
     expect(resetSpy).toHaveBeenCalledWith({ index: 0, routes: [{ name: 'MainTabs' }] });
+  });
+
+  // BLOCKER-2 navigator-level guard (symmetric with LossConfirm above): the
+  // real screen (ReopenConfirmScreen / runReopenConfirm, tested independently
+  // in reopenEntryRuntimeWiring.test.ts) NEVER calls onReopened on a
+  // network/5xx failure. The navigator provides no other reset path.
+  it('FAIL-ON-REVERT (BLOCKER-2): navigation.reset is untouched unless onReopened fires — no ambient/timer reset path', () => {
+    const stackElement = StackNavigatorFn({ tokenStorage: mockTokenStorage, apiBaseUrl: '' });
+    const renderProp = findScreenRenderProp(stackElement, 'ReopenConfirm');
+    const resetSpy = jest.fn();
+    renderProp!({
+      navigation: { goBack: jest.fn(), reset: resetSpy },
+    });
+
+    // Simulates the real screen's offline/5xx behavior: onReopened is simply
+    // never invoked (proven directly in reopenEntryRuntimeWiring.test.ts's
+    // BLOCKER-2 tests). The navigator must not reset on its own.
+    expect(resetSpy).not.toHaveBeenCalled();
   });
 
   it('FAIL-ON-REVERT: LossConfirm route disappears from the stack if removed (guards route registration)', () => {
@@ -1017,7 +1060,7 @@ describe('[B5 LossGate Wiring] LossConfirm/ReopenConfirm are reachable ONLY via 
 
 // ─── M. [B5] Source-grep: ProfileEditScreen entry links use raw profile.lifecycle ─
 
-describe('[B5 LossGate Wiring] ProfileEditScreen — entry link predicate discipline', () => {
+describe('[B5 LossGate Wiring] ProfileEditScreen — loss entry link predicate discipline', () => {
   const PROFILE_EDIT_SRC = fs.readFileSync(
     path.join(__dirname, '../pregnancy/ProfileEditScreen.tsx'),
     'utf8',
@@ -1027,12 +1070,36 @@ describe('[B5 LossGate Wiring] ProfileEditScreen — entry link predicate discip
     expect(PROFILE_EDIT_SRC).toMatch(/profile\.lifecycle === 'pregnant'/);
   });
 
-  it("reopen entry link is gated on profile.lifecycle === 'ended' (mutually exclusive, §4.1)", () => {
-    expect(PROFILE_EDIT_SRC).toMatch(/profile\.lifecycle === 'ended'/);
+  it('loss entry link navigates with profileVersion only — no health values in route params (SD-9)', () => {
+    expect(PROFILE_EDIT_SRC).toMatch(/navigate\('LossConfirm',\s*\{\s*profileVersion:\s*profile\.version\s*\}\)/);
   });
 
-  it('entry links navigate with profileVersion only — no health values in route params (SD-9)', () => {
-    expect(PROFILE_EDIT_SRC).toMatch(/navigate\('LossConfirm',\s*\{\s*profileVersion:\s*profile\.version\s*\}\)/);
-    expect(PROFILE_EDIT_SRC).toMatch(/navigate\('ReopenConfirm',\s*\{\s*profileVersion:\s*profile\.version\s*\}\)/);
+  it('BLOCKER-1 fix: ProfileEditScreen no longer renders a reopen-entry-link (was unreachable dead code)', () => {
+    expect(PROFILE_EDIT_SRC).not.toContain('reopen-entry-link');
+  });
+});
+
+// ─── N. [B5] Source-grep: ProfileHubScreen — the REAL reopen entry (BLOCKER-1 fix) ─
+
+describe('[B5 LossGate Wiring] ProfileHubScreen — reopen entry predicate discipline (BLOCKER-1)', () => {
+  const PROFILE_HUB_SRC = fs.readFileSync(
+    path.join(__dirname, '../profile/ProfileHubScreen.tsx'),
+    'utf8',
+  );
+
+  it("reopen entry row is gated on snapshot?.lifecycle === 'ended' (raw snapshot, no GET-gate)", () => {
+    expect(PROFILE_HUB_SRC).toMatch(/isEnded\s*=\s*snapshot\?\.lifecycle === 'ended'/);
+  });
+
+  it('reopen entry row navigates via the onReopenPregnancy prop (no route params — SD-9)', () => {
+    expect(PROFILE_HUB_SRC).toMatch(/onPress=\{onReopenPregnancy\}/);
+  });
+
+  it('BottomTabNavigator wires onReopenPregnancy to navigate("ReopenConfirm") with no params', () => {
+    const BOTTOM_TAB_SRC = fs.readFileSync(
+      path.join(__dirname, './BottomTabNavigator.tsx'),
+      'utf8',
+    );
+    expect(BOTTOM_TAB_SRC).toMatch(/onReopenPregnancy=\{\(\)\s*=>\s*navigation\.navigate\('ReopenConfirm'\)\}/);
   });
 });

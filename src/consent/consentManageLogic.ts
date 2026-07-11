@@ -37,7 +37,9 @@ export const CONSENT_SECTION_ORDER: ConsentSection[] = ['core', 'sync', 'baby'];
  */
 export const SECTION_CONSENT_TYPES: Record<ConsentSection, ConsentType[]> = {
   core: ['general_health'],
-  sync: ['cloud_storage', 'pdf_egress', 'sensitive_lab_results'],
+  // calendar_sync (#7): device-calendar sync; toggle-on → CalendarSyncConsentSheet
+  // (explainer-before-prompt, CAL-SCR-10); toggle-off → CalendarSync disable dialog
+  sync: ['cloud_storage', 'pdf_egress', 'sensitive_lab_results', 'calendar_sync'],
   baby: ['infant_feeding', 'child_health'],
 };
 

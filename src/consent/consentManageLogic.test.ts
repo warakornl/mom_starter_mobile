@@ -43,6 +43,14 @@ describe('needsWithdrawalConfirmation', () => {
   it('returns false for sensitive_lab_results (§3.3.2 — single-feature gate, obvious off-effect)', () => {
     expect(needsWithdrawalConfirmation('sensitive_lab_results')).toBe(false);
   });
+
+  it('returns true for calendar_sync — withdrawal shows disable dialog (delete/keep events)', () => {
+    // calendar_sync withdrawal has a significant consequence: the app must ask
+    // whether to DELETE or KEEP events already written to device calendar.
+    // This requires the confirmation sheet (handled by CalendarSyncSettingsScreen,
+    // not the generic ManageConsents withdrawal sheet).
+    expect(needsWithdrawalConfirmation('calendar_sync')).toBe(true);
+  });
 });
 
 // ─── SECTION_CONSENT_TYPES ───────────────────────────────────────────────────
@@ -52,8 +60,15 @@ describe('SECTION_CONSENT_TYPES', () => {
     expect(SECTION_CONSENT_TYPES.core).toEqual(['general_health']);
   });
 
-  it('sync section contains cloud_storage, pdf_egress, sensitive_lab_results (§3.3.1)', () => {
-    expect(SECTION_CONSENT_TYPES.sync).toEqual(['cloud_storage', 'pdf_egress', 'sensitive_lab_results']);
+  it('sync section contains cloud_storage, pdf_egress, sensitive_lab_results, calendar_sync (§3.3.1 + calendar-sync feature)', () => {
+    // calendar_sync (#7) was added to the sync section alongside cloud_storage.
+    // Its toggle-on path navigates to CalendarSyncConsentSheet (explainer-before-prompt).
+    expect(SECTION_CONSENT_TYPES.sync).toEqual([
+      'cloud_storage',
+      'pdf_egress',
+      'sensitive_lab_results',
+      'calendar_sync',
+    ]);
   });
 
   it('baby section contains infant_feeding, child_health (§3.3.1)', () => {
@@ -64,10 +79,13 @@ describe('SECTION_CONSENT_TYPES', () => {
     expect(CONSENT_SECTION_ORDER).toHaveLength(3);
   });
 
-  it('all 6 consent types are covered exactly once across all sections', () => {
+  it('all 7 consent types are covered exactly once across all sections (calendar_sync is #7)', () => {
     const all = CONSENT_SECTION_ORDER.flatMap((s) => SECTION_CONSENT_TYPES[s]);
-    expect(all).toHaveLength(6);
-    expect(new Set(all).size).toBe(6);
+    // 7 types: general_health, cloud_storage, pdf_egress, sensitive_lab_results,
+    //           infant_feeding, child_health, calendar_sync
+    expect(all).toHaveLength(7);
+    expect(new Set(all).size).toBe(7);
+    expect(all).toContain('calendar_sync');
   });
 
   it('section order is core → sync → baby per the design', () => {
@@ -102,6 +120,10 @@ describe('sectionForType', () => {
 
   it('returns baby for child_health', () => {
     expect(sectionForType('child_health')).toBe('baby');
+  });
+
+  it('returns sync for calendar_sync (#7 — lives in sync section)', () => {
+    expect(sectionForType('calendar_sync')).toBe('sync');
   });
 });
 

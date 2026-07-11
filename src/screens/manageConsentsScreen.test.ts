@@ -3,7 +3,7 @@
  *
  * Tests pure helpers extracted from ManageConsentsScreen:
  *   - consentTextVersion: locale → consent text version string
- *   - ALL_CONSENT_TYPES: all 6 types present (completeness)
+ *   - ALL_CONSENT_TYPES: all 7 types present (completeness; calendar_sync added as #7)
  *   - ROW_TOGGLE_TESTID: §5 naming convention check for each type
  *   - ROW_ERROR_TESTID:  §5 naming convention for error panels
  *   - PENDING_BADGE_TESTID: §5 naming convention for pending badges
@@ -36,8 +36,10 @@ describe('consentTextVersion', () => {
 // ─── ALL_CONSENT_TYPES completeness ──────────────────────────────────────────
 
 describe('ALL_CONSENT_TYPES', () => {
-  it('contains exactly 6 consent types', () => {
-    expect(ALL_CONSENT_TYPES).toHaveLength(6);
+  it('contains exactly 7 consent types (calendar_sync was added as #7)', () => {
+    // 7 types: general_health, cloud_storage, pdf_egress, sensitive_lab_results,
+    //           infant_feeding, child_health, calendar_sync
+    expect(ALL_CONSENT_TYPES).toHaveLength(7);
   });
 
   it('includes general_health', () => {
@@ -62,6 +64,10 @@ describe('ALL_CONSENT_TYPES', () => {
 
   it('includes child_health', () => {
     expect(ALL_CONSENT_TYPES).toContain('child_health');
+  });
+
+  it('includes calendar_sync (#7 — device calendar sync feature)', () => {
+    expect(ALL_CONSENT_TYPES).toContain('calendar_sync');
   });
 });
 

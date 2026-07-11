@@ -88,6 +88,8 @@ function initialRowState(): RowState {
     sensitive_lab_results: 'idle',
     infant_feeding:        'idle',
     child_health:          'idle',
+    // calendar_sync (#7): toggle-on → CalendarSyncConsentSheet; toggle-off → disable dialog
+    calendar_sync:         'idle',
   };
 }
 
@@ -99,6 +101,7 @@ function initialGrantedState(): Record<ConsentType, boolean> {
     sensitive_lab_results: consentStore.isGranted('sensitive_lab_results'),
     infant_feeding:        consentStore.isGranted('infant_feeding'),
     child_health:          consentStore.isGranted('child_health'),
+    calendar_sync:         consentStore.isGranted('calendar_sync'),
   };
 }
 
@@ -111,6 +114,7 @@ const ROW_TITLE_KEY: Record<ConsentType, string> = {
   sensitive_lab_results: 'consent.sensitive_lab.title',
   infant_feeding:        'consent.infant_feeding.title',
   child_health:          'consent.child_health.title',
+  calendar_sync:         'consent.calendar_sync.title',
 };
 
 const ROW_CAPTION_KEY: Record<ConsentType, string> = {
@@ -120,6 +124,8 @@ const ROW_CAPTION_KEY: Record<ConsentType, string> = {
   sensitive_lab_results: 'consent.manage.row.sensitive_lab.caption',
   infant_feeding:        'consent.infant_feeding.parental_note',
   child_health:          'consent.child_health.parental_note',
+  // calendar_sync: "เพิ่มนัดฝากครรภ์ลงปฏิทินในเครื่อง" — data_copy verbatim from consent-copy-doc
+  calendar_sync:         'consent.calendar_sync.data_copy',
 };
 
 // ─── Component ────────────────────────────────────────────────────────────────

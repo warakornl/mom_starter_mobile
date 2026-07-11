@@ -24,6 +24,7 @@ export const ALL_CONSENT_TYPES: ConsentType[] = [
   'sensitive_lab_results',
   'infant_feeding',
   'child_health',
+  'calendar_sync',
 ];
 
 // ─── Consent text version ─────────────────────────────────────────────────────
@@ -63,6 +64,7 @@ export const ROW_TOGGLE_TESTID: Record<ConsentType, string> = {
   sensitive_lab_results: 'consent-manage-toggle-sensitive-lab',
   infant_feeding:        'consent-manage-toggle-infant-feeding',
   child_health:          'consent-manage-toggle-child-health',
+  calendar_sync:         'consent-manage-toggle-calendar-sync',
 };
 
 /**
@@ -76,6 +78,7 @@ export const ROW_ERROR_TESTID: Record<ConsentType, string> = {
   sensitive_lab_results: 'consent-manage-row-error-sensitive-lab',
   infant_feeding:        'consent-manage-row-error-infant-feeding',
   child_health:          'consent-manage-row-error-child-health',
+  calendar_sync:         'consent-manage-row-error-calendar-sync',
 };
 
 /**
@@ -90,6 +93,7 @@ export const PENDING_BADGE_TESTID: Record<ConsentType, string> = {
   sensitive_lab_results: 'consent-manage-pending-sync-badge-sensitive_lab_results',
   infant_feeding:        'consent-manage-pending-sync-badge-infant_feeding',
   child_health:          'consent-manage-pending-sync-badge-child_health',
+  calendar_sync:         'consent-manage-pending-sync-badge-calendar_sync',
 };
 
 /**
@@ -103,4 +107,5 @@ export const ROW_TESTID: Record<ConsentType, string> = {
   sensitive_lab_results: 'consent-manage-row-sensitive-lab',
   infant_feeding:        'consent-manage-row-infant-feeding',
   child_health:          'consent-manage-row-child-health',
+  calendar_sync:         'consent-manage-row-calendar-sync',
 };

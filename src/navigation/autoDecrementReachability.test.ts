@@ -114,6 +114,9 @@ jest.mock('../autoStockDecrement/AutoDecrementSettingsScreen', () => ({
 jest.mock('../autoStockDecrement/SubUnitSetupScreen', () => ({
   SubUnitSetupScreen: jest.fn(() => null),
 }));
+jest.mock('../autoStockDecrement/FeedingLogScreen', () => ({
+  FeedingLogScreen: jest.fn(() => null),
+}));
 
 // ── RootNavigator-specific screen mocks ───────────────────────────────────────
 jest.mock('../screens/WelcomeScreen', () => ({ WelcomeScreen: jest.fn(() => null) }));
@@ -227,12 +230,14 @@ import { RootNavigator } from './RootNavigator';
 import { SuppliesScreen } from '../supplies/SuppliesScreen';
 import { AutoDecrementSettingsScreen } from '../autoStockDecrement/AutoDecrementSettingsScreen';
 import { SubUnitSetupScreen } from '../autoStockDecrement/SubUnitSetupScreen';
+import { FeedingLogScreen } from '../autoStockDecrement/FeedingLogScreen';
 
 // ─── Typed mock handles ───────────────────────────────────────────────────────
 
 const MockSuppliesScreen = SuppliesScreen as unknown as jest.Mock;
 const MockASDSettings    = AutoDecrementSettingsScreen as unknown as jest.Mock;
 const MockSubUnitSetup   = SubUnitSetupScreen as unknown as jest.Mock;
+const MockFeedingLog     = FeedingLogScreen as unknown as jest.Mock;
 
 // ─── Shared test fixtures ─────────────────────────────────────────────────────
 
@@ -502,5 +507,152 @@ describe('[ASD Reachability] D — RootNavigator screen registration and wiring'
     expect(mockScreenNav.navigate).toHaveBeenCalledWith('SubUnitSetup', {
       supplyItemId: 'supply-uuid-abc',
     });
+  });
+});
+
+// ─── E: TypeScript type-level guard for FeedingLog route ─────────────────────
+
+describe('[ASD Reachability] E — TypeScript route guard for FeedingLog (SD-9)', () => {
+  it('RootStackParamList includes FeedingLog with undefined params (SD-9: no health data)', () => {
+    // Compile-time: if 'FeedingLog' key is missing this type-assignment fails tsc.
+    type HasKey = 'FeedingLog' extends keyof RootStackParamList ? true : false;
+    const check: HasKey = true;
+    expect(check).toBe(true);
+    // SD-9 / INV-ASD-8: no health values, no usesRemainingInOpenContainer in params.
+    const _params: RootStackParamList['FeedingLog'] = undefined;
+    expect(_params).toBeUndefined();
+  });
+});
+
+// ─── F: SuppliesScreen feeding-log entry button ───────────────────────────────
+//
+// Behavioral test: the REAL SuppliesScreen renders a 'supplies-feeding-log' button
+// that invokes the `onFeedingLog` callback.
+//
+// Fail-on-revert: removing the button from SuppliesScreen makes this RED.
+// FW-1: button label is i18n key 'supplies.feedingLog' — no brand/promo copy.
+
+describe('[ASD Reachability] F — SuppliesScreen feeding-log entry button (behavioral)', () => {
+  it('pressing supplies-feeding-log button calls onFeedingLog', () => {
+    const onFeedingLog = jest.fn();
+    const {
+      SuppliesScreen: RealSuppliesScreen,
+    } = jest.requireActual<typeof import('../supplies/SuppliesScreen')>('../supplies/SuppliesScreen');
+
+    const tree = (RealSuppliesScreen as Function)({
+      tokenStorage: mockTokenStorage,
+      apiBaseUrl: 'https://test.example.com',
+      onFeedingLog,
+    }) as React.ReactElement;
+
+    const buttons = findAll(
+      tree,
+      (el) => (el.props as { testID?: string }).testID === 'supplies-feeding-log',
+    );
+    expect(buttons.length).toBeGreaterThan(0);
+
+    (buttons[0]!.props as { onPress: () => void }).onPress();
+    expect(onFeedingLog).toHaveBeenCalledTimes(1);
+  });
+
+  it('feeding-log button is NOT rendered when onFeedingLog prop is absent', () => {
+    const {
+      SuppliesScreen: RealSuppliesScreen,
+    } = jest.requireActual<typeof import('../supplies/SuppliesScreen')>('../supplies/SuppliesScreen');
+
+    const tree = (RealSuppliesScreen as Function)({
+      tokenStorage: mockTokenStorage,
+      apiBaseUrl: 'https://test.example.com',
+      // onFeedingLog intentionally absent
+    }) as React.ReactElement;
+
+    const buttons = findAll(
+      tree,
+      (el) => (el.props as { testID?: string }).testID === 'supplies-feeding-log',
+    );
+    expect(buttons.length).toBe(0);
+  });
+});
+
+// ─── G: BottomTabNavigator wires onFeedingLog + RootNavigator registers FeedingLog ──
+//
+// G-1: BottomTabNavigator supplies render-prop passes onFeedingLog wired to
+//      navigation.navigate('FeedingLog').
+// G-2: RootNavigator Stack.Screen name='FeedingLog' is registered and returns
+//      the FeedingLogScreen element (MockFeedingLog type check).
+//
+// Fail-on-revert:
+//   Remove onFeedingLog from BottomTabNavigator → G-1 RED.
+//   Remove FeedingLog from RootNavigator → G-2 RED.
+//   Remove FeedingLog from RootStackParamList → TypeScript compile error (section E RED).
+
+describe('[ASD Reachability] G — BottomTabNavigator + RootNavigator FeedingLog wiring', () => {
+  it('G-1: Supplies Tab.Screen render-prop passes onFeedingLog wired to navigate("FeedingLog")', () => {
+    const tabNavElement = (BottomTabNavigator as unknown as (p: BottomTabNavigatorProps) => React.ReactElement)({
+      tokenStorage: mockTokenStorage as never,
+      apiBaseUrl: 'https://test.example.com',
+      navigation: mockRootNavigation,
+    });
+
+    const suppliesRenderProp = findScreenRenderProp(tabNavElement, 'Supplies');
+    expect(suppliesRenderProp).not.toBeNull();
+
+    const suppliesElement = suppliesRenderProp!();
+    expect(suppliesElement.type).toBe(MockSuppliesScreen);
+
+    const props = suppliesElement.props as { onFeedingLog?: () => void };
+    expect(typeof props.onFeedingLog).toBe('function');
+
+    // Calling the prop must fire navigate('FeedingLog') — proves the real binding.
+    props.onFeedingLog!();
+    expect(mockRootNavigation.navigate).toHaveBeenCalledWith('FeedingLog');
+  });
+
+  it('G-1 FAIL-ON-REVERT: onFeedingLog prop is present on the SuppliesScreen element', () => {
+    const tabNavElement = (BottomTabNavigator as unknown as (p: BottomTabNavigatorProps) => React.ReactElement)({
+      tokenStorage: mockTokenStorage as never,
+      apiBaseUrl: 'https://test.example.com',
+      navigation: mockRootNavigation,
+    });
+    const suppliesRenderProp = findScreenRenderProp(tabNavElement, 'Supplies');
+    const el = suppliesRenderProp!();
+    expect((el.props as Record<string, unknown>).onFeedingLog).toBeDefined();
+  });
+
+  it('G-2: FeedingLog Stack.Screen is registered in RootNavigator with a callable render-prop', () => {
+    const StackNavigatorFn = getStackNavigatorFn();
+    const stackElement = StackNavigatorFn({
+      tokenStorage: mockTokenStorage,
+      apiBaseUrl: 'https://test.example.com',
+    });
+
+    const feedingLogRenderProp = findScreenRenderProp(stackElement, 'FeedingLog');
+    expect(feedingLogRenderProp).not.toBeNull();
+
+    // Render-prop receives ({ navigation: nav }) from the Stack.Screen at runtime.
+    const mockScreenNav = { navigate: jest.fn(), goBack: jest.fn(), reset: jest.fn() };
+    const feedingLogElement = feedingLogRenderProp!({ navigation: mockScreenNav });
+
+    // The element type must be the mocked FeedingLogScreen (proves real import + registration).
+    expect(feedingLogElement.type).toBe(MockFeedingLog);
+  });
+
+  it('G-2: FeedingLog render-prop passes onBack → nav.goBack() (no health data in callback — SD-9)', () => {
+    const StackNavigatorFn = getStackNavigatorFn();
+    const stackElement = StackNavigatorFn({
+      tokenStorage: mockTokenStorage,
+      apiBaseUrl: 'https://test.example.com',
+    });
+
+    const feedingLogRenderProp = findScreenRenderProp(stackElement, 'FeedingLog');
+    const mockScreenNav = { navigate: jest.fn(), goBack: jest.fn(), reset: jest.fn() };
+    const feedingLogElement = feedingLogRenderProp!({ navigation: mockScreenNav });
+
+    const props = feedingLogElement.props as { onBack?: () => void };
+    expect(typeof props.onBack).toBe('function');
+
+    // onBack must call goBack() — proves SD-9 compliance (no health data in callback).
+    props.onBack!();
+    expect(mockScreenNav.goBack).toHaveBeenCalledTimes(1);
   });
 });

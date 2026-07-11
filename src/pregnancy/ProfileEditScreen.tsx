@@ -69,12 +69,13 @@ export interface EditNavigationProp {
   ): () => void;
   dispatch(action: Readonly<{ type: string }>): void;
   /**
-   * pregnancy-loss-recording-ui.md §2 / §4.1: navigates to LossConfirm
-   * (Screen B) or ReopenConfirm (Screen C confirmation). Both routes take
-   * only `profileVersion` (a number, not health data — SD-9).
+   * pregnancy-loss-recording-ui.md §2: navigates to LossConfirm (Screen B).
+   * `profileVersion` is a plain number, not health data (SD-9). The reopen
+   * entry (Screen C) is no longer reachable from this screen — see
+   * ProfileHubScreen (mobile-reviewer BLOCKER-1 fix).
    */
   navigate(
-    screen: 'LossConfirm' | 'ReopenConfirm',
+    screen: 'LossConfirm',
     params: { profileVersion: number },
   ): void;
 }
@@ -305,12 +306,20 @@ export function ProfileEditScreen({
         onDirty={handleDirty}
       />
 
-      {/* pregnancy-loss-recording-ui.md §2 (Screen A entry) / §4.1 (Screen C
-       * entry) — quiet text link, bottom of screen, below Save. INV-ENTRY-2:
-       * loss entry shown ONLY when lifecycle === 'pregnant' (raw profile
-       * value from the fresh GET — never defaulted). Reopen entry shown
-       * ONLY when lifecycle === 'ended', occupying the exact same slot 1:1
-       * (mutually exclusive — never both visible, §4.1).
+      {/* pregnancy-loss-recording-ui.md §2 (Screen A entry) — quiet text
+       * link, bottom of screen, below Save. INV-ENTRY-2: shown ONLY when
+       * lifecycle === 'pregnant' (raw profile value from the fresh GET —
+       * never defaulted).
+       *
+       * NOTE (mobile-reviewer BLOCKER-1): the Screen C reopen entry
+       * previously lived here too, but this host's own GET-outcome resolver
+       * (resolveEditGetOutcome) returns 'guard-not-editable' for EVERY
+       * lifecycle !== 'pregnant' — so `profile.lifecycle === 'ended'` could
+       * never be true at this render point, making a reopen link here dead
+       * code (unreachable in production). The reopen entry now lives in
+       * ProfileHubScreen (which reads the raw snapshot directly, without a
+       * pregnant-only GET gate) — see profileHubReopenEntry.test.tsx for the
+       * reachability proof.
        */}
       {profile.lifecycle === 'pregnant' && (
         <TouchableOpacity
@@ -324,24 +333,6 @@ export function ProfileEditScreen({
         >
           <Text testID="loss-entry-link-text" style={styles.lossEntryLinkText}>
             {t('loss.entry.link')}
-          </Text>
-          <Text style={styles.lossEntryChevron} accessibilityElementsHidden={true}>
-            {' ›'}
-          </Text>
-        </TouchableOpacity>
-      )}
-      {profile.lifecycle === 'ended' && (
-        <TouchableOpacity
-          testID="reopen-entry-link"
-          style={styles.lossEntryLink}
-          onPress={() =>
-            navigation.navigate('ReopenConfirm', { profileVersion: profile.version })
-          }
-          accessibilityRole="link"
-          accessibilityLabel={t('loss.reopen.entry')}
-        >
-          <Text testID="reopen-entry-link-text" style={styles.lossEntryLinkText}>
-            {t('loss.reopen.entry')}
           </Text>
           <Text style={styles.lossEntryChevron} accessibilityElementsHidden={true}>
             {' ›'}

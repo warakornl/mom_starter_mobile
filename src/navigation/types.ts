@@ -269,6 +269,20 @@ export type RootStackParamList = {
   SubUnitSetup: { supplyItemId: string };
 
   /**
+   * SupplyItemPicker — "Link an item" destination from AutoDecrementSettings.
+   * Entry: AutoDecrementSettings "+ เชื่อมต่อของใช้" affordance per activity section.
+   *
+   * SD-9: activityType is a closed 3-value string enum (MappingActivityType) —
+   * NOT health data. No supply item data or health values in route params;
+   * the screen reads supply items from supplySyncStore on render.
+   *
+   * Tapping an item on this screen enqueues a new ConsumptionMappingRecord via
+   * consumptionMappingStore.enqueueCreate (Bug #2 fix — the only production
+   * caller of enqueueCreate).
+   */
+  SupplyItemPicker: { activityType: import('../sync/syncTypes').MappingActivityType };
+
+  /**
    * FeedingLog — Screen 3: feeding-log surface.
    * Records a feeding event with kind ∈ {breastfeed, pump, formula}.
    * Formula kind triggers the T-F auto-stock-decrement path.

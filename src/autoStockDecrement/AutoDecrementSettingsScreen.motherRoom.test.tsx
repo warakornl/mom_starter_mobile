@@ -252,6 +252,61 @@ describe('AutoDecrementSettingsScreen — consent-gated states', () => {
     // Restore
     (consentStore.isGranted as jest.Mock).mockImplementation(() => true);
   });
+
+  // Bug #2 regression guard: previously RootNavigator never passed
+  // onNavigateConsent to this screen, so a fresh user with no consent granted
+  // saw the advisory TEXT with NO pressable CTA at all (the `{onNavigateConsent
+  // && ...}` guard silently hid it). This proves the CTA renders AND invokes
+  // the handler when onNavigateConsent IS supplied — the navigator wiring test
+  // (autoDecrementReachability.test.ts) proves RootNavigator actually supplies it.
+  it('BUG #2: renders a pressable consent CTA that invokes onNavigateConsent when consent is missing', () => {
+    const { consentStore } = require('../consent/consentStore');
+    (consentStore.isGranted as jest.Mock).mockImplementation(() => false);
+
+    const onNavigateConsent = jest.fn();
+    const tree = AutoDecrementSettingsScreen({
+      ...baseProps,
+      onNavigateConsent,
+    }) as React.ReactElement;
+
+    const ctas = findAll(tree, (el) => {
+      const props = el.props as Record<string, unknown>;
+      return (
+        props.accessibilityRole === 'button' &&
+        props.accessibilityLabel === 'autoDecrement.advisory.consentCta'
+      );
+    });
+    expect(ctas.length).toBeGreaterThan(0);
+
+    const onPress = (ctas[0]!.props as Record<string, unknown>).onPress as () => void;
+    expect(typeof onPress).toBe('function');
+    onPress();
+    expect(onNavigateConsent).toHaveBeenCalledTimes(1);
+    // The screen passes the section's first required ConsentType (not raw activityType).
+    expect(onNavigateConsent).toHaveBeenCalledWith(
+      expect.stringMatching(/^(general_health|infant_feeding)$/),
+    );
+
+    (consentStore.isGranted as jest.Mock).mockImplementation(() => true);
+  });
+
+  it('BUG #2: consent advisory has NO CTA rendered when onNavigateConsent is absent (documents the old broken state)', () => {
+    const { consentStore } = require('../consent/consentStore');
+    (consentStore.isGranted as jest.Mock).mockImplementation(() => false);
+
+    // onNavigateConsent intentionally omitted — mirrors the pre-fix RootNavigator.
+    const tree = AutoDecrementSettingsScreen(baseProps) as React.ReactElement;
+    const ctas = findAll(tree, (el) => {
+      const props = el.props as Record<string, unknown>;
+      return (
+        props.accessibilityRole === 'button' &&
+        props.accessibilityLabel === 'autoDecrement.advisory.consentCta'
+      );
+    });
+    expect(ctas).toHaveLength(0);
+
+    (consentStore.isGranted as jest.Mock).mockImplementation(() => true);
+  });
 });
 
 describe('AutoDecrementSettingsScreen — FW-1 Milk-Code firewall', () => {

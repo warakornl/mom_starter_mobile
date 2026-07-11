@@ -61,7 +61,7 @@
  *   auto-stock-decrement-screens.md §3.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -167,6 +167,14 @@ export function FeedingLogScreen({
   // ── Screen state ──────────────────────────────────────────────────────────
   const [screenState, setScreenState] = useState<ScreenState>('idle');
 
+  // ── In-flight submit guard ────────────────────────────────────────────────
+  // A ref (not state) so that the guard takes effect synchronously within the
+  // same render cycle — state batching means setScreenState('saving') does NOT
+  // prevent a second tap from entering the handler before re-render.
+  // The ref stays true until the component unmounts (saved) or the user retries
+  // (error path — retry handler resets it below).
+  const isSubmittingRef = useRef(false);
+
   // ── Consent reads (synchronous — offline-first, always in-memory) ─────────
   const generalHealthGranted = consentStore.isGranted('general_health');
 
@@ -180,20 +188,28 @@ export function FeedingLogScreen({
    * NEVER log kind, sessionId, or any health value (K-8 / SD-5).
    */
   function handleBasicFeedSave(): void {
+    // In-flight guard — blocks a second tap before the first re-render completes.
+    if (isSubmittingRef.current) return;
+
     // SD-10: write-path consent gate (belt-and-suspenders — not just UI hide)
     if (!consentStore.isGranted('general_health')) {
       return;
     }
 
+    // Type narrowing: kind is 'breastfeed' | 'pump' because this handler is
+    // only rendered/called when kind !== 'formula' (see save button condition).
+    if (kind === 'formula') return; // narrowing guard — not reachable via button
+
     const session: FeedingSessionRecord = {
       id: uuidv4(),
-      kind: kind as 'breastfeed' | 'pump',
+      kind,
       startedAt: localCivilNow(),
       version: 0,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
 
+    isSubmittingRef.current = true;
     setScreenState('saving');
     try {
       _feedingSessionStore.commitLocalFormula(session);
@@ -201,6 +217,8 @@ export function FeedingLogScreen({
     } catch {
       setScreenState('error');
     }
+    // Note: ref stays true — saved state shows a different UI (no save button);
+    // error state shows retry button which resets the ref (see retry handler).
   }
 
   /**
@@ -216,6 +234,13 @@ export function FeedingLogScreen({
    * INV-ASD-8: FeedingSessionRecord stored here has NO supply-side fields.
    */
   function handleFormulaSubmit(amountSubUnits: number | null): void {
+    // In-flight guard — blocks a rapid second tap before the first re-render.
+    // Uses a ref (not state) so the guard is effective synchronously within the
+    // same event-loop tick. Two taps with different uuidv4() sessionIds would
+    // otherwise both pass through and mint two distinct decrements (E-10 only
+    // deduplicates the SAME sessionId, not two different ones).
+    if (isSubmittingRef.current) return;
+
     // SD-10: WRITE-PATH dual-gate (belt-and-suspenders — FormulaFeedSection also
     // gates at the UI level, but we always re-check at the write path per SD-10).
     if (
@@ -238,6 +263,7 @@ export function FeedingLogScreen({
       // are set on the FeedingSessionRecord — health side only.
     };
 
+    isSubmittingRef.current = true;
     setScreenState('saving');
     try {
       // Step 1: Persist FeedingSession (immutable event log — append-only).
@@ -421,7 +447,11 @@ export function FeedingLogScreen({
             <Text style={styles.errorText}>{t('feedingLog.error')}</Text>
             <TouchableOpacity
               style={styles.retryBtn}
-              onPress={() => { setScreenState('idle'); }}
+              onPress={() => {
+                // Reset the in-flight guard so the user can attempt to save again.
+                isSubmittingRef.current = false;
+                setScreenState('idle');
+              }}
               accessibilityRole="button"
               accessibilityLabel={t('feedingLog.retry')}
             >
@@ -448,13 +478,13 @@ export function FeedingLogScreen({
             testID="feeding-log-save-btn"
             style={[
               styles.saveBtn,
-              !generalHealthGranted && styles.saveBtnDisabled,
+              (!generalHealthGranted || screenState === 'saving') && styles.saveBtnDisabled,
             ]}
             onPress={handleBasicFeedSave}
-            disabled={!generalHealthGranted}
+            disabled={!generalHealthGranted || screenState === 'saving'}
             accessibilityRole="button"
             accessibilityLabel={t('feedingLog.save')}
-            accessibilityState={{ disabled: !generalHealthGranted }}
+            accessibilityState={{ disabled: !generalHealthGranted || screenState === 'saving' }}
           >
             <Text style={styles.saveBtnText}>{t('feedingLog.save')}</Text>
           </TouchableOpacity>
@@ -465,7 +495,13 @@ export function FeedingLogScreen({
 }
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
-// ALL values from ห้องแม่ tokens — ZERO inline hex/px literals outside tokens.ts.
+// Token use: all color, spacing, radius, and type values come from T (tokens.ts).
+// Intentional non-token px values (no token exists for these layout anchors):
+//   • headerCloseBtn minWidth: 60  — symmetric spacer; no spacing token at 60
+//   • headerSpacer width: 60       — mirrors headerCloseBtn for centred title
+//   • footer shadow block: upward shadow (height: -2) + shadowOpacity: 0.06 +
+//     elevation: 4 — not in T.elev tokens (those use positive height + baked opacity)
+// All button heights use T.button.primary.height (52) — matches T.input.height.
 
 const styles = StyleSheet.create({
   container: {
@@ -491,6 +527,7 @@ const styles = StyleSheet.create({
   headerCloseText: {
     fontFamily: T.type.bodyLarge.fontFamily,
     fontSize: T.type.bodyLarge.size,
+    lineHeight: T.type.bodyLarge.lineHeight,
     color: T.color.text.primary,
   },
   headerTitle: {
@@ -521,6 +558,7 @@ const styles = StyleSheet.create({
   consentAdvisoryText: {
     color: T.color.text.heading,
     fontSize: T.type.body.size,
+    lineHeight: T.type.body.lineHeight,
     fontFamily: T.type.body.fontFamily,
   },
   consentCtaBtn: {
@@ -530,7 +568,8 @@ const styles = StyleSheet.create({
   },
   consentCtaText: {
     color: T.color.accent.interactive,
-    fontSize: T.type.body.size,
+    fontSize: T.type.label.size,
+    lineHeight: T.type.label.lineHeight,
     fontFamily: T.type.label.fontFamily,
     fontWeight: T.type.label.fontWeight,
   },
@@ -559,12 +598,14 @@ const styles = StyleSheet.create({
   chipLabel: {
     color: T.color.text.primary,
     fontSize: T.type.body.size,
+    lineHeight: T.type.body.lineHeight,
     fontFamily: T.type.body.fontFamily,
   },
   chipLabelActive: {
     color: T.color.accent.interactive,
     fontFamily: T.type.label.fontFamily,
     fontWeight: T.type.label.fontWeight,
+    lineHeight: T.type.label.lineHeight,
   },
 
   // ── Formula section ───────────────────────────────────────────────────────
@@ -585,6 +626,7 @@ const styles = StyleSheet.create({
   errorText: {
     color: T.color.text.primary,
     fontSize: T.type.body.size,
+    lineHeight: T.type.body.lineHeight,
     fontFamily: T.type.body.fontFamily,
     flex: 1,
   },
@@ -595,7 +637,8 @@ const styles = StyleSheet.create({
   },
   retryBtnText: {
     color: T.color.accent.interactive,
-    fontSize: T.type.body.size,
+    fontSize: T.type.label.size,
+    lineHeight: T.type.label.lineHeight,
     fontFamily: T.type.label.fontFamily,
     fontWeight: T.type.label.fontWeight,
   },
@@ -627,7 +670,8 @@ const styles = StyleSheet.create({
     color: T.color.text.onDark,
     fontFamily: T.type.label.fontFamily,
     fontWeight: T.type.label.fontWeight,
-    fontSize: T.type.body.size,
+    fontSize: T.type.label.size,
+    lineHeight: T.type.label.lineHeight,
   },
 
   // ── Footer / save button ──────────────────────────────────────────────────
@@ -645,12 +689,12 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   saveBtn: {
-    height: 52,
+    height: T.button.primary.height,
     backgroundColor: T.button.primary.bg,
     borderRadius: T.radius.pill,
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 52,
+    minHeight: T.button.primary.height,
   },
   saveBtnDisabled: {
     opacity: 0.5,
@@ -659,8 +703,9 @@ const styles = StyleSheet.create({
     fontFamily: T.type.label.fontFamily,
     fontWeight: T.type.label.fontWeight,
     fontSize: T.type.bodyLarge.size,
+    lineHeight: T.type.bodyLarge.lineHeight,
     color: T.color.text.onDark,
   },
 
-  bottomSpacer: { height: 8 },
+  bottomSpacer: { height: T.spacing[2] },
 });

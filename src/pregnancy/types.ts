@@ -139,6 +139,22 @@ export interface BirthEventInput {
   hospitalDischargeDate?: string | null;
 }
 
+// ─── POST /pregnancy-profile/loss-event — request ────────────────────────────
+
+/**
+ * POST /v1/pregnancy-profile/loss-event request body.
+ *
+ * api-contract.md L720 / functional-spec §7.2 (LOSS-INV-11 / S6 / AC-1.7):
+ * - `lossDate` OPTIONAL — floating-civil date-only YYYY-MM-DD.
+ *   Absent/omitted → stored NULL. This is a FULL SUCCESS — never mandatory.
+ *   No time-of-day, no metadata (S6 — PDPA minimization).
+ * NEVER log this value beyond what the UI already displays to the user.
+ */
+export interface LossEventInput {
+  /** Zoneless civil date YYYY-MM-DD. Optional — omit for a dateless loss record. */
+  lossDate?: string;
+}
+
 // ─── Derived snapshot ─────────────────────────────────────────────────────────
 
 /**
@@ -362,4 +378,37 @@ export type PutProfileResult =
  */
 export type RecordBirthEventResult =
   | { ok: true; profile: PregnancyProfile }
+  | PregnancyApiError;
+
+/**
+ * POST /v1/pregnancy-profile/loss-event results:
+ *   `{ ok: true, profile }` — 200 (lifecycle → ended; or idempotent no-op/date-correction
+ *     if already ended — §7.6)
+ *   `{ ok: false, status: 404 }` — no profile exists yet
+ *   `{ ok: false, status: 409, currentProfile }` — version mismatch OR lifecycle guard
+ *     (postpartum → invalid_lifecycle_state); body = current authoritative profile
+ *   `{ ok: false, status: 422 }` — validation: lossDate range/malformed
+ *   `{ ok: false, status: 428 }` — If-Match header missing
+ *   `{ ok: false, status: 412 }` — If-Match header unparseable
+ *   `{ ok: false, status: 403, code: 'consent_required' }` — general_health gate
+ */
+export type RecordLossEventResult =
+  | { ok: true; profile: PregnancyProfile }
+  | { ok: false; status: 409; code: string; message: string; currentProfile: PregnancyProfile | null }
+  | PregnancyApiError;
+
+/**
+ * POST /v1/pregnancy-profile/reopen results:
+ *   `{ ok: true, profile }` — 200 (lifecycle → pregnant, loss_date cleared; or
+ *     idempotent no-op if already pregnant — §7.6)
+ *   `{ ok: false, status: 404 }` — no profile exists yet
+ *   `{ ok: false, status: 409, currentProfile }` — version mismatch OR lifecycle guard
+ *     (postpartum → invalid_lifecycle_state); body = current authoritative profile
+ *   `{ ok: false, status: 428 }` — If-Match header missing
+ *   `{ ok: false, status: 412 }` — If-Match header unparseable
+ *   `{ ok: false, status: 403, code: 'consent_required' }` — general_health gate
+ */
+export type ReopenResult =
+  | { ok: true; profile: PregnancyProfile }
+  | { ok: false; status: 409; code: string; message: string; currentProfile: PregnancyProfile | null }
   | PregnancyApiError;

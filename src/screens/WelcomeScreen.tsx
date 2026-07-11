@@ -160,6 +160,7 @@ const styles = StyleSheet.create({
     fontSize: T.type.bodyLarge.size,         // 17sp (size up to body.large per spec)
     lineHeight: T.type.bodyLarge.lineHeight, // 28
     color: T.color.text.primary,             // #7A3A52
+    alignSelf: 'stretch',                    // full available width so Thai wraps naturally (no forced \n, no left-edge clip)
     flexShrink: 1,                           // Thai line-breaking: no clip
   },
 

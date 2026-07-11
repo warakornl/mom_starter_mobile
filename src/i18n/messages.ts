@@ -180,7 +180,7 @@ const th = {
   'verify.storageErrorHint': 'บันทึกเซสชันไม่สำเร็จ · กด "ส่งลิงก์อีกครั้ง" แล้วยืนยันใหม่อีกครั้ง',
 
   // ── Welcome (S1) ──────────────────────────────────────────────────────────────
-  'welcome.tagline': 'สมุดสีชมพูของคุณ\nสำหรับทุกช่วงเวลาของการตั้งครรภ์',
+  'welcome.tagline': 'สมุดสีชมพูของคุณ สำหรับทุกช่วงเวลาของการตั้งครรภ์',
   'welcome.createAccount': 'สร้างบัญชี',
   'welcome.signIn': 'เข้าสู่ระบบ',
   'welcome.disclaimer': 'แอปนี้ไม่ใช่คำวินิจฉัยทางการแพทย์',
@@ -1626,8 +1626,7 @@ const en: MsgShape = {
     'Could not save your session — tap "Resend link" and verify again.',
 
   // ── Welcome ──────────────────────────────────────────────────────────────────
-  'welcome.tagline':
-    'Your pink handbook\nfor every moment of your pregnancy',
+  'welcome.tagline': 'Your pink handbook for every moment of your pregnancy',
   'welcome.createAccount': 'Create account',
   'welcome.signIn': 'Sign in',
   'welcome.disclaimer': 'This app is not a substitute for medical advice.',

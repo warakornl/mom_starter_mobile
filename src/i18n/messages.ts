@@ -428,6 +428,7 @@ const th = {
   'supplies.deleteConfirmOk': 'ลบ',
   'supplies.shortcutBtn': 'รายการเตรียมคลอด ›',
   'supplies.autoDecrementSettings': 'ตั้งค่าตัดสต็อกอัตโนมัติ ›',
+  'supplies.feedingLog': 'บันทึกการให้นม ›',
 
   // ── Auto-stock-decrement (ตัดสต็อกอัตโนมัติ) ──────────────────────────────────
   //
@@ -503,6 +504,20 @@ const th = {
   'formulaFeed.amountPlaceholder': '0',
   'formulaFeed.consentGate': 'เปิดสิทธิ์บันทึกการให้นมก่อนเพื่อใช้งาน',
   'formulaFeed.submit': 'บันทึกการให้นม',
+
+  // FeedingLogScreen (Screen 3 surface — breastfeed / pump / formula logger)
+  // SD-10: requires general_health for all; infant_feeding additionally for formula.
+  // FW-1: no brand/buy/promo copy anywhere on this surface.
+  'feedingLog.navTitle': 'บันทึกการให้นม',
+  'feedingLog.breastfeed': 'นมแม่',
+  'feedingLog.pump': 'ปั๊มนม',
+  'feedingLog.save': 'บันทึก',
+  'feedingLog.saved': 'บันทึกแล้ว',
+  'feedingLog.close': 'ปิด',
+  'feedingLog.error': 'บันทึกไม่สำเร็จ ลองอีกครั้ง',
+  'feedingLog.retry': 'ลองอีกครั้ง',
+  'feedingLog.consentGate': 'เปิดสิทธิ์บันทึกสุขภาพก่อน',
+  'feedingLog.consentCta': 'เปิดสิทธิ์ ›',
 
   // Screen 4 — Care-activity tag on reminder form (ReminderFormScreen extension)
   'reminder.careActivityType.fieldLabel': 'ประเภทกิจกรรมดูแล (ไม่บังคับ)',
@@ -1809,6 +1824,7 @@ const en: MsgShape = {
   'supplies.deleteConfirmOk': 'Delete',
   'supplies.shortcutBtn': 'Supply checklist ›',
   'supplies.autoDecrementSettings': 'Auto-decrement settings ›',
+  'supplies.feedingLog': 'Log feeding ›',
 
   // ── Auto-stock-decrement ───────────────────────────────────────────────────────
 
@@ -1871,6 +1887,18 @@ const en: MsgShape = {
   'formulaFeed.amountPlaceholder': '0',
   'formulaFeed.consentGate': 'Enable feeding log first to use this',
   'formulaFeed.submit': 'Save feeding record',
+
+  // FeedingLogScreen (Screen 3 surface)
+  'feedingLog.navTitle': 'Log feeding',
+  'feedingLog.breastfeed': 'Breastfeed',
+  'feedingLog.pump': 'Pump',
+  'feedingLog.save': 'Save',
+  'feedingLog.saved': 'Saved',
+  'feedingLog.close': 'Close',
+  'feedingLog.error': 'Could not save. Try again.',
+  'feedingLog.retry': 'Try again',
+  'feedingLog.consentGate': 'Enable health logging first',
+  'feedingLog.consentCta': 'Grant permission ›',
 
   // Screen 4 — Care-activity tag on reminder form
   'reminder.careActivityType.fieldLabel': 'Care activity type (optional)',

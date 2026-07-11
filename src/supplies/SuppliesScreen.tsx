@@ -77,6 +77,15 @@ export interface SuppliesScreenProps {
    * Wired in BottomTabNavigator → RootNavigator.
    */
   onAutoDecrementSettings?: () => void;
+  /**
+   * Called when user taps the "บันทึกการให้นม ›" button.
+   * Entry point to Screen 3 (FeedingLogScreen).
+   * Wired in BottomTabNavigator → RootNavigator.
+   *
+   * SD-9: no health data in this prop — it is a navigation callback only.
+   * FW-1: button label is a neutral Thai verb ("บันทึกการให้นม") only.
+   */
+  onFeedingLog?: () => void;
 }
 
 interface FormState {
@@ -431,6 +440,7 @@ export function SuppliesScreen({
   tokenStorage,
   apiBaseUrl,
   onAutoDecrementSettings,
+  onFeedingLog,
 }: SuppliesScreenProps): React.JSX.Element {
   const { t } = useT();
 
@@ -701,6 +711,25 @@ export function SuppliesScreen({
         </TouchableOpacity>
       )}
 
+      {/* Feeding-log entry — Screen 3 entry point.
+       * SD-9: no health data in this button — navigation callback only.
+       * FW-1: label is a neutral Thai verb only ('supplies.feedingLog').
+       * A11y: standalone TouchableOpacity (containment rule); ≥48dp.
+       */}
+      {onFeedingLog && (
+        <TouchableOpacity
+          testID="supplies-feeding-log"
+          style={styles.feedingLogBtn}
+          onPress={onFeedingLog}
+          accessibilityRole="button"
+          accessibilityLabel={t('supplies.feedingLog')}
+        >
+          <Text style={styles.feedingLogBtnText}>
+            {t('supplies.feedingLog')}
+          </Text>
+        </TouchableOpacity>
+      )}
+
       {/* FAB — add item */}
       <TouchableOpacity
         testID="supplies-add"
@@ -859,6 +888,24 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   autoDecrementBtnText: {
+    color: T.color.accent.interactive,
+    fontSize: T.type.body.size,
+    fontFamily: T.type.label.fontFamily,
+    fontWeight: T.type.label.fontWeight,
+  },
+  /**
+   * Feeding-log entry button — Screen 3 entry point.
+   * Same visual treatment as autoDecrementBtn (secondary nav link, not primary CTA).
+   * FW-1: no promo/brand copy; token values only.
+   */
+  feedingLogBtn: {
+    marginHorizontal: T.spacing[4],
+    marginBottom: T.spacing[3],
+    minHeight: 48,
+    justifyContent: 'center',
+    alignItems: 'flex-start',
+  },
+  feedingLogBtnText: {
     color: T.color.accent.interactive,
     fontSize: T.type.body.size,
     fontFamily: T.type.label.fontFamily,

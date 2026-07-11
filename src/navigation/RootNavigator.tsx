@@ -81,6 +81,7 @@ import { DoctorPdfScreen } from '../pdfReport/DoctorPdfScreen';
 import { PregnancySummaryScreen } from '../pregnancy/PregnancySummaryScreen';
 import { AutoDecrementSettingsScreen } from '../autoStockDecrement/AutoDecrementSettingsScreen';
 import { SubUnitSetupScreen } from '../autoStockDecrement/SubUnitSetupScreen';
+import { FeedingLogScreen } from '../autoStockDecrement/FeedingLogScreen';
 import { BottomTabNavigator } from './BottomTabNavigator';
 import { useT } from '../i18n/LanguageContext';
 import { DOCTOR_REPORT_ROUTE_OPTIONS } from './doctorReportRouteOptions';
@@ -897,6 +898,26 @@ function StackNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps): React
             tokenStorage={tokenStorage}
             apiBaseUrl={apiBaseUrl}
             onBack={() => nav.goBack()}
+          />
+        )}
+      </Stack.Screen>
+
+      {/* FeedingLog — Screen 3: feeding-log surface.
+       * Entry: Supplies tab "บันทึกการให้นม ›" button (onFeedingLog prop).
+       * formula kind triggers T-F auto-stock-decrement. No route params (SD-9).
+       * INV-ASD-8: usesRemainingInOpenContainer never in params or session record.
+       * FW-1: formula copy = verbatim item name + integers + neutral verbs only.
+       */}
+      <Stack.Screen
+        name="FeedingLog"
+        options={{ headerShown: false }}
+      >
+        {({ navigation: nav }) => (
+          <FeedingLogScreen
+            tokenStorage={tokenStorage}
+            apiBaseUrl={apiBaseUrl}
+            onBack={() => nav.goBack()}
+            onNavigateConsent={() => nav.navigate('ManageConsents')}
           />
         )}
       </Stack.Screen>

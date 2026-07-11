@@ -41,6 +41,12 @@ interface SettingsScreenProps {
    */
   onManageConsent?: () => void;
   /**
+   * Navigate to CalendarSyncSettingsScreen (CS-4).
+   * Optional — no-op / row hidden if not provided (keeps existing tests green).
+   * SD-9: no health data passed — screen fetches on mount.
+   */
+  onCalendarSync?: () => void;
+  /**
    * API base URL — kept for backwards-compat with RootNavigator wiring.
    * Not used in Settings after migration (download/delete moved to ProfileHub).
    */
@@ -66,6 +72,7 @@ interface SettingsScreenProps {
 
 export function SettingsScreen({
   onManageConsent,
+  onCalendarSync,
 }: SettingsScreenProps): React.JSX.Element {
   const { t, locale, setLocale } = useT();
 
@@ -95,22 +102,40 @@ export function SettingsScreen({
         </TouchableOpacity>
 
         {/* ── Privacy & Consent section ─────────────────────────────────────── */}
+        {(onManageConsent || onCalendarSync) && (
+          <Text style={styles.sectionLabel}>{t('settings.privacy')}</Text>
+        )}
+
+        {/* Calendar Sync row — CS-4 entry point (calendar-sync-ui.md §3.1) */}
+        {onCalendarSync && (
+          <TouchableOpacity
+            testID="settings-calendar-sync-btn"
+            style={styles.menuRow}
+            onPress={onCalendarSync}
+            accessibilityRole="button"
+            accessibilityLabel="ซิงก์ปฏิทินในเครื่อง"
+            accessibilityHint="เปิดการตั้งค่าปฏิทิน"
+          >
+            <View style={styles.menuRowTextGroup}>
+              <Text style={styles.menuRowText}>ซิงก์ปฏิทินในเครื่อง</Text>
+            </View>
+            <Text style={styles.menuRowChevron}>›</Text>
+          </TouchableOpacity>
+        )}
+
         {onManageConsent && (
-          <>
-            <Text style={styles.sectionLabel}>{t('settings.privacy')}</Text>
-            <TouchableOpacity
-              testID="settings-manage-consent-btn"
-              style={styles.menuRow}
-              onPress={onManageConsent}
-              accessibilityRole="button"
-              accessibilityLabel={t('consent.settings.manage_btn')}
-            >
-              <View style={styles.menuRowTextGroup}>
-                <Text style={styles.menuRowText}>{t('consent.settings.manage_btn')}</Text>
-              </View>
-              <Text style={styles.menuRowChevron}>›</Text>
-            </TouchableOpacity>
-          </>
+          <TouchableOpacity
+            testID="settings-manage-consent-btn"
+            style={styles.menuRow}
+            onPress={onManageConsent}
+            accessibilityRole="button"
+            accessibilityLabel={t('consent.settings.manage_btn')}
+          >
+            <View style={styles.menuRowTextGroup}>
+              <Text style={styles.menuRowText}>{t('consent.settings.manage_btn')}</Text>
+            </View>
+            <Text style={styles.menuRowChevron}>›</Text>
+          </TouchableOpacity>
         )}
 
       </ScrollView>

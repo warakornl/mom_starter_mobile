@@ -223,6 +223,35 @@ export type RootStackParamList = {
     medicationPlanId?: string;
   };
 
+  // ── Device Calendar Sync (Approach A) ──────────────────────────────────────
+  /**
+   * CalendarSyncSettings — CS-4 device-calendar sync hub screen.
+   * Entry: Settings > "ซิงก์ปฏิทินในเครื่อง" OR AppointmentDetail "เพิ่มลงปฏิทิน"
+   *        (when consent already exists) OR ManageConsents calendar_sync row (consented).
+   *
+   * SD-9: no health data in params. Feature state is read from deviceCalendarSettings
+   * on mount (not passed as params).
+   */
+  CalendarSyncSettings: undefined;
+
+  /**
+   * CalendarSyncConsent — CS-1 in-app consent + explainer sheet.
+   * Entry: CalendarSyncSettings (toggle ON, no consent) OR ManageConsents (not consented)
+   *        OR AppointmentDetail "เพิ่มลงปฏิทิน" (first time, no consent).
+   *
+   * SD-9: no health data in params. Consent text version is read from a constant.
+   * explainer-before-prompt: requestCalendarPermissionsAsync must NOT be called
+   * until this sheet is shown AND grant tapped (CAL-SCR-10).
+   */
+  CalendarSyncConsent: undefined;
+
+  /**
+   * CalendarSyncPrivacyLevel — CS-5 privacy level control screen.
+   * Entry: CalendarSyncSettings > privacy row.
+   * SD-9: no health data in params.
+   */
+  CalendarSyncPrivacyLevel: undefined;
+
   /**
    * AutoDecrementSettings — Screen 1: configure which activities auto-decrement
    * which supply items. Entry: Supplies tab "ตั้งค่าตัดสต็อกอัตโนมัติ ›" button.

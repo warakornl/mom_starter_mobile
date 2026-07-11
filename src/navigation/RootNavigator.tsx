@@ -85,6 +85,9 @@ import { FeedingLogScreen } from '../autoStockDecrement/FeedingLogScreen';
 import { BottomTabNavigator } from './BottomTabNavigator';
 import { useT } from '../i18n/LanguageContext';
 import { DOCTOR_REPORT_ROUTE_OPTIONS } from './doctorReportRouteOptions';
+import { CalendarSyncSettingsScreen } from '../deviceCalendar/screens/CalendarSyncSettingsScreen';
+import { CalendarSyncConsentSheet } from '../deviceCalendar/screens/CalendarSyncConsentSheet';
+import { CalendarSyncPrivacyLevelScreen } from '../deviceCalendar/screens/CalendarSyncPrivacyLevelScreen';
 
 // ── Logout deps for SD-5 teardown (used by ProfileEditScreen) ─────────────────
 import { performLogout } from '../auth/performLogout';
@@ -635,6 +638,7 @@ function StackNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps): React
               navigation.reset({ index: 0, routes: [{ name: 'Welcome' }] })
             }
             onManageConsent={() => navigation.navigate('ManageConsents')}
+            onCalendarSync={() => navigation.navigate('CalendarSyncSettings')}
             apiBaseUrl={apiBaseUrl}
             onSessionExpired={() =>
               navigation.reset({ index: 0, routes: [{ name: 'Welcome' }] })
@@ -779,6 +783,68 @@ function StackNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps): React
           <ManageConsentsScreen
             tokenStorage={tokenStorage}
             apiBaseUrl={apiBaseUrl}
+            onBack={() => navigation.goBack()}
+          />
+        )}
+      </Stack.Screen>
+
+      {/* ── Calendar Sync ─────────────────────────────────────────────────────────
+       *
+       * Three routes for Approach A device-calendar sync feature:
+       *
+       *   CalendarSyncSettings  (CS-4): Hub screen — toggle, status, privacy row, disable.
+       *     Entry: Settings > "ซิงก์ปฏิทินในเครื่อง" row.
+       *     SD-9: params = undefined (no health data in route params).
+       *
+       *   CalendarSyncConsent   (CS-1): Explainer + consent sheet (modal).
+       *     Can also be shown as an internal Modal from CalendarSyncSettingsScreen.
+       *     SD-9: params = undefined.
+       *
+       *   CalendarSyncPrivacyLevel (CS-5): Privacy-level picker (generic vs descriptive).
+       *     Entry: CalendarSyncSettings > "ระดับความเป็นส่วนตัว" row.
+       *     SD-9: params = undefined.
+       *
+       * Security: ZERO health data in any of these route params (SD-9).
+       * Native-only: expo-calendar writes require a dev/EAS build (not Expo Go).
+       * All logic tests run against a mock gateway (src/deviceCalendar/__tests__/).
+       */}
+
+      {/* CS-4 — Calendar Sync Settings hub */}
+      <Stack.Screen
+        name="CalendarSyncSettings"
+        options={{ title: 'ซิงก์ปฏิทินในเครื่อง', headerBackTitle: t('general.back') }}
+      >
+        {({ navigation }) => (
+          <CalendarSyncSettingsScreen
+            onNavigateToPrivacyLevel={() => navigation.navigate('CalendarSyncPrivacyLevel')}
+            onBack={() => navigation.goBack()}
+          />
+        )}
+      </Stack.Screen>
+
+      {/* CS-1 — Calendar Sync Consent sheet (standalone route; also shown inline as Modal) */}
+      <Stack.Screen
+        name="CalendarSyncConsent"
+        options={{ headerShown: false, presentation: 'transparentModal' }}
+      >
+        {({ navigation }) => (
+          <CalendarSyncConsentSheet
+            visible
+            onGrant={async () => { navigation.goBack(); }}
+            onDecline={() => { navigation.goBack(); }}
+          />
+        )}
+      </Stack.Screen>
+
+      {/* CS-5 — Calendar Sync Privacy Level picker */}
+      <Stack.Screen
+        name="CalendarSyncPrivacyLevel"
+        options={{ title: 'ระดับความเป็นส่วนตัว', headerBackTitle: t('general.back') }}
+      >
+        {({ navigation }) => (
+          <CalendarSyncPrivacyLevelScreen
+            currentLevel="generic"
+            onLevelSelected={() => { navigation.goBack(); }}
             onBack={() => navigation.goBack()}
           />
         )}

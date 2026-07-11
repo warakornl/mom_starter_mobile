@@ -340,6 +340,7 @@ export function BottomTabNavigator({
             tokenStorage={tokenStorage}
             apiBaseUrl={apiBaseUrl}
             onAutoDecrementSettings={() => navigation.navigate('AutoDecrementSettings')}
+            onFeedingLog={() => navigation.navigate('FeedingLog')}
           />
         )}
       </Tab.Screen>

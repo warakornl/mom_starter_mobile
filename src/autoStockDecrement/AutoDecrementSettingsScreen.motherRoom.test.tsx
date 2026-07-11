@@ -354,3 +354,48 @@ describe('AutoDecrementSettingsScreen — SD-9 security (no health values in out
     });
   });
 });
+
+// ─── Thai typography — lineHeight must be present on every Text style ─────────
+//
+// FAIL-ON-REVERT: remove lineHeight from any body/label/heading/caption Text
+// style in AutoDecrementSettingsScreen.tsx → violations list non-empty → RED.
+//
+// Covers: backText, navTitle, sectionTitle, advisoryText, advisoryLinkText,
+//         itemName, unitLabel, unlinkText, linkBtnText — all states.
+
+describe('AutoDecrementSettingsScreen — Thai typography: lineHeight on all text styles', () => {
+  function findLineHeightViolations(tree: React.ReactElement): string[] {
+    const violations: string[] = [];
+    findAll(tree, (el) => el.type === 'Text').forEach((el) => {
+      const s = flat((el.props as Record<string, unknown>).style);
+      if (s.fontSize != null && s.lineHeight == null) {
+        violations.push(`Text fontSize=${String(s.fontSize)} missing lineHeight — Thai marks will clip`);
+      }
+    });
+    return violations;
+  }
+
+  it('empty state (consent granted): all visible Text elements carry lineHeight ≥ fontSize', () => {
+    const { consentStore } = require('../consent/consentStore');
+    (consentStore.isGranted as jest.Mock).mockImplementation(() => true);
+    const tree = AutoDecrementSettingsScreen(baseProps) as React.ReactElement;
+    expect(findLineHeightViolations(tree)).toEqual([]);
+  });
+
+  it('consent-denied state (advisory panel): advisory Text elements carry lineHeight ≥ fontSize', () => {
+    const { consentStore } = require('../consent/consentStore');
+    (consentStore.isGranted as jest.Mock).mockImplementation(() => false);
+    const tree = AutoDecrementSettingsScreen(baseProps) as React.ReactElement;
+    expect(findLineHeightViolations(tree)).toEqual([]);
+    (consentStore.isGranted as jest.Mock).mockImplementation(() => true);
+  });
+
+  it('populated state (mapping row visible): itemName + unitLabel + unlinkText carry lineHeight', () => {
+    const { consumptionMappingStore } = require('./consumptionMappingStore');
+    (consumptionMappingStore.getAll as jest.Mock).mockReturnValueOnce([DIAPER_MAPPING]);
+    const { consentStore } = require('../consent/consentStore');
+    (consentStore.isGranted as jest.Mock).mockImplementation(() => true);
+    const tree = AutoDecrementSettingsScreen(baseProps) as React.ReactElement;
+    expect(findLineHeightViolations(tree)).toEqual([]);
+  });
+});

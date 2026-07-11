@@ -368,3 +368,42 @@ describe('SubUnitSetupScreen — INV-ASD-8 / SD-9 security', () => {
     });
   });
 });
+
+// ─── Thai typography — lineHeight must be present on every Text style ─────────
+//
+// FAIL-ON-REVERT: remove lineHeight from any body/label/heading Text style in
+// SubUnitSetupScreen.tsx → violations list non-empty → test RED.
+//
+// Covers: backText, navTitle, notFoundText, sectionTitle, fieldLabel,
+//         stepperBtnText, stepperCount, d4AdvisoryText, cancelBtnText,
+//         confirmBtnText — all Text elements visible per state.
+
+describe('SubUnitSetupScreen — Thai typography: lineHeight on all text styles', () => {
+  function findLineHeightViolations(tree: React.ReactElement): string[] {
+    const violations: string[] = [];
+    findAll(tree, (el) => el.type === 'Text').forEach((el) => {
+      const s = flat((el.props as Record<string, unknown>).style);
+      if (s.fontSize != null && s.lineHeight == null) {
+        violations.push(`Text fontSize=${String(s.fontSize)} missing lineHeight — Thai marks will clip`);
+      }
+    });
+    return violations;
+  }
+
+  it('item-not-found state: all visible Text elements carry lineHeight ≥ fontSize', () => {
+    const { supplySyncStore } = require('../sync/supplySyncStore');
+    (supplySyncStore.getSupplyItem as jest.Mock).mockReturnValueOnce(undefined);
+    const tree = SubUnitSetupScreen(baseProps) as React.ReactElement;
+    expect(findLineHeightViolations(tree)).toEqual([]);
+  });
+
+  it('item-found state (D-4 advisory visible): all Text elements carry lineHeight ≥ fontSize', () => {
+    // usesPerContainer = 1 < 2 → D-4 advisory shown (d4AdvisoryText, fieldLabel, sectionTitle, etc.)
+    const { supplySyncStore } = require('../sync/supplySyncStore');
+    (supplySyncStore.getSupplyItem as jest.Mock).mockReturnValue(ITEM_UPC1);
+    const tree = SubUnitSetupScreen(baseProps) as React.ReactElement;
+    expect(findLineHeightViolations(tree)).toEqual([]);
+    (supplySyncStore.getSupplyItem as jest.Mock).mockReset();
+    (supplySyncStore.getSupplyItem as jest.Mock).mockReturnValue(undefined);
+  });
+});

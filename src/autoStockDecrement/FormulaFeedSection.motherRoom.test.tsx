@@ -312,3 +312,44 @@ describe('FormulaFeedSection — INV-ASD-8 security', () => {
     });
   });
 });
+
+// ─── Thai typography — lineHeight must be present on every Text style ─────────
+//
+// FAIL-ON-REVERT: remove lineHeight from any body/label Text style in
+// FormulaFeedSection.tsx → violations list non-empty → test RED.
+//
+// Covers: chipLabel, chipLabelActive, consentAdvisoryText, consentLinkText,
+//         amountLabel, submitBtnText — all Text elements visible per state.
+
+describe('FormulaFeedSection — Thai typography: lineHeight on all text styles', () => {
+  function findLineHeightViolations(tree: React.ReactElement): string[] {
+    const violations: string[] = [];
+    findAll(tree, (el) => el.type === 'Text').forEach((el) => {
+      const s = flat((el.props as Record<string, unknown>).style);
+      if (s.fontSize != null && s.lineHeight == null) {
+        violations.push(`Text fontSize=${String(s.fontSize)} missing lineHeight — Thai marks will clip`);
+      }
+    });
+    return violations;
+  }
+
+  it('chip-inactive state: all Text elements carry lineHeight ≥ fontSize', () => {
+    const tree = FormulaFeedSection(baseProps) as React.ReactElement;
+    expect(findLineHeightViolations(tree)).toEqual([]);
+  });
+
+  it('chip-active + consent-granted state: amount label + submit button carry lineHeight', () => {
+    const tree = FormulaFeedSection(activeProps) as React.ReactElement;
+    expect(findLineHeightViolations(tree)).toEqual([]);
+  });
+
+  it('consent-denied state: advisory + link Text elements carry lineHeight', () => {
+    const { consentStore } = require('../consent/consentStore');
+    (consentStore.isGranted as jest.Mock).mockImplementation(() => false);
+
+    const tree = FormulaFeedSection(baseProps) as React.ReactElement;
+    expect(findLineHeightViolations(tree)).toEqual([]);
+
+    (consentStore.isGranted as jest.Mock).mockImplementation(() => true);
+  });
+});

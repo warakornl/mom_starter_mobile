@@ -61,7 +61,7 @@ jest.mock('../consent/consentStore', () => ({
   consentStore: { isGranted: jest.fn(() => true), reset: jest.fn() },
 }));
 
-jest.mock('uuid', () => ({ v4: () => 'test-session-uuid' }));
+jest.mock('uuid', () => ({ v4: jest.fn(() => 'test-session-uuid') }));
 
 // ─── Imports (after mocks) ────────────────────────────────────────────────────
 
@@ -513,5 +513,75 @@ describe('[FeedingLog Integration] E — ASD-8-2: stored session has no mobile-l
     // FeedingSessionRecord must NOT carry any supply-side mobile-local field (INV-ASD-8)
     expect(Object.prototype.hasOwnProperty.call(session, 'usesRemainingInOpenContainer')).toBe(false);
     expect(Object.prototype.hasOwnProperty.call(session, 'onHandQty')).toBe(false);
+  });
+});
+
+// ─── Section F: In-flight guard — prevents double-tap double-decrement ────────
+//
+// FAIL-ON-REVERT:
+//   Remove `isSubmittingRef.current = true` from handleFormulaSubmit →
+//   both taps go through → getCount() === 2, usesRemainingInOpenContainer === 12
+//   → assertions go RED.
+//
+// Note: uuid is overridden per-test to return unique values so that E-10
+// idempotency does NOT silently deduplicate the second call. The only thing
+// preventing the second call must be the isSubmitting guard.
+
+describe('[FeedingLog Integration] F — in-flight guard: double-tap fires ONE session + ONE decrement', () => {
+  let realFeedingSessionStore: ReturnType<typeof createFeedingSessionStore>;
+  let realSupplyStore: ReturnType<typeof createSyncStore>;
+  let realMappingStore: ReturnType<typeof createConsumptionMappingStore>;
+  let realMarkerStore: ReturnType<typeof createStockDecrementMarkerStore>;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    realFeedingSessionStore = createFeedingSessionStore();
+    realSupplyStore = createSyncStore();
+    realMappingStore = createConsumptionMappingStore();
+    realMarkerStore = createStockDecrementMarkerStore();
+
+    realSupplyStore.upsertSupplyItem(makeSupplyItem());
+    realSupplyStore.applyDecrementDraw('item-formula-1', {
+      onHandQty: 3,
+      usesRemaining: 20,
+      usesPerContainer: 26,
+    });
+    realMappingStore.upsert(makeMapping());
+
+    (consentStore.isGranted as jest.Mock).mockReturnValue(true);
+  });
+
+  it('rapid double-tap on formula submit: only ONE FeedingSession persisted + ONE decrement applied', () => {
+    // Give each uuid() call a unique value — proves the guard (not E-10 same-id
+    // idempotency) is blocking the second call.
+    const uuidModule = require('uuid') as { v4: jest.Mock };
+    let uuidSeq = 0;
+    uuidModule.v4.mockImplementation(() => `guard-session-${++uuidSeq}`);
+
+    const tree = renderFeedingLogScreen({
+      _feedingSessionStore: realFeedingSessionStore,
+      _supplyStore: realSupplyStore,
+      _consumptionMappingStore: realMappingStore,
+      _markerStore: realMarkerStore,
+    });
+
+    const props = (findAll(tree, (el) => el.type === FormulaFeedSection)[0]!.props) as {
+      onSubmitFormulaFeed?: (amount: number | null) => void;
+    };
+
+    expect(typeof props.onSubmitFormulaFeed).toBe('function');
+
+    // Two synchronous taps — second must be blocked by isSubmitting guard.
+    props.onSubmitFormulaFeed!(4);
+    props.onSubmitFormulaFeed!(4);
+
+    // Only ONE FeedingSession record (guard blocked the second call before store write)
+    expect(realFeedingSessionStore.getCount()).toBe(1);
+
+    // Only ONE decrement applied: 20 - 4 = 16 (not 12)
+    expect(realSupplyStore.getSupplyItem('item-formula-1')!.usesRemainingInOpenContainer).toBe(16);
+
+    // Restore uuid mock for subsequent tests
+    uuidModule.v4.mockReturnValue('test-session-uuid');
   });
 });

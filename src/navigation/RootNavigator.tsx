@@ -88,6 +88,13 @@ import { DOCTOR_REPORT_ROUTE_OPTIONS } from './doctorReportRouteOptions';
 import { CalendarSyncSettingsScreen } from '../deviceCalendar/screens/CalendarSyncSettingsScreen';
 import { CalendarSyncConsentSheet } from '../deviceCalendar/screens/CalendarSyncConsentSheet';
 import { CalendarSyncPrivacyLevelScreen } from '../deviceCalendar/screens/CalendarSyncPrivacyLevelScreen';
+import {
+  deviceCalendarBridge,
+  syncCalendarBridgeConsentFromStore,
+  backfillCalendarFromStore,
+  changePrivacyLevel,
+  getCalendarSyncSnapshot,
+} from '../deviceCalendar/deviceCalendarSingleton';
 
 // ── Logout deps for SD-5 teardown (used by ProfileEditScreen) ─────────────────
 import { performLogout } from '../auth/performLogout';
@@ -305,6 +312,84 @@ function StackNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps): React
    * so it is always populated by the time the screen mounts.
    */
   const ancPrefillRef = useRef<AncFormPrefill | null>(null);
+
+  // ─── Calendar sync state (BLOCKER 1 fix) ──────────────────────────────────
+  //
+  // Reactive state for the CalendarSyncSettingsScreen props. Initialized from
+  // the singleton's current settings + consentStore state. Each handler updates
+  // this after the bridge method returns so the screen re-renders with fresh state.
+  //
+  // SD-9: no health data stored here — only feature flags and privacy level.
+  // SECURITY: osPermissionGranted reflects the OS state, not health consent.
+  const [calSyncState, setCalSyncState] = useState(() => getCalendarSyncSnapshot());
+
+  /** Refresh calSyncState from the singleton's current state (call after any handler). */
+  const refreshCalSyncState = React.useCallback(() => {
+    setCalSyncState(getCalendarSyncSnapshot());
+  }, []);
+
+  /**
+   * onGrantConsent — called when the consent sheet's "Grant" button is tapped.
+   *
+   * Explainer-before-prompt (CAL-SCR-10): the consent sheet IS the explainer.
+   * After the user taps Grant:
+   *   1. POST consent granted (NO OS prompt yet — only metadata sent, INV-CAL-2)
+   *   2. Update local consentStore + bridge snapshot (opens consent gate)
+   *   3. Request OS calendar permission (OS prompt fires HERE, after explainer)
+   *   4. Backfill future appointments if feature enabled successfully
+   */
+  const handleCalGrantConsent = React.useCallback(async (): Promise<void> => {
+    // 1. POST consent granted (no health data in body — INV-CAL-2)
+    await deviceCalendarBridge.grantConsent('v1.0');
+    // 2. Update local consent state and sync to bridge
+    consentStore.setGranted('calendar_sync', true, 'v1.0');
+    syncCalendarBridgeConsentFromStore();
+    // 3. Request OS permission + enable feature (OS prompt fires inside enableFeature)
+    const result = await deviceCalendarBridge.enableFeature();
+    // 4. Backfill future appointments if the OS permission was granted
+    if (result === 'ok') {
+      await backfillCalendarFromStore(localCivilToday());
+    }
+    refreshCalSyncState();
+  }, [refreshCalSyncState]);
+
+  /**
+   * onToggleOn — called when the user toggles ON and consent is already granted.
+   * Requests OS permission and enables the feature (no consent POST needed).
+   */
+  const handleCalToggleOn = React.useCallback(async (): Promise<void> => {
+    const result = await deviceCalendarBridge.enableFeature();
+    if (result === 'ok') {
+      await backfillCalendarFromStore(localCivilToday());
+    }
+    refreshCalSyncState();
+  }, [refreshCalSyncState]);
+
+  /**
+   * onDisableFeature — US-9 disable flow.
+   * Stops syncing, deletes or keeps existing native events, withdraws consent.
+   */
+  const handleCalDisableFeature = React.useCallback(
+    async (action: 'delete' | 'keep'): Promise<void> => {
+      await deviceCalendarBridge.disableAndWithdraw(action, 'v1.0');
+      // Withdraw from local consent store too
+      consentStore.setGranted('calendar_sync', false, 'v1.0');
+      syncCalendarBridgeConsentFromStore();
+      refreshCalSyncState();
+    },
+    [refreshCalSyncState],
+  );
+
+  /**
+   * onLevelSelected — AC-5.2 re-mask sweep using calendarSyncStore appointments.
+   */
+  const handleCalPrivacyLevelSelected = React.useCallback(
+    async (level: 'generic' | 'descriptive'): Promise<void> => {
+      await changePrivacyLevel(level);
+      refreshCalSyncState();
+    },
+    [refreshCalSyncState],
+  );
 
   return (
     <Stack.Navigator
@@ -809,7 +894,23 @@ function StackNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps): React
        * All logic tests run against a mock gateway (src/deviceCalendar/__tests__/).
        */}
 
-      {/* CS-4 — Calendar Sync Settings hub */}
+      {/* CS-4 — Calendar Sync Settings hub
+       *
+       * BLOCKER 1 fix: pass real state + handlers from deviceCalendarSingleton.
+       *   featureEnabled / privacyLevel / consentGranted / osPermissionGranted
+       *     come from calSyncState (refreshed via refreshCalSyncState after each op).
+       *   onGrantConsent → grantConsent() + update consent + enableFeature() + backfill
+       *   onToggleOn     → enableFeature() + backfill (consent already granted)
+       *   onDisableFeature → disableAndWithdraw(action, version)
+       *
+       * The inline consent sheet (CalendarSyncConsentSheet rendered inside the screen)
+       * uses these same handlers, so the explainer-before-prompt order is respected:
+       *   [1] Mother taps toggle → sheet appears (the explainer)
+       *   [2] Mother taps Grant → handleCalGrantConsent() → grantConsent() (no OS prompt)
+       *   [3] → enableFeature() → requestPermission() (OS prompt fires HERE)
+       *
+       * SD-9: params = undefined (no health data in route params).
+       */}
       <Stack.Screen
         name="CalendarSyncSettings"
         options={{ title: 'ซิงก์ปฏิทินในเครื่อง', headerBackTitle: t('general.back') }}
@@ -818,11 +919,23 @@ function StackNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps): React
           <CalendarSyncSettingsScreen
             onNavigateToPrivacyLevel={() => navigation.navigate('CalendarSyncPrivacyLevel')}
             onBack={() => navigation.goBack()}
+            featureEnabled={calSyncState.featureEnabled}
+            privacyLevel={calSyncState.privacyLevel}
+            consentGranted={calSyncState.consentGranted}
+            osPermissionGranted={calSyncState.osPermissionGranted}
+            onGrantConsent={handleCalGrantConsent}
+            onToggleOn={handleCalToggleOn}
+            onDisableFeature={handleCalDisableFeature}
           />
         )}
       </Stack.Screen>
 
-      {/* CS-1 — Calendar Sync Consent sheet (standalone route; also shown inline as Modal) */}
+      {/* CS-1 — Calendar Sync Consent sheet (standalone route; also shown inline as Modal)
+       *
+       * BLOCKER 1 fix: onGrant was a pure no-op; now wired to the real consent flow.
+       * Standalone route used when the consent sheet is pushed directly (not inline).
+       * SD-9: params = undefined.
+       */}
       <Stack.Screen
         name="CalendarSyncConsent"
         options={{ headerShown: false, presentation: 'transparentModal' }}
@@ -830,21 +943,33 @@ function StackNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps): React
         {({ navigation }) => (
           <CalendarSyncConsentSheet
             visible
-            onGrant={async () => { navigation.goBack(); }}
+            onGrant={async () => {
+              await handleCalGrantConsent();
+              navigation.goBack();
+            }}
             onDecline={() => { navigation.goBack(); }}
           />
         )}
       </Stack.Screen>
 
-      {/* CS-5 — Calendar Sync Privacy Level picker */}
+      {/* CS-5 — Calendar Sync Privacy Level picker
+       *
+       * BLOCKER 1 fix: was hardcoded currentLevel="generic" with no-op onLevelSelected.
+       * Now passes the real current privacy level from calSyncState and wires
+       * onLevelSelected → changePrivacyLevel() → full re-mask sweep (AC-5.2).
+       * SD-9: params = undefined.
+       */}
       <Stack.Screen
         name="CalendarSyncPrivacyLevel"
         options={{ title: 'ระดับความเป็นส่วนตัว', headerBackTitle: t('general.back') }}
       >
         {({ navigation }) => (
           <CalendarSyncPrivacyLevelScreen
-            currentLevel="generic"
-            onLevelSelected={() => { navigation.goBack(); }}
+            currentLevel={calSyncState.privacyLevel}
+            onLevelSelected={async (level) => {
+              await handleCalPrivacyLevelSelected(level);
+              navigation.goBack();
+            }}
             onBack={() => navigation.goBack()}
           />
         )}

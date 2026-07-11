@@ -394,7 +394,23 @@ export function createCalendarSyncStore(): CalendarSyncStore {
     },
 
     upsertChecklistItem(item) {
+      // Capture before-state so we can detect whether makeUpsert actually wrote.
+      // makeUpsert does `map.set(id, { ...item })` (new object ref) ONLY when it
+      // decides to update; it returns early (no map.set) when version guard fires.
+      const entryBefore = checklistMap.get(item.id);
       upsertChecklist(item);
+      const entryAfter = checklistMap.get(item.id);
+      // New object reference means makeUpsert wrote something (not a no-op).
+      if (entryAfter && entryAfter !== entryBefore) {
+        // Architecture §2: server-pull writes must also notify the bridge so that
+        // pulled appointment changes propagate to the device calendar (BLOCKER 2 fix).
+        if (item.category === 'appointment' && !item.deletedAt) {
+          _notifyChecklistMutation({
+            type: entryBefore ? 'update' : 'create',
+            item: { ...entryAfter },
+          });
+        }
+      }
     },
 
     tombstoneChecklistItem(id) {
@@ -422,7 +438,16 @@ export function createCalendarSyncStore(): CalendarSyncStore {
     },
 
     adoptChecklistItemServerRecord(record) {
+      const wasNew = !checklistMap.has(record.id);
       checklistMap.set(record.id, { ...record });
+      // Architecture §2: server-adopted records must also notify the bridge so that
+      // server-pulled appointment changes reach the device calendar (BLOCKER 2 fix).
+      if (record.category === 'appointment' && !record.deletedAt) {
+        _notifyChecklistMutation({
+          type: wasNew ? 'create' : 'update',
+          item: { ...record },
+        });
+      }
     },
 
     enqueueCreateChecklistItem(item) {

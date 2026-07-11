@@ -18,6 +18,20 @@
  * Copy: all strings are i18n keys (Z-19 gate) — see messages.ts 'loss.*'
  * block. Do NOT hardcode strings here.
  *
+ * mobile-reviewer BLOCKER-2 fix (no false-success): a network/5xx failure on
+ * confirm is NEVER treated as success — there is no onLossRecorded(null)
+ * "assume success" path. The screen shows a calm inline error and stays on
+ * screen so the mother is never told "recorded" when nothing was recorded
+ * server-side. Full optimistic-apply + offline queue (functional-spec §10.3)
+ * is an explicit follow-up (to be done together with BirthEvent and
+ * ReopenConfirmScreen for consistency), NOT implemented in this pass.
+ *
+ * mobile-reviewer 🟡 fixes:
+ *   - A missing accessToken (session expired) now calls onSessionExpired,
+ *     NOT the consent-required message (those are different failure modes).
+ *   - The 403 consent backstop now renders a real "Go to consent" action
+ *     (§3.5), wired to onGoToConsent — not just a bare error string.
+ *
  * Security: NEVER log accessToken or the resolved lossDate value.
  */
 
@@ -50,17 +64,21 @@ export interface LossConfirmScreenProps {
   /** Retained EDD — used only for the client-side lossDate lower-floor check. */
   edd: string;
   /**
-   * Called on success (200 ended), on 409-already-ended (intent satisfied,
-   * §10.4), and on network/offline failure (optimistic — the mother's action
-   * is honored immediately, functional-spec §10.3).
+   * Called on success (200 ended) and on 409-already-ended (intent
+   * satisfied, §10.4). NEVER called on network/5xx failure (BLOCKER-2 — no
+   * false-success).
    */
-  onLossRecorded: (profile: PregnancyProfile | null) => void;
+  onLossRecorded: (profile: PregnancyProfile) => void;
   /**
    * Called on "Go back" (dismiss, nothing recorded) AND on the benign
    * 409-postpartum terminal (profile moved on another device — entry link
    * is hidden at postpartum, so this simply closes the loss path calmly).
    */
   onGoBack: () => void;
+  /** SD-5: called when accessToken is missing or the server returns 401. */
+  onSessionExpired?: () => void;
+  /** §3.5: consent backstop's "Go to consent" route-out affordance. */
+  onGoToConsent?: () => void;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -72,6 +90,8 @@ export function LossConfirmScreen({
   edd,
   onLossRecorded,
   onGoBack,
+  onSessionExpired,
+  onGoToConsent,
 }: LossConfirmScreenProps): React.JSX.Element {
   const { t } = useT();
 
@@ -103,8 +123,14 @@ export function LossConfirmScreen({
       const tokens = await tokenStorage.load();
       const accessToken = tokens?.accessToken;
       if (!accessToken) {
+        // Session expired — a DIFFERENT failure mode from consent-required
+        // (mobile-reviewer 🟡 fix). Never show consent copy here.
         setSubmitting(false);
-        setErrorMsg(t('loss.error.consentRequired'));
+        if (onSessionExpired) {
+          onSessionExpired();
+        } else {
+          setErrorMsg(t('loss.error.conflict'));
+        }
         return;
       }
 
@@ -120,6 +146,11 @@ export function LossConfirmScreen({
       if (result.ok) {
         // Success — quiet acknowledgement, lands on the now loss-gated Home (§5).
         onLossRecorded(result.profile);
+        return;
+      }
+
+      if (result.status === 401) {
+        onSessionExpired?.();
         return;
       }
 
@@ -146,13 +177,16 @@ export function LossConfirmScreen({
         return;
       }
 
+      // BLOCKER-2: any other server error (4xx/5xx) is a real failure — never
+      // treated as success. Calm, retryable, no local-state flip.
       setErrorMsg(t('loss.error.conflict'));
     } catch {
-      // Network/offline (§10.3): honor the mother's action immediately —
-      // optimistic apply. The caller is responsible for flipping the local
-      // snapshot and queuing the retry; this screen surfaces the calm
-      // offline note and proceeds as if successful.
-      onLossRecorded(null);
+      // BLOCKER-2: network/offline failure is a real failure, NOT success.
+      // No onLossRecorded() call here — the mother must not be told
+      // "recorded" when the server never saw the request. Full
+      // optimistic-apply + offline queue is a tracked follow-up
+      // (functional-spec §10.3), not implemented in this pass.
+      setErrorMsg(t('loss.error.offlineQueued'));
     } finally {
       setSubmitting(false);
     }
@@ -201,6 +235,17 @@ export function LossConfirmScreen({
         {showConsentBackstop && (
           <View style={styles.errorBox} accessibilityRole="alert">
             <Text style={styles.errorText}>{errorMsg}</Text>
+            {onGoToConsent != null && (
+              <TouchableOpacity
+                testID="loss-confirm-goto-consent"
+                style={styles.retryLink}
+                onPress={onGoToConsent}
+                accessibilityRole="button"
+                accessibilityLabel={t('loss.error.goToConsent')}
+              >
+                <Text style={styles.retryLinkText}>{t('loss.error.goToConsent')}</Text>
+              </TouchableOpacity>
+            )}
           </View>
         )}
         {!showConsentBackstop && errorMsg != null && (
@@ -312,6 +357,18 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: T.color.surface.divider,
     padding: 16,
+    gap: 8,
+  },
+  retryLink: {
+    minHeight: 44,
+    alignItems: 'flex-start',
+    justifyContent: 'center',
+  },
+  retryLinkText: {
+    fontFamily: T.type.label.fontFamily,
+    fontSize: T.type.caption.size,
+    color: T.color.text.primary,
+    textDecorationLine: 'underline',
   },
   errorText: {
     fontFamily: T.type.caption.fontFamily,

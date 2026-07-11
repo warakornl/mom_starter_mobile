@@ -124,7 +124,7 @@ describe('LossConfirmScreen — Screen B (§3 / functional-spec §14)', () => {
     expect(recordLossEvent).toHaveBeenCalledWith({}, expect.any(String), expect.any(String), expect.any(String));
   });
 
-  it('403 consent_required shows the calm consent backstop panel, no local flip', async () => {
+  it('403 consent_required does not call onLossRecorded (no local flip)', async () => {
     const recordLossEvent = jest.fn().mockResolvedValue({
       ok: false,
       status: 403,
@@ -142,6 +142,42 @@ describe('LossConfirmScreen — Screen B (§3 / functional-spec §14)', () => {
     await (confirm!.props as { onPress: () => Promise<void> }).onPress();
 
     expect(onLossRecorded).not.toHaveBeenCalled();
+  });
+
+  it('403 consent_required panel WITH showConsentBackstop=true renders a "Go to consent" action (§3.5)', () => {
+    // Mocked useState does not persist across calls (each LossConfirmScreen()
+    // invocation is a fresh "render"), so this test seeds `showConsentBackstop`
+    // directly (same technique as profileEditScreenLossEntry.test.tsx's
+    // renderShowForm: the FIRST useState call after dateInput/dateHint/submitting
+    // is `errorMsg`, the FIFTH is `showConsentBackstop` — instead of counting
+    // calls fragilely, we override useState's mock implementation for this
+    // test only to always return `true` for showConsentBackstop's initializer
+    // shape by seeding every boolean-typed useState call to true).
+    const mockUseState = (jest.requireMock('react') as { useState: jest.Mock }).useState;
+    mockUseState.mockImplementation((init: unknown) =>
+      typeof init === 'boolean' ? [true, jest.fn()] : [init, jest.fn()],
+    );
+
+    const onGoToConsent = jest.fn();
+    const tree = LossConfirmScreen({ ...baseProps, onGoToConsent });
+
+    const goToConsentBtn = byTestId(tree, 'loss-confirm-goto-consent');
+    expect(goToConsentBtn).toBeDefined();
+    (goToConsentBtn!.props as { onPress: () => void }).onPress();
+    expect(onGoToConsent).toHaveBeenCalledTimes(1);
+
+    // restore default behavior for subsequent tests
+    mockUseState.mockImplementation((init: unknown) => [init, jest.fn()]);
+  });
+
+  it('no access token (session expired) shows a session error — NOT the consent-required message', async () => {
+    mockTokenStorage.load.mockResolvedValue(null);
+    const onSessionExpired = jest.fn();
+    const tree = LossConfirmScreen({ ...baseProps, onSessionExpired });
+    const confirm = byTestId(tree, 'loss-confirm-quiet');
+    await (confirm!.props as { onPress: () => Promise<void> }).onPress();
+
+    expect(onSessionExpired).toHaveBeenCalledTimes(1);
   });
 
   it('409 already-ended is treated as success (intent satisfied, §10.4) — calls onLossRecorded', async () => {
@@ -188,7 +224,7 @@ describe('LossConfirmScreen — Screen B (§3 / functional-spec §14)', () => {
     expect(onGoBack).toHaveBeenCalledTimes(1);
   });
 
-  it('network/offline error still honors the action optimistically — onLossRecorded is called', async () => {
+  it('BLOCKER-2: network/offline error does NOT call onLossRecorded — stays on screen with a retryable error', async () => {
     const recordLossEvent = jest.fn().mockRejectedValue(new Error('network down'));
     (
       jest.requireMock('./pregnancyApiClient') as { createPregnancyClient: jest.Mock }
@@ -200,6 +236,24 @@ describe('LossConfirmScreen — Screen B (§3 / functional-spec §14)', () => {
     const confirm = byTestId(tree, 'loss-confirm-quiet');
     await (confirm!.props as { onPress: () => Promise<void> }).onPress();
 
-    expect(onLossRecorded).toHaveBeenCalledTimes(1);
+    // BLOCKER-2 fix: false-success is forbidden. No onLossRecorded call.
+    expect(onLossRecorded).not.toHaveBeenCalled();
+    // Confirm control must be re-enabled (single-flight guard released).
+    expect((confirm!.props as { accessibilityState?: { disabled?: boolean } }).accessibilityState?.disabled).toBeFalsy();
+  });
+
+  it('BLOCKER-2: 500 server error does NOT call onLossRecorded', async () => {
+    const recordLossEvent = jest.fn().mockResolvedValue({ ok: false, status: 500, code: 'server_error', message: 'x' });
+    (
+      jest.requireMock('./pregnancyApiClient') as { createPregnancyClient: jest.Mock }
+    ).createPregnancyClient.mockReturnValue({ recordLossEvent });
+    mockTokenStorage.load.mockResolvedValue({ accessToken: 'tok' });
+
+    const onLossRecorded = jest.fn();
+    const tree = LossConfirmScreen({ ...baseProps, onLossRecorded });
+    const confirm = byTestId(tree, 'loss-confirm-quiet');
+    await (confirm!.props as { onPress: () => Promise<void> }).onPress();
+
+    expect(onLossRecorded).not.toHaveBeenCalled();
   });
 });

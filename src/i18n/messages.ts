@@ -1548,6 +1548,41 @@ const th = {
   'birth.errorDischargeBeforeAdmission': 'วันจำหน่ายต้องไม่ก่อนวันแอดมิต',
   /** Client validation: hospital date must be ≤ today */
   'birth.errorHospitalDateFuture': 'วันที่ที่เลือกยังมาไม่ถึง',
+
+  // ─── Pregnancy-loss recording (write path) — Z-19 COPY GATE ─────────────────
+  // COPY NOT FINAL. These are placeholder/tone-appropriate strings only —
+  // final th+en wording is a clinical+legal sign-off gate (functional-spec §11,
+  // LOSS-INV-12). Do NOT treat any string below as shippable to production
+  // without that sign-off. Tone constraints per functional-spec §11 table are
+  // noted inline; forbidden: celebratory glyphs/animation/emoji, positive-affect
+  // color, countdown language, minimizing phrases, cause/blame words, clinical/
+  // diagnostic terms, assumed-feeling statements.
+  'loss.navTitle': 'บันทึกการสิ้นสุดการตั้งครรภ์',
+  // Screen A — entry link (neutral, no clinical term, no celebration, no urgency)
+  'loss.entry.link': 'การตั้งครรภ์นี้สิ้นสุดแล้ว',
+  // Screen B — confirmation
+  'loss.confirm.title': 'บันทึกการสิ้นสุดการตั้งครรภ์',
+  'loss.confirm.body': 'เมื่อบันทึกแล้ว แอปจะหยุดแสดงเนื้อหาความคืบหน้าของการตั้งครรภ์นี้ ข้อมูลที่คุณบันทึกไว้ก่อนหน้ายังคงอยู่ครบ',
+  'loss.confirm.dateLabel': 'วันที่ (ไม่บังคับ)',
+  'loss.confirm.dateSkipHint': 'เว้นว่างไว้ได้ ไม่จำเป็นต้องระบุ',
+  'loss.confirm.datePlaceholder': 'เลือกวันที่ (ไม่บังคับ)',
+  'loss.confirm.primaryBack': 'กลับ',
+  'loss.confirm.quietConfirm': 'ยืนยัน: บันทึกการสิ้นสุดการตั้งครรภ์นี้',
+  'loss.confirm.disclaimer': 'ข้อมูลนี้บันทึกโดยคุณเอง ไม่ใช่เอกสารทางการแพทย์',
+  'loss.confirm.submitting': 'กำลังบันทึก',
+  'loss.confirm.dateRangeHint': 'วันที่นี้อยู่นอกช่วงที่บันทึกได้ · เว้นว่างได้',
+  'loss.confirm.dateMalformedHint': 'ลองตรวจสอบรูปแบบวันที่อีกครั้ง (YYYY-MM-DD)',
+  'loss.result.quietAck': 'บันทึกแล้ว',
+  // Errors — Screen B
+  'loss.error.consentRequired': 'การบันทึกต้องเปิดสิทธิ์ "บันทึกสุขภาพในเครื่อง" ก่อน',
+  'loss.error.conflict': 'มีการเปลี่ยนแปลงจากอุปกรณ์อื่น ระบบได้ปรับข้อมูลให้เป็นปัจจุบันแล้ว',
+  'loss.error.goToConsent': 'ไปที่การตั้งค่าความยินยอม',
+  'loss.error.offlineQueued': 'ออฟไลน์ · บันทึกไว้แล้ว จะซิงก์เมื่อออนไลน์',
+  // Screen C — reopen (neutral, no blame, no "are you sure you gave up?" framing)
+  'loss.reopen.entry': 'แก้ไขการบันทึกนี้',
+  'loss.reopen.confirm.title': 'กลับสู่การติดตามการตั้งครรภ์',
+  'loss.reopen.confirm.body': 'การบันทึกนี้จะถูกแก้ไข และแอปจะกลับมาแสดงเนื้อหาความคืบหน้าของการตั้งครรภ์อีกครั้ง',
+  'loss.reopen.confirm.quietConfirm': 'ยืนยัน: แก้ไขและกลับสู่การติดตาม',
 };
 
 // ─── English catalog (must match th shape exactly) ────────────────────────────
@@ -2788,6 +2823,31 @@ const en: MsgShape = {
   'birth.warnFarCancel': 'Cancel',
   'birth.errorDischargeBeforeAdmission': 'Discharge date must not be before admission date',
   'birth.errorHospitalDateFuture': "This date hasn't happened yet",
+
+  // ─── Pregnancy-loss recording (write path) — Z-19 COPY GATE ─────────────────
+  // Placeholder/tone-appropriate strings only — NOT final. See th catalog comment.
+  'loss.navTitle': 'Record pregnancy ending',
+  'loss.entry.link': 'This pregnancy has ended',
+  'loss.confirm.title': 'Record the ending of this pregnancy',
+  'loss.confirm.body': "Once recorded, the app will stop showing this pregnancy's progress content. Everything you've recorded before stays intact.",
+  'loss.confirm.dateLabel': 'Date (optional)',
+  'loss.confirm.dateSkipHint': 'You can leave this blank — it is not required.',
+  'loss.confirm.datePlaceholder': 'Choose a date (optional)',
+  'loss.confirm.primaryBack': 'Go back',
+  'loss.confirm.quietConfirm': 'Confirm: record this pregnancy as ended',
+  'loss.confirm.disclaimer': 'This is recorded by you — not a medical document.',
+  'loss.confirm.submitting': 'Saving',
+  'loss.confirm.dateRangeHint': "This date is outside the range that can be recorded · you can leave it blank",
+  'loss.confirm.dateMalformedHint': 'Please check the date format again (YYYY-MM-DD)',
+  'loss.result.quietAck': 'Recorded',
+  'loss.error.consentRequired': 'Recording this requires the "store health data on device" permission to be on.',
+  'loss.error.conflict': 'Another device made a change — your view has been updated.',
+  'loss.error.goToConsent': 'Go to consent settings',
+  'loss.error.offlineQueued': "Offline · saved — it will sync once you're back online",
+  'loss.reopen.entry': 'Edit this record',
+  'loss.reopen.confirm.title': 'Return to pregnancy tracking',
+  'loss.reopen.confirm.body': 'This record will be corrected, and the app will show pregnancy-progress content again.',
+  'loss.reopen.confirm.quietConfirm': 'Confirm: correct and return to tracking',
 };
 
 // ─── Exports ──────────────────────────────────────────────────────────────────

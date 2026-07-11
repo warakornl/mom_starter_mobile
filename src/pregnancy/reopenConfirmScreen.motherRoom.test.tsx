@@ -5,6 +5,23 @@
  * Symmetric with LossConfirmScreen: "Go back" prominent, quiet Confirm link.
  * No date field — reopen takes no input (functional-spec §7.4).
  * Always available, no expiry/countdown (AC-4.3).
+ *
+ * mobile-reviewer BLOCKER-1 fix: this screen now does its OWN GET-on-mount
+ * via runReopenEntryGet (mirrors ProfileInfoEditScreen's lifecycle-agnostic
+ * pattern) instead of requiring a route param `profileVersion` — the
+ * previous design was unreachable in production because the only host that
+ * rendered its entry link (ProfileEditScreen) is gated pregnant-only and can
+ * never show a lifecycle==='ended' profile. The wiring itself
+ * (runReopenEntryGet / runReopenConfirm) is tested directly, without React,
+ * in reopenEntryRuntimeWiring.test.ts. This file drives the REAL rendered
+ * controls once `outcome` is seeded to 'show-form' (mocked useState's first
+ * call returns the seeded value), proving the screen wires those pure
+ * functions to its render + real controls.
+ *
+ * mobile-reviewer BLOCKER-2 fix: network/5xx failure must NOT be treated as
+ * success. runReopenConfirm (tested separately) never calls onReopened on
+ * those paths; this file proves the screen invokes runReopenConfirm (the
+ * real wiring, not a bypass) from the real Confirm control.
  */
 
 jest.mock('react-native', () => ({
@@ -13,24 +30,37 @@ jest.mock('react-native', () => ({
   ActivityIndicator: 'ActivityIndicator', SafeAreaView: 'SafeAreaView', Platform: { OS: 'ios' },
 }));
 jest.mock('react', () => {
-  const r = jest.requireActual('react') as typeof import('react');
-  return { ...r, useState: jest.fn((i: unknown) => [i, jest.fn()]) };
+  const actual = jest.requireActual<typeof import('react')>('react');
+  return {
+    ...actual,
+    useState: jest.fn((init: unknown) => [init, jest.fn()]),
+    useEffect: jest.fn(),
+    useCallback: jest.fn((fn: unknown) => fn),
+  };
 });
 jest.mock('../i18n/LanguageContext', () => ({
   useT: () => ({ t: (k: string) => k, locale: 'th' }),
 }));
-jest.mock('./pregnancyApiClient', () => ({ createPregnancyClient: jest.fn(() => ({})) }));
+jest.mock('./reopenEntryRuntimeWiring', () => ({
+  runReopenEntryGet: jest.fn(),
+  runReopenConfirm: jest.fn(),
+}));
 
 import React from 'react';
 import { ReopenConfirmScreen } from './ReopenConfirmScreen';
+import { runReopenConfirm } from './reopenEntryRuntimeWiring';
+import type { PregnancyProfile } from './types';
+
+const mockUseState = React.useState as unknown as jest.Mock;
+const mockRunReopenConfirm = runReopenConfirm as unknown as jest.Mock;
 
 const mockTokenStorage = { load: jest.fn(), save: jest.fn(), clear: jest.fn() };
 const baseProps = {
   tokenStorage: mockTokenStorage,
   apiBaseUrl: 'https://api.example.com',
-  profileVersion: 9,
   onReopened: jest.fn(),
   onGoBack: jest.fn(),
+  onSessionExpired: jest.fn(),
 };
 
 function findAll(node: unknown, pred: (el: React.ReactElement) => boolean): React.ReactElement[] {
@@ -51,11 +81,61 @@ function byTestId(tree: unknown, id: string): React.ReactElement | undefined {
   return findAll(tree, (el) => (el.props as { testID?: string }).testID === id)[0];
 }
 
-describe('ReopenConfirmScreen — Screen C confirmation (§4.2 / functional-spec §15)', () => {
-  beforeEach(() => jest.clearAllMocks());
+function makeProfile(overrides: Partial<PregnancyProfile> = {}): PregnancyProfile {
+  return {
+    id: 'p1',
+    version: 9,
+    edd: '2026-12-25',
+    eddBasis: 'due_date',
+    lifecycle: 'ended',
+    gestationalWeek: 20,
+    gestationalDay: 0,
+    daysRemaining: 100,
+    progress: 0.5,
+    currentStage: 'T2',
+    deliveryWindowActive: false,
+    createdAt: '2026-01-01T00:00:00Z',
+    updatedAt: '2026-07-01T00:00:00Z',
+    ...overrides,
+  };
+}
+
+/**
+ * Seeds the FIRST useState call (`outcome`) to 'show-form' with the given
+ * profile; every subsequent useState call falls back to the generic
+ * "return the initializer" pattern used elsewhere in this test suite.
+ */
+function seedShowForm(profile: PregnancyProfile): void {
+  let callIndex = 0;
+  mockUseState.mockImplementation((init: unknown) => {
+    callIndex += 1;
+    if (callIndex === 1) {
+      return [{ type: 'show-form', profile }, jest.fn()];
+    }
+    return [init, jest.fn()];
+  });
+}
+
+describe('ReopenConfirmScreen — loading state (before GET resolves)', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockUseState.mockImplementation((init: unknown) => [init, jest.fn()]);
+  });
+
+  it('renders the loading testID on initial render (outcome defaults to loading)', () => {
+    const tree = ReopenConfirmScreen(baseProps) as React.ReactElement;
+    expect(byTestId(tree, 'reopen-confirm-loading')).toBeDefined();
+  });
+});
+
+describe('ReopenConfirmScreen — show-form render (real controls)', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    seedShowForm(makeProfile());
+  });
 
   it('renders "Go back" as a prominent button and quiet Confirm as a link', () => {
-    const tree = ReopenConfirmScreen(baseProps);
+    const tree = ReopenConfirmScreen(baseProps) as React.ReactElement;
     const goBack = byTestId(tree, 'reopen-confirm-goback');
     const confirm = byTestId(tree, 'reopen-confirm-quiet');
     expect((goBack!.props as { accessibilityRole?: string }).accessibilityRole).toBe('button');
@@ -63,84 +143,29 @@ describe('ReopenConfirmScreen — Screen C confirmation (§4.2 / functional-spec
   });
 
   it('"Go back" tap calls onGoBack, nothing changed', () => {
-    const tree = ReopenConfirmScreen(baseProps);
+    const tree = ReopenConfirmScreen(baseProps) as React.ReactElement;
     const goBack = byTestId(tree, 'reopen-confirm-goback');
     (goBack!.props as { onPress: () => void }).onPress();
     expect(baseProps.onGoBack).toHaveBeenCalledTimes(1);
   });
 
-  it('tapping the REAL quiet Confirm control invokes reopenPregnancy (real production caller)', async () => {
-    const reopenPregnancy = jest.fn().mockResolvedValue({ ok: true, profile: { lifecycle: 'pregnant', version: 10 } });
-    (
-      jest.requireMock('./pregnancyApiClient') as { createPregnancyClient: jest.Mock }
-    ).createPregnancyClient.mockReturnValue({ reopenPregnancy });
-    mockTokenStorage.load.mockResolvedValue({ accessToken: 'tok-xyz' });
-
-    const onReopened = jest.fn();
-    const tree = ReopenConfirmScreen({ ...baseProps, onReopened });
+  it('tapping the REAL quiet Confirm control invokes the real runReopenConfirm wiring (not a bypass)', () => {
+    seedShowForm(makeProfile({ version: 9 }));
+    const tree = ReopenConfirmScreen(baseProps) as React.ReactElement;
     const confirm = byTestId(tree, 'reopen-confirm-quiet');
-    await (confirm!.props as { onPress: () => Promise<void> }).onPress();
+    (confirm!.props as { onPress: () => void }).onPress();
 
-    expect(reopenPregnancy).toHaveBeenCalledWith('tok-xyz', '9');
-    expect(onReopened).toHaveBeenCalledWith({ lifecycle: 'pregnant', version: 10 });
-  });
-
-  it('409 already-pregnant is treated as success (intent satisfied, §10.4)', async () => {
-    const reopenPregnancy = jest.fn().mockResolvedValue({
-      ok: false,
-      status: 409,
-      code: 'version_conflict',
-      message: 'stale',
-      currentProfile: { lifecycle: 'pregnant', version: 11 },
-    });
-    (
-      jest.requireMock('./pregnancyApiClient') as { createPregnancyClient: jest.Mock }
-    ).createPregnancyClient.mockReturnValue({ reopenPregnancy });
-    mockTokenStorage.load.mockResolvedValue({ accessToken: 'tok' });
-
-    const onReopened = jest.fn();
-    const tree = ReopenConfirmScreen({ ...baseProps, onReopened });
-    const confirm = byTestId(tree, 'reopen-confirm-quiet');
-    await (confirm!.props as { onPress: () => Promise<void> }).onPress();
-
-    expect(onReopened).toHaveBeenCalledTimes(1);
-  });
-
-  it('409 postpartum is a benign terminal — no reopen, calm close', async () => {
-    const reopenPregnancy = jest.fn().mockResolvedValue({
-      ok: false,
-      status: 409,
-      code: 'invalid_lifecycle_state',
-      message: 'postpartum',
-      currentProfile: { lifecycle: 'postpartum', version: 11 },
-    });
-    (
-      jest.requireMock('./pregnancyApiClient') as { createPregnancyClient: jest.Mock }
-    ).createPregnancyClient.mockReturnValue({ reopenPregnancy });
-    mockTokenStorage.load.mockResolvedValue({ accessToken: 'tok' });
-
-    const onReopened = jest.fn();
-    const onGoBack = jest.fn();
-    const tree = ReopenConfirmScreen({ ...baseProps, onReopened, onGoBack });
-    const confirm = byTestId(tree, 'reopen-confirm-quiet');
-    await (confirm!.props as { onPress: () => Promise<void> }).onPress();
-
-    expect(onReopened).not.toHaveBeenCalled();
-    expect(onGoBack).toHaveBeenCalledTimes(1);
-  });
-
-  it('network/offline error still honors the action optimistically', async () => {
-    const reopenPregnancy = jest.fn().mockRejectedValue(new Error('offline'));
-    (
-      jest.requireMock('./pregnancyApiClient') as { createPregnancyClient: jest.Mock }
-    ).createPregnancyClient.mockReturnValue({ reopenPregnancy });
-    mockTokenStorage.load.mockResolvedValue({ accessToken: 'tok' });
-
-    const onReopened = jest.fn();
-    const tree = ReopenConfirmScreen({ ...baseProps, onReopened });
-    const confirm = byTestId(tree, 'reopen-confirm-quiet');
-    await (confirm!.props as { onPress: () => Promise<void> }).onPress();
-
-    expect(onReopened).toHaveBeenCalledTimes(1);
+    expect(mockRunReopenConfirm).toHaveBeenCalledWith(
+      expect.objectContaining({
+        profileVersion: 9,
+        tokenStorage: mockTokenStorage,
+        apiBaseUrl: 'https://api.example.com',
+      }),
+    );
+    // onReopened/onError are passed through as callbacks — the real wiring
+    // module (tested separately, no false-success) decides when to call them.
+    const callArg = mockRunReopenConfirm.mock.calls[0][0] as Record<string, unknown>;
+    expect(typeof callArg.onReopened).toBe('function');
+    expect(typeof callArg.onError).toBe('function');
   });
 });

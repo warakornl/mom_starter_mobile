@@ -34,8 +34,8 @@
 // it on Hermes, which silently broke every create handler). See src/polyfills/crypto.ts.
 import './src/polyfills/crypto';
 
-import React, { useMemo, useEffect, useCallback } from 'react';
-import { Linking } from 'react-native';
+import React, { useMemo, useEffect, useCallback, useRef } from 'react';
+import { Linking, AppState, type AppStateStatus } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createNavigationContainerRef } from '@react-navigation/core';
 import { StatusBar } from 'expo-status-bar';
@@ -61,7 +61,11 @@ import { parseResetTokenFromUrl, setResetToken } from './src/deepLink/resetDeepL
 import {
   attachCalendarObserver,
   syncCalendarBridgeConsentFromStore,
+  configureCalendarPostConsent,
+  checkAndUpdateOsPermission,
+  initCalendarPersistenceFromStorage,
 } from './src/deviceCalendar/deviceCalendarSingleton';
+import { createConsentApiClient } from './src/consent/consentApiClient';
 
 // ─── Splash screen — prevent auto-hide until fonts are ready (§2.2) ───────────
 // Must be called before any component renders.
@@ -113,6 +117,11 @@ void restoreConsentQueue();
 // users without waiting for a network refresh (CAL-GATE-FRESH Option B).
 attachCalendarObserver();
 
+// Load calendarMapStore + settings from durable storage (BLOCKER 3 fix).
+// Without this, the map is empty on each relaunch → backfill creates duplicates.
+// Also syncs the bridge's feature-toggle gate with the persisted featureEnabled value.
+void initCalendarPersistenceFromStorage();
+
 // Sync bridge consent snapshot from the persisted cache.
 // consentStore.loadFromStorage() is async; we schedule it and sync after.
 // On first cold-start (empty cache) the bridge stays fail-closed ('unknown').
@@ -124,6 +133,60 @@ void consentStore.loadFromStorage().then(() => {
 
 export default function App(): React.JSX.Element | null {
   const tokenStorage = useMemo(() => new SecureTokenStorage(), []);
+
+  // ─── Calendar bridge: configure postConsent fn (BLOCKER 1 fix) ───────────────
+  //
+  // configureCalendarPostConsent wires the real POST /account/consents function
+  // into the bridge's postConsent slot. This must be called once the tokenStorage
+  // instance is available (useMemo above). Uses the same pattern as all other
+  // API clients: acquire token at call time, not at construction time.
+  //
+  // INV-CAL-2: the postConsent fn sends only consent metadata (type, granted, version)
+  // — no health data, no appointment data.
+  useEffect(() => {
+    const consentClient = createConsentApiClient(API_BASE_URL);
+    configureCalendarPostConsent(async (body) => {
+      try {
+        const tokens = await tokenStorage.load();
+        if (!tokens?.accessToken) return { ok: false };
+        // consentApiClient.postConsent signature: (type, granted, version, token)
+        const result = await consentClient.postConsent(
+          body.consentType,
+          body.granted,
+          body.consentTextVersion,
+          tokens.accessToken,
+        );
+        return { ok: result.ok };
+      } catch {
+        return { ok: false };
+      }
+    });
+  }, [tokenStorage]);
+
+  // ─── AppState foreground handler: check OS calendar permission ───────────────
+  //
+  // When the app returns to foreground, the user may have changed calendar
+  // permission in iOS Settings or Android app settings. We check and update
+  // the bridge's OS permission gate so no stale-permission writes are attempted.
+  // Also refreshes the consent gate from the local store cache (self-heal path B).
+  //
+  // This does NOT do a network request — it checks the current OS permission
+  // via expo-calendar (synchronous-equivalent). The consent refresh (CAL-SA-30)
+  // is handled when ManageConsentsScreen opens (it calls GET /account/consents).
+  const appState = useRef<AppStateStatus>(AppState.currentState);
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (nextState: AppStateStatus) => {
+      if (appState.current.match(/inactive|background/) && nextState === 'active') {
+        // App came to foreground — refresh OS permission state in the bridge.
+        void checkAndUpdateOsPermission();
+        // Also re-sync consent snapshot in case a background push updated the
+        // local consentStore (e.g. after a silent consent refresh).
+        syncCalendarBridgeConsentFromStore();
+      }
+      appState.current = nextState;
+    });
+    return () => { sub.remove(); };
+  }, []);
 
   // ─── Font loading — Sarabun 400/600 + Fraunces 600 (§2.1) ─────────────────
   //

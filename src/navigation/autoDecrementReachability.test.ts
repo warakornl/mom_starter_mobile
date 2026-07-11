@@ -221,6 +221,36 @@ jest.mock('../medication/logDoseParams', () => ({
 }));
 jest.mock('uuid', () => ({ v4: () => 'mock-uuid' }));
 
+// expo-calendar is a native ESM module that cannot run in Node/Jest.
+// deviceCalendarSingleton transitively imports it via expoCalendarGateway.
+// Mock the entire singleton so navigation tests don't hit native imports.
+jest.mock('expo-calendar', () => ({}));
+jest.mock('../deviceCalendar/deviceCalendarSingleton', () => ({
+  deviceCalendarBridge: {
+    grantConsent:           jest.fn().mockResolvedValue({ ok: true }),
+    enableFeature:          jest.fn().mockResolvedValue('ok'),
+    disableAndWithdraw:     jest.fn().mockResolvedValue(undefined),
+    onPrivacyLevelChanged:  jest.fn().mockResolvedValue({ failedCount: 0 }),
+    updateConsentSnapshot:  jest.fn(),
+    updateFeatureToggle:    jest.fn(),
+    onConsentRefreshResult: jest.fn().mockResolvedValue(undefined),
+  },
+  syncCalendarBridgeConsentFromStore:  jest.fn(),
+  backfillCalendarFromStore:           jest.fn().mockResolvedValue(undefined),
+  changePrivacyLevel:                  jest.fn().mockResolvedValue({ failedCount: 0 }),
+  getCalendarSyncSnapshot:             jest.fn(() => ({
+    featureEnabled:      false,
+    privacyLevel:        'generic',
+    consentGranted:      false,
+    osPermissionGranted: false,
+  })),
+  attachCalendarObserver:              jest.fn(() => () => {}),
+  configureCalendarPostConsent:        jest.fn(),
+  checkAndUpdateOsPermission:          jest.fn().mockResolvedValue(false),
+  initCalendarPersistenceFromStorage:  jest.fn().mockResolvedValue(undefined),
+  refreshCalendarBridgeConsent:        jest.fn().mockResolvedValue(undefined),
+}));
+
 // ─── Imports (after mock declarations) ───────────────────────────────────────
 
 import React from 'react';

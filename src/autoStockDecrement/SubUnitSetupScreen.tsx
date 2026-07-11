@@ -326,11 +326,13 @@ const styles = StyleSheet.create({
   backText: {
     color: T.color.accent.interactive,
     fontSize: T.type.body.size,
+    lineHeight: T.type.body.lineHeight,
   },
   navTitle: {
     flex: 1,
     color: T.color.text.heading,
     fontSize: T.type.heading2.size,
+    lineHeight: T.type.heading2.lineHeight,
     fontWeight: T.type.heading2.fontWeight,
     fontFamily: T.type.heading2.fontFamily,
   },
@@ -343,6 +345,7 @@ const styles = StyleSheet.create({
   notFoundText: {
     color: T.color.text.secondary,
     fontSize: T.type.body.size,
+    lineHeight: T.type.body.lineHeight,
     fontFamily: T.type.body.fontFamily,
   },
   scrollContent: {
@@ -360,6 +363,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     color: T.color.text.botanical,
     fontSize: T.type.heading2.size,
+    lineHeight: T.type.heading2.lineHeight,
     fontWeight: T.type.heading2.fontWeight,
     fontFamily: T.type.heading2.fontFamily,
     marginBottom: T.spacing[3],
@@ -367,6 +371,7 @@ const styles = StyleSheet.create({
   fieldLabel: {
     color: T.color.text.primary,
     fontSize: T.type.body.size,
+    lineHeight: T.type.body.lineHeight,
     fontFamily: T.type.body.fontFamily,
     marginTop: T.spacing[3],
     marginBottom: T.spacing[2],
@@ -388,12 +393,14 @@ const styles = StyleSheet.create({
   stepperBtnText: {
     color: T.color.text.heading,
     fontSize: T.type.bodyLarge.size,
+    lineHeight: T.type.bodyLarge.lineHeight,
     fontFamily: T.type.heading2.fontFamily,
     fontWeight: T.type.heading2.fontWeight,
   },
   stepperCount: {
     color: T.color.text.heading,
     fontSize: T.type.heading2.size,
+    lineHeight: T.type.heading2.lineHeight,
     fontFamily: T.type.heading2.fontFamily,
     fontWeight: T.type.heading2.fontWeight,
     minWidth: 48,
@@ -409,6 +416,7 @@ const styles = StyleSheet.create({
   d4AdvisoryText: {
     color: T.color.text.heading,
     fontSize: T.type.body.size,
+    lineHeight: T.type.body.lineHeight,
     fontFamily: T.type.body.fontFamily,
   },
   actionRow: {
@@ -437,7 +445,8 @@ const styles = StyleSheet.create({
   },
   cancelBtnText: {
     color: T.color.text.primary,
-    fontSize: T.type.body.size,
+    fontSize: T.type.label.size,
+    lineHeight: T.type.label.lineHeight,
     fontFamily: T.type.label.fontFamily,
     fontWeight: T.type.label.fontWeight,
   },
@@ -451,7 +460,8 @@ const styles = StyleSheet.create({
   },
   confirmBtnText: {
     color: T.color.surface.base,
-    fontSize: T.type.body.size,
+    fontSize: T.type.label.size,
+    lineHeight: T.type.label.lineHeight,
     fontFamily: T.type.label.fontFamily,
     fontWeight: T.type.label.fontWeight,
   },

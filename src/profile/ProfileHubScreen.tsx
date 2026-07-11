@@ -93,6 +93,18 @@ interface ProfileHubScreenProps {
    * Spec: docs/product/pregnancy-summary.md §3.2
    */
   onPregnancySummary?: () => void;
+  /**
+   * Navigate to ReopenConfirmScreen (root-stack push, no route params —
+   * SD-9; the screen GETs its own fresh profile + version on mount).
+   *
+   * mobile-reviewer BLOCKER-1 fix: this is the REAL, reachable entry point
+   * for the pregnancy-loss reopen path (pregnancy-loss-recording-ui.md §4.1).
+   * ProfileHubScreen reads the raw snapshot directly (no pregnant-only
+   * GET-gate on this host, unlike ProfileEditScreen) so the row below
+   * actually renders when lifecycle === 'ended'. Optional — row hidden when
+   * not provided (same pattern as onSettings/onPregnancySummary).
+   */
+  onReopenPregnancy?: () => void;
 }
 
 // ─── Profile Summary Card ─────────────────────────────────────────────────────
@@ -127,6 +139,7 @@ export function ProfileHubScreen({
   onSettings,
   onEditPersonalInfo,
   onPregnancySummary,
+  onReopenPregnancy,
 }: ProfileHubScreenProps): React.JSX.Element {
   const { t, locale } = useT();
   const snapshot = useProfileSnapshot();
@@ -149,6 +162,10 @@ export function ProfileHubScreen({
   // ── Lifecycle gating ─────────────────────────────────────────────────────────
   const isPregnant = snapshot?.lifecycle === 'pregnant';
   const isPostpartum = snapshot?.lifecycle === 'postpartum';
+  // pregnancy-loss-recording-ui.md §4.1: reopen entry shown ONLY when
+  // lifecycle === 'ended' — raw snapshot value, null/postpartum/pregnant all
+  // resolve to false (fail-safe, GAP-2 — never show on an unknown snapshot).
+  const isEnded = snapshot?.lifecycle === 'ended';
 
   // ── Profile Summary Card content ─────────────────────────────────────────────
   function renderSummaryCard(): React.JSX.Element {
@@ -258,7 +275,7 @@ export function ProfileHubScreen({
 
         {/* ── SECTION: โปรไฟล์ — Profile rows ──────────────────────────────── */}
         {/* Show section when at least one row is visible. */}
-        {(isPregnant || onEditPersonalInfo != null || onPregnancySummary != null) && (
+        {(isPregnant || isEnded && onReopenPregnancy != null || onEditPersonalInfo != null || onPregnancySummary != null) && (
           <Text style={styles.sectionLabel}>{t('profile.section.profile')}</Text>
         )}
 
@@ -275,6 +292,27 @@ export function ProfileHubScreen({
             <View style={styles.menuRowTextGroup}>
               <Text style={styles.menuRowText}>{t('settings.editPregnancy')}</Text>
               <Text style={styles.menuRowSubtext}>{t('profile.editPregnancy.subtitle')}</Text>
+            </View>
+            <Text style={styles.menuRowChevron}>{'›'}</Text>
+          </TouchableOpacity>
+        )}
+
+        {/* Reopen (correction) — ended-only (pregnancy-loss-recording-ui.md §4.1).
+         * mobile-reviewer BLOCKER-1 fix: THIS is the real, reachable entry
+         * point (ProfileEditScreen's copy of this link was unreachable dead
+         * code — see profileEditScreenLossEntry.test.tsx). Mutually
+         * exclusive with the "Edit pregnancy" row above (lifecycle can only
+         * be one value), quiet neutral framing (no blame). */}
+        {isEnded && onReopenPregnancy != null && (
+          <TouchableOpacity
+            testID="profile-hub-reopen-pregnancy"
+            style={styles.menuRow}
+            onPress={onReopenPregnancy}
+            accessibilityRole="button"
+            accessibilityLabel={t('loss.reopen.entry')}
+          >
+            <View style={styles.menuRowTextGroup}>
+              <Text style={styles.menuRowText}>{t('loss.reopen.entry')}</Text>
             </View>
             <Text style={styles.menuRowChevron}>{'›'}</Text>
           </TouchableOpacity>

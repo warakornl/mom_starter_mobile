@@ -470,6 +470,12 @@ const th = {
   'autoDecrement.advisory.consentCta': 'เปิดสิทธิ์ ›',
   'autoDecrement.advisory.noItemLinked': 'ยังไม่ได้เชื่อมต่อของใช้',
 
+  // Item picker — "Link an item" destination (Bug #2 fix)
+  // FW-1: shows verbatim item names only — no brand/promo copy.
+  'supplyItemPicker.navTitle': 'เลือกของใช้',
+  'supplyItemPicker.emptyState': 'ยังไม่มีของใช้ในบ้าน ลองเพิ่มของใช้ก่อนนะคะ',
+  'supplyItemPicker.backA11y': 'กลับ',
+
   // Screen 2 — Sub-unit setup (การตั้งค่าบรรจุภัณฑ์)
   'subUnitSetup.sectionTitle': 'การตัดสต็อกอัตโนมัติ',
   'subUnitSetup.usesPerContainerLabel': 'บรรจุภัณฑ์นี้มีกี่มื้อ/ครั้ง',
@@ -1355,6 +1361,9 @@ const th = {
   'tab.profile.a11y': 'โปรไฟล์และบัญชี',
   // Doctor Report entry row in Home tab scroll (spec §3.3)
   'home.doctorReport': 'รายงานสำหรับแพทย์ ›',
+  // Feeding-log entry row in Home tab (Bug #4 — moved from Supplies tab).
+  // Neutral verb only (FW-1) — no brand/product/promo copy.
+  'home.feedingLog': 'บันทึกการให้นม ›',
   // Kick-count card (pregnant wk≥32, spec §4.2) — warm & inviting, not clinical
   'kick.countCard': 'ได้เวลานับลูกดิ้นแล้ว ›',
 
@@ -1859,6 +1868,11 @@ const en: MsgShape = {
   'autoDecrement.advisory.consentRequired': 'Enable when feeding log is consented',
   'autoDecrement.advisory.consentCta': 'Grant permission ›',
   'autoDecrement.advisory.noItemLinked': 'No supply item linked yet',
+
+  // Item picker — "Link an item" destination (Bug #2 fix)
+  'supplyItemPicker.navTitle': 'Choose a supply',
+  'supplyItemPicker.emptyState': 'No supplies yet — try adding one first.',
+  'supplyItemPicker.backA11y': 'Back',
 
   // Screen 2 — Sub-unit setup
   'subUnitSetup.sectionTitle': 'Auto stock decrement',
@@ -2631,6 +2645,8 @@ const en: MsgShape = {
   'tab.profile.a11y': 'Profile and Account',
   // Doctor Report entry row in Home tab scroll
   'home.doctorReport': 'Doctor report ›',
+  // Feeding-log entry row in Home tab (Bug #4 — moved from Supplies tab).
+  'home.feedingLog': 'Log feeding ›',
   // Kick-count card (pregnant wk≥32, spec §4.2)
   'kick.countCard': 'Time to count kicks ›',
 

@@ -340,7 +340,6 @@ export function BottomTabNavigator({
             tokenStorage={tokenStorage}
             apiBaseUrl={apiBaseUrl}
             onAutoDecrementSettings={() => navigation.navigate('AutoDecrementSettings')}
-            onFeedingLog={() => navigation.navigate('FeedingLog')}
           />
         )}
       </Tab.Screen>
@@ -377,6 +376,7 @@ export function BottomTabNavigator({
             onCalendar={() => tabNavigation.navigate('Calendar')}
             onDoctorReport={() => navigation.navigate('DoctorReport')}
             onCapture={() => navigation.navigate('Capture', { loggedAtDate: undefined })}
+            onFeedingLog={() => navigation.navigate('FeedingLog')}
           />
         )}
       </Tab.Screen>

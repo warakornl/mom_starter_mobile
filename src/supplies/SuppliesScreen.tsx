@@ -77,15 +77,6 @@ export interface SuppliesScreenProps {
    * Wired in BottomTabNavigator → RootNavigator.
    */
   onAutoDecrementSettings?: () => void;
-  /**
-   * Called when user taps the "บันทึกการให้นม ›" button.
-   * Entry point to Screen 3 (FeedingLogScreen).
-   * Wired in BottomTabNavigator → RootNavigator.
-   *
-   * SD-9: no health data in this prop — it is a navigation callback only.
-   * FW-1: button label is a neutral Thai verb ("บันทึกการให้นม") only.
-   */
-  onFeedingLog?: () => void;
 }
 
 interface FormState {
@@ -440,7 +431,6 @@ export function SuppliesScreen({
   tokenStorage,
   apiBaseUrl,
   onAutoDecrementSettings,
-  onFeedingLog,
 }: SuppliesScreenProps): React.JSX.Element {
   const { t } = useT();
 
@@ -669,8 +659,16 @@ export function SuppliesScreen({
         </View>
       )}
 
-      {/* Item list */}
+      {/*
+       * Item list — Bug #3 fix: style flex:1 constrains the FlatList to the
+       * space above the pinned refresh/FAB controls (previously unstyled,
+       * so its content could grow behind the absolutely-positioned buttons).
+       * The auto-decrement-settings entry is now the ListFooterComponent so
+       * it scrolls WITH the list content and never collides with the FAB
+       * (bottom:24) or refreshBtn (bottom:80) anchors.
+       */}
       <FlatList
+        style={styles.listFlex}
         data={items}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
@@ -683,6 +681,24 @@ export function SuppliesScreen({
           <SupplyRow item={item} onEdit={openEdit} onDelete={handleDelete} />
         )}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
+        ListFooterComponent={
+          // Auto-decrement settings entry — SD-9: no params, screen fetches locally.
+          // Rendered in-flow (footer) so it scrolls with content — never overlaps
+          // the pinned FAB/refresh controls (Bug #3).
+          onAutoDecrementSettings ? (
+            <TouchableOpacity
+              testID="supplies-auto-decrement-settings"
+              style={styles.autoDecrementBtn}
+              onPress={onAutoDecrementSettings}
+              accessibilityRole="button"
+              accessibilityLabel={t('supplies.autoDecrementSettings')}
+            >
+              <Text style={styles.autoDecrementBtnText}>
+                {t('supplies.autoDecrementSettings')}
+              </Text>
+            </TouchableOpacity>
+          ) : null
+        }
       />
 
       {/* Refresh button */}
@@ -695,40 +711,6 @@ export function SuppliesScreen({
       >
         <Text style={styles.refreshBtnText}>{t('supplies.refresh')}</Text>
       </TouchableOpacity>
-
-      {/* Auto-decrement settings entry — SD-9: no params, screen fetches locally */}
-      {onAutoDecrementSettings && (
-        <TouchableOpacity
-          testID="supplies-auto-decrement-settings"
-          style={styles.autoDecrementBtn}
-          onPress={onAutoDecrementSettings}
-          accessibilityRole="button"
-          accessibilityLabel={t('supplies.autoDecrementSettings')}
-        >
-          <Text style={styles.autoDecrementBtnText}>
-            {t('supplies.autoDecrementSettings')}
-          </Text>
-        </TouchableOpacity>
-      )}
-
-      {/* Feeding-log entry — Screen 3 entry point.
-       * SD-9: no health data in this button — navigation callback only.
-       * FW-1: label is a neutral Thai verb only ('supplies.feedingLog').
-       * A11y: standalone TouchableOpacity (containment rule); ≥48dp.
-       */}
-      {onFeedingLog && (
-        <TouchableOpacity
-          testID="supplies-feeding-log"
-          style={styles.feedingLogBtn}
-          onPress={onFeedingLog}
-          accessibilityRole="button"
-          accessibilityLabel={t('supplies.feedingLog')}
-        >
-          <Text style={styles.feedingLogBtnText}>
-            {t('supplies.feedingLog')}
-          </Text>
-        </TouchableOpacity>
-      )}
 
       {/* FAB — add item */}
       <TouchableOpacity
@@ -811,7 +793,12 @@ const styles = StyleSheet.create({
     color: T.color.text.primary,                                            // #7A3A52 roselle-700 (from #7A5A10 — no amber text token at 15sp)
   },
 
-  // List
+  // List — Bug #3 fix: flex:1 constrains the FlatList to the space above the
+  // pinned refresh/FAB controls so its (now in-flow) footer content never
+  // renders behind them; paddingBottom still clears the FAB visually.
+  listFlex: {
+    flex: 1,
+  },
   list: {
     padding: T.spacing[4],                                                  // 16dp
     gap: 10,
@@ -888,24 +875,6 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   autoDecrementBtnText: {
-    color: T.color.accent.interactive,
-    fontSize: T.type.body.size,
-    fontFamily: T.type.label.fontFamily,
-    fontWeight: T.type.label.fontWeight,
-  },
-  /**
-   * Feeding-log entry button — Screen 3 entry point.
-   * Same visual treatment as autoDecrementBtn (secondary nav link, not primary CTA).
-   * FW-1: no promo/brand copy; token values only.
-   */
-  feedingLogBtn: {
-    marginHorizontal: T.spacing[4],
-    marginBottom: T.spacing[3],
-    minHeight: 48,
-    justifyContent: 'center',
-    alignItems: 'flex-start',
-  },
-  feedingLogBtnText: {
     color: T.color.accent.interactive,
     fontSize: T.type.body.size,
     fontFamily: T.type.label.fontFamily,

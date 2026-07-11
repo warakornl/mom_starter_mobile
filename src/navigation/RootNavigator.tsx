@@ -82,6 +82,7 @@ import { PregnancySummaryScreen } from '../pregnancy/PregnancySummaryScreen';
 import { AutoDecrementSettingsScreen } from '../autoStockDecrement/AutoDecrementSettingsScreen';
 import { SubUnitSetupScreen } from '../autoStockDecrement/SubUnitSetupScreen';
 import { FeedingLogScreen } from '../autoStockDecrement/FeedingLogScreen';
+import { SupplyItemPickerScreen } from '../autoStockDecrement/SupplyItemPickerScreen';
 import { BottomTabNavigator } from './BottomTabNavigator';
 import { useT } from '../i18n/LanguageContext';
 import { DOCTOR_REPORT_ROUTE_OPTIONS } from './doctorReportRouteOptions';
@@ -1057,6 +1058,11 @@ function StackNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps): React
       {/* AutoDecrementSettings — Screen 1: configure activity→supply-item mappings.
        * Entry: SuppliesTab "ตั้งค่าตัดสต็อกอัตโนมัติ ›" button.
        * SD-9: no health data in route params (params = undefined).
+       *
+       * Bug #2 fix: onNavigateConsent + onNavigateItemPicker were previously
+       * omitted here, which silently made the missing-consent advisory CTA and
+       * the "Link an item" affordance permanent no-ops — no mapping could ever
+       * be created, leaving the auto-decrement engine inert.
        */}
       <Stack.Screen
         name="AutoDecrementSettings"
@@ -1071,6 +1077,11 @@ function StackNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps): React
               // SD-9: only the supply item ID goes in route params — no health data
               nav.navigate('SubUnitSetup', { supplyItemId })
             }
+            onNavigateItemPicker={(activityType) =>
+              // SD-9: activityType is a closed 3-value enum, not health data
+              nav.navigate('SupplyItemPicker', { activityType })
+            }
+            onNavigateConsent={() => nav.navigate('ManageConsents')}
           />
         )}
       </Stack.Screen>
@@ -1089,6 +1100,25 @@ function StackNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps): React
             tokenStorage={tokenStorage}
             apiBaseUrl={apiBaseUrl}
             onBack={() => nav.goBack()}
+          />
+        )}
+      </Stack.Screen>
+
+      {/* SupplyItemPicker — "Link an item" destination (Bug #2 fix).
+       * Entry: AutoDecrementSettings "+ เชื่อมต่อของใช้" affordance per activity section.
+       * SD-9: activityType is a closed enum, not health data. No supply data in params.
+       */}
+      <Stack.Screen
+        name="SupplyItemPicker"
+        options={{ headerShown: false }}
+      >
+        {({ route, navigation: nav }) => (
+          <SupplyItemPickerScreen
+            activityType={route.params.activityType}
+            tokenStorage={tokenStorage}
+            apiBaseUrl={apiBaseUrl}
+            onBack={() => nav.goBack()}
+            onPicked={() => nav.goBack()}
           />
         )}
       </Stack.Screen>

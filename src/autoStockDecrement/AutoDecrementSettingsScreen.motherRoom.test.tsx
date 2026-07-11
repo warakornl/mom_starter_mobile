@@ -252,6 +252,61 @@ describe('AutoDecrementSettingsScreen — consent-gated states', () => {
     // Restore
     (consentStore.isGranted as jest.Mock).mockImplementation(() => true);
   });
+
+  // Bug #2 regression guard: previously RootNavigator never passed
+  // onNavigateConsent to this screen, so a fresh user with no consent granted
+  // saw the advisory TEXT with NO pressable CTA at all (the `{onNavigateConsent
+  // && ...}` guard silently hid it). This proves the CTA renders AND invokes
+  // the handler when onNavigateConsent IS supplied — the navigator wiring test
+  // (autoDecrementReachability.test.ts) proves RootNavigator actually supplies it.
+  it('BUG #2: renders a pressable consent CTA that invokes onNavigateConsent when consent is missing', () => {
+    const { consentStore } = require('../consent/consentStore');
+    (consentStore.isGranted as jest.Mock).mockImplementation(() => false);
+
+    const onNavigateConsent = jest.fn();
+    const tree = AutoDecrementSettingsScreen({
+      ...baseProps,
+      onNavigateConsent,
+    }) as React.ReactElement;
+
+    const ctas = findAll(tree, (el) => {
+      const props = el.props as Record<string, unknown>;
+      return (
+        props.accessibilityRole === 'button' &&
+        props.accessibilityLabel === 'autoDecrement.advisory.consentCta'
+      );
+    });
+    expect(ctas.length).toBeGreaterThan(0);
+
+    const onPress = (ctas[0]!.props as Record<string, unknown>).onPress as () => void;
+    expect(typeof onPress).toBe('function');
+    onPress();
+    expect(onNavigateConsent).toHaveBeenCalledTimes(1);
+    // The screen passes the section's first required ConsentType (not raw activityType).
+    expect(onNavigateConsent).toHaveBeenCalledWith(
+      expect.stringMatching(/^(general_health|infant_feeding)$/),
+    );
+
+    (consentStore.isGranted as jest.Mock).mockImplementation(() => true);
+  });
+
+  it('BUG #2: consent advisory has NO CTA rendered when onNavigateConsent is absent (documents the old broken state)', () => {
+    const { consentStore } = require('../consent/consentStore');
+    (consentStore.isGranted as jest.Mock).mockImplementation(() => false);
+
+    // onNavigateConsent intentionally omitted — mirrors the pre-fix RootNavigator.
+    const tree = AutoDecrementSettingsScreen(baseProps) as React.ReactElement;
+    const ctas = findAll(tree, (el) => {
+      const props = el.props as Record<string, unknown>;
+      return (
+        props.accessibilityRole === 'button' &&
+        props.accessibilityLabel === 'autoDecrement.advisory.consentCta'
+      );
+    });
+    expect(ctas).toHaveLength(0);
+
+    (consentStore.isGranted as jest.Mock).mockImplementation(() => true);
+  });
 });
 
 describe('AutoDecrementSettingsScreen — FW-1 Milk-Code firewall', () => {
@@ -290,6 +345,42 @@ const DIAPER_MAPPING = {
   updatedAt: '2024-01-01T00:00:00Z',
   createdAt: '2024-01-01T00:00:00Z',
 };
+
+// appsec 🟡1 regression fixture: a freshly-linked mapping from
+// SupplyItemPickerScreen is always created with enabled:false. This screen's
+// `sectionMappings` filter (activityType only, no enabled filter) must still
+// surface it — with its toggle OFF — once consent is granted, so the mother
+// is never stranded unable to enable what she just linked.
+const DISABLED_DIAPER_MAPPING = {
+  ...DIAPER_MAPPING,
+  id: 'map-2-disabled',
+  enabled: false,
+};
+
+describe('AutoDecrementSettingsScreen — appsec 🟡1: disabled mapping is never stranded', () => {
+  it('a freshly-linked (enabled:false) mapping still renders with its toggle OFF when consent is granted', () => {
+    const { consumptionMappingStore } = require('./consumptionMappingStore');
+    (consumptionMappingStore.getAll as jest.Mock).mockReturnValueOnce([DISABLED_DIAPER_MAPPING]);
+    const { consentStore } = require('../consent/consentStore');
+    (consentStore.isGranted as jest.Mock).mockImplementation(() => true);
+
+    const tree = AutoDecrementSettingsScreen(baseProps) as React.ReactElement;
+
+    // The mapping row (item name) must be present — not hidden just because enabled:false.
+    const texts = collectText(tree);
+    expect(texts).toContain(DISABLED_DIAPER_MAPPING.supplyItemId);
+
+    // Its Switch must be present and reflect the OFF state (mother can turn it on).
+    const switches = findAll(tree, (el) =>
+      (el.props as Record<string, unknown>).accessibilityRole === 'switch',
+    );
+    expect(switches.length).toBeGreaterThan(0);
+    const sw = switches[0]!;
+    expect((sw.props as Record<string, unknown>).value).toBe(false);
+    const state = (sw.props as Record<string, unknown>).accessibilityState as { checked: boolean };
+    expect(state.checked).toBe(false);
+  });
+});
 
 describe('AutoDecrementSettingsScreen — accessibility (a11y)', () => {
   it('toggle controls have accessibilityRole="switch"', () => {

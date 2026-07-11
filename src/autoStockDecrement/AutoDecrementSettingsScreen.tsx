@@ -373,11 +373,13 @@ const styles = StyleSheet.create({
   backText: {
     color: T.color.accent.interactive,
     fontSize: T.type.body.size,
+    lineHeight: T.type.body.lineHeight,
   },
   navTitle: {
     flex: 1,
     color: T.color.text.heading,
     fontSize: T.type.heading2.size,
+    lineHeight: T.type.heading2.lineHeight,
     fontWeight: T.type.heading2.fontWeight,
     fontFamily: T.type.heading2.fontFamily,
   },
@@ -396,6 +398,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     color: T.color.text.botanical,
     fontSize: T.type.heading2.size,
+    lineHeight: T.type.heading2.lineHeight,
     fontWeight: T.type.heading2.fontWeight,
     fontFamily: T.type.heading2.fontFamily,
     marginBottom: T.spacing[3],
@@ -409,6 +412,7 @@ const styles = StyleSheet.create({
   advisoryText: {
     color: T.color.text.heading,
     fontSize: T.type.body.size,
+    lineHeight: T.type.body.lineHeight,
     fontFamily: T.type.body.fontFamily,
   },
   advisoryLink: {
@@ -418,7 +422,8 @@ const styles = StyleSheet.create({
   },
   advisoryLinkText: {
     color: T.color.accent.interactive,
-    fontSize: T.type.body.size,
+    fontSize: T.type.label.size,
+    lineHeight: T.type.label.lineHeight,
     fontFamily: T.type.label.fontFamily,
     fontWeight: T.type.label.fontWeight,
   },
@@ -434,11 +439,13 @@ const styles = StyleSheet.create({
     flex: 1,
     color: T.color.text.heading,
     fontSize: T.type.bodyLarge.size,
+    lineHeight: T.type.bodyLarge.lineHeight,
     fontFamily: T.type.bodyLarge.fontFamily,
   },
   unitLabel: {
     color: T.color.text.primary,
     fontSize: T.type.caption.size,
+    lineHeight: T.type.caption.lineHeight,
     fontFamily: T.type.caption.fontFamily,
   },
   unlinkBtn: {
@@ -450,6 +457,7 @@ const styles = StyleSheet.create({
   unlinkText: {
     color: T.color.text.primary,
     fontSize: T.type.body.size,
+    lineHeight: T.type.body.lineHeight,
   },
   linkBtn: {
     marginTop: T.spacing[3],
@@ -458,7 +466,8 @@ const styles = StyleSheet.create({
   },
   linkBtnText: {
     color: T.color.accent.interactive,
-    fontSize: T.type.body.size,
+    fontSize: T.type.label.size,
+    lineHeight: T.type.label.lineHeight,
     fontFamily: T.type.label.fontFamily,
     fontWeight: T.type.label.fontWeight,
   },

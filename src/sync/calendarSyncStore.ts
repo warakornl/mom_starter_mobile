@@ -44,6 +44,29 @@ import { computeOccurrenceId } from '../occurrence/occurrenceId';
 
 const TERMINAL: ReadonlySet<OccurrenceStatus> = new Set(['done', 'snoozed']);
 
+// ─── ChecklistItem mutation observer (device-calendar bridge wiring) ───────────
+
+/**
+ * Emitted by the store whenever a ChecklistItem is created, updated, or deleted
+ * via the enqueue* methods. The observer wires these events to the device-calendar
+ * bridge so that appointment CRUD automatically syncs to the device calendar.
+ *
+ * Security: the event carries the full ChecklistItemRecord (including note/title)
+ * so the bridge can build the calendar payload. Do NOT log event fields; log only
+ * appointmentId + op + result code (CAL-SA-50b).
+ *
+ * Trace: architecture §2 (reactive observer on local appointment store).
+ */
+export type ChecklistItemMutationEvent =
+  | { type: 'create'; item: ChecklistItemRecord }
+  | { type: 'update'; item: ChecklistItemRecord }
+  /**
+   * `item` is the pre-tombstone record (captured before deletedAt is set).
+   * The listener can use item.category to skip non-appointment items (AC-2.6).
+   * `item` is undefined if the id was never in the map (no-op delete path).
+   */
+  | { type: 'delete'; id: string; item: ChecklistItemRecord | undefined };
+
 // ─── Interface ────────────────────────────────────────────────────────────────
 
 export interface CalendarSyncStore {
@@ -126,6 +149,22 @@ export interface CalendarSyncStore {
 
   /** PDPA logout: clear all maps, queues, watermark. */
   reset(): void;
+
+  /**
+   * Subscribe to ChecklistItem create / update / delete mutations.
+   * Returns an unsubscribe function — call it to detach the listener.
+   *
+   * Architecture §2: the device-calendar bridge registers here so that any
+   * local write (user create/edit/delete AND pulls from server-side edits)
+   * automatically propagates to the device calendar — offline-safe because
+   * the trigger fires on local-store write, not on network success.
+   *
+   * Listener is called synchronously within the enqueue* call so it observes
+   * the same JS turn. It may schedule async work (void promises) internally.
+   */
+  subscribeToChecklistItemMutations(
+    listener: (event: ChecklistItemMutationEvent) => void,
+  ): () => void;
 }
 
 // ─── Factory ──────────────────────────────────────────────────────────────────
@@ -151,6 +190,18 @@ export function createCalendarSyncStore(): CalendarSyncStore {
   const reminderMap = new Map<string, ReminderRecord>();
   const occurrenceMap = new Map<string, ReminderOccurrenceRecord>();
   const checklistMap = new Map<string, ChecklistItemRecord>();
+
+  // ── ChecklistItem mutation observers (device-calendar bridge wiring) ─────────
+  // Separate Set so multiple listeners can coexist (test rig + production bridge).
+  const _checklistMutationListeners = new Set<
+    (event: ChecklistItemMutationEvent) => void
+  >();
+
+  function _notifyChecklistMutation(event: ChecklistItemMutationEvent): void {
+    for (const listener of _checklistMutationListeners) {
+      listener(event);
+    }
+  }
 
   // Pending queues
   const pendingRemindersCreated: ReminderRecord[] = [];
@@ -375,21 +426,31 @@ export function createCalendarSyncStore(): CalendarSyncStore {
     },
 
     enqueueCreateChecklistItem(item) {
-      checklistMap.set(item.id, { ...item });
-      pendingChecklistCreated.push({ ...item });
+      const snapshot: ChecklistItemRecord = { ...item };
+      checklistMap.set(item.id, snapshot);
+      pendingChecklistCreated.push(snapshot);
+      // Notify observers (device-calendar bridge, architecture §2)
+      _notifyChecklistMutation({ type: 'create', item: snapshot });
     },
 
     enqueueUpdateChecklistItem(item) {
-      checklistMap.set(item.id, { ...item });
-      pendingChecklistUpdated.push({ ...item });
+      const snapshot: ChecklistItemRecord = { ...item };
+      checklistMap.set(item.id, snapshot);
+      pendingChecklistUpdated.push(snapshot);
+      // Notify observers (device-calendar bridge, architecture §2)
+      _notifyChecklistMutation({ type: 'update', item: snapshot });
     },
 
     enqueueDeleteChecklistItem(id) {
+      // Capture the pre-tombstone record so the observer can inspect its category.
       const existing = checklistMap.get(id);
       if (existing) {
         checklistMap.set(id, { ...existing, deletedAt: new Date().toISOString() });
       }
       pendingChecklistDeleted.push(id);
+      // Notify observers with the original (pre-tombstone) item.
+      // Observer uses item.category to decide whether to call bridge (AC-2.6).
+      _notifyChecklistMutation({ type: 'delete', id, item: existing });
     },
 
     // ── Queue / watermark ─────────────────────────────────────────────────────
@@ -484,6 +545,16 @@ export function createCalendarSyncStore(): CalendarSyncStore {
       pendingChecklistUpdated.length = 0;
       pendingChecklistDeleted.length = 0;
       watermark = undefined;
+      // Note: _checklistMutationListeners are NOT cleared on reset.
+      // Listeners are infrastructure wiring (bridge registration), not user data.
+      // They survive PDPA logout so the bridge remains wired after re-login.
+    },
+
+    subscribeToChecklistItemMutations(listener) {
+      _checklistMutationListeners.add(listener);
+      return () => {
+        _checklistMutationListeners.delete(listener);
+      };
     },
   };
 }

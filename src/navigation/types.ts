@@ -130,6 +130,34 @@ export type RootStackParamList = {
   ProfileEdit: undefined;
 
   /**
+   * LossConfirm — Screen B: two-step pregnancy-loss confirmation.
+   *
+   * Entry: ProfileEdit (Account ▸ Pregnancy) quiet entry link, shown ONLY
+   * when lifecycle === 'pregnant' (INV-ENTRY-2). No deep-link, no push
+   * (LOSS-INV-9) — this screen is reachable ONLY via that in-app tap.
+   *
+   * No route params — SD-9: the screen reads `profileVersion` from its own
+   * fresh state (passed as a plain number, not health data) since the only
+   * thing needed is the If-Match version; no health values travel via params.
+   *
+   * On confirm success: POST /pregnancy-profile/loss-event → lifecycle:'ended'.
+   * pregnancy-loss-recording-ui.md §3 / functional-spec §14.
+   */
+  LossConfirm: { profileVersion: number };
+
+  /**
+   * ReopenConfirm — Screen C: reopen (correction) confirmation.
+   *
+   * Entry: ProfileEdit (Account ▸ Pregnancy) quiet reopen entry, shown ONLY
+   * when lifecycle === 'ended' — mutually exclusive with LossConfirm's entry
+   * (pregnancy-loss-recording-ui.md §4.1). Always available, no expiry (AC-4.3).
+   *
+   * On confirm success: POST /pregnancy-profile/reopen → lifecycle:'pregnant',
+   * loss_date cleared (S4). pregnancy-loss-recording-ui.md §4 / functional-spec §15.
+   */
+  ReopenConfirm: { profileVersion: number };
+
+  /**
    * ProfileInfoEdit — edit mother first/last name + optional baby name.
    *
    * Entry: ProfileHubScreen > "แก้ไขชื่อ / ข้อมูลส่วนตัว" row (lifecycle-agnostic).

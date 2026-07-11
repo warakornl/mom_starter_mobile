@@ -63,6 +63,8 @@ import { ProfileSetupScreen } from '../pregnancy/ProfileSetupScreen';
 import { ProfileEditScreen } from '../pregnancy/ProfileEditScreen';
 import { ProfileInfoEditScreen } from '../pregnancy/ProfileInfoEditScreen';
 import { BirthEventScreen } from '../pregnancy/BirthEventScreen';
+import { LossConfirmScreen } from '../pregnancy/LossConfirmScreen';
+import { ReopenConfirmScreen } from '../pregnancy/ReopenConfirmScreen';
 import { AppointmentFormScreen } from '../calendar/AppointmentFormScreen';
 import { ReminderFormScreen } from '../calendar/ReminderFormScreen';
 import { SettingsScreen } from '../settings/SettingsScreen';
@@ -770,6 +772,64 @@ function StackNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps): React
                   navigation.reset({ index: 0, routes: [{ name: 'Welcome' }] }),
               });
             }}
+          />
+        )}
+      </Stack.Screen>
+
+      {/* LossConfirm — Screen B: pregnancy-loss two-step confirmation.
+       *
+       * Entry: ProfileEdit (Account ▸ Pregnancy) quiet entry link, shown ONLY
+       * when lifecycle === 'pregnant' (INV-ENTRY-2). No push/deep-link ever
+       * reaches this screen (LOSS-INV-9).
+       *
+       * On success (or 409-already-ended / offline optimistic-apply): reset
+       * to MainTabs — HomeTabScreen's own focus-triggered GET refreshes the
+       * snapshot to lifecycle:'ended', which re-evaluates every loss-gated
+       * surface in the same render cycle (§5.7/§12.1). Same convention as
+       * BirthEvent's onBirthRecorded → reset(MainTabs).
+       * "Go back" / benign-postpartum-terminal → goBack() (nothing recorded).
+       */}
+      <Stack.Screen
+        name="LossConfirm"
+        options={{ title: t('loss.navTitle'), headerBackTitle: t('general.back') }}
+      >
+        {({ route, navigation }) => (
+          <LossConfirmScreen
+            tokenStorage={tokenStorage}
+            apiBaseUrl={apiBaseUrl}
+            profileVersion={route.params.profileVersion}
+            edd={snapshot?.edd ?? ''}
+            onLossRecorded={() =>
+              navigation.reset({ index: 0, routes: [{ name: 'MainTabs' }] })
+            }
+            onGoBack={() => navigation.goBack()}
+          />
+        )}
+      </Stack.Screen>
+
+      {/* ReopenConfirm — Screen C confirmation: reopen (correction).
+       *
+       * Entry: ProfileEdit (Account ▸ Pregnancy) quiet reopen entry, shown
+       * ONLY when lifecycle === 'ended' — mutually exclusive with
+       * LossConfirm's entry link (§4.1). Always available, no expiry (AC-4.3).
+       *
+       * On success: reset to MainTabs — HomeTabScreen's focus-triggered GET
+       * refreshes the snapshot to lifecycle:'pregnant' (loss_date cleared,
+       * S4), reverting every loss-gated surface immediately.
+       */}
+      <Stack.Screen
+        name="ReopenConfirm"
+        options={{ title: t('loss.navTitle'), headerBackTitle: t('general.back') }}
+      >
+        {({ route, navigation }) => (
+          <ReopenConfirmScreen
+            tokenStorage={tokenStorage}
+            apiBaseUrl={apiBaseUrl}
+            profileVersion={route.params.profileVersion}
+            onReopened={() =>
+              navigation.reset({ index: 0, routes: [{ name: 'MainTabs' }] })
+            }
+            onGoBack={() => navigation.goBack()}
           />
         )}
       </Stack.Screen>

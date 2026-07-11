@@ -153,6 +153,8 @@ jest.mock('../pregnancy/ProfileSetupScreen', () => ({ ProfileSetupScreen: jest.f
 jest.mock('../pregnancy/ProfileEditScreen', () => ({ ProfileEditScreen: jest.fn(() => null) }));
 jest.mock('../pregnancy/ProfileInfoEditScreen', () => ({ ProfileInfoEditScreen: jest.fn(() => null) }));
 jest.mock('../pregnancy/BirthEventScreen', () => ({ BirthEventScreen: jest.fn(() => null) }));
+jest.mock('../pregnancy/LossConfirmScreen', () => ({ LossConfirmScreen: jest.fn(() => null) }));
+jest.mock('../pregnancy/ReopenConfirmScreen', () => ({ ReopenConfirmScreen: jest.fn(() => null) }));
 jest.mock('../settings/SettingsScreen', () => ({ SettingsScreen: jest.fn(() => null) }));
 jest.mock('../kickCount/KickCountHomeScreen', () => ({ KickCountHomeScreen: jest.fn(() => null) }));
 jest.mock('../kickCount/KickCountCountingScreen', () => ({ KickCountCountingScreen: jest.fn(() => null) }));
@@ -219,6 +221,8 @@ import { CalendarScreen } from '../calendar/CalendarScreen';
 import { AppointmentFormScreen } from '../calendar/AppointmentFormScreen';
 import { ReminderFormScreen } from '../calendar/ReminderFormScreen';
 import { KickCountHomeScreen } from '../kickCount/KickCountHomeScreen';
+import { LossConfirmScreen } from '../pregnancy/LossConfirmScreen';
+import { ReopenConfirmScreen } from '../pregnancy/ReopenConfirmScreen';
 import { useProfileSnapshot } from '../pregnancy/PregnancyProfileContext';
 
 // ─── Typed mock handles ───────────────────────────────────────────────────────
@@ -228,6 +232,8 @@ const MockCalendarScreen     = CalendarScreen as unknown as jest.Mock;
 const MockAppointmentForm    = AppointmentFormScreen as unknown as jest.Mock;
 const MockReminderForm       = ReminderFormScreen as unknown as jest.Mock;
 const MockKickCountHome      = KickCountHomeScreen as unknown as jest.Mock;
+const MockLossConfirm        = LossConfirmScreen as unknown as jest.Mock;
+const MockReopenConfirm      = ReopenConfirmScreen as unknown as jest.Mock;
 
 // ─── Shared test fixtures ─────────────────────────────────────────────────────
 
@@ -888,5 +894,145 @@ describe('[B4 LossGate Wiring] RootNavigator → DoctorReport lifecycle', () => 
   it('FAIL-ON-REVERT: DoctorReport block contains lifecycle key', () => {
     const block = extractScreenBlock(ROOT_NAV_SRC_B4, 'DoctorReport');
     expect(block).toContain('lifecycle');
+  });
+});
+
+// ─── K. [B5] Pregnancy-loss write-path — LossConfirm / ReopenConfirm routes ──
+//
+// LOSS-INV-1: the ONLY two writers of pregnant<->ended. Both routes must be
+// REGISTERED, REACHABLE only from the ProfileEdit entry links (no push, no
+// deep-link — LOSS-INV-9), and must invoke the real recordLossEvent/
+// reopenPregnancy production callers (proven separately in
+// lossConfirmScreen.motherRoom.test.tsx / reopenConfirmScreen.motherRoom.test.tsx
+// by driving the REAL confirm control). This block proves the NAVIGATOR side:
+// the routes exist, receive the right params, and their success/back callbacks
+// route to the right place.
+
+describe('[B5 Behavioral] StackNavigator → LossConfirm / ReopenConfirm route-flow', () => {
+  let StackNavigatorFn: NavigatorFn;
+
+  beforeAll(() => {
+    mockUseProfileSnapshot.mockReturnValue(ENDED_SNAPSHOT);
+    StackNavigatorFn = getStackNavigatorFn();
+  });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it('LossConfirm Stack.Screen is registered and renders LossConfirmScreen with route.params.profileVersion', () => {
+    const stackElement = StackNavigatorFn({ tokenStorage: mockTokenStorage, apiBaseUrl: '' });
+    const renderProp = findScreenRenderProp(stackElement, 'LossConfirm');
+    expect(renderProp).not.toBeNull();
+
+    const el = renderProp!({
+      route: { params: { profileVersion: 7 } },
+      navigation: { goBack: jest.fn(), reset: jest.fn() },
+    });
+
+    expect(el.type).toBe(MockLossConfirm);
+    expect((el.props as Record<string, unknown>).profileVersion).toBe(7);
+  });
+
+  it('LossConfirm onLossRecorded resets to MainTabs (Home re-GET refreshes the loss-gated snapshot)', () => {
+    const stackElement = StackNavigatorFn({ tokenStorage: mockTokenStorage, apiBaseUrl: '' });
+    const renderProp = findScreenRenderProp(stackElement, 'LossConfirm');
+    const resetSpy = jest.fn();
+    const el = renderProp!({
+      route: { params: { profileVersion: 7 } },
+      navigation: { goBack: jest.fn(), reset: resetSpy },
+    });
+
+    (el.props as { onLossRecorded: () => void }).onLossRecorded();
+    expect(resetSpy).toHaveBeenCalledWith({ index: 0, routes: [{ name: 'MainTabs' }] });
+  });
+
+  it('LossConfirm onGoBack calls navigation.goBack (nothing recorded)', () => {
+    const stackElement = StackNavigatorFn({ tokenStorage: mockTokenStorage, apiBaseUrl: '' });
+    const renderProp = findScreenRenderProp(stackElement, 'LossConfirm');
+    const goBackSpy = jest.fn();
+    const el = renderProp!({
+      route: { params: { profileVersion: 7 } },
+      navigation: { goBack: goBackSpy, reset: jest.fn() },
+    });
+
+    (el.props as { onGoBack: () => void }).onGoBack();
+    expect(goBackSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('ReopenConfirm Stack.Screen is registered and renders ReopenConfirmScreen with route.params.profileVersion', () => {
+    const stackElement = StackNavigatorFn({ tokenStorage: mockTokenStorage, apiBaseUrl: '' });
+    const renderProp = findScreenRenderProp(stackElement, 'ReopenConfirm');
+    expect(renderProp).not.toBeNull();
+
+    const el = renderProp!({
+      route: { params: { profileVersion: 12 } },
+      navigation: { goBack: jest.fn(), reset: jest.fn() },
+    });
+
+    expect(el.type).toBe(MockReopenConfirm);
+    expect((el.props as Record<string, unknown>).profileVersion).toBe(12);
+  });
+
+  it('ReopenConfirm onReopened resets to MainTabs (Home re-GET reverts the loss-gated snapshot)', () => {
+    const stackElement = StackNavigatorFn({ tokenStorage: mockTokenStorage, apiBaseUrl: '' });
+    const renderProp = findScreenRenderProp(stackElement, 'ReopenConfirm');
+    const resetSpy = jest.fn();
+    const el = renderProp!({
+      route: { params: { profileVersion: 12 } },
+      navigation: { goBack: jest.fn(), reset: resetSpy },
+    });
+
+    (el.props as { onReopened: () => void }).onReopened();
+    expect(resetSpy).toHaveBeenCalledWith({ index: 0, routes: [{ name: 'MainTabs' }] });
+  });
+
+  it('FAIL-ON-REVERT: LossConfirm route disappears from the stack if removed (guards route registration)', () => {
+    const stackElement = StackNavigatorFn({ tokenStorage: mockTokenStorage, apiBaseUrl: '' });
+    expect(findScreenRenderProp(stackElement, 'LossConfirm')).not.toBeNull();
+  });
+
+  it('FAIL-ON-REVERT: ReopenConfirm route disappears from the stack if removed (guards route registration)', () => {
+    const stackElement = StackNavigatorFn({ tokenStorage: mockTokenStorage, apiBaseUrl: '' });
+    expect(findScreenRenderProp(stackElement, 'ReopenConfirm')).not.toBeNull();
+  });
+});
+
+// ─── L. [B5] Source-grep: no push/deep-link route to LossConfirm/ReopenConfirm ─
+//
+// LOSS-INV-9: no screen in this epic is reachable via push, deep-link, or any
+// route param beyond profileVersion. This is a structural guard: the ONLY
+// place 'LossConfirm'/'ReopenConfirm' may appear as a navigate() target is
+// inside ProfileEditScreen.tsx (the entry links), never in RootNavigator's
+// linking config or any deep-link handler.
+describe('[B5 LossGate Wiring] LossConfirm/ReopenConfirm are reachable ONLY via in-app entry links', () => {
+  it('RootNavigator itself never calls navigate("LossConfirm"|"ReopenConfirm") — only registers the routes', () => {
+    // RootNavigator should REGISTER the routes (Stack.Screen name="LossConfirm")
+    // but never NAVIGATE to them itself — that responsibility belongs solely
+    // to ProfileEditScreen's entry links (Screen A / Screen C).
+    expect(ROOT_NAV_SRC).not.toMatch(/navigate\(\s*['"]LossConfirm['"]/);
+    expect(ROOT_NAV_SRC).not.toMatch(/navigate\(\s*['"]ReopenConfirm['"]/);
+  });
+});
+
+// ─── M. [B5] Source-grep: ProfileEditScreen entry links use raw profile.lifecycle ─
+
+describe('[B5 LossGate Wiring] ProfileEditScreen — entry link predicate discipline', () => {
+  const PROFILE_EDIT_SRC = fs.readFileSync(
+    path.join(__dirname, '../pregnancy/ProfileEditScreen.tsx'),
+    'utf8',
+  );
+
+  it("loss entry link is gated on profile.lifecycle === 'pregnant' (INV-ENTRY-2)", () => {
+    expect(PROFILE_EDIT_SRC).toMatch(/profile\.lifecycle === 'pregnant'/);
+  });
+
+  it("reopen entry link is gated on profile.lifecycle === 'ended' (mutually exclusive, §4.1)", () => {
+    expect(PROFILE_EDIT_SRC).toMatch(/profile\.lifecycle === 'ended'/);
+  });
+
+  it('entry links navigate with profileVersion only — no health values in route params (SD-9)', () => {
+    expect(PROFILE_EDIT_SRC).toMatch(/navigate\('LossConfirm',\s*\{\s*profileVersion:\s*profile\.version\s*\}\)/);
+    expect(PROFILE_EDIT_SRC).toMatch(/navigate\('ReopenConfirm',\s*\{\s*profileVersion:\s*profile\.version\s*\}\)/);
   });
 });

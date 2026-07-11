@@ -239,7 +239,6 @@ describe('SupplyItemPickerScreen — tap-to-link behavior (Bug #2 core fix)', ()
     const record = mockEnqueueCreate.mock.calls[0][0];
     expect(record.activityType).toBe('diaper_change');
     expect(record.supplyItemId).toBe(DIAPER_ITEM.id);
-    expect(record.enabled).toBe(true);
     expect(record.version).toBe(0);
     expect(typeof record.id).toBe('string');
     expect(record.id.length).toBeGreaterThan(0);
@@ -251,6 +250,38 @@ describe('SupplyItemPickerScreen — tap-to-link behavior (Bug #2 core fix)', ()
     // ISO-parseable
     expect(Number.isNaN(Date.parse(record.createdAt))).toBe(false);
     expect(Number.isNaN(Date.parse(record.updatedAt))).toBe(false);
+  });
+
+  // appsec 🟡1: the picker must NEVER create a mapping pre-enabled. Enabling
+  // is a separate, consent-gated action the mother takes explicitly from
+  // AutoDecrementSettingsScreen's toggle (CONSENT-1 guard,
+  // AutoDecrementSettingsScreen.tsx handleToggle). Creating with enabled:true
+  // here would let an enabled=true mapping sync to the server before consent
+  // is confirmed granted — a PDPA-audit inconsistency (the trigger engine
+  // still re-gates consent at decrement time, so no wrong decrement occurs,
+  // but the persisted mapping state would misrepresent what the mother
+  // actually consented to).
+  it('appsec 🟡1 FAIL-ON-REVERT: newly-linked mapping is always created with enabled:false', () => {
+    mockGetSupplyItems.mockReturnValue([DIAPER_ITEM]);
+    const tree = SupplyItemPickerScreen(baseProps) as React.ReactElement;
+    const rows = findAll(tree, (el) => (el.props as Record<string, unknown>).testID === 'supply-item-picker-row');
+    const onPress = (rows[0]!.props as Record<string, unknown>).onPress as () => void;
+    onPress();
+
+    expect(mockEnqueueCreate).toHaveBeenCalledTimes(1);
+    const record = mockEnqueueCreate.mock.calls[0][0];
+    expect(record.enabled).toBe(false);
+  });
+
+  it('appsec 🟡1: enabled:false holds regardless of which activity type is being linked (feeding_formula)', () => {
+    mockGetSupplyItems.mockReturnValue([FEEDING_ITEM]);
+    const tree = SupplyItemPickerScreen({ ...baseProps, activityType: 'feeding_formula' }) as React.ReactElement;
+    const rows = findAll(tree, (el) => (el.props as Record<string, unknown>).testID === 'supply-item-picker-row');
+    const onPress = (rows[0]!.props as Record<string, unknown>).onPress as () => void;
+    onPress();
+
+    const record = mockEnqueueCreate.mock.calls[0][0];
+    expect(record.enabled).toBe(false);
   });
 
   it('calls onPicked?.() after linking when provided', () => {
@@ -283,6 +314,52 @@ describe('SupplyItemPickerScreen — FW-1 (no brand/promo copy)', () => {
     const texts = collectText(tree);
     texts.forEach((t) => {
       expect(t).not.toMatch(/Nestlé|enfamil|similac/i);
+    });
+  });
+});
+
+// appsec 🟡2: the check above only tests 3 hand-picked brand regexes, not the
+// real FW-1 blocklist (ซื้อ/สั่ง/โปร/ลด/฿ราคา/reorder/order/cart/shop/discount/
+// coupon/health-claim tokens/age-targeting trigger — see fw1Scanner.ts). Run
+// every NEW supplyItemPicker.* i18n key (both locales) through the REAL
+// isFW1Clean / scanForFW1Violations scanner, not a hand-picked regex.
+describe('SupplyItemPickerScreen — FW-1: new i18n copy scanned by the REAL fw1Scanner (appsec 🟡2)', () => {
+  it('every supplyItemPicker.* key in BOTH th and en catalogs passes isFW1Clean', () => {
+    const { catalog } = jest.requireActual<typeof import('../i18n/messages')>('../i18n/messages');
+    const { isFW1Clean, scanForFW1Violations } = jest.requireActual<
+      typeof import('./fw1Scanner')
+    >('./fw1Scanner');
+
+    (['th', 'en'] as const).forEach((locale) => {
+      const localeCatalog = catalog[locale] as Record<string, unknown>;
+      const supplyItemPickerKeys = Object.keys(localeCatalog).filter((k) =>
+        k.startsWith('supplyItemPicker.'),
+      );
+
+      // Guard: the enumeration itself must find the 3 keys this screen added —
+      // if the catalog shape ever changes and the filter silently matches
+      // nothing, the loop below would vacuously pass. Fail loudly instead.
+      expect(supplyItemPickerKeys.length).toBeGreaterThanOrEqual(3);
+      expect(supplyItemPickerKeys).toEqual(
+        expect.arrayContaining([
+          'supplyItemPicker.navTitle',
+          'supplyItemPicker.emptyState',
+          'supplyItemPicker.backA11y',
+        ]),
+      );
+
+      supplyItemPickerKeys.forEach((key) => {
+        const text = localeCatalog[key];
+        if (typeof text !== 'string') return; // skip non-string catalog entries, if any
+        const violations = scanForFW1Violations(text);
+        expect({ locale, key, text, violations }).toEqual({
+          locale,
+          key,
+          text,
+          violations: [],
+        });
+        expect(isFW1Clean(text)).toBe(true);
+      });
     });
   });
 });

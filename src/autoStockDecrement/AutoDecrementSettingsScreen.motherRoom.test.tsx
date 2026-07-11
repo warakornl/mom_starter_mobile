@@ -346,6 +346,42 @@ const DIAPER_MAPPING = {
   createdAt: '2024-01-01T00:00:00Z',
 };
 
+// appsec 🟡1 regression fixture: a freshly-linked mapping from
+// SupplyItemPickerScreen is always created with enabled:false. This screen's
+// `sectionMappings` filter (activityType only, no enabled filter) must still
+// surface it — with its toggle OFF — once consent is granted, so the mother
+// is never stranded unable to enable what she just linked.
+const DISABLED_DIAPER_MAPPING = {
+  ...DIAPER_MAPPING,
+  id: 'map-2-disabled',
+  enabled: false,
+};
+
+describe('AutoDecrementSettingsScreen — appsec 🟡1: disabled mapping is never stranded', () => {
+  it('a freshly-linked (enabled:false) mapping still renders with its toggle OFF when consent is granted', () => {
+    const { consumptionMappingStore } = require('./consumptionMappingStore');
+    (consumptionMappingStore.getAll as jest.Mock).mockReturnValueOnce([DISABLED_DIAPER_MAPPING]);
+    const { consentStore } = require('../consent/consentStore');
+    (consentStore.isGranted as jest.Mock).mockImplementation(() => true);
+
+    const tree = AutoDecrementSettingsScreen(baseProps) as React.ReactElement;
+
+    // The mapping row (item name) must be present — not hidden just because enabled:false.
+    const texts = collectText(tree);
+    expect(texts).toContain(DISABLED_DIAPER_MAPPING.supplyItemId);
+
+    // Its Switch must be present and reflect the OFF state (mother can turn it on).
+    const switches = findAll(tree, (el) =>
+      (el.props as Record<string, unknown>).accessibilityRole === 'switch',
+    );
+    expect(switches.length).toBeGreaterThan(0);
+    const sw = switches[0]!;
+    expect((sw.props as Record<string, unknown>).value).toBe(false);
+    const state = (sw.props as Record<string, unknown>).accessibilityState as { checked: boolean };
+    expect(state.checked).toBe(false);
+  });
+});
+
 describe('AutoDecrementSettingsScreen — accessibility (a11y)', () => {
   it('toggle controls have accessibilityRole="switch"', () => {
     // Need at least one mapping so that a Switch element is rendered.

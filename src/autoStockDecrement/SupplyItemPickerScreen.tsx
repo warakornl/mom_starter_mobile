@@ -149,7 +149,14 @@ export function SupplyItemPickerScreen(
       activityType,
       supplyItemId: item.id,
       defaultQty: DEFAULT_QTY,
-      enabled: true,
+      // appsec 🟡1: ALWAYS create disabled. Enabling is a separate, explicit
+      // action the mother takes from AutoDecrementSettingsScreen's toggle,
+      // which enforces the live consent gate (CONSENT-1, handleToggle) before
+      // ever enqueuing enabled=true. Creating pre-enabled here would let an
+      // enabled=true mapping sync to the server before consent is confirmed
+      // granted — a PDPA-audit inconsistency, even though the trigger engine
+      // still re-gates consent at decrement time (functional §5.3 E-9).
+      enabled: false,
       version: 0,
       createdAt: now,
       updatedAt: now,

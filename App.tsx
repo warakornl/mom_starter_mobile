@@ -58,6 +58,10 @@ import { configureConsentQueueStorage, restoreConsentQueue } from './src/consent
 import { suggestionStore } from './src/suggestion/suggestionStore';
 import type { RootStackParamList } from './src/navigation/types';
 import { parseResetTokenFromUrl, setResetToken } from './src/deepLink/resetDeepLink';
+import {
+  attachCalendarObserver,
+  syncCalendarBridgeConsentFromStore,
+} from './src/deviceCalendar/deviceCalendarSingleton';
 
 // ─── Splash screen — prevent auto-hide until fonts are ready (§2.2) ───────────
 // Must be called before any component renders.
@@ -94,6 +98,29 @@ configureConsentQueueStorage({
 });
 
 void restoreConsentQueue();
+
+// ─── Device-calendar bridge: wire the appointment observer (architecture §2) ───
+//
+// This ONE call is what makes the calendar-sync feature live. Without it the
+// bridge exists but is never triggered — appointments created/edited/deleted in
+// the app would not propagate to the device calendar.
+//
+// Runs at module-eval time (before any component mounts) so the observer is in
+// place before the first appointment write can happen on this JS session.
+//
+// After consentStore loads its persisted state (loadFromStorage, below),
+// syncCalendarBridgeConsentFromStore() opens the gate for previously-consented
+// users without waiting for a network refresh (CAL-GATE-FRESH Option B).
+attachCalendarObserver();
+
+// Sync bridge consent snapshot from the persisted cache.
+// consentStore.loadFromStorage() is async; we schedule it and sync after.
+// On first cold-start (empty cache) the bridge stays fail-closed ('unknown').
+// On subsequent launches the bridge opens with the cached granted state before
+// any network request completes — fully offline-safe.
+void consentStore.loadFromStorage().then(() => {
+  syncCalendarBridgeConsentFromStore();
+});
 
 export default function App(): React.JSX.Element | null {
   const tokenStorage = useMemo(() => new SecureTokenStorage(), []);

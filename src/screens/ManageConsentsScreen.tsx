@@ -46,6 +46,7 @@ import {
 } from 'react-native';
 
 import type { TokenStorage } from '../auth/tokenStorage';
+import { T } from '../theme/tokens';
 import { createConsentApiClient } from '../consent/consentApiClient';
 import { consentStore } from '../consent/consentStore';
 import { consentQueue } from '../consent/consentSync';
@@ -335,7 +336,7 @@ export function ManageConsentsScreen({
                   >
                     <View style={styles.rowLeft}>
                       {isBusy ? (
-                        <ActivityIndicator size="small" color="#A8505A" style={styles.rowMark} />
+                        <ActivityIndicator size="small" color={T.color.accent.interactive} style={styles.rowMark} />
                       ) : (
                         <Text
                           style={isOn ? styles.markGranted : styles.markDue}
@@ -367,8 +368,8 @@ export function ManageConsentsScreen({
                       value={isOn}
                       onValueChange={(v) => handleToggle(type, v)}
                       disabled={isBusy}
-                      trackColor={{ false: '#EBE1D9', true: '#A8505A' }}
-                      thumbColor="#FFFFFF"
+                      trackColor={{ false: T.color.surface.divider, true: T.color.accent.interactive }}
+                      thumbColor={T.color.surface.base}
                       accessibilityElementsHidden
                     />
                   </TouchableOpacity>
@@ -476,162 +477,174 @@ export function ManageConsentsScreen({
 const styles = StyleSheet.create({
   root: {
     flex: 1,
-    backgroundColor: '#FBF6F1', // bg/warm-milk
+    backgroundColor: T.color.surface.base,
   },
   scroll: {
-    padding: 20,
-    paddingBottom: 40,
+    padding: T.spacing[5],
+    paddingBottom: T.spacing[10],
   },
 
-  backRow: { marginBottom: 8 },
-  backText: { fontSize: 16, color: '#A8505A', fontWeight: '500' },
+  backRow: { marginBottom: T.spacing[2] },
+  backText: {
+    fontFamily: T.type.body.fontFamily,
+    fontSize: T.type.body.size,
+    color: T.color.accent.interactive,
+    fontWeight: '500',
+  },
 
   screenTitle: {
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 22,
-    lineHeight: 32,
-    color: '#3A2A30',
-    marginBottom: 6,
+    fontFamily: T.type.heading1.fontFamily,
+    fontSize: T.type.heading1.size,
+    lineHeight: T.type.heading1.lineHeight,
+    color: T.color.text.heading,
+    marginBottom: T.spacing[1] + 2,
   },
   screenSubtitle: {
-    fontSize: 14,
-    lineHeight: 22,
-    color: '#5F4A52',
-    marginBottom: 24,
+    fontFamily: T.type.body.fontFamily,
+    fontSize: T.type.body.size,
+    lineHeight: T.type.body.lineHeight,
+    color: T.color.text.primary,
+    marginBottom: T.spacing[6],
   },
 
   sectionHeader: {
-    fontSize: 12,
-    lineHeight: 18,
-    color: '#94818A',
-    marginBottom: 8,
-    marginTop: 12,
-    textTransform: 'uppercase',
-    letterSpacing: 0.6,
+    fontFamily: T.type.label.fontFamily,
+    fontSize: T.type.label.size,
+    lineHeight: T.type.label.lineHeight,
+    letterSpacing: T.type.label.letterSpacing,
+    color: T.color.text.botanical,
+    marginBottom: T.spacing[2],
+    marginTop: T.spacing[3],
   },
 
   row: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    backgroundColor: T.color.surface.subtle,
+    borderRadius: T.radius.md,
     paddingVertical: 14,
-    paddingHorizontal: 16,
+    paddingHorizontal: T.spacing[4],
     minHeight: 52,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 8,
-    elevation: 1,
-    shadowColor: '#3A2A30',
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    shadowOffset: { width: 0, height: 1 },
+    marginBottom: T.spacing[2],
+    borderWidth: 1,
+    borderColor: T.color.surface.divider,
   },
   rowLeft: {
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    marginRight: 12,
+    marginRight: T.spacing[3],
   },
-  rowMark: { width: 20, marginRight: 8 },
-  markGranted: { fontSize: 16, color: '#4A7A56', marginRight: 8 },
-  markDue:     { fontSize: 16, color: '#9A7E86', marginRight: 8 },
+  rowMark: { width: 20, marginRight: T.spacing[2] },
+  markGranted: { fontSize: 16, color: T.color.state.success, marginRight: T.spacing[2] },
+  markDue:     { fontSize: 16, color: T.color.text.secondary, marginRight: T.spacing[2] },
   rowTextGroup: { flex: 1 },
   rowTitle: {
-    fontSize: 16,
-    lineHeight: 24,
-    color: '#3A2A30',
+    fontFamily: T.type.body.fontFamily,
+    fontSize: T.type.bodyLarge.size,
+    lineHeight: T.type.bodyLarge.lineHeight,
+    color: T.color.text.heading,
     fontWeight: '500',
   },
   rowCaption: {
-    fontSize: 13,
-    lineHeight: 18,
-    color: '#94818A',
+    fontFamily: T.type.caption.fontFamily,
+    fontSize: T.type.caption.size,
+    lineHeight: T.type.caption.lineHeight,
+    color: T.color.text.botanical,
     marginTop: 2,
   },
   pendingSyncBadge: {
-    fontSize: 12,
-    color: '#9A7E86',
+    fontFamily: T.type.micro.fontFamily,
+    fontSize: T.type.micro.size,
+    color: T.color.text.secondary,
     marginTop: 2,
   },
 
   rowErrorPanel: {
-    backgroundColor: '#F5F0ED',
-    borderRadius: 8,
-    padding: 10,
-    marginBottom: 8,
+    backgroundColor: T.errorPanel.bg,
+    borderRadius: T.radius.sm,
+    padding: T.spacing[3] - 2,
+    marginBottom: T.spacing[2],
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
   },
-  rowErrorText: { flex: 1, fontSize: 13, color: '#5F4A52' },
-  rowRetryBtn: { marginLeft: 8 },
-  rowRetryBtnLabel: { fontSize: 13, fontWeight: '700', color: '#A8505A' },
+  rowErrorText: { flex: 1, fontSize: T.type.caption.size, color: T.errorPanel.body },
+  rowRetryBtn: { marginLeft: T.spacing[2] },
+  rowRetryBtnLabel: { fontSize: T.type.caption.size, fontWeight: '700', color: T.color.accent.interactive },
 
-  footer: { marginTop: 24 },
-  footerCaption: { fontSize: 13, color: '#94818A', marginBottom: 6 },
-  footerLink: { fontSize: 13, color: '#A8505A', fontWeight: '700', marginBottom: 4 },
+  footer: { marginTop: T.spacing[6] },
+  footerCaption: { fontSize: T.type.caption.size, color: T.color.text.botanical, marginBottom: T.spacing[1] + 2 },
+  footerLink: { fontSize: T.type.caption.size, color: T.color.accent.interactive, fontWeight: '700', marginBottom: T.spacing[1] },
 
   skeletonRow: {
     height: 52,
-    backgroundColor: '#EBE1D9',
-    borderRadius: 12,
+    backgroundColor: T.skeleton.color,
+    borderRadius: T.radius.md,
     opacity: 0.5,
-    marginBottom: 8,
+    marginBottom: T.spacing[2],
   },
 
   loadErrorPanel: {
-    marginTop: 24,
-    backgroundColor: '#F5F0ED',
-    borderRadius: 12,
-    padding: 16,
+    marginTop: T.spacing[6],
+    backgroundColor: T.errorPanel.bg,
+    borderRadius: T.radius.md,
+    padding: T.spacing[4],
     alignItems: 'center',
   },
-  loadErrorText: { fontSize: 15, color: '#5F4A52', marginBottom: 12, textAlign: 'center' },
-  loadRetryBtn: {
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 8,
-    borderWidth: 1.5,
-    borderColor: '#A8505A',
+  loadErrorText: {
+    fontSize: T.type.bodyLarge.size,
+    color: T.errorPanel.body,
+    marginBottom: T.spacing[3],
+    textAlign: 'center',
   },
-  loadRetryBtnLabel: { fontSize: 15, fontWeight: '700', color: '#A8505A' },
+  loadRetryBtn: {
+    paddingHorizontal: T.spacing[5],
+    paddingVertical: T.spacing[2] + 2,
+    borderRadius: T.radius.sm,
+    borderWidth: 1.5,
+    borderColor: T.color.accent.interactive,
+  },
+  loadRetryBtnLabel: { fontSize: T.type.bodyLarge.size, fontWeight: '700', color: T.color.accent.interactive },
 
   sheetOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(58, 42, 48, 0.4)',
+    backgroundColor: T.scrim.color,
     justifyContent: 'flex-end',
   },
   sheet: {
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 24,
-    paddingBottom: 40,
+    backgroundColor: T.color.surface.base,
+    borderTopLeftRadius: T.radius.lg,
+    borderTopRightRadius: T.radius.lg,
+    padding: T.spacing[6],
+    paddingBottom: T.spacing[10],
   },
   sheetTitle: {
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 18,
-    lineHeight: 28,
-    color: '#3A2A30',
-    marginBottom: 12,
+    fontFamily: T.type.heading2.fontFamily,
+    fontSize: T.type.heading2.size,
+    lineHeight: T.type.heading2.lineHeight,
+    color: T.color.text.heading,
+    marginBottom: T.spacing[3],
   },
   sheetBody: {
-    fontSize: 16,
-    lineHeight: 24,
-    color: '#5F4A52',
-    marginBottom: 24,
+    fontFamily: T.type.bodyLarge.fontFamily,
+    fontSize: T.type.bodyLarge.size,
+    lineHeight: T.type.bodyLarge.lineHeight,
+    color: T.color.text.primary,
+    marginBottom: T.spacing[6],
   },
   sheetSecondaryBtn: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 10,
+    backgroundColor: T.color.surface.base,
+    borderRadius: T.radius.md,
     borderWidth: 1.5,
-    borderColor: '#A8505A',
+    borderColor: T.color.accent.interactive,
     minHeight: 52,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+    marginBottom: T.spacing[3],
   },
-  sheetSecondaryBtnLabel: { fontWeight: '700', fontSize: 16, color: '#A8505A' },
+  sheetSecondaryBtnLabel: { fontWeight: '700', fontSize: T.type.bodyLarge.size, color: T.color.accent.interactive },
   sheetQuietBtn: { alignItems: 'center', justifyContent: 'center', minHeight: 48 },
-  sheetQuietBtnLabel: { fontWeight: '700', fontSize: 16, color: '#8E3A44' },
+  sheetQuietBtnLabel: { fontWeight: '700', fontSize: T.type.bodyLarge.size, color: T.color.state.error },
 });

@@ -239,6 +239,7 @@ export async function drainProfileVerbQueue(
   apiBaseUrl: string,
   liveProfileVersion: number,
   callbacks: Parameters<ReturnType<typeof createProfileVerbSync>['drain']>[0],
+  fetchFn?: Parameters<typeof createPregnancyClient>[1],
 ): Promise<void> {
   if (!_restored) {
     await profileVerbQueue.restore();
@@ -248,7 +249,7 @@ export async function drainProfileVerbQueue(
   const tokens = await tokenStorage.load();
   if (!tokens?.accessToken) return;
 
-  const client = createPregnancyClient(apiBaseUrl);
+  const client = fetchFn ? createPregnancyClient(apiBaseUrl, fetchFn) : createPregnancyClient(apiBaseUrl);
   const accessToken = tokens.accessToken;
   _currentDispatch = (entry, ifMatch) => dispatchProfileVerbEntry(entry, ifMatch, client, accessToken);
 

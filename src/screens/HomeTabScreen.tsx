@@ -71,6 +71,8 @@ import { formatCivilDate } from '../i18n/messages';
 import { consentStore } from '../consent/consentStore';
 import { createConsentApiClient } from '../consent/consentApiClient';
 import { drainConsentQueue } from '../consent/consentSync';
+import { runHomeTabProfileVerbDrain } from './homeTabProfileVerbDrain';
+import { buildCalendarTabSnapshot } from './calendarTabSnapshotBuilder';
 import { getOfferable } from '../suggestion/suggestionEngine';
 import { suggestionStore } from '../suggestion/suggestionStore';
 import { SuggestionBanner } from '../suggestion/SuggestionBanner';
@@ -760,6 +762,54 @@ export function HomeTabScreen({
     function handleAppState(next: AppStateStatus): void {
       if (next !== 'active') return;
       void drainConsentQueue(tokenStorage, apiBaseUrl);
+
+      // profileVerbQueue drain host (OR-STRUCT-1): same AppState 'active'
+      // handler as drainConsentQueue, per
+      // docs/architecture/direct-rest-offline-resilience-architecture.md §1.3.
+      // Only attempt a drain once a profile is actually loaded (we need its
+      // version to seed resolveIfMatch on the first drain this session).
+      const currentVersion =
+        state.kind === 'pregnant' || state.kind === 'postpartum'
+          ? state.profile.version
+          : null;
+      if (currentVersion !== null) {
+        void runHomeTabProfileVerbDrain({
+          tokenStorage,
+          apiBaseUrl,
+          liveProfileVersion: currentVersion,
+          onAdopt: (profile) => {
+            // §9: adopt the server-confirmed profile — settle the pending-sync
+            // state. Raw lifecycle wiring (GAP-2-safe): no `?? 'pregnant'`.
+            const todayCivil = localCivilToday();
+            if (profile.lifecycle === 'postpartum' && profile.birthDate) {
+              const pp = recomputeFromBirthDate(profile.birthDate);
+              loadedBirthDate.current = profile.birthDate;
+              loadedEdd.current = null;
+              setState({ kind: 'postpartum', profile, pp });
+              setSnapshot(
+                buildCalendarTabSnapshot({
+                  profile, ga: null,
+                  generalHealthConsented: consentStore.isGranted('general_health'),
+                  todayCivil,
+                }),
+              );
+            } else {
+              const ga = recomputeFromEdd(profile.edd);
+              loadedEdd.current = profile.edd;
+              loadedBirthDate.current = null;
+              setState({ kind: 'pregnant', profile, ga });
+              setSnapshot(
+                buildCalendarTabSnapshot({
+                  profile, ga,
+                  generalHealthConsented: consentStore.isGranted('general_health'),
+                  todayCivil,
+                }),
+              );
+            }
+          },
+        });
+      }
+
       if (loadedEdd.current) {
         const ga = recomputeFromEdd(loadedEdd.current);
         setState((prev) => prev.kind === 'pregnant' ? { ...prev, ga } : prev);
@@ -770,7 +820,7 @@ export function HomeTabScreen({
     }
     const sub = AppState.addEventListener('change', handleAppState);
     return () => sub.remove();
-  }, [recomputeFromEdd, recomputeFromBirthDate, tokenStorage, apiBaseUrl]);
+  }, [recomputeFromEdd, recomputeFromBirthDate, tokenStorage, apiBaseUrl, state, setSnapshot]);
 
   // ─── Loading (§4.1 state 1) ───────────────────────────────────────────────
 

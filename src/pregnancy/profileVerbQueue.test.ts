@@ -251,6 +251,73 @@ describe('profileVerbQueue.clear', () => {
   });
 });
 
+// ─── PERSISTED-STORAGE-level tests (appsec #C) ─────────────────────────────
+//
+// The tests above only assert against getEntries() (in-memory). These two
+// assert against the STORAGE layer itself (storage.load()/the raw persisted
+// JSON) — proving the health-payload purge (GU-3) and the logout wipe are
+// real at the durable-storage level, not just in the in-memory array that
+// happens to also get persisted correctly today.
+
+describe('profileVerbQueue — persisted-storage-level guarantees (appsec #C)', () => {
+  it('GU-3: after markGivenUp + persist, a NEW queue restored from the SAME storage has body={} (no lossDate survives in the persisted JSON)', async () => {
+    const storage = new InMemoryQueueStorage();
+    const queue = createProfileVerbQueue(storage);
+    const e1 = queue.enqueue({
+      verb: 'loss_event', targetProfileId: 'p1', baseVersion: 1,
+      // A distinctive lossDate VALUE, deliberately different from clientDate,
+      // so the assertion below can prove the health-bearing VALUE is purged
+      // without false-failing on the (legitimate, non-health) clientDate
+      // field that the entry keeps.
+      body: { lossDate: '2026-03-17' }, clientDate: '2026-01-01', intendedLifecycle: 'ended',
+    });
+    queue.markGivenUp(e1.id);
+    await queue.persist();
+
+    // Prove it at the raw persisted JSON too — not just via a re-hydrated queue.
+    const rawJson = await storage.load();
+    expect(rawJson).not.toBeNull();
+    expect(rawJson).not.toContain('lossDate');
+    expect(rawJson).not.toContain('2026-03-17');
+    expect(rawJson).toContain('"body":{}');
+
+    // A brand-new queue instance restored from the SAME durable storage must
+    // see the purged (not the original health-bearing) body.
+    const restoredQueue = createProfileVerbQueue(storage);
+    await restoredQueue.restore();
+    const restoredEntry = restoredQueue.getEntries().find((e) => e.id === e1.id);
+    expect(restoredEntry).toBeDefined();
+    expect(restoredEntry!.status).toBe('given_up');
+    expect(restoredEntry!.body).toEqual({});
+  });
+
+  it('resetProfileVerbQueue (clear + persist) leaves storage.load() returning "[]" — no stale entries survive at rest', async () => {
+    const storage = new InMemoryQueueStorage();
+    const queue = createProfileVerbQueue(storage);
+    queue.enqueue({
+      verb: 'loss_event', targetProfileId: 'p1', baseVersion: 1,
+      body: { lossDate: '2026-01-01' }, clientDate: '2026-01-01', intendedLifecycle: 'ended',
+    });
+    await queue.persist();
+
+    // Sanity: something really was persisted before the reset.
+    const beforeReset = await storage.load();
+    expect(beforeReset).not.toBe('[]');
+
+    // Mirrors resetProfileVerbQueue's exact sequence (clear() then persist()).
+    queue.clear();
+    await queue.persist();
+
+    const afterReset = await storage.load();
+    expect(afterReset).toBe('[]');
+
+    // A fresh queue restored from this storage must also see nothing.
+    const restoredQueue = createProfileVerbQueue(storage);
+    await restoredQueue.restore();
+    expect(restoredQueue.getEntries()).toHaveLength(0);
+  });
+});
+
 // ─── TL-3 telemetry lock — negative test (§13 / LOSS-INV-10 / OR-INV-10) ──
 
 describe('profileVerbQueue telemetry lock (TL-3)', () => {

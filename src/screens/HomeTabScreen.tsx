@@ -792,6 +792,19 @@ export function HomeTabScreen({
               setLoadedBirthDate: (birthDate) => { loadedBirthDate.current = birthDate; },
             });
           },
+          // FOLLOW-UP (US-5 / offline-resilience epic, tracked — NOT built this
+          // pass, scope-controlled per owner instruction): onGiveUp and
+          // onConsentRequired are intentionally NOT wired here yet. A queued
+          // verb that exhausts retries (give-up) or hits a 403 consent-required
+          // park currently has NO visible surface on this screen — the mother
+          // sees nothing change (calm, but silent). This is SAFE (proven:
+          // profileVerbSync.test.ts "a loss give-up NEVER calls onAdopt" — no
+          // false success, no snapshot/state mutation happens on give-up), but
+          // it means US-5's calm "ยังไม่บันทึก — แตะเพื่อลองใหม่" give-up
+          // pill has no home yet. Build alongside the reopen/birth/edit
+          // producer UI surfaces in the same follow-up wave — do NOT bolt on
+          // a one-off pill here without the full UX pass (design-reviewer
+          // scope).
         });
       }
 

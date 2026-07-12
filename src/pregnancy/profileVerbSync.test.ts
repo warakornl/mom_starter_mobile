@@ -250,6 +250,39 @@ describe('profileVerbSync.drain — network/5xx retry + give-up (§12, MAX_ATTEM
     expect(finalEntry.body).toEqual({}); // GU-3 purge
   });
 
+  // US-5 / item 9 (offline-resilience epic follow-up): a loss give-up must
+  // NEVER produce a false success. onAdopt is the ONLY callback the
+  // production onAdopt wiring (HomeTabScreen -> applyAdoptedProfileToHomeTab)
+  // uses to call setSnapshot/setState — so proving onAdopt is never invoked
+  // during a give-up sequence proves no false "recorded"/pregnant-state flip
+  // can leak from the give-up path, even though no give-up UI surface exists
+  // yet (see FOLLOW-UP note in homeTabProfileVerbDrain.ts).
+  it('a loss give-up NEVER calls onAdopt (no false success) — entry stays given_up, payload purged', async () => {
+    const queue = createProfileVerbQueue(new InMemoryQueueStorage());
+    queue.enqueue({
+      verb: 'loss_event', targetProfileId: 'profile-loss-giveup', baseVersion: 5,
+      body: { lossDate: '2026-01-01' }, clientDate: '2026-01-05', intendedLifecycle: 'ended',
+    });
+    const dispatch = jest.fn(async (): Promise<DispatchResult> => ({ kind: 'network' }));
+    const sync = createProfileVerbSync(queue, { dispatch, initialLiveVersion: 5 });
+
+    const onAdopt = jest.fn();
+    let gaveUp = false;
+    for (let i = 0; i < 8; i++) {
+      const e = queue.getEntries()[0];
+      e.nextRetryAt = 0;
+      await sync.drain({ onAdopt, onGiveUp: () => { gaveUp = true; } });
+    }
+
+    expect(gaveUp).toBe(true);
+    // RED-LINE: no false success — onAdopt (the only setSnapshot/setState path)
+    // is never called for a given-up entry.
+    expect(onAdopt).not.toHaveBeenCalled();
+    const finalEntry = queue.getEntries()[0];
+    expect(finalEntry.status).toBe('given_up');
+    expect(finalEntry.body).toEqual({});
+  });
+
   it('C-1: wall-clock active-retry window before give-up is ~8.5 minutes (sum of computeNextRetryDelay(0..6))', () => {
     // 2+4+8+16+32+64+128 = 254s ≈ 4.2min is the wait BEFORE attempt 8 fires;
     // the spec's "~8.5 min" describes the full escalation including the 300s-

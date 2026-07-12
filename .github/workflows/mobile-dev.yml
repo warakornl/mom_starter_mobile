@@ -1,0 +1,54 @@
+name: mobile-dev
+
+# DEV pipeline — fast feedback only. No build, no deploy, no EAS/store calls.
+# Trigger: any PR (against any base branch) + any push to a branch that is NOT main.
+# Design ref: docs/architecture/deploy-pipeline-and-cloud-options.md §1.3 / §1.6
+# (mom_starter_mobile repo copy — cloud-infra-engineer / infra-reviewer sign-off pending)
+
+on:
+  pull_request:
+  push:
+    branches-ignore:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mobile-dev-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: typecheck + unit tests (fast feedback)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # No .nvmrc and no package.json "engines" field exist in this repo today
+      # (checked before writing this workflow) — default to Node 20 LTS, matching
+      # the backend-dev.yml convention of pinning a concrete, known-good version.
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      # This repo's tracked lockfile is package-lock.json — use it with `npm ci`
+      # for a reproducible, exact install. bun.lock exists locally but is
+      # git-ignored (see .gitignore: "bun.lock") — it is NOT committed, so CI
+      # must never rely on it. Do not switch this to `bun install`.
+      - name: Install dependencies (npm ci — package-lock.json is the tracked lockfile)
+        run: npm ci
+
+      - name: Type-check (tsc --noEmit)
+        run: npx tsc --noEmit
+
+      - name: Unit tests (jest --ci)
+        run: npx jest --ci
+
+  # NOTE: intentionally no EAS build / submit job in this workflow.
+  # DEV pipeline exists only to give fast PR/branch feedback per §1.3 — EAS
+  # production builds and store submission are prod-only, gated, and scaffolded
+  # in mobile-prod.yml (PENDING EAS/EXPO CREDENTIALS).

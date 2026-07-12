@@ -1,0 +1,188 @@
+name: mobile-prod
+
+# PROD pipeline — gated. Every job below BLOCKS the next; nothing after
+# test-gate can run unless it is green.
+#
+# Design ref (APPROVED): docs/architecture/deploy-pipeline-and-cloud-options.md
+#   §1.3 (mobile dev vs prod split; eas.json production profile is {} today —
+#         no env block, no prod apiBaseUrl; config.ts falls back to
+#         localhost:8080 when unset — see PENDING note in eas-build job below)
+#   §1.6 (CI/image hygiene: no secret echo/bake, gates prevent premature runs —
+#         same pattern applied here to EXPO_TOKEN / store credentials)
+#
+# SCOPE OF THIS PASS: test-gate (tsc + jest) is FULLY FUNCTIONAL now.
+# eas-build and store-submit are SCAFFOLDED ONLY — EXPO_TOKEN and store
+# credentials do not exist yet as repo secrets. Those two jobs are gated with
+# `if: vars.*` so a fresh clone / normal push to main SKIPS them (grey, not
+# red) exactly like backend-prod.yml's `if: vars.AWS_ECR_READY` pattern.
+#
+# infra-reviewer sign-off required before EAS_READY / STORE_SUBMIT_READY are
+# ever flipped to "true" against real Expo/store credentials.
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mobile-prod-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false # never cancel an in-flight prod pipeline
+
+jobs:
+  # ─────────────────────────────────────────────────────────────────
+  # JOB 1 — test gate (FUNCTIONAL NOW, REQUIRED CHECK)
+  # Same checks as mobile-dev.yml (tsc + jest) but run again here so the prod
+  # pipeline never depends on a stale/cached dev-pipeline result. Must pass
+  # before any EAS build is attempted.
+  # ─────────────────────────────────────────────────────────────────
+  test-gate:
+    name: "test gate (REQUIRED): typecheck + unit tests"
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      # Tracked lockfile is package-lock.json — bun.lock is git-ignored, never
+      # rely on it in CI. See mobile-dev.yml for the same note.
+      - name: Install dependencies (npm ci — package-lock.json is the tracked lockfile)
+        run: npm ci
+
+      - name: Type-check (tsc --noEmit)
+        run: npx tsc --noEmit
+
+      - name: Unit tests (jest --ci)
+        run: npx jest --ci
+
+  # ─────────────────────────────────────────────────────────────────
+  # JOB 2 — EAS production build (SCAFFOLD — PENDING EAS/EXPO CREDENTIALS)
+  # PENDING EAS/EXPO CREDENTIALS — this job will not run until EXPO_TOKEN
+  # exists as a real repo secret (Pass 2). Gated with `if: vars.EAS_READY`
+  # so a fresh clone / normal push to main SKIPS it (grey, not red) instead
+  # of failing, matching backend-prod.yml's `if: vars.AWS_ECR_READY` pattern.
+  #
+  # # PENDING: eas.json's "production" build profile is currently `{}` — EMPTY.
+  # It has no `env` block and therefore no production API URL is injected at
+  # build time. src/config.ts falls back to `http://localhost:8080` whenever
+  # no explicit apiBaseUrl is provided (via app.json extra.apiBaseUrl or an
+  # EAS-injected env var). This means: if EAS_READY were flipped on TODAY, a
+  # real "production" EAS build would ship pointing at localhost — a health
+  # app calling localhost in production. BEFORE EAS_READY is ever set to
+  # "true", someone (owner: rn-mobile-dev, reviewed by mobile-reviewer) MUST:
+  #   (a) add an `env` block to eas.json's "production" profile carrying the
+  #       real prod API URL — this URL only exists once the backend is
+  #       actually deployed (Pass 2, after mom_starter_api's AWS_ECR_READY /
+  #       AWS_ECS_READY are wired and a real ap-southeast-7 endpoint exists);
+  #   (b) add a fail-fast guard (e.g. in config.ts or an EAS build hook) so a
+  #       production build REFUSES to proceed / ship if the resolved API base
+  #       URL is localhost or empty, instead of silently falling back.
+  # This workflow does NOT implement (a) or (b) — that is app-logic, not
+  # pipeline scope. It only gates the job so it cannot run before EAS_READY is
+  # explicitly flipped on, which should not happen until (a) and (b) are done.
+  # ─────────────────────────────────────────────────────────────────
+  eas-build:
+    name: "EAS production build, all platforms (PENDING EAS/EXPO CREDENTIALS)"
+    needs: test-gate
+    runs-on: ubuntu-latest
+    if: vars.EAS_READY == 'true'
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies (npm ci — package-lock.json is the tracked lockfile)
+        run: npm ci
+
+      # §1.6 hygiene: EXPO_TOKEN comes ONLY from GitHub Secrets, never
+      # hardcoded, never echoed. GitHub Actions auto-masks values sourced from
+      # secrets.*, but this step also does not print, derive-and-print, or log
+      # the token in any form.
+      - name: Set up EAS CLI
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: EAS build — production profile, all platforms
+        # NOTE: see the job-level PENDING comment above — do not enable
+        # EAS_READY until eas.json production.env + a localhost fail-fast
+        # guard both exist and have passed code-review.
+        run: npx eas build --profile production --platform all --non-interactive
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+
+  # ─────────────────────────────────────────────────────────────────
+  # JOB 3 — store submit (SCAFFOLD — PENDING EAS/EXPO CREDENTIALS —
+  # manual approval gate)
+  # PENDING EAS/EXPO CREDENTIALS + STORE CREDENTIALS — this job will not run
+  # until EXPO_TOKEN and real App Store / Play Store submit credentials exist
+  # (Pass 2). Gated with `if: vars.STORE_SUBMIT_READY` AND a GitHub
+  # Environment "production" manual-approval gate (required reviewer), per
+  # §1.6 and the same manual-approval pattern as backend-prod.yml's deploy job.
+  # ─────────────────────────────────────────────────────────────────
+  store-submit:
+    name: "eas submit to App Store / Play Store (PENDING CREDENTIALS, manual approval)"
+    needs: eas-build
+    runs-on: ubuntu-latest
+    if: vars.STORE_SUBMIT_READY == 'true'
+    environment:
+      name: production # GitHub Environment with a required reviewer configured
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+
+      - name: Install dependencies (npm ci — package-lock.json is the tracked lockfile)
+        run: npm ci
+
+      # §1.6 hygiene: EXPO_TOKEN + store credentials via secrets only, never
+      # echoed, never baked into any artifact.
+      - name: Set up EAS CLI
+        uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - name: Submit to stores (PENDING real credentials — placeholder fails loud)
+        # Intentionally fails if this job is ever reached before real store
+        # credentials (Apple/Google) are wired into eas.json's submit.production
+        # block and into Secrets Manager / GitHub Secrets as appropriate — so
+        # it can never silently "succeed" doing nothing. Mirrors the backend
+        # deploy job's `exit 1` placeholder in backend-prod.yml.
+        run: |
+          echo "PENDING EAS/EXPO CREDENTIALS + STORE CREDENTIALS: replace with real"
+          echo "  npx eas submit --profile production --platform all --non-interactive"
+          echo "once eas.json submit.production has real Apple/Google credentials"
+          echo "and STORE_SUBMIT_READY has been deliberately flipped on after"
+          echo "infra-reviewer sign-off."
+          exit 1 # placeholder — intentionally fails if this job is ever reached
+                 # before real submit logic is filled in, so it can never
+                 # silently "succeed" doing nothing.
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}

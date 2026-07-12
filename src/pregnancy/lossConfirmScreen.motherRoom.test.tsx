@@ -256,4 +256,39 @@ describe('LossConfirmScreen — Screen B (§3 / functional-spec §14)', () => {
 
     expect(onLossRecorded).not.toHaveBeenCalled();
   });
+
+  // ─── Offline optimistic-apply producer (direct-rest-offline-resilience) ───
+
+  it('offline (network throw): calls onOfflineApply(lossDate) instead of setting a generic error — the REAL new producer path', async () => {
+    const recordLossEvent = jest.fn().mockRejectedValue(new Error('network down'));
+    (
+      jest.requireMock('./pregnancyApiClient') as { createPregnancyClient: jest.Mock }
+    ).createPregnancyClient.mockReturnValue({ recordLossEvent });
+    mockTokenStorage.load.mockResolvedValue({ accessToken: 'tok' });
+
+    const onOfflineApply = jest.fn();
+    const onLossRecorded = jest.fn();
+    const tree = LossConfirmScreen({ ...baseProps, onLossRecorded, onOfflineApply });
+    const confirm = byTestId(tree, 'loss-confirm-quiet');
+    await (confirm!.props as { onPress: () => Promise<void> }).onPress();
+
+    expect(onOfflineApply).toHaveBeenCalledTimes(1);
+    // No false-success: onLossRecorded is a server-confirmed callback, never
+    // called for the offline optimistic path (that is onOfflineApply's job).
+    expect(onLossRecorded).not.toHaveBeenCalled();
+  });
+
+  it('when onOfflineApply is NOT provided (backward-compat), falls back to the calm offline error copy — no crash', async () => {
+    const recordLossEvent = jest.fn().mockRejectedValue(new Error('network down'));
+    (
+      jest.requireMock('./pregnancyApiClient') as { createPregnancyClient: jest.Mock }
+    ).createPregnancyClient.mockReturnValue({ recordLossEvent });
+    mockTokenStorage.load.mockResolvedValue({ accessToken: 'tok' });
+
+    const onLossRecorded = jest.fn();
+    const tree = LossConfirmScreen({ ...baseProps, onLossRecorded }); // no onOfflineApply
+    const confirm = byTestId(tree, 'loss-confirm-quiet');
+    await expect((confirm!.props as { onPress: () => Promise<void> }).onPress()).resolves.not.toThrow();
+    expect(onLossRecorded).not.toHaveBeenCalled();
+  });
 });

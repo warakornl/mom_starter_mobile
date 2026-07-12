@@ -79,6 +79,19 @@ export interface LossConfirmScreenProps {
   onSessionExpired?: () => void;
   /** §3.5: consent backstop's "Go to consent" route-out affordance. */
   onGoToConsent?: () => void;
+  /**
+   * direct-rest-offline-resilience §7: called on network/offline failure
+   * INSTEAD of showing the generic conflict error — the caller (RootNavigator)
+   * runs the NEW optimistic-apply producer (lossOptimisticApply.ts): flips the
+   * raw snapshot to lifecycle:'ended' via useProfileSnapshotSetter() and
+   * enqueues a profileVerbQueue loss_event entry, then navigates on (same as
+   * onLossRecorded). If omitted (backward-compat), falls back to the calm
+   * "offline · will sync" error copy with NO local-state flip (today's
+   * behavior). Never called for a 4xx/5xx server response — only for a
+   * network/offline throw (BLOCKER-2 still holds: no false-success on an
+   * actual server rejection).
+   */
+  onOfflineApply?: (lossDate: string) => void;
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -92,6 +105,7 @@ export function LossConfirmScreen({
   onGoBack,
   onSessionExpired,
   onGoToConsent,
+  onOfflineApply,
 }: LossConfirmScreenProps): React.JSX.Element {
   const { t } = useT();
 
@@ -181,12 +195,19 @@ export function LossConfirmScreen({
       // treated as success. Calm, retryable, no local-state flip.
       setErrorMsg(t('loss.error.conflict'));
     } catch {
-      // BLOCKER-2: network/offline failure is a real failure, NOT success.
-      // No onLossRecorded() call here — the mother must not be told
-      // "recorded" when the server never saw the request. Full
-      // optimistic-apply + offline queue is a tracked follow-up
-      // (functional-spec §10.3), not implemented in this pass.
-      setErrorMsg(t('loss.error.offlineQueued'));
+      // BLOCKER-2 still holds: network/offline failure is a real failure —
+      // onLossRecorded (the server-confirmed callback) is NEVER called here.
+      // direct-rest-offline-resilience §7: instead of just showing a generic
+      // error, run the NEW optimistic-apply producer via onOfflineApply —
+      // the caller (RootNavigator) flips the raw snapshot to 'ended' +
+      // enqueues the profileVerbQueue entry, then navigates on (same as a
+      // server 200 would, but honestly marked pending-sync, never "saved").
+      if (onOfflineApply) {
+        onOfflineApply(dateInput);
+      } else {
+        // Backward-compat fallback (no producer wired) — calm error, no flip.
+        setErrorMsg(t('loss.error.offlineQueued'));
+      }
     } finally {
       setSubmitting(false);
     }

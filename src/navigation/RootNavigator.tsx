@@ -48,7 +48,8 @@ import type { TokenStorage } from '../auth/tokenStorage';
 import type { Lifecycle } from '../pregnancy/types';
 import { T } from '../theme/tokens';
 import { localCivilToday } from '../pregnancy/gestationalAge';
-import { PregnancyProfileProvider, useProfileSnapshot } from '../pregnancy/PregnancyProfileContext';
+import { PregnancyProfileProvider, useProfileSnapshot, useProfileSnapshotSetter } from '../pregnancy/PregnancyProfileContext';
+import { runLossOfflineApply } from '../pregnancy/lossOfflineApplyWiring';
 import type { AncFormPrefill } from '../suggestion/types';
 import { hasUpcomingAncApptInWindow } from '../suggestion/ancUpcomingApptSelector';
 
@@ -299,6 +300,7 @@ function StackNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps): React
   // Read profile snapshot from context (updated by HomeTabScreen after GET profile, v2).
   // Safe defaults before the profile loads (same as old kickProps pattern).
   const snapshot = useProfileSnapshot();
+  const setSnapshot = useProfileSnapshotSetter();
   const kickProps = snapshot ?? {
     gestationalWeek: 0,
     edd: '',
@@ -830,6 +832,23 @@ function StackNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps): React
               });
             }}
             onGoToConsent={() => navigation.navigate('ManageConsents')}
+            onOfflineApply={(lossDate) => {
+              // direct-rest-offline-resilience §7: the NEW optimistic-apply
+              // producer. Reads the RAW snapshot (never `?? 'pregnant'`) —
+              // see lossOptimisticApply.ts RED-LINE guarantees. On
+              // consent_required/suppress, nothing happens and the mother
+              // stays on the confirm screen (its own error surface covers
+              // the online-parity case).
+              runLossOfflineApply({
+                prevSnapshot: snapshot,
+                baseVersion: route.params.profileVersion,
+                lossDate,
+                clientDate: localCivilToday(),
+                setSnapshot,
+                onNavigateSettled: () =>
+                  navigation.reset({ index: 0, routes: [{ name: 'MainTabs' }] }),
+              });
+            }}
           />
         )}
       </Stack.Screen>

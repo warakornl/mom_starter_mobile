@@ -21,10 +21,17 @@
  *     403 consent_required -> {kind:'403'}, network/other -> {kind:'network'}.
  */
 
-import { dispatchProfileVerbEntry } from './profileVerbSyncSingleton';
+import {
+  dispatchProfileVerbEntry,
+  profileVerbQueue,
+  resetProfileVerbQueue,
+  resetProfileVerbSyncEngine,
+  drainProfileVerbQueue,
+} from './profileVerbSyncSingleton';
 import type { ProfileVerbEntry } from './profileVerbQueue';
 import type { PregnancyClient } from './pregnancyApiClient';
 import type { PregnancyProfile } from './types';
+import type { TokenStorage } from '../auth/tokenStorage';
 
 function makeProfile(overrides: Partial<PregnancyProfile> = {}): PregnancyProfile {
   return {
@@ -148,5 +155,120 @@ describe('dispatchProfileVerbEntry', () => {
     const result = await dispatchProfileVerbEntry(entry, '7', client, 'tok-abc');
 
     expect(result).toEqual({ kind: 'network' });
+  });
+});
+
+// ─── resetProfileVerbQueue must ALSO clear the sync engine (appsec #B) ────────
+//
+// The comment on resetProfileVerbSyncEngine claimed "Production logout calls
+// this alongside resetProfileVerbQueue" — but no production call site ever
+// did (RootNavigator's logout only called resetProfileVerbQueue). Not a data
+// leak (the queue itself was already cleared), but a real staleness bug: the
+// engine's liveVersions/liveLifecycles Maps (keyed by targetProfileId) would
+// survive a logout, so if a NEXT user's profile happened to reuse the same
+// profile id (or the dev/test seed data does), a stale adopted version/
+// lifecycle from the PREVIOUS user could be used to seed resolveIfMatch.
+//
+// Fix: resetProfileVerbQueue() now also calls resetProfileVerbSyncEngine().
+// This test proves it via observable behavior (no internal getter exists):
+// drain once so the engine adopts version=99/lifecycle='ended' for
+// targetProfileId; call resetProfileVerbQueue(); drain a FRESH entry for the
+// SAME targetProfileId with liveProfileVersion=5 — the If-Match header sent
+// must be "5" (freshly seeded), never "99" (the stale adopted version), which
+// is only possible if the engine itself (not just the queue) was reset.
+
+function fakeTokenStorage(accessToken: string | null): TokenStorage {
+  return {
+    load: async () => (accessToken ? { accessToken, refreshToken: 'r' } : null),
+    save: async () => {},
+    clear: async () => {},
+  } as TokenStorage;
+}
+
+describe('resetProfileVerbQueue — also clears the sync engine (fail-on-revert)', () => {
+  beforeEach(async () => {
+    await resetProfileVerbQueue();
+    resetProfileVerbSyncEngine();
+  });
+
+  it('a stale adopted liveVersion does NOT survive resetProfileVerbQueue()', async () => {
+    // 1. Drain a first entry; the engine adopts version=99/lifecycle='ended'.
+    profileVerbQueue.enqueue({
+      verb: 'loss_event',
+      targetProfileId: 'profile-reset-1',
+      baseVersion: 5,
+      body: { lossDate: '2026-01-01' },
+      clientDate: '2026-01-01',
+      intendedLifecycle: 'ended',
+    });
+    await profileVerbQueue.persist();
+
+    const firstFetch = jest.fn(async () =>
+      new Response(
+        JSON.stringify({
+          id: 'profile-reset-1', version: 99, edd: '2026-02-10', eddBasis: 'due_date',
+          lifecycle: 'ended', birthDate: null,
+          createdAt: '2025-06-01T00:00:00Z', updatedAt: '2026-01-01T00:00:00Z',
+          gestationalWeek: null, gestationalDay: null, daysRemaining: null,
+          progress: null, currentStage: 'T3', deliveryWindowActive: false,
+        }),
+        { status: 200 },
+      ),
+    );
+
+    await drainProfileVerbQueue(
+      fakeTokenStorage('tok'),
+      'https://api.test',
+      5,
+      { onAdopt: () => {} },
+      firstFetch,
+    );
+
+    expect(profileVerbQueue.getEntries()).toHaveLength(0);
+
+    // 2. Logout: reset the queue (this must ALSO reset the sync engine).
+    await resetProfileVerbQueue();
+
+    // 3. A fresh "user" (or same profile id re-seeded) enqueues a NEW entry
+    //    for the SAME targetProfileId with liveProfileVersion=5 (its real
+    //    current version). If the engine was NOT reset, resolveIfMatch would
+    //    still return the stale adopted "99" instead of freshly seeding "5".
+    profileVerbQueue.enqueue({
+      verb: 'edit_profile',
+      targetProfileId: 'profile-reset-1',
+      baseVersion: 5,
+      body: { edd: '2026-09-01' },
+      clientDate: '2026-01-02',
+      intendedLifecycle: null,
+    });
+    await profileVerbQueue.persist();
+
+    let sentIfMatch: string | null = null;
+    const secondFetch = jest.fn(async (_url: string, init?: RequestInit) => {
+      const headers = init?.headers as Record<string, string> | undefined;
+      sentIfMatch = headers?.['If-Match'] ?? null;
+      return new Response(
+        JSON.stringify({
+          id: 'profile-reset-1', version: 6, edd: '2026-09-01', eddBasis: 'due_date',
+          lifecycle: 'pregnant', birthDate: null,
+          createdAt: '2025-06-01T00:00:00Z', updatedAt: '2026-01-02T00:00:00Z',
+          gestationalWeek: 5, gestationalDay: 0, daysRemaining: 200,
+          progress: 0.1, currentStage: 'T1', deliveryWindowActive: false,
+        }),
+        { status: 200 },
+      );
+    });
+
+    await drainProfileVerbQueue(
+      fakeTokenStorage('tok'),
+      'https://api.test',
+      5,
+      { onAdopt: () => {} },
+      secondFetch,
+    );
+
+    expect(secondFetch).toHaveBeenCalledTimes(1);
+    expect(sentIfMatch).toBe('"5"');
+    expect(sentIfMatch).not.toBe('"99"');
   });
 });

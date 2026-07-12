@@ -98,9 +98,16 @@ export async function restoreProfileVerbQueue(): Promise<void> {
  * contamination guard — a queued loss/birth/edit/reopen for User A must
  * never drain under User B's token after a logout/login).
  * Best-effort: any persist error is swallowed so logout is never blocked.
+ *
+ * Also resets the module-level sync engine (resetProfileVerbSyncEngine) so a
+ * fresh session starts with no stale adopted liveVersion/liveLifecycle from
+ * the previous user — this is the ONE production call site for both resets
+ * (see resetProfileVerbSyncEngine's doc comment and
+ * profileVerbSyncSingleton.test.ts's fail-on-revert coverage).
  */
 export async function resetProfileVerbQueue(): Promise<void> {
   profileVerbQueue.clear();
+  resetProfileVerbSyncEngine();
   try {
     await profileVerbQueue.persist();
   } catch {
@@ -210,8 +217,11 @@ function getSync(initialLiveVersion: number): ReturnType<typeof createProfileVer
 
 /**
  * Reset the module-level sync engine (test-only escape hatch + logout hook).
- * Production logout calls this alongside resetProfileVerbQueue so a fresh
- * session starts with no stale adopted liveProfileVersion from a prior user.
+ * Called from WITHIN resetProfileVerbQueue() so every production logout path
+ * that already resets the queue also resets this engine's liveVersions/
+ * liveLifecycles Maps — no separate call site to remember. A fresh session
+ * therefore starts with no stale adopted liveProfileVersion/lifecycle from a
+ * prior user. Exported separately too for direct use in tests.
  */
 export function resetProfileVerbSyncEngine(): void {
   _sync = null;

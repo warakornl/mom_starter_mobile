@@ -1577,7 +1577,7 @@ const th = {
   'loss.error.consentRequired': 'การบันทึกต้องเปิดสิทธิ์ "บันทึกสุขภาพในเครื่อง" ก่อน',
   'loss.error.conflict': 'มีการเปลี่ยนแปลงจากอุปกรณ์อื่น ระบบได้ปรับข้อมูลให้เป็นปัจจุบันแล้ว',
   'loss.error.goToConsent': 'ไปที่การตั้งค่าความยินยอม',
-  'loss.error.offlineQueued': 'ออฟไลน์ · บันทึกไว้แล้ว จะซิงก์เมื่อออนไลน์',
+  'loss.error.offlineQueued': 'ออฟไลน์ · ยังไม่ได้บันทึก · จะลองใหม่เมื่อออนไลน์',
   // Screen C — reopen (neutral, no blame, no "are you sure you gave up?" framing)
   'loss.reopen.entry': 'แก้ไขการบันทึกนี้',
   'loss.reopen.confirm.title': 'กลับสู่การติดตามการตั้งครรภ์',
@@ -2843,7 +2843,7 @@ const en: MsgShape = {
   'loss.error.consentRequired': 'Recording this requires the "store health data on device" permission to be on.',
   'loss.error.conflict': 'Another device made a change — your view has been updated.',
   'loss.error.goToConsent': 'Go to consent settings',
-  'loss.error.offlineQueued': "Offline · saved — it will sync once you're back online",
+  'loss.error.offlineQueued': "Offline · not saved yet — it will retry automatically once you're back online",
   'loss.reopen.entry': 'Edit this record',
   'loss.reopen.confirm.title': 'Return to pregnancy tracking',
   'loss.reopen.confirm.body': 'This record will be corrected, and the app will show pregnancy-progress content again.',

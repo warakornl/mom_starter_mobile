@@ -790,8 +790,13 @@ function StackNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps): React
        * On success (200 ended, or 409-already-ended): reset to MainTabs —
        * HomeTabScreen's own focus-triggered GET refreshes the snapshot to
        * lifecycle:'ended', which re-evaluates every loss-gated surface in
-       * the same render cycle (§5.7/§12.1). Same convention as BirthEvent's
-       * onBirthRecorded → reset(MainTabs).
+       * the same render cycle (§5.7/§12.1). This is TRUE because
+       * calendarTabSnapshotBuilder.ts threads profile.lifecycle through RAW
+       * (never defaults/remaps to 'pregnant') — see
+       * calendarTabSnapshotBuilder.test.ts "ended (loss) path" and
+       * homeTabSnapshotLoader.test.ts's RED-LINE test for the fail-on-revert
+       * coverage that keeps this comment honest. Same convention as
+       * BirthEvent's onBirthRecorded → reset(MainTabs).
        * "Go back" / benign-postpartum-terminal → goBack() (nothing recorded).
        * BLOCKER-2: network/5xx failure NEVER resets/records — the screen
        * itself shows a calm inline error and stays open (no false-success).
@@ -864,7 +869,11 @@ function StackNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps): React
        *
        * On success: reset to MainTabs — HomeTabScreen's focus-triggered GET
        * refreshes the snapshot to lifecycle:'pregnant' (loss_date cleared,
-       * S4), reverting every loss-gated surface immediately.
+       * S4), reverting every loss-gated surface immediately. This is TRUE
+       * because calendarTabSnapshotBuilder.ts threads profile.lifecycle
+       * through RAW from the server response (never hard-codes/defaults it) —
+       * see calendarTabSnapshotBuilder.test.ts + homeTabSnapshotLoader.test.ts
+       * for the fail-on-revert coverage that keeps this comment honest.
        */}
       <Stack.Screen
         name="ReopenConfirm"

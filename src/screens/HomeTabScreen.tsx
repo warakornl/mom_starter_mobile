@@ -72,7 +72,7 @@ import { consentStore } from '../consent/consentStore';
 import { createConsentApiClient } from '../consent/consentApiClient';
 import { drainConsentQueue } from '../consent/consentSync';
 import { runHomeTabProfileVerbDrain } from './homeTabProfileVerbDrain';
-import { buildCalendarTabSnapshot } from './calendarTabSnapshotBuilder';
+import { applyAdoptedProfileToHomeTab } from './homeTabAdoptOnDrain';
 import { getOfferable } from '../suggestion/suggestionEngine';
 import { suggestionStore } from '../suggestion/suggestionStore';
 import { SuggestionBanner } from '../suggestion/SuggestionBanner';
@@ -779,33 +779,18 @@ export function HomeTabScreen({
           liveProfileVersion: currentVersion,
           onAdopt: (profile) => {
             // §9: adopt the server-confirmed profile — settle the pending-sync
-            // state. Raw lifecycle wiring (GAP-2-safe): no `?? 'pregnant'`.
-            const todayCivil = localCivilToday();
-            if (profile.lifecycle === 'postpartum' && profile.birthDate) {
-              const pp = recomputeFromBirthDate(profile.birthDate);
-              loadedBirthDate.current = profile.birthDate;
-              loadedEdd.current = null;
-              setState({ kind: 'postpartum', profile, pp });
-              setSnapshot(
-                buildCalendarTabSnapshot({
-                  profile, ga: null,
-                  generalHealthConsented: consentStore.isGranted('general_health'),
-                  todayCivil,
-                }),
-              );
-            } else {
-              const ga = recomputeFromEdd(profile.edd);
-              loadedEdd.current = profile.edd;
-              loadedBirthDate.current = null;
-              setState({ kind: 'pregnant', profile, ga });
-              setSnapshot(
-                buildCalendarTabSnapshot({
-                  profile, ga,
-                  generalHealthConsented: consentStore.isGranted('general_health'),
-                  todayCivil,
-                }),
-              );
-            }
+            // state + rewrite the shared ProfileSnapshot. Extracted to
+            // homeTabAdoptOnDrain.ts (RED-LINE-tested: raw lifecycle wiring,
+            // GAP-2-safe — no `?? 'pregnant'`) so the real production logic
+            // is independently unit-testable without a component renderer.
+            applyAdoptedProfileToHomeTab({
+              profile,
+              generalHealthConsented: consentStore.isGranted('general_health'),
+              setState,
+              setSnapshot,
+              setLoadedEdd: (edd) => { loadedEdd.current = edd; },
+              setLoadedBirthDate: (birthDate) => { loadedBirthDate.current = birthDate; },
+            });
           },
         });
       }

@@ -58,6 +58,26 @@ function makePregnantProfile(overrides: Partial<PregnancyProfile> = {}): Pregnan
   };
 }
 
+function makeEndedProfile(overrides: Partial<PregnancyProfile> = {}): PregnancyProfile {
+  return {
+    id: 'p-snap-003',
+    edd: '2026-02-10',
+    eddBasis: 'due_date',
+    lifecycle: 'ended',
+    birthDate: null,
+    version: 4,
+    createdAt: '2025-06-01T00:00:00Z',
+    updatedAt: '2026-01-10T00:00:00Z',
+    gestationalWeek: null,
+    gestationalDay: null,
+    daysRemaining: null,
+    progress: null,
+    currentStage: 'T3',
+    deliveryWindowActive: false,
+    ...overrides,
+  };
+}
+
 function makePostpartumProfile(): PregnancyProfile {
   return {
     id: 'p-snap-002',
@@ -176,6 +196,40 @@ describe('loadProfileIntoSnapshot — snapshot-write wiring', () => {
     const [_profileArg, ppArg] = onPostpartum.mock.calls[0] as [unknown, { postpartumDays: number }];
     const pp = computePostpartumAge(profile.birthDate!, TODAY);
     expect(ppArg.postpartumDays).toBe(pp.postpartumDays);
+
+    expect(onLogout).not.toHaveBeenCalled();
+    expect(onNeedsProfile).not.toHaveBeenCalled();
+  });
+
+  it('200 ended (loss) → setSnapshot called once with lifecycle:"ended", NEVER "pregnant" (RED-LINE)', async () => {
+    // RED-LINE regression (appsec + mobile-reviewer BLOCKER): the normal
+    // online GET path fed an 'ended' profile into the same `else` branch as
+    // 'pregnant' (line ~121), which called buildCalendarTabSnapshot without
+    // ever distinguishing 'ended' — the builder then hard-coded
+    // lifecycle:'pregnant'. That means even a plain online refresh (no queue
+    // involved at all) could snap a mother who just recorded a loss straight
+    // back into the pregnant loss-gate-open state. This test fails if that
+    // regresses.
+    const profile = makeEndedProfile();
+    const setSnapshot = jest.fn();
+    const onLogout = jest.fn();
+    const onNeedsProfile = jest.fn();
+    const getProfile = jest.fn().mockResolvedValue({ ok: true, profile });
+
+    await loadProfileIntoSnapshot({
+      accessToken: 'tok-test-ended',
+      getProfile,
+      todayCivil: TODAY,
+      generalHealthConsented: true,
+      setSnapshot,
+      onLogout,
+      onNeedsProfile,
+    });
+
+    expect(setSnapshot).toHaveBeenCalledTimes(1);
+    const snapshotArg = setSnapshot.mock.calls[0][0] as { lifecycle: string };
+    expect(snapshotArg.lifecycle).toBe('ended');
+    expect(snapshotArg.lifecycle).not.toBe('pregnant');
 
     expect(onLogout).not.toHaveBeenCalled();
     expect(onNeedsProfile).not.toHaveBeenCalled();

@@ -76,13 +76,27 @@ export function buildCalendarTabSnapshot({
     return snap;
   }
 
-  // Pregnant: use client-derived ga.gestationalWeek (not advisory profile value).
+  // Pregnant / ended (loss): use client-derived ga.gestationalWeek when
+  // available (not advisory profile value); ga is null for 'ended' so
+  // gestationalWeek falls back to 0 (progress content is suppressed
+  // downstream by the lifecycle==='ended' gate, not by this number).
   // birthDate is null — no birth event has occurred yet.
+  //
+  // RED-LINE (appsec + mobile-reviewer BLOCKER): lifecycle is threaded
+  // through RAW from profile.lifecycle — NEVER hard-coded/defaulted to
+  // 'pregnant'. A previous version of this branch hard-coded
+  // lifecycle:'pregnant' here, which meant every 'ended' profile (a mother
+  // who just recorded a pregnancy loss) got silently remapped back to
+  // 'pregnant' the moment this snapshot was built — re-opening the loss gate
+  // (ProfileHubScreen reopen row, CalendarScreen progress suppression,
+  // suggestionEngine, WeeklyMilestoneSheet all read snapshot.lifecycle
+  // directly and trust it). See calendarTabSnapshotBuilder.test.ts
+  // "ended (loss) path" for the fail-on-revert tests.
   const snap: ProfileSnapshot = {
     gestationalWeek: ga?.gestationalWeek ?? 0,
     edd: profile.edd,
     todayCivil,
-    lifecycle: 'pregnant',
+    lifecycle: profile.lifecycle,
     generalHealthConsented,
     birthDate: null,
   };

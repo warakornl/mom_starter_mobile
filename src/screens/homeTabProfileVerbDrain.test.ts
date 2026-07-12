@@ -16,8 +16,10 @@
 
 import { runHomeTabProfileVerbDrain } from './homeTabProfileVerbDrain';
 import { profileVerbQueue, resetProfileVerbQueue, resetProfileVerbSyncEngine } from '../pregnancy/profileVerbSyncSingleton';
+import { applyAdoptedProfileToHomeTab } from './homeTabAdoptOnDrain';
 import type { TokenStorage } from '../auth/tokenStorage';
 import type { PregnancyProfile } from '../pregnancy/types';
+import type { ProfileSnapshot } from '../pregnancy/PregnancyProfileContext';
 
 function fakeTokenStorage(accessToken: string | null): TokenStorage {
   return {
@@ -102,5 +104,76 @@ describe('runHomeTabProfileVerbDrain', () => {
       onAdopt: () => {},
     });
     expect(fetchFn).not.toHaveBeenCalled();
+  });
+
+  // ── RED-LINE (appsec + mobile-reviewer BLOCKER): a queued loss that drains
+  // successfully must adopt lifecycle:'ended' into the shared ProfileSnapshot —
+  // NEVER snap back to 'pregnant'. This test drives the REAL production path
+  // end-to-end: a real profileVerbQueue entry -> real runHomeTabProfileVerbDrain
+  // -> real drainProfileVerbQueue -> real dispatchProfileVerbEntry (loss_event ->
+  // client.recordLossEvent) -> real onAdopt handler (applyAdoptedProfileToHomeTab,
+  // the exact function HomeTabScreen.tsx wires in production). Only the fetch
+  // boundary is stubbed. No snapshot is injected — it is BUILT by the real code.
+  it('a queued loss_event that drains 200 with lifecycle:"ended" adopts a snapshot with lifecycle:"ended" (NEVER "pregnant")', async () => {
+    profileVerbQueue.enqueue({
+      verb: 'loss_event',
+      targetProfileId: 'profile-loss-1',
+      baseVersion: 5,
+      body: { lossDate: '2026-01-10' },
+      clientDate: '2026-01-10',
+      intendedLifecycle: 'ended',
+    });
+    await profileVerbQueue.persist();
+
+    const fetchFn = jest.fn(async () =>
+      new Response(
+        JSON.stringify({
+          id: 'profile-loss-1',
+          version: 6,
+          edd: '2026-02-10',
+          eddBasis: 'due_date',
+          lifecycle: 'ended',
+          birthDate: null,
+          createdAt: '2025-06-01T00:00:00Z',
+          updatedAt: '2026-01-10T00:00:00Z',
+          gestationalWeek: null,
+          gestationalDay: null,
+          daysRemaining: null,
+          progress: null,
+          currentStage: 'T3',
+          deliveryWindowActive: false,
+        }),
+        { status: 200 },
+      ),
+    );
+
+    let adoptedSnapshot: ProfileSnapshot | null = null;
+    const setState = jest.fn();
+    const setSnapshot = jest.fn((snap: ProfileSnapshot) => { adoptedSnapshot = snap; });
+
+    await runHomeTabProfileVerbDrain({
+      tokenStorage: fakeTokenStorage('tok'),
+      apiBaseUrl: 'https://api.test',
+      liveProfileVersion: 5,
+      fetchFn,
+      onAdopt: (profile: PregnancyProfile) => {
+        // This IS the real production onAdopt wiring — see HomeTabScreen.tsx.
+        applyAdoptedProfileToHomeTab({
+          profile,
+          generalHealthConsented: true,
+          setState,
+          setSnapshot,
+          setLoadedEdd: () => {},
+          setLoadedBirthDate: () => {},
+        });
+      },
+    });
+
+    expect(fetchFn).toHaveBeenCalledTimes(1);
+    expect(profileVerbQueue.getEntries()).toHaveLength(0);
+    expect(setSnapshot).toHaveBeenCalledTimes(1);
+    expect(adoptedSnapshot).not.toBeNull();
+    expect(adoptedSnapshot!.lifecycle).toBe('ended');
+    expect(adoptedSnapshot!.lifecycle).not.toBe('pregnant');
   });
 });

@@ -205,6 +205,90 @@ describe('buildCalendarTabSnapshot — pregnant path', () => {
   });
 });
 
+// ─── Ended (loss) path ─────────────────────────────────────────────────────────
+// RED-LINE regression test (appsec + mobile-reviewer BLOCKER): the builder had
+// NO 'ended' branch — every non-postpartum profile (including lifecycle='ended'
+// after a successful loss-event sync) fell into the pregnant `else` branch and
+// was hard-coded to lifecycle:'pregnant'. That silently RE-OPENED the loss gate
+// on every consumer (ProfileHubScreen reopen row, CalendarScreen progress
+// suppression, suggestionEngine, WeeklyMilestoneSheet) for a mother who had
+// just recorded a loss. The fix: pass profile.lifecycle straight through raw —
+// NEVER default/remap it. This test must fail if that branch regresses.
+
+describe('buildCalendarTabSnapshot — ended (loss) path', () => {
+  function makeEndedProfile(overrides: Partial<PregnancyProfile> = {}): PregnancyProfile {
+    return {
+      id: 'p-003',
+      edd: '2026-02-10',
+      eddBasis: 'due_date',
+      lifecycle: 'ended',
+      birthDate: null,
+      version: 3,
+      createdAt: '2025-06-01T00:00:00Z',
+      updatedAt: '2026-01-10T00:00:00Z',
+      gestationalWeek: null,
+      gestationalDay: null,
+      daysRemaining: null,
+      progress: null,
+      currentStage: 'T3',
+      deliveryWindowActive: false,
+      ...overrides,
+    };
+  }
+
+  it('sets lifecycle to ended — NEVER pregnant (RED-LINE)', () => {
+    const profile = makeEndedProfile();
+    const result = buildCalendarTabSnapshot({
+      profile,
+      ga: null,
+      generalHealthConsented: true,
+      todayCivil: '2026-01-10',
+    });
+    expect(result.lifecycle).toBe('ended');
+    expect(result.lifecycle).not.toBe('pregnant');
+  });
+
+  it('ended snapshot has gestationalWeek 0 (progress content suppressed downstream)', () => {
+    const profile = makeEndedProfile();
+    const result = buildCalendarTabSnapshot({
+      profile,
+      ga: null,
+      generalHealthConsented: true,
+      todayCivil: '2026-01-10',
+    });
+    expect(result.gestationalWeek).toBe(0);
+  });
+
+  it('preserves edd from profile even when ended', () => {
+    const profile = makeEndedProfile({ edd: '2026-02-10' });
+    const result = buildCalendarTabSnapshot({
+      profile,
+      ga: null,
+      generalHealthConsented: true,
+      todayCivil: '2026-01-10',
+    });
+    expect(result.edd).toBe('2026-02-10');
+  });
+
+  it('exact snapshot shape for ended — all fields non-undefined', () => {
+    const profile = makeEndedProfile({ edd: '2026-02-10' });
+    const snapshot = buildCalendarTabSnapshot({
+      profile,
+      ga: null,
+      generalHealthConsented: true,
+      todayCivil: '2026-01-10',
+    });
+    expect(snapshot).toEqual({
+      gestationalWeek: 0,
+      edd: '2026-02-10',
+      todayCivil: '2026-01-10',
+      lifecycle: 'ended',
+      generalHealthConsented: true,
+      birthDate: null,
+    });
+  });
+});
+
 // ─── Postpartum path ───────────────────────────────────────────────────────────
 
 describe('buildCalendarTabSnapshot — postpartum path', () => {

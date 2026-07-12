@@ -1000,10 +1000,16 @@ function StackNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps): React
 
       {/* ManageConsents — S8 PDPA ม.19 withdrawal.
        * Entry: Settings > Manage Permissions.
+       *
+       * headerShown: false — ManageConsentsScreen renders its OWN back button
+       * (a full-bleed custom screen, same convention as AutoDecrementSettingsScreen /
+       * SubUnitSetupScreen / CaptureScreen). Bug fix (owner report 2026-07): this
+       * route previously omitted headerShown: false, so the native-stack header
+       * ALSO rendered a back button — two back affordances on one screen.
        */}
       <Stack.Screen
         name="ManageConsents"
-        options={{ title: t('consent.manage.title'), headerBackTitle: t('general.back') }}
+        options={{ title: t('consent.manage.title'), headerShown: false }}
       >
         {({ navigation }) => (
           <ManageConsentsScreen
@@ -1051,10 +1057,17 @@ function StackNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps): React
        *   [3] → enableFeature() → requestPermission() (OS prompt fires HERE)
        *
        * SD-9: params = undefined (no health data in route params).
+       *
+       * headerShown: false — CalendarSyncSettingsScreen renders its OWN back
+       * button (full-bleed custom screen, same convention as
+       * AutoDecrementSettingsScreen / FeedingLogScreen). Bug fix (owner report
+       * 2026-07): this route previously omitted headerShown: false, so the
+       * native-stack header ALSO rendered a back button — two back
+       * affordances on one screen.
        */}
       <Stack.Screen
         name="CalendarSyncSettings"
-        options={{ title: 'ซิงก์ปฏิทินในเครื่อง', headerBackTitle: t('general.back') }}
+        options={{ title: 'ซิงก์ปฏิทินในเครื่อง', headerShown: false }}
       >
         {({ navigation }) => (
           <CalendarSyncSettingsScreen

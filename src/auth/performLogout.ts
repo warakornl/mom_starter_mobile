@@ -26,6 +26,15 @@ export interface LogoutDeps {
    */
   resetConsentQueue?: () => Promise<void>;
   /**
+   * Clear the durable profileVerbQueue (in-memory + persisted) — the direct-
+   * REST offline-resilience adjunct queue for edit_profile/loss_event/
+   * reopen/birth_event. Prevents a prior-session queued verb (e.g. a queued
+   * loss-event) for User A from being POSTed under User B's token on the
+   * next foreground drain (cross-user contamination guard, same posture as
+   * resetConsentQueue — N1-parity).
+   */
+  resetProfileVerbQueue?: () => Promise<void>;
+  /**
    * Reset the suggestion dismiss/snooze store (clears durable SecureStore too).
    * Prevents User A's dismissed/snoozed suggestions from appearing for User B
    * after a cold start (PDPA cross-account data leak — MUST clear on logout).
@@ -101,6 +110,11 @@ export async function performLogout(deps: LogoutDeps): Promise<void> {
   });
   if (deps.resetConsentQueue) {
     await deps.resetConsentQueue().catch(() => {
+      // Queue clear is best-effort; never blocks logout.
+    });
+  }
+  if (deps.resetProfileVerbQueue) {
+    await deps.resetProfileVerbQueue().catch(() => {
       // Queue clear is best-effort; never blocks logout.
     });
   }

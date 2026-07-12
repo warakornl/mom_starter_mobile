@@ -116,6 +116,29 @@ describe('performLogout — clears tokens + all health stores, then navigates', 
     expect(calls[calls.length - 1]).toBe('onComplete');
   });
 
+  it('calls resetProfileVerbQueue when provided (N1-parity — durable profile-verb queue cleared on logout, direct-rest-offline-resilience OR-INV cross-user guard)', async () => {
+    const { deps, calls } = makeDeps({
+      resetProfileVerbQueue: async () => { calls.push('resetProfileVerbQueue'); },
+    });
+    await performLogout(deps);
+    expect(calls).toContain('resetProfileVerbQueue');
+    expect(calls[calls.length - 1]).toBe('onComplete');
+  });
+
+  it('still navigates when resetProfileVerbQueue is omitted (backward-compat, optional dep)', async () => {
+    const { deps, calls } = makeDeps(); // no resetProfileVerbQueue
+    await performLogout(deps);
+    expect(calls[calls.length - 1]).toBe('onComplete');
+  });
+
+  it('still navigates even if resetProfileVerbQueue rejects (best-effort)', async () => {
+    const { deps, calls } = makeDeps({
+      resetProfileVerbQueue: async () => { throw new Error('secure-store full'); },
+    });
+    await performLogout(deps);
+    expect(calls[calls.length - 1]).toBe('onComplete');
+  });
+
   it('calls resetSuggestionStore when provided (PDPA: no cross-account suggestion leak)', async () => {
     const { deps, calls } = makeDeps({
       resetSuggestionStore: () => { calls.push('resetSuggestionStore'); },

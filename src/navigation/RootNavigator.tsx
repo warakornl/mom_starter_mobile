@@ -108,6 +108,7 @@ import { kickCountSyncStore } from '../kickCount/kickCountSyncStore';
 import { clearDraft } from '../kickCount/kickCountDraftStore';
 import { consentStore } from '../consent/consentStore';
 import { resetConsentQueue } from '../consent/consentSync';
+import { resetProfileVerbQueue } from '../pregnancy/profileVerbSyncSingleton';
 import { suggestionStore } from '../suggestion/suggestionStore';
 import { expensesSyncStore } from '../expenses/expensesSyncStore';
 import { selfLogSyncStore } from '../selfLog/selfLogSyncStore';
@@ -499,6 +500,7 @@ function StackNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps): React
                 resetStockDecrementMarkerStore: () => stockDecrementMarkerStore.reset(),
                 resetConsentStore: () => consentStore.reset(),
                 resetConsentQueue: () => resetConsentQueue(),
+                resetProfileVerbQueue: () => resetProfileVerbQueue(),
                 resetSuggestionStore: () => suggestionStore.reset(),
                 resetExpensesStore: () => expensesSyncStore.reset(),
                 clearKickCountDraft: () => clearDraft(),
@@ -765,6 +767,7 @@ function StackNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps): React
                 resetStockDecrementMarkerStore: () => stockDecrementMarkerStore.reset(),
                 resetConsentStore: () => consentStore.reset(),
                 resetConsentQueue: () => resetConsentQueue(),
+                resetProfileVerbQueue: () => resetProfileVerbQueue(),
                 resetSuggestionStore: () => suggestionStore.reset(),
                 resetExpensesStore: () => expensesSyncStore.reset(),
                 clearKickCountDraft: () => clearDraft(),
@@ -818,6 +821,7 @@ function StackNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps): React
                 resetStockDecrementMarkerStore: () => stockDecrementMarkerStore.reset(),
                 resetConsentStore: () => consentStore.reset(),
                 resetConsentQueue: () => resetConsentQueue(),
+                resetProfileVerbQueue: () => resetProfileVerbQueue(),
                 resetSuggestionStore: () => suggestionStore.reset(),
                 resetExpensesStore: () => expensesSyncStore.reset(),
                 clearKickCountDraft: () => clearDraft(),
@@ -868,6 +872,7 @@ function StackNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps): React
                 resetStockDecrementMarkerStore: () => stockDecrementMarkerStore.reset(),
                 resetConsentStore: () => consentStore.reset(),
                 resetConsentQueue: () => resetConsentQueue(),
+                resetProfileVerbQueue: () => resetProfileVerbQueue(),
                 resetSuggestionStore: () => suggestionStore.reset(),
                 resetExpensesStore: () => expensesSyncStore.reset(),
                 clearKickCountDraft: () => clearDraft(),
@@ -906,6 +911,7 @@ function StackNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps): React
                 resetStockDecrementMarkerStore: () => stockDecrementMarkerStore.reset(),
                 resetConsentStore: () => consentStore.reset(),
                 resetConsentQueue: () => resetConsentQueue(),
+                resetProfileVerbQueue: () => resetProfileVerbQueue(),
                 resetSuggestionStore: () => suggestionStore.reset(),
                 resetExpensesStore: () => expensesSyncStore.reset(),
                 clearKickCountDraft: () => clearDraft(),
@@ -952,6 +958,7 @@ function StackNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps): React
                 resetStockDecrementMarkerStore: () => stockDecrementMarkerStore.reset(),
                 resetConsentStore: () => consentStore.reset(),
                 resetConsentQueue: () => resetConsentQueue(),
+                resetProfileVerbQueue: () => resetProfileVerbQueue(),
                 resetSuggestionStore: () => suggestionStore.reset(),
                 resetExpensesStore: () => expensesSyncStore.reset(),
                 clearKickCountDraft: () => clearDraft(),

@@ -55,6 +55,10 @@ import { T } from './src/theme/tokens';
 import { LanguageProvider } from './src/i18n/LanguageContext';
 import { consentStore } from './src/consent/consentStore';
 import { configureConsentQueueStorage, restoreConsentQueue } from './src/consent/consentSync';
+import {
+  configureProfileVerbQueueStorage,
+  restoreProfileVerbQueue,
+} from './src/pregnancy/profileVerbSyncSingleton';
 import { suggestionStore } from './src/suggestion/suggestionStore';
 import type { RootStackParamList } from './src/navigation/types';
 import { parseResetTokenFromUrl, setResetToken } from './src/deepLink/resetDeepLink';
@@ -85,6 +89,7 @@ export const navigationRef = createNavigationContainerRef<RootStackParamList>();
 const CONSENT_STATE_KEY = 'consent_state_v1';
 const CONSENT_QUEUE_KEY = 'consent_queue_v1';
 const SUGGESTION_STATE_KEY = 'suggestion_state_v1';
+const PROFILE_VERB_QUEUE_KEY = 'profile_verb_queue_v1';
 
 consentStore.configurePersistence({
   save: (json: string) => SecureStore.setItemAsync(CONSENT_STATE_KEY, json),
@@ -102,6 +107,20 @@ configureConsentQueueStorage({
 });
 
 void restoreConsentQueue();
+
+// profileVerbQueue (OR-STRUCT-1 / functional-spec §17.2): same at-rest
+// posture as the consent queue (expo-secure-store now; encrypted SQLite
+// when it lands). Restored at startup so a verb queued in a prior session
+// that never reached HomeTabScreen still drains (NO headless-while-killed
+// send — this only RESTORES into memory; the actual drain happens on the
+// next AppState 'active' foreground, which HomeTabScreen also triggers
+// once it mounts and receives its first 'active' event).
+configureProfileVerbQueueStorage({
+  save: (json: string) => SecureStore.setItemAsync(PROFILE_VERB_QUEUE_KEY, json),
+  load: () => SecureStore.getItemAsync(PROFILE_VERB_QUEUE_KEY),
+});
+
+void restoreProfileVerbQueue();
 
 // ─── Device-calendar bridge: wire the appointment observer (architecture §2) ───
 //

@@ -146,6 +146,45 @@ describe('consentClient.postConsent', () => {
     expect(body.granted).toBe(false);
     expect(body.consentType).toBe('cloud_storage');
   });
+
+  // ─── Bug #3 (owner report 2026-07): toggle ON errored EVERY time ────────────
+  //
+  // ROOT CAUSE: postConsent gated success on the exact literal `res.status === 201`
+  // instead of `res.ok` (the 2xx range). Every other mutating client call in this
+  // codebase (pregnancyApiClient PUT /v1/pregnancy-profile, accountApiClient POST
+  // endpoints) gates success on `res.ok` first, using `res.status === 201` only as
+  // a SECONDARY informational flag (e.g. `created = res.status === 201`) — never
+  // as the sole success condition. Any real 2xx response other than exactly 201
+  // (e.g. 200 OK, a common Spring Boot ResponseEntity.ok(...) default) made EVERY
+  // consent toggle — for every consent type, uniformly — fall into the error
+  // branch, matching the owner's report exactly ("errors every time").
+  it('returns ok:true + record on 200 (not just 201) — success must gate on res.ok, not a literal status', async () => {
+    const client = createConsentApiClient(BASE, makeResponse(200, SAMPLE_RECORD));
+    const r = await client.postConsent('general_health', true, 'v1.0-th', TOKEN);
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      expect(r.record.consentType).toBe('general_health');
+      expect(r.record.granted).toBe(true);
+    }
+  });
+
+  it('still returns ok:false + code on a genuine 4xx/5xx (e.g. 422 unknown consent type)', async () => {
+    const client = createConsentApiClient(
+      BASE,
+      makeResponse(422, { code: 'unknown_consent_type', message: 'bad type' }),
+    );
+    const r = await client.postConsent(
+      'general_health' as never,
+      true,
+      'v1.0-th',
+      TOKEN,
+    );
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.status).toBe(422);
+      expect(r.code).toBe('unknown_consent_type');
+    }
+  });
 });
 
 // ─── getConsents ──────────────────────────────────────────────────────────────

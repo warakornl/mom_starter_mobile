@@ -77,7 +77,14 @@ export function createConsentApiClient(baseUrl: string, fetchFn: FetchFn = fetch
           body: JSON.stringify({ consentType, granted, consentTextVersion }),
         });
 
-        if (res.status === 201) {
+        // Bug #3 fix (owner report 2026-07): gate success on res.ok (the full
+        // 2xx range), matching every other mutating client in this codebase
+        // (pregnancyApiClient PUT, accountApiClient POST) — NOT a literal
+        // `res.status === 201`. A backend that legitimately answers 200 (or
+        // any other 2xx) must not be treated as a failure; the previous
+        // 201-only check made EVERY consent toggle error uniformly whenever
+        // the real endpoint's success code differed from exactly 201.
+        if (res.ok) {
           const record = (await res.json()) as PostConsentResponse;
           return { ok: true, record };
         }

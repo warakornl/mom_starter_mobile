@@ -113,7 +113,7 @@ describe('SuggestionBanner — ห้องแม่ Phase 2 B4 reskin', () => {
 
   it('card bg is T.color.surface.wash.amber (amber-100)', () => {
     const tree = SuggestionBanner(baseProps) as React.ReactElement;
-    const s = flat((tree as React.ReactElement).props.style);
+    const s = flat((tree.props as Record<string, unknown>).style);
     expect(s.backgroundColor).toBe(T.color.surface.wash.amber);
   });
 

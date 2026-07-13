@@ -278,7 +278,7 @@ describe('WelcomeScreen — ห้องแม่ Phase 2 B1 reskin', () => {
   // ── Screen bg ──────────────────────────────────────────────────────────────
 
   it('container bg is surface.base #FBF6F1', () => {
-    const s = flatStyle(tree.props.style);
+    const s = flatStyle((tree.props as Record<string, unknown>).style);
     expect(s.backgroundColor).toBe(T.color.surface.base);
   });
 });

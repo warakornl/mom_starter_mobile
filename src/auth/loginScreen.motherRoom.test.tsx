@@ -279,7 +279,7 @@ describe('LoginScreen — ห้องแม่ Phase 2 B1 reskin (style asserti
 
   it('flex root bg is surface.base #FBF6F1', () => {
     // KeyboardAvoidingView is the outermost element
-    const s = flat(tree.props.style);
+    const s = flat((tree.props as Record<string, unknown>).style);
     expect(s.backgroundColor).toBe(T.color.surface.base);
   });
 });

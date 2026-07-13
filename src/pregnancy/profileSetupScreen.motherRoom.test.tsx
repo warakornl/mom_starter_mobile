@@ -137,7 +137,7 @@ describe('ProfileSetupScreen — ห้องแม่ Phase 2 B1 reskin', () =>
 
   it('container bg is surface.base', () => {
     const tree = ProfileSetupScreen(baseProps) as React.ReactElement;
-    const s = flat(tree.props.style);
+    const s = flat((tree.props as Record<string, unknown>).style);
     expect(s.backgroundColor).toBe(T.color.surface.base);
   });
 

@@ -117,7 +117,7 @@ function createFileSystemMapStorage(): CalendarMapStorage {
     async save(json: string): Promise<void> {
       try {
         // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const FileSystem = require('expo-file-system') as typeof import('expo-file-system');
+        const FileSystem = require('expo-file-system/legacy') as typeof import('expo-file-system/legacy');
         await FileSystem.writeAsStringAsync(FileSystem.documentDirectory + KEY, json, {
           encoding: FileSystem.EncodingType.UTF8,
         });
@@ -128,7 +128,7 @@ function createFileSystemMapStorage(): CalendarMapStorage {
     async load(): Promise<string | null> {
       try {
         // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const FileSystem = require('expo-file-system') as typeof import('expo-file-system');
+        const FileSystem = require('expo-file-system/legacy') as typeof import('expo-file-system/legacy');
         const info = await FileSystem.getInfoAsync(FileSystem.documentDirectory + KEY);
         if (!info.exists) return null;
         return FileSystem.readAsStringAsync(FileSystem.documentDirectory + KEY, {
@@ -151,7 +151,7 @@ function createFileSystemSettingsStorage(): SettingsStorage {
     async save(json: string): Promise<void> {
       try {
         // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const FileSystem = require('expo-file-system') as typeof import('expo-file-system');
+        const FileSystem = require('expo-file-system/legacy') as typeof import('expo-file-system/legacy');
         await FileSystem.writeAsStringAsync(FileSystem.documentDirectory + KEY, json, {
           encoding: FileSystem.EncodingType.UTF8,
         });
@@ -162,7 +162,7 @@ function createFileSystemSettingsStorage(): SettingsStorage {
     async load(): Promise<string | null> {
       try {
         // eslint-disable-next-line @typescript-eslint/no-var-requires
-        const FileSystem = require('expo-file-system') as typeof import('expo-file-system');
+        const FileSystem = require('expo-file-system/legacy') as typeof import('expo-file-system/legacy');
         const info = await FileSystem.getInfoAsync(FileSystem.documentDirectory + KEY);
         if (!info.exists) return null;
         return FileSystem.readAsStringAsync(FileSystem.documentDirectory + KEY, {

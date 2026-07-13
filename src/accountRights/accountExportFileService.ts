@@ -165,8 +165,10 @@ export function createAccountExportFileService(
  * Call this only in React Native component code, not in pure-logic modules.
  *
  * Deps:
- *  - expo-file-system@17.0.1 (SDK-51-correct; added as direct dep to package.json)
- *  - expo-sharing@57.0.1 (pre-existing; the 57.x pin predates this slice)
+ *  - expo-file-system@~19.0.23 (SDK-54; the new default export dropped the
+ *    string-constant/`*Async` legacy API in favor of File/Directory classes —
+ *    `expo-file-system/legacy` preserves the exact old API surface used here)
+ *  - expo-sharing@~14.0.8 (SDK-54-aligned)
  *
  * Security note (AR-AC-23): dev-only network inspectors (Flipper / Reactotron /
  * RN network inspector) MUST be stripped from release builds. This service does
@@ -176,7 +178,7 @@ export function createProductionAccountExportFileService(): AccountExportFileSer
   // Dynamic require — keeps this module importable in Node (jest) without
   // crashing on missing native modules.
   // eslint-disable-next-line @typescript-eslint/no-var-requires
-  const FileSystem = require('expo-file-system') as {
+  const FileSystem = require('expo-file-system/legacy') as {
     cacheDirectory: string | null;
     writeAsStringAsync: (
       uri: string,

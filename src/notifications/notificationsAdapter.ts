@@ -119,7 +119,10 @@ export function createRealAdapter(): NotificationsAdapter {
           // the reminder's hideOnLockScreen flag is honoured by the OS category set
           // at notification-category registration time (ADR Decision 2 "iOS actionable").
         },
-        trigger: fireAt, // DateTriggerInput: Date → schedules at that exact local time
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.DATE,
+          date: fireAt,
+        }, // DateTriggerInput: schedules at that exact local time
       });
     },
 

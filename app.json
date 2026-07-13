@@ -13,7 +13,9 @@
       "backgroundColor": "#FBF6F1"
     },
     "scheme": "momstarter",
-    "assetBundlePatterns": ["**/*"],
+    "assetBundlePatterns": [
+      "**/*"
+    ],
     "plugins": [
       [
         "expo-notifications",
@@ -22,7 +24,10 @@
           "color": "#A8505A",
           "sounds": []
         }
-      ]
+      ],
+      "@react-native-community/datetimepicker",
+      "expo-secure-store",
+      "expo-font"
     ],
     "ios": {
       "supportsTablet": false,

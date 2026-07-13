@@ -146,6 +146,12 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'flex-start',               // left-aligned per spec
+    // Owner live-test (2026-07): headline read as "ตกขอบซ้าย" (too tight to the
+    // left). Owner chose "keep left-aligned but move further from the edge", so
+    // the headline gets an extra inset ON TOP of the container's 24dp gutter
+    // (→ ~36dp from the screen edge). CTAs stay at the 24dp gutter (this inset
+    // is scoped to the headline block only), matching the approved layout.
+    paddingHorizontal: T.spacing[3],        // +12dp headline-only inset
     paddingBottom: T.spacing[6],            // 24dp
   },
   appName: {

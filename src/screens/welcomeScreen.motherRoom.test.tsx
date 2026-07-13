@@ -281,4 +281,26 @@ describe('WelcomeScreen — ห้องแม่ Phase 2 B1 reskin', () => {
     const s = flatStyle((tree.props as Record<string, unknown>).style);
     expect(s.backgroundColor).toBe(T.color.surface.base);
   });
+
+  // ── Headline inset (owner live-test fix: "ตกขอบซ้าย") ──────────────────────
+  // The headline block (the flex-start lockup that holds appName + tagline) must
+  // carry an extra horizontal inset on top of the container gutter so the text
+  // sits further from the left edge. Fail-on-revert: removing the inset breaks it.
+
+  it('headline block has a +12dp horizontal inset (owner "ตกขอบซ้าย" fix)', () => {
+    const headline = findFirst(
+      tree,
+      (el) => {
+        if (el.type !== 'View') return false;
+        const s = flatStyle((el.props as Record<string, unknown>).style);
+        return s.alignItems === 'flex-start';
+      },
+    );
+    expect(headline).not.toBeNull();
+    const s = flatStyle((headline!.props as Record<string, unknown>).style);
+    expect(s.paddingHorizontal).toBe(T.spacing[3]); // 12dp headline-only inset
+    // and it must be additive to the container's own gutter (both present)
+    const container = flatStyle((tree.props as Record<string, unknown>).style);
+    expect(container.paddingHorizontal).toBe(T.spacing[6]); // 24dp gutter unchanged
+  });
 });

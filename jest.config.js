@@ -27,7 +27,10 @@ module.exports = {
       preset: 'jest-expo',
       roots: ['<rootDir>/src'],
       setupFiles: ['<rootDir>/jest.setup.tz.js'],
-      setupFilesAfterEnv: ['@testing-library/react-native/extend-expect'],
+      // @testing-library/react-native v13 auto-registers its jest matchers
+      // (toBeVisible, toHaveTextContent, ...) on import — the separate
+      // "extend-expect" subpath entrypoint was removed. No setupFilesAfterEnv
+      // entry is needed anymore.
       testMatch: ['**/*.rntl.test.tsx'],
       // Extend (not replace) jest-expo's default transformIgnorePatterns[0]
       // allowlist to also transform `uuid`'s ESM build (RootNavigator pulls

@@ -1113,9 +1113,14 @@ function StackNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps): React
        * onLevelSelected → changePrivacyLevel() → full re-mask sweep (AC-5.2).
        * SD-9: params = undefined.
        */}
+      {/* headerShown: false — CalendarSyncPrivacyLevelScreen renders its OWN back
+       * button AND its own H1. This route previously omitted the flag, so the
+       * native-stack header stacked a 2nd back control + duplicated the title
+       * (same duplicate-back-button class fixed on CalendarSyncSettings/
+       * ManageConsents; recurred here — full-app UX review 2026-07). */}
       <Stack.Screen
         name="CalendarSyncPrivacyLevel"
-        options={{ title: 'ระดับความเป็นส่วนตัว', headerBackTitle: t('general.back') }}
+        options={{ title: 'ระดับความเป็นส่วนตัว', headerShown: false }}
       >
         {({ navigation }) => (
           <CalendarSyncPrivacyLevelScreen

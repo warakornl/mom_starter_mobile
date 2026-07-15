@@ -118,4 +118,25 @@ describe('exactly one back affordance per screen (no duplicate back buttons)', (
       expect(cfg.props.hidden).toBe(true);
     }
   });
+
+  // Regression: the SAME duplicate-back-button class recurred on the adjacent
+  // CalendarSyncPrivacyLevel screen (full-app UX review 2026-07) — it renders
+  // its own back button + H1 but its route omitted headerShown:false.
+  it('CalendarSyncPrivacyLevel: native header back button must be hidden (screen owns its own back button)', async () => {
+    renderAt('CalendarSyncPrivacyLevel');
+
+    await waitFor(() => {
+      expect(screen.getByTestId('calendar-sync-privacy-level-screen')).toBeTruthy();
+    });
+
+    // 1. The screen's own visible back button is present (by design).
+    expect(screen.getByTestId('privacy-level-back-btn')).toBeTruthy();
+
+    // 2. The native header for THIS screen must be fully hidden.
+    const headerConfigs = headerConfigsForTitle('ระดับความเป็นส่วนตัว');
+    expect(headerConfigs.length).toBeGreaterThan(0);
+    for (const cfg of headerConfigs) {
+      expect(cfg.props.hidden).toBe(true);
+    }
+  });
 });

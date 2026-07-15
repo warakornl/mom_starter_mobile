@@ -88,6 +88,21 @@ interface FormState {
   lowThreshold: string;
 }
 
+// i18n GAP (REPORT to system-analyst/i18n owner — do NOT edit messages.ts from
+// this cluster): no 'supplies.offlinePill' or 'supplies.addFirst' key exists
+// yet. ExpensesScreen already has both keys; SuppliesScreen needs the same
+// two added to the catalog (th + en) so this calm-offline copy and "add first
+// item" CTA can go through useT() like every other string on this screen.
+// Local fallback constants below unblock the UI fix now; replace with
+// t('supplies.offlinePill') / t('supplies.addFirst') once the keys land.
+const OFFLINE_PILL_FALLBACK_TH = 'ออฟไลน์ · จะซิงค์เมื่อมีเน็ต';
+const ADD_FIRST_FALLBACK_TH = 'เพิ่มรายการแรก';
+// ExpensesScreen has 'expenses.deleteToast' / 'expenses.deleteUndo' — the same
+// two keys ('supplies.deleteToast' / 'supplies.deleteUndo') should be added to
+// the catalog for SuppliesScreen (REPORT — do not edit messages.ts here).
+const DELETE_TOAST_FALLBACK_TH = 'ลบรายการแล้ว';
+const DELETE_UNDO_FALLBACK_TH = 'เลิกทำ';
+
 const EMPTY_FORM: FormState = {
   id: undefined,
   name: '',
@@ -294,6 +309,8 @@ const formStyles = StyleSheet.create({
   categoryChip: {
     paddingHorizontal: 14,
     paddingVertical: 8,
+    minHeight: 48,                                                          // ≥48dp touch target (a11y) — was ~37dp
+    justifyContent: 'center',
     borderRadius: T.radius.pill,                                            // 999
     borderWidth: 1,
     borderColor: T.color.surface.divider,                                   // #E8DDD5 (from #EBE1D9)
@@ -439,9 +456,19 @@ export function SuppliesScreen({
   const [formVisible, setFormVisible] = useState(false);
   const [form, setForm] = useState<FormState>(EMPTY_FORM);
   const [syncing, setSyncing] = useState(false);
+  // syncError: non-null only for genuine server/client errors (not offline).
+  // isOffline: true when the last pull or push failed with code='network_error'.
+  // Split (review fix, matches ExpensesScreen §4.5): offline shows a calm pill,
+  // real errors show the (still blameless-copy) error banner.
   const [syncError, setSyncError] = useState<string | null>(null);
+  const [isOffline, setIsOffline] = useState(false);
   const [conflictCount, setConflictCount] = useState(0);
   const [rejectedItems, setRejectedItems] = useState<RejectedRecord[]>([]);
+
+  // Undo-delete toast state (review fix — gentler pattern, matches ExpensesScreen)
+  const [deleteToastVisible, setDeleteToastVisible] = useState(false);
+  const [undoItem, setUndoItem] = useState<SupplyItemRecord | null>(null);
+  const undoTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // SyncClient is cheap to create per session (store is module-level singleton)
   const clientRef = useRef(createSyncClient(apiBaseUrl, supplySyncStore));
@@ -459,6 +486,7 @@ export function SuppliesScreen({
 
     setSyncing(true);
     setSyncError(null);
+    setIsOffline(false);
 
     const result = await clientRef.current.pull(
       tokens.accessToken,
@@ -469,9 +497,14 @@ export function SuppliesScreen({
     refreshFromStore();
 
     if (!result.ok) {
+      // 'network_error' = offline (fetch threw); all other codes are real errors.
       // 403 consent_required → sync gated; app works offline
       // 409 watermark_expired → carry-forward: trigger full-resync
-      setSyncError(t('supplies.syncError'));
+      if (result.code === 'network_error') {
+        setIsOffline(true);
+      } else {
+        setSyncError(t('supplies.syncError'));
+      }
     }
   }, [tokenStorage, refreshFromStore, t]);
 
@@ -485,6 +518,7 @@ export function SuppliesScreen({
 
     setSyncing(true);
     setSyncError(null);
+    setIsOffline(false);
 
     // executePush: drains the queue, pushes, and re-enqueues on fail or
     // rejection (contract §3 — mutations must never be silently lost).
@@ -501,7 +535,12 @@ export function SuppliesScreen({
     // Always set banner state unconditionally so a clean subsequent push
     // clears a previously-displayed conflict/rejected banner (🟡-1 fix).
     if (!result.ok) {
-      setSyncError(t('supplies.syncError'));
+      // 'network_error' = offline (fetch threw); all other codes are real errors.
+      if (result.code === 'network_error') {
+        setIsOffline(true);
+      } else {
+        setSyncError(t('supplies.syncError'));
+      }
       setConflictCount(0);
       setRejectedItems([]);
     } else {
@@ -620,13 +659,45 @@ export function SuppliesScreen({
           text: t('supplies.deleteConfirmOk'),
           style: 'destructive',
           onPress: () => {
+            // Gentler pattern (review fix, aligned with ExpensesScreen's
+            // undo-toast): tombstone locally + queue delete immediately, but
+            // defer the push + show an Undo toast so the mother has a
+            // moment to reverse an accidental delete before it syncs away.
             supplySyncStore.enqueueDelete(item.id);
             refreshFromStore();
-            void syncPush();
+
+            setUndoItem({ ...item });
+            setDeleteToastVisible(true);
+
+            if (undoTimerRef.current !== null) {
+              clearTimeout(undoTimerRef.current);
+            }
+            undoTimerRef.current = setTimeout(() => {
+              setDeleteToastVisible(false);
+              setUndoItem(null);
+              undoTimerRef.current = null;
+              void syncPush();
+            }, 4000);
           },
         },
       ],
     );
+  }
+
+  function handleUndoDelete(): void {
+    if (undoTimerRef.current !== null) {
+      clearTimeout(undoTimerRef.current);
+      undoTimerRef.current = null;
+    }
+    setDeleteToastVisible(false);
+
+    if (!undoItem) return;
+    // Re-insert with deletedAt: null — restores local state and queues an
+    // update so the item is preserved on the server (LWW: update wins).
+    supplySyncStore.enqueueUpdate({ ...undoItem, deletedAt: null });
+    setUndoItem(null);
+    refreshFromStore();
+    void syncPush();
   }
 
   // ─── Render ────────────────────────────────────────────────────────────────
@@ -639,6 +710,15 @@ export function SuppliesScreen({
           <Text style={styles.syncBarText}>{t('supplies.loading')}</Text>
         </View>
       )}
+      {/* Offline pill (review fix, matches ExpensesScreen §4.5): calm warm-neutral;
+          list stays interactive. Shown for network_error only — NOT the error banner. */}
+      {isOffline && !syncing && (
+        <View testID="supplies-offline-pill" style={styles.offlinePill}>
+          {/* i18n gap — see OFFLINE_PILL_FALLBACK_TH comment above (REPORT) */}
+          <Text style={styles.offlinePillText}>{OFFLINE_PILL_FALLBACK_TH}</Text>
+        </View>
+      )}
+      {/* Error banner: genuine server/client errors only (not offline). */}
       {syncError && (
         <TouchableOpacity
           testID="supplies-sync-error"
@@ -673,8 +753,19 @@ export function SuppliesScreen({
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.list}
         ListEmptyComponent={
-          <View style={styles.emptyContainer}>
+          <View testID="supplies-empty" style={styles.emptyContainer}>
             <Text style={styles.emptyText}>{t('supplies.empty')}</Text>
+            {/* "Add first item" CTA (review fix, matches ExpensesScreen's empty
+                state) — i18n gap, see ADD_FIRST_FALLBACK_TH comment (REPORT). */}
+            <TouchableOpacity
+              testID="supplies-add-empty"
+              style={styles.addFirstBtn}
+              onPress={openAdd}
+              accessibilityRole="button"
+              accessibilityLabel={ADD_FIRST_FALLBACK_TH}
+            >
+              <Text style={styles.addFirstBtnText}>{ADD_FIRST_FALLBACK_TH}</Text>
+            </TouchableOpacity>
           </View>
         }
         renderItem={({ item }) => (
@@ -731,6 +822,22 @@ export function SuppliesScreen({
         onSave={handleSave}
         onCancel={() => setFormVisible(false)}
       />
+
+      {/* Undo-delete toast (review fix — gentler pattern, matches ExpensesScreen) */}
+      {deleteToastVisible && (
+        <View testID="supplies-delete-toast" style={styles.deleteToast}>
+          <Text style={styles.deleteToastText}>{DELETE_TOAST_FALLBACK_TH}</Text>
+          <TouchableOpacity
+            testID="supplies-delete-undo"
+            onPress={handleUndoDelete}
+            accessibilityRole="button"
+            accessibilityLabel={DELETE_UNDO_FALLBACK_TH}
+            style={styles.deleteToastUndoBtn}
+          >
+            <Text style={styles.deleteToastUndoText}>{DELETE_UNDO_FALLBACK_TH}</Text>
+          </TouchableOpacity>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -756,6 +863,21 @@ const styles = StyleSheet.create({
     lineHeight: T.type.body.lineHeight,                                     // 25
     color: T.color.text.primary,                                            // #7A3A52 roselle-700 (from #4A7A56 — jade-600 at 15sp ok but spec says text.primary)
   },
+  // Offline pill (review fix, matches ExpensesScreen §4.5 — calm warm-neutral,
+  // list stays interactive).
+  offlinePill: {
+    backgroundColor: T.color.surface.wash.amber,                            // #FDF0D5 amber-100
+    paddingVertical: 6,
+    paddingHorizontal: T.spacing[4],                                        // 16dp
+    alignItems: 'center',
+  },
+  offlinePillText: {
+    fontFamily: T.type.body.fontFamily,                                     // Sarabun-Regular
+    fontSize: T.type.body.size,                                             // 15sp
+    lineHeight: T.type.body.lineHeight,                                     // 25
+    color: T.color.text.primary,                                           // #7A3A52 roselle-700
+  },
+  // Error banner (genuine server/client errors only — not offline)
   errorBar: {
     backgroundColor: T.color.surface.subtle,                                // #F5EDE6 ivory-200 (from #FBEDEE — per B3 spec: ivory-200 bg)
     paddingVertical: 8,
@@ -801,11 +923,13 @@ const styles = StyleSheet.create({
   },
   list: {
     padding: T.spacing[4],                                                  // 16dp
-    gap: 10,
+    // Row gap fix: container `gap` + a separately-sized separator doubled the
+    // visible gap between rows (10 + 10 = 20dp). Rely on the separator alone
+    // for inter-row spacing (matches ExpensesScreen's list/separator pattern).
     paddingBottom: 160, // space for FAB + refresh button
   },
   separator: {
-    height: 10,
+    height: T.spacing[2],                                                    // 8dp — single source of row spacing
   },
 
   // Empty state
@@ -820,6 +944,22 @@ const styles = StyleSheet.create({
     lineHeight: T.type.body.lineHeight,                                     // 25
     color: T.color.text.primary,                                            // #7A3A52 roselle-700 (from #94818A)
     textAlign: 'center',
+  },
+  // "Add first item" CTA (review fix, matches ExpensesScreen's empty state)
+  addFirstBtn: {
+    marginTop: 8,
+    height: T.button.primary.height,                                        // 52dp ✓
+    paddingHorizontal: 28,
+    backgroundColor: T.button.primary.bg,                                   // #9A5F0A amber-700
+    borderRadius: T.button.primary.radius,                                  // 12dp
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  addFirstBtnText: {
+    fontFamily: T.type.label.fontFamily,                                    // Sarabun-SemiBold
+    fontSize: T.type.body.size,                                             // 15sp
+    lineHeight: T.type.body.lineHeight,                                     // 25
+    color: T.color.text.onDark,                                             // #FFFFFF
   },
 
   // Refresh button
@@ -879,5 +1019,44 @@ const styles = StyleSheet.create({
     fontSize: T.type.body.size,
     fontFamily: T.type.label.fontFamily,
     fontWeight: T.type.label.fontWeight,
+  },
+
+  // Undo-delete toast (review fix — matches ExpensesScreen)
+  deleteToast: {
+    position: 'absolute',
+    bottom: 100,
+    left: T.spacing[4],                                                     // 16dp
+    right: T.spacing[4],                                                    // 16dp
+    backgroundColor: T.color.text.heading,                                  // #4A2230 roselle-900
+    borderRadius: T.radius.md,                                              // 12dp
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: T.spacing[4],                                        // 16dp
+    paddingVertical: 12,
+    shadowColor: T.elev[2].shadowColor,                                     // 'rgba(74,34,48,0.12)'
+    shadowOffset: T.elev[2].shadowOffset,                                   // { width:0, height:8 }
+    shadowOpacity: T.elev[2].shadowOpacity,                                 // 1
+    shadowRadius: T.elev[2].shadowRadius,                                   // 24
+    elevation: T.elev[2].elevation,                                         // 8
+  },
+  deleteToastText: {
+    fontFamily: T.type.body.fontFamily,                                     // Sarabun-Regular
+    fontSize: T.type.body.size,                                             // 15sp
+    lineHeight: T.type.body.lineHeight,                                     // 25
+    color: T.color.text.onDark,                                             // #FFFFFF
+    flex: 1,
+  },
+  deleteToastUndoBtn: {
+    paddingLeft: T.spacing[4],                                              // 16dp
+    paddingVertical: 4,
+    minHeight: 44,
+    justifyContent: 'center',
+  },
+  deleteToastUndoText: {
+    fontFamily: T.type.label.fontFamily,                                    // Sarabun-SemiBold
+    fontSize: T.type.body.size,                                             // 15sp
+    lineHeight: T.type.body.lineHeight,                                     // 25
+    color: T.color.text.onDark,                                             // #FFFFFF
   },
 });

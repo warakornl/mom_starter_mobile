@@ -111,9 +111,12 @@ const styles = StyleSheet.create({
     marginBottom: T.spacing[2],
   },
   fieldLabel: {
+    // R4: text.secondary (jade-600) is BANNED below 15sp — was caption (13sp).
+    // Bumped to type.body (15sp) so jade-600 satisfies the ≥15sp floor.
     color: T.color.text.secondary,
-    fontSize: T.type.caption.size,
-    fontFamily: T.type.caption.fontFamily,
+    fontSize: T.type.body.size,
+    lineHeight: T.type.body.lineHeight,
+    fontFamily: T.type.body.fontFamily,
     marginBottom: T.spacing[2],
   },
   chipRow: {
@@ -132,17 +135,21 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   chipSelected: {
-    backgroundColor: T.color.surface.subtle,
+    // Distinct fill for the selected chip (matches FeedingLogScreen's
+    // chipActive) — border-only selection was too subtle a cue.
+    backgroundColor: T.color.surface.wash.roselle,
     borderColor: T.color.accent.interactive,
   },
   chipText: {
     color: T.color.text.primary,
     fontSize: T.type.body.size,
+    lineHeight: T.type.body.lineHeight,
     fontFamily: T.type.body.fontFamily,
   },
   chipTextSelected: {
     color: T.color.accent.interactive,
     fontFamily: T.type.label.fontFamily,
     fontWeight: T.type.label.fontWeight,
+    lineHeight: T.type.label.lineHeight,
   },
 });

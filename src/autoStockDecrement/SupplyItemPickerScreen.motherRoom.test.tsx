@@ -364,6 +364,37 @@ describe('SupplyItemPickerScreen — FW-1: new i18n copy scanned by the REAL fw1
   });
 });
 
+describe('SupplyItemPickerScreen — review fix: "แนะนำ" (suggested) group label', () => {
+  it('shows the suggested-group label when both a suggested item and a non-suggested item exist', () => {
+    mockGetSupplyItems.mockReturnValue([DIAPER_ITEM, FEEDING_ITEM]); // diaper_change → 'diapers' suggested
+    const tree = SupplyItemPickerScreen(baseProps) as React.ReactElement; // activityType: diaper_change
+    const texts = collectText(tree);
+    expect(texts).toContain('แนะนำ');
+  });
+
+  it('does NOT show the label when every item is in the suggested category (label would be redundant)', () => {
+    mockGetSupplyItems.mockReturnValue([DIAPER_ITEM]);
+    const tree = SupplyItemPickerScreen(baseProps) as React.ReactElement;
+    const texts = collectText(tree);
+    expect(texts).not.toContain('แนะนำ');
+  });
+
+  it('does NOT show the label when no item matches the suggested category', () => {
+    mockGetSupplyItems.mockReturnValue([FEEDING_ITEM]); // activityType diaper_change suggests 'diapers'
+    const tree = SupplyItemPickerScreen(baseProps) as React.ReactElement;
+    const texts = collectText(tree);
+    expect(texts).not.toContain('แนะนำ');
+  });
+
+  it('the fallback "แนะนำ" copy passes the real FW-1 scanner (no brand/promo)', () => {
+    const { isFW1Clean, scanForFW1Violations } = jest.requireActual<
+      typeof import('./fw1Scanner')
+    >('./fw1Scanner');
+    expect(scanForFW1Violations('แนะนำ')).toEqual([]);
+    expect(isFW1Clean('แนะนำ')).toBe(true);
+  });
+});
+
 describe('SupplyItemPickerScreen — back navigation', () => {
   it('back button invokes onBack', () => {
     const onBack = jest.fn();

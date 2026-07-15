@@ -19,6 +19,22 @@
 
 // ─── Mocks ────────────────────────────────────────────────────────────────────
 
+// Real (non-mocked) useState — the screen now buffers stepper edits locally
+// (review fix: Cancel must revert). Since this suite calls the component as a
+// plain function (no fiber/renderer), we provide a jest.fn() so tests can
+// inspect/override the [value, setter] tuple returned per call, mirroring the
+// pattern in autoDecrementReachability.test.ts.
+jest.mock('react', () => {
+  const actual = jest.requireActual<typeof import('react')>('react');
+  return {
+    ...actual,
+    useState: jest.fn((init: unknown) => {
+      const value = typeof init === 'function' ? (init as () => unknown)() : init;
+      return [value, jest.fn()];
+    }),
+  };
+});
+
 jest.mock('react-native', () => ({
   View: 'View',
   Text: 'Text',
@@ -229,6 +245,143 @@ describe('SubUnitSetupScreen — D-4 steer-to-pack advisory', () => {
       return s.backgroundColor === T.color.surface.wash.amber;
     });
     expect(amberContainers.length).toBeGreaterThan(0);
+  });
+});
+
+describe('SubUnitSetupScreen — review fix: local-buffer edits (Cancel truly reverts)', () => {
+  beforeEach(() => {
+    const { supplySyncStore } = require('../sync/supplySyncStore');
+    (supplySyncStore.enqueueUpdate as jest.Mock).mockClear();
+    (baseProps.onBack as jest.Mock).mockClear();
+    (supplySyncStore.getSupplyItem as jest.Mock).mockReturnValue(ITEM_UPC4); // usesPerContainer=4
+  });
+  afterEach(() => {
+    const { supplySyncStore } = require('../sync/supplySyncStore');
+    (supplySyncStore.getSupplyItem as jest.Mock).mockReset();
+    (supplySyncStore.getSupplyItem as jest.Mock).mockReturnValue(undefined);
+  });
+
+  // FAIL-ON-REVERT: this is the exact bug the review flagged — every +/- tap
+  // used to call supplySyncStore.enqueueUpdate immediately. Stepper taps must
+  // now be LOCAL-ONLY (buffered) — no store write until Confirm.
+  it('tapping increment/decrement does NOT call supplySyncStore.enqueueUpdate (local buffer only)', () => {
+    const { supplySyncStore } = require('../sync/supplySyncStore');
+    const tree = SubUnitSetupScreen(baseProps) as React.ReactElement;
+
+    const incrementBtn = findAll(tree, (el) => {
+      const props = el.props as Record<string, unknown>;
+      return (
+        props.accessibilityRole === 'button' &&
+        typeof props.accessibilityLabel === 'string' &&
+        (props.accessibilityLabel as string).includes('subUnitSetup.a11y.increment')
+      );
+    })[0]!;
+    (incrementBtn.props as Record<string, unknown> & { onPress: () => void }).onPress();
+
+    expect(supplySyncStore.enqueueUpdate).not.toHaveBeenCalled();
+  });
+
+  it('handleConfirm (Confirm button) persists the buffered value via enqueueUpdate + navigates back', () => {
+    const { supplySyncStore } = require('../sync/supplySyncStore');
+    const tree = SubUnitSetupScreen(baseProps) as React.ReactElement;
+
+    const confirmBtn = findAll(tree, (el) => {
+      const props = el.props as Record<string, unknown>;
+      return (
+        props.accessibilityRole === 'button' &&
+        props.accessibilityLabel === 'subUnitSetup.steerToPack.confirmBtn'
+      );
+    })[0]!;
+    (confirmBtn.props as Record<string, unknown> & { onPress: () => void }).onPress();
+
+    expect(supplySyncStore.enqueueUpdate).toHaveBeenCalledTimes(1);
+    expect(baseProps.onBack).toHaveBeenCalled();
+  });
+
+  it('handleCancel (Cancel button) does NOT call enqueueUpdate — discards the buffer untouched', () => {
+    const { supplySyncStore } = require('../sync/supplySyncStore');
+    const tree = SubUnitSetupScreen(baseProps) as React.ReactElement;
+
+    const cancelBtn = findAll(tree, (el) => {
+      const props = el.props as Record<string, unknown>;
+      return (
+        props.accessibilityRole === 'button' &&
+        props.accessibilityLabel === 'subUnitSetup.steerToPack.cancelBtn'
+      );
+    })[0]!;
+    (cancelBtn.props as Record<string, unknown> & { onPress: () => void }).onPress();
+
+    expect(supplySyncStore.enqueueUpdate).not.toHaveBeenCalled();
+    expect(baseProps.onBack).toHaveBeenCalled();
+  });
+});
+
+describe('SubUnitSetupScreen — review fix: disabled stepper buttons have a visible disabled style', () => {
+  afterEach(() => {
+    const { supplySyncStore } = require('../sync/supplySyncStore');
+    (supplySyncStore.getSupplyItem as jest.Mock).mockReset();
+    (supplySyncStore.getSupplyItem as jest.Mock).mockReturnValue(undefined);
+  });
+
+  it('decrement button at minimum (usesPerContainer=1) carries accessibilityState.disabled=true and the disabled style', () => {
+    const { supplySyncStore } = require('../sync/supplySyncStore');
+    (supplySyncStore.getSupplyItem as jest.Mock).mockReturnValue({ ...ITEM_UPC1, usesPerContainer: 1 });
+    const tree = SubUnitSetupScreen(baseProps) as React.ReactElement;
+
+    const decrementBtn = findAll(tree, (el) => {
+      const props = el.props as Record<string, unknown>;
+      return (
+        props.accessibilityRole === 'button' &&
+        typeof props.accessibilityLabel === 'string' &&
+        (props.accessibilityLabel as string).includes('subUnitSetup.a11y.decrement')
+      );
+    })[0]!;
+
+    const props = decrementBtn.props as Record<string, unknown>;
+    expect(props.disabled).toBe(true);
+    expect((props.accessibilityState as { disabled: boolean }).disabled).toBe(true);
+    const s = flat(props.style);
+    expect(s.backgroundColor).toBe(T.scrim.amber);
+  });
+
+  it('increment button at maximum carries the disabled style', () => {
+    const { supplySyncStore } = require('../sync/supplySyncStore');
+    (supplySyncStore.getSupplyItem as jest.Mock).mockReturnValue({ ...ITEM_UPC1, usesPerContainer: 99 });
+    const tree = SubUnitSetupScreen(baseProps) as React.ReactElement;
+
+    const incrementBtn = findAll(tree, (el) => {
+      const props = el.props as Record<string, unknown>;
+      return (
+        props.accessibilityRole === 'button' &&
+        typeof props.accessibilityLabel === 'string' &&
+        (props.accessibilityLabel as string).includes('subUnitSetup.a11y.increment')
+      );
+    })[0]!;
+
+    const props = incrementBtn.props as Record<string, unknown>;
+    expect(props.disabled).toBe(true);
+    const s = flat(props.style);
+    expect(s.backgroundColor).toBe(T.scrim.amber);
+  });
+
+  it('stepper buttons NOT at min/max carry no disabled style', () => {
+    const { supplySyncStore } = require('../sync/supplySyncStore');
+    (supplySyncStore.getSupplyItem as jest.Mock).mockReturnValue(ITEM_UPC4); // usesPerContainer=4
+    const tree = SubUnitSetupScreen(baseProps) as React.ReactElement;
+
+    const steppers = findAll(tree, (el) => {
+      const props = el.props as Record<string, unknown>;
+      return (
+        props.accessibilityRole === 'button' &&
+        typeof props.accessibilityLabel === 'string' &&
+        ((props.accessibilityLabel as string).includes('subUnitSetup.a11y.increment') ||
+          (props.accessibilityLabel as string).includes('subUnitSetup.a11y.decrement'))
+      );
+    });
+    steppers.forEach((btn) => {
+      const s = flat((btn.props as Record<string, unknown>).style);
+      expect(s.backgroundColor).not.toBe(T.scrim.amber);
+    });
   });
 });
 

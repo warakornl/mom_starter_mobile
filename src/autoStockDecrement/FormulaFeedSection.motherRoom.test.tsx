@@ -199,6 +199,38 @@ describe('FormulaFeedSection — active / inactive states', () => {
   });
 });
 
+describe('FormulaFeedSection — review fix: amount input placeholderTextColor + tokens', () => {
+  it('amount TextInput has placeholderTextColor set to T.input.placeholder (default grey fails AA)', () => {
+    const tree = FormulaFeedSection(activeProps) as React.ReactElement;
+    const input = findAll(tree, (el) => el.type === 'TextInput')[0]!;
+    expect((input.props as Record<string, unknown>).placeholderTextColor).toBe(T.input.placeholder);
+  });
+
+  it('amount TextInput style carries lineHeight and T.input.bg background', () => {
+    const tree = FormulaFeedSection(activeProps) as React.ReactElement;
+    const input = findAll(tree, (el) => el.type === 'TextInput')[0]!;
+    const s = flat((input.props as Record<string, unknown>).style);
+    expect(s.lineHeight).toBeDefined();
+    expect(s.backgroundColor).toBe(T.input.bg);
+  });
+});
+
+describe('FormulaFeedSection — review fix: submit button uses T.button.primary.radius', () => {
+  it('submit button style uses T.button.primary.radius (not radius.sm)', () => {
+    const tree = FormulaFeedSection({
+      ...activeProps,
+      onSubmitFormulaFeed: jest.fn(),
+    }) as React.ReactElement;
+    const submitBtn = findAll(tree, (el) => {
+      const props = el.props as Record<string, unknown>;
+      return props.accessibilityRole === 'button' && props.accessibilityLabel === 'formulaFeed.submit';
+    })[0]!;
+    const s = flat((submitBtn.props as Record<string, unknown>).style);
+    expect(s.borderRadius).toBe(T.button.primary.radius);
+    expect(s.borderRadius).not.toBe(T.radius.sm);
+  });
+});
+
 describe('FormulaFeedSection — token correctness (ห้องแม่)', () => {
   it('no elements use banned old roselle #A8505A', () => {
     const tree = FormulaFeedSection(baseProps) as React.ReactElement;

@@ -232,6 +232,60 @@ describe('CareActivityTypeControl — token correctness (ห้องแม่)'
   });
 });
 
+describe('CareActivityTypeControl — review fix: Thai typography (lineHeight)', () => {
+  // FAIL-ON-REVERT: remove lineHeight from chipText/chipTextSelected/fieldLabel
+  // → violations list non-empty → RED.
+  function findLineHeightViolations(tree: React.ReactElement): string[] {
+    const violations: string[] = [];
+    findAll(tree, (el) => el.type === 'Text').forEach((el) => {
+      const s = flat((el.props as Record<string, unknown>).style);
+      if (s.fontSize != null && s.lineHeight == null) {
+        violations.push(`Text fontSize=${String(s.fontSize)} missing lineHeight — Thai marks will clip`);
+      }
+    });
+    return violations;
+  }
+
+  it('unselected state: all Text elements carry lineHeight', () => {
+    const tree = CareActivityTypeControl(baseProps) as React.ReactElement;
+    expect(findLineHeightViolations(tree)).toEqual([]);
+  });
+
+  it('selected state (diaper_change): all Text elements carry lineHeight (covers chipTextSelected)', () => {
+    const tree = CareActivityTypeControl({ ...baseProps, value: 'diaper_change' }) as React.ReactElement;
+    expect(findLineHeightViolations(tree)).toEqual([]);
+  });
+});
+
+describe('CareActivityTypeControl — review fix: R4 (jade-600 must be ≥15sp)', () => {
+  it('fieldLabel using T.color.text.secondary (jade-600) has fontSize >= 15', () => {
+    const tree = CareActivityTypeControl(baseProps) as React.ReactElement;
+    const secondaryTextEls = findAll(tree, (el) => {
+      if (el.type !== 'Text') return false;
+      const s = flat((el.props as Record<string, unknown>).style);
+      return s.color === T.color.text.secondary;
+    });
+    expect(secondaryTextEls.length).toBeGreaterThan(0);
+    secondaryTextEls.forEach((el) => {
+      const s = flat((el.props as Record<string, unknown>).style);
+      expect(s.fontSize as number).toBeGreaterThanOrEqual(15);
+    });
+  });
+});
+
+describe('CareActivityTypeControl — review fix: selected chip has a distinct fill', () => {
+  it('selected chip uses T.color.surface.wash.roselle background (not border-only)', () => {
+    const tree = CareActivityTypeControl({ ...baseProps, value: 'bathing' }) as React.ReactElement;
+    const selectedChips = findAll(tree, (el) => {
+      const state = (el.props as Record<string, unknown>).accessibilityState as Record<string, unknown> | undefined;
+      return state?.selected === true;
+    });
+    expect(selectedChips.length).toBeGreaterThan(0);
+    const s = flat((selectedChips[0]!.props as Record<string, unknown>).style);
+    expect(s.backgroundColor).toBe(T.color.surface.wash.roselle);
+  });
+});
+
 describe('CareActivityTypeControl — US-AS6 anti-double-count', () => {
   it('null option is always present (US-AS6: null = not a care activity = no trigger)', () => {
     // Even when a value is selected, "none" chip must always be rendered

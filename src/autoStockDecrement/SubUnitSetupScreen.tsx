@@ -15,10 +15,15 @@
  *   - Container-based auto-decrement is enabled ONLY when usesPerContainer ≥ 2.
  *   - When < 2: amber advisory shown (subUnitSetup.steerToPack.itemsPerPackError).
  *
- * Offline-first / stateless design (same pattern as AutoDecrementSettingsScreen):
- *   - Reads from supplySyncStore synchronously — no loading state.
- *   - Hook-free render body (useT is mocked as plain fn in unit tests).
- *   - Mutations write to store + fire-and-forget push.
+ * Offline-first design (same store-read pattern as AutoDecrementSettingsScreen):
+ *   - Reads from supplySyncStore synchronously for the item's PERSISTED value —
+ *     no loading state.
+ *   - Local-buffer editing (review fix): +/- taps not persist immediately.
+ *     The count is buffered in local useState, seeded from the persisted
+ *     usesPerContainer on first render. Confirm writes the buffered value to
+ *     the store + fires the background push; Cancel discards the buffer and
+ *     navigates back WITHOUT touching the store. Previously every +/- tap
+ *     wrote+pushed immediately, making Cancel a no-op lie (it never reverted).
  *   - Interactive re-render tests use RNTL (navigation tests, Commit 11).
  *
  * A11y (containment rule):
@@ -33,7 +38,7 @@
  *   auto-stock-decrement-functional.md §D-4.
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -105,9 +110,10 @@ function clampUsesPerContainer(value: number): number {
 // ─── Screen ───────────────────────────────────────────────────────────────────
 
 /**
- * Stateless (hook-free) screen — reads from the local store synchronously.
- * Handlers write to the store directly (no setState). Re-renders after
- * mutations are driven by navigation or parent component.
+ * Local-buffer editing: +/- taps mutate ONLY the local `bufferedCount` state.
+ * Nothing is persisted to supplySyncStore until Confirm is pressed. Cancel
+ * discards the buffer entirely (review fix — Cancel previously did not revert
+ * anything because every tap had already persisted+pushed).
  */
 export function SubUnitSetupScreen(
   props: SubUnitSetupScreenProps,
@@ -120,50 +126,57 @@ export function SubUnitSetupScreen(
   // is intentionally NOT accessed here.
   const item: SupplyItemRecord | undefined = supplySyncStore.getSupplyItem(supplyItemId);
 
+  // Local edit buffer — seeded once from the persisted value. Lazy initializer
+  // reads `item` only on first render (the item identity for a given
+  // supplyItemId is stable across re-renders triggered by this screen itself).
+  const [bufferedCount, setBufferedCount] = useState<number>(() => item?.usesPerContainer ?? 1);
+
   // ── Handlers ──
+  // Both stepper handlers are LOCAL-ONLY — no store write, no push. The
+  // buffered count is committed to the store exclusively in handleConfirm.
 
   function handleIncrement(): void {
     if (!item) return;
-    const next = clampUsesPerContainer((item.usesPerContainer ?? 1) + 1);
-    const updated: SupplyItemRecord = {
-      ...item,
-      usesPerContainer: next,
-      version: item.version + 1,
-      updatedAt: new Date().toISOString(),
-    };
-    // INV-ASD-8: usesRemainingInOpenContainer must NOT be included in the push payload.
-    // The egress sanitizer in supplySyncStore.drainQueue() strips this field from every
-    // supply item before the wire (structural allow-list on the push changeset).
-    supplySyncStore.enqueueUpdate(updated);
-    backgroundPush(props);
+    setBufferedCount((current) => clampUsesPerContainer(current + 1));
   }
 
   function handleDecrement(): void {
     if (!item) return;
-    const current = item.usesPerContainer ?? 1;
-    if (current <= 1) return; // already at minimum
-    const next = clampUsesPerContainer(current - 1);
+    setBufferedCount((current) => {
+      if (current <= 1) return current; // already at minimum
+      return clampUsesPerContainer(current - 1);
+    });
+  }
+
+  function handleConfirm(): void {
+    if (!item) return;
+    // Persist the buffered value ONLY on explicit Confirm.
+    // INV-ASD-8: usesRemainingInOpenContainer must NOT be included in the push payload.
+    // The egress sanitizer in supplySyncStore.drainQueue() strips this field from every
+    // supply item before the wire (structural allow-list on the push changeset).
     const updated: SupplyItemRecord = {
       ...item,
-      usesPerContainer: next,
+      usesPerContainer: bufferedCount,
       version: item.version + 1,
       updatedAt: new Date().toISOString(),
     };
     supplySyncStore.enqueueUpdate(updated);
     backgroundPush(props);
+    onBack?.();
   }
 
-  function handleConfirm(): void {
-    if (!item) return;
-    // Current usesPerContainer is already saved by handleIncrement/Decrement.
-    // Confirm just navigates back.
+  function handleCancel(): void {
+    // Discard the local buffer — no store write, no push. Navigates back with
+    // the persisted store value untouched (review fix: Cancel now truly reverts).
     onBack?.();
   }
 
   // ── Render ──
 
-  const usesPerContainer = item?.usesPerContainer ?? 1;
+  const usesPerContainer = bufferedCount;
   const isD4Advisory = !!item && usesPerContainer < D4_MIN_USES_PER_CONTAINER;
+  const isAtMin = usesPerContainer <= 1;
+  const isAtMax = usesPerContainer >= MAX_USES_PER_CONTAINER;
 
   return (
     <View style={styles.root}>
@@ -224,14 +237,17 @@ export function SubUnitSetupScreen(
                * the count Text, making it untappable on iOS VoiceOver.
                */}
               <TouchableOpacity
-                style={styles.stepperBtn}
+                style={[styles.stepperBtn, isAtMin && styles.stepperBtnDisabled]}
                 onPress={handleDecrement}
                 accessibilityRole="button"
                 accessibilityLabel={t('subUnitSetup.a11y.decrement')}
-                disabled={usesPerContainer <= 1}
+                accessibilityState={{ disabled: isAtMin }}
+                disabled={isAtMin}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
-                <Text style={styles.stepperBtnText}>−</Text>
+                <Text style={[styles.stepperBtnText, isAtMin && styles.stepperBtnTextDisabled]}>
+                  −
+                </Text>
               </TouchableOpacity>
 
               {/* Current count display — plain Text sibling (not a wrapper View) */}
@@ -244,14 +260,17 @@ export function SubUnitSetupScreen(
 
               {/* Increment button — sibling of count */}
               <TouchableOpacity
-                style={styles.stepperBtn}
+                style={[styles.stepperBtn, isAtMax && styles.stepperBtnDisabled]}
                 onPress={handleIncrement}
                 accessibilityRole="button"
                 accessibilityLabel={t('subUnitSetup.a11y.increment')}
-                disabled={usesPerContainer >= MAX_USES_PER_CONTAINER}
+                accessibilityState={{ disabled: isAtMax }}
+                disabled={isAtMax}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
-                <Text style={styles.stepperBtnText}>+</Text>
+                <Text style={[styles.stepperBtnText, isAtMax && styles.stepperBtnTextDisabled]}>
+                  +
+                </Text>
               </TouchableOpacity>
             </View>
 
@@ -274,7 +293,7 @@ export function SubUnitSetupScreen(
           <View style={styles.actionRow}>
             <TouchableOpacity
               style={styles.cancelBtnRow}
-              onPress={onBack}
+              onPress={handleCancel}
               accessibilityRole="button"
               accessibilityLabel={t('subUnitSetup.steerToPack.cancelBtn')}
             >
@@ -390,12 +409,21 @@ const styles = StyleSheet.create({
     backgroundColor: T.color.surface.subtle,
     borderRadius: T.radius.sm,
   },
+  // Visible disabled state (review fix) — at min/max the stepper button must
+  // look disabled, not just silently ignore taps. Uses T.scrim.amber (existing
+  // disabled-CTA overlay token) rather than an ad-hoc opacity value.
+  stepperBtnDisabled: {
+    backgroundColor: T.scrim.amber,
+  },
   stepperBtnText: {
     color: T.color.text.heading,
     fontSize: T.type.bodyLarge.size,
     lineHeight: T.type.bodyLarge.lineHeight,
     fontFamily: T.type.heading2.fontFamily,
     fontWeight: T.type.heading2.fontWeight,
+  },
+  stepperBtnTextDisabled: {
+    color: T.color.text.secondary,
   },
   stepperCount: {
     color: T.color.text.heading,

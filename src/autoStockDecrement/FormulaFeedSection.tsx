@@ -166,6 +166,7 @@ export function FormulaFeedSection(props: FormulaFeedSectionProps): React.JSX.El
             }}
             keyboardType="number-pad"
             placeholder={t('formulaFeed.amountPlaceholder')}
+            placeholderTextColor={T.input.placeholder}
             accessibilityLabel={t('formulaFeed.amountLabel')}
             maxLength={3}
           />
@@ -278,13 +279,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: T.spacing[3],
     color: T.color.text.heading,
     fontSize: T.type.body.size,
+    lineHeight: T.type.body.lineHeight,
     fontFamily: T.type.body.fontFamily,
+    // Review fix: nested surface background (was transparent/unset — no
+    // token — inconsistent with every other text input in this cluster).
+    backgroundColor: T.input.bg,
     textAlign: 'center',
   },
   submitBtn: {
     alignSelf: 'flex-start',
     backgroundColor: T.color.accent.interactive,
-    borderRadius: T.radius.sm,
+    // Review fix: align CTA shape with T.button.primary.radius (was radius.sm,
+    // inconsistent with the primary-button treatment used elsewhere).
+    borderRadius: T.button.primary.radius,
     paddingHorizontal: T.spacing[4],
     minHeight: 48,
     justifyContent: 'center',

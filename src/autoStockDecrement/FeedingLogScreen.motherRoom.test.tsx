@@ -248,3 +248,66 @@ describe('FeedingLogScreen — Thai typography: lineHeight on all text styles', 
     expect(violations).toEqual([]);
   });
 });
+
+describe('FeedingLogScreen — review fix: kind chips use radio (not checkbox) semantics', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    const ReactMod = jest.requireMock<typeof import('react')>('react');
+    (ReactMod.useState as jest.Mock).mockImplementation((init: unknown) => [init, jest.fn()]);
+    (ReactMod.useRef as jest.Mock).mockImplementation((init: unknown) => ({ current: init }));
+    (consentStore.isGranted as jest.Mock).mockReturnValue(true);
+  });
+
+  it('breastfeed/pump kind chips have accessibilityRole="radio" (single-select group, not independent checkboxes)', () => {
+    const tree = renderScreen();
+    const breastfeedChip = findAll(tree, (el) =>
+      (el.props as Record<string, unknown>).testID === 'feeding-log-breastfeed-chip',
+    )[0]!;
+    const pumpChip = findAll(tree, (el) =>
+      (el.props as Record<string, unknown>).testID === 'feeding-log-pump-chip',
+    )[0]!;
+    expect((breastfeedChip.props as Record<string, unknown>).accessibilityRole).toBe('radio');
+    expect((pumpChip.props as Record<string, unknown>).accessibilityRole).toBe('radio');
+  });
+
+  it('the chip row wrapper carries accessibilityRole="radiogroup"', () => {
+    const tree = renderScreen();
+    const groups = findAll(tree, (el) =>
+      (el.props as Record<string, unknown>).accessibilityRole === 'radiogroup',
+    );
+    expect(groups.length).toBeGreaterThan(0);
+  });
+});
+
+describe('FeedingLogScreen — review fix: save button CTA shape + disabled treatment use tokens', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    const ReactMod = jest.requireMock<typeof import('react')>('react');
+    (ReactMod.useState as jest.Mock).mockImplementation((init: unknown) => [init, jest.fn()]);
+    (ReactMod.useRef as jest.Mock).mockImplementation((init: unknown) => ({ current: init }));
+  });
+
+  it('save button uses T.button.primary.radius (not radius.pill)', () => {
+    const { T } = require('../theme/tokens');
+    (consentStore.isGranted as jest.Mock).mockReturnValue(true);
+    const tree = renderScreen();
+    const saveBtn = findAll(tree, (el) =>
+      (el.props as Record<string, unknown>).testID === 'feeding-log-save-btn',
+    )[0]!;
+    const s = flat((saveBtn.props as Record<string, unknown>).style);
+    expect(s.borderRadius).toBe(T.button.primary.radius);
+    expect(s.borderRadius).not.toBe(T.radius.pill);
+  });
+
+  it('disabled save button (consent missing) uses T.scrim.amber, not an ad-hoc opacity', () => {
+    const { T } = require('../theme/tokens');
+    (consentStore.isGranted as jest.Mock).mockReturnValue(false);
+    const tree = renderScreen();
+    const saveBtn = findAll(tree, (el) =>
+      (el.props as Record<string, unknown>).testID === 'feeding-log-save-btn',
+    )[0]!;
+    const s = flat((saveBtn.props as Record<string, unknown>).style);
+    expect(s.backgroundColor).toBe(T.scrim.amber);
+    expect(s.opacity).toBeUndefined();
+  });
+});

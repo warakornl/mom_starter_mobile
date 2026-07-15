@@ -43,7 +43,7 @@
  *   auto-stock-decrement-functional.md §9.
  */
 
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -58,6 +58,7 @@ import type { TokenStorage } from '../auth/tokenStorage';
 import { useT } from '../i18n/LanguageContext';
 import { T } from '../theme/tokens';
 import { consumptionMappingStore } from './consumptionMappingStore';
+import { supplySyncStore } from '../sync/supplySyncStore';
 import { consentStore } from '../consent/consentStore';
 import { createConsumptionMappingSyncClient } from '../sync/syncClient';
 import type { ConsumptionMappingRecord, MappingActivityType } from '../sync/syncTypes';
@@ -181,6 +182,13 @@ export function AutoDecrementSettingsScreen(
   // In production it reads from React context (the reconciler calls this normally).
   const { t } = useT();
 
+  // Re-render tick — bumped after every store mutation (toggle/unlink) so the
+  // screen re-reads the in-memory store and reflects the new state. Without
+  // this, handleToggle/handleUnlink write to the store but nothing tells React
+  // to re-render, so the Switch never visually flips and unlinked rows never
+  // disappear (review fix — mutation-without-re-render bug).
+  const [, forceRerender] = useState(0);
+
   // Synchronous reads — in-memory store is always populated from local DB.
   // No loading state: offline-first means data is always available locally.
   const mappings = consumptionMappingStore.getAll();
@@ -209,11 +217,15 @@ export function AutoDecrementSettingsScreen(
     };
     consumptionMappingStore.enqueueUpdate(updated);
     backgroundPush(props);
+    // Re-render so the Switch reflects the new store state immediately.
+    forceRerender((n) => n + 1);
   }
 
   function handleUnlink(mapping: ConsumptionMappingRecord): void {
     consumptionMappingStore.enqueueDelete(mapping.id);
     backgroundPush(props);
+    // Re-render so the unlinked row disappears immediately.
+    forceRerender((n) => n + 1);
   }
 
   // ── Render ──
@@ -280,11 +292,22 @@ export function AutoDecrementSettingsScreen(
               )}
 
               {/* Mapped items — only shown when consent is granted */}
-              {consentGranted && sectionMappings.map((mapping) => (
+              {consentGranted && sectionMappings.map((mapping) => {
+                // Resolve the verbatim item name from the supply store — mapping.supplyItemId
+                // is only a UUID FK (INV-ASD-9 soft ref) and must never be rendered directly.
+                // Fall back gracefully to the "not linked" copy if the item cannot be found
+                // (e.g. deleted elsewhere, or the store hasn't pulled it yet).
+                const linkedItem = mapping.supplyItemId
+                  ? supplySyncStore.getSupplyItem(mapping.supplyItemId)
+                  : undefined;
+                const itemDisplayName =
+                  linkedItem?.name ?? t('autoDecrement.advisory.noItemLinked');
+
+                return (
                 <View key={mapping.id} style={styles.mappingRow}>
                   {/* Verbatim item name — FW-1 ✓: no brand copy, just the supply item name */}
                   <Text style={styles.itemName} numberOfLines={1}>
-                    {mapping.supplyItemId ?? t('autoDecrement.advisory.noItemLinked')}
+                    {itemDisplayName}
                   </Text>
 
                   {/* Unit label */}
@@ -324,7 +347,8 @@ export function AutoDecrementSettingsScreen(
                     <Text style={styles.unlinkText}>✕</Text>
                   </TouchableOpacity>
                 </View>
-              ))}
+                );
+              })}
 
               {/* "Link an item" affordance — always shown when consent is granted (§1.1) */}
               {consentGranted && (

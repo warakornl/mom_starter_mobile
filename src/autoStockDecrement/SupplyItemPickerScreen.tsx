@@ -79,6 +79,14 @@ const SUGGESTED_CATEGORY: Record<MappingActivityType, SupplyCategory> = {
 /** New mapping default per-use quantity (mother can change on Screen 1 later). */
 const DEFAULT_QTY = 1;
 
+// i18n GAP (REPORT to system-analyst/i18n owner — do NOT edit messages.ts from
+// this cluster): no 'supplyItemPicker.suggestedGroupLabel' key exists yet.
+// Add it (th + en) so the "suggested first" sort order is visible to the
+// mother as a real group label, not just an invisible sort. Local fallback
+// unblocks the UI now; replace with t('supplyItemPicker.suggestedGroupLabel')
+// once the key lands.
+const SUGGESTED_GROUP_LABEL_FALLBACK_TH = 'แนะนำ';
+
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 /**
@@ -98,6 +106,15 @@ function sortBySuggestedCategory(
     else rest.push(item);
   }
   return [...first, ...rest];
+}
+
+/** Returns how many leading items in the sorted list are "suggested" (matched category). */
+function countSuggested(
+  items: SupplyItemRecord[],
+  activityType: MappingActivityType,
+): number {
+  const suggested = SUGGESTED_CATEGORY[activityType];
+  return items.filter((i) => i.category === suggested).length;
 }
 
 /**
@@ -141,6 +158,13 @@ export function SupplyItemPickerScreen(
   const { t } = useT();
 
   const items = sortBySuggestedCategory(supplySyncStore.getSupplyItems(), activityType);
+  // How many leading rows belong to the suggested category — used to render a
+  // "แนะนำ" (suggested) group label above them so the sort order is visible,
+  // not just an invisible re-ordering (review fix). Only shown when there's
+  // also a non-suggested item following (otherwise every row is "suggested"
+  // and the label would be redundant noise).
+  const suggestedCount = countSuggested(items, activityType);
+  const showSuggestedLabel = suggestedCount > 0 && suggestedCount < items.length;
 
   function handlePick(item: SupplyItemRecord): void {
     const now = new Date().toISOString();
@@ -202,19 +226,33 @@ export function SupplyItemPickerScreen(
           data={items}
           keyExtractor={(item) => item.id}
           contentContainerStyle={styles.list}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              testID="supply-item-picker-row"
-              style={styles.row}
-              onPress={() => handlePick(item)}
-              accessibilityRole="button"
-              accessibilityLabel={item.name}
-            >
-              {/* Verbatim item name — FW-1: no brand/promo copy. */}
-              <Text style={styles.itemName} numberOfLines={1}>
-                {item.name}
-              </Text>
-            </TouchableOpacity>
+          renderItem={({ item, index }) => (
+            <View>
+              {/*
+               * "แนะนำ" (suggested) group label — shown once, above the first
+               * suggested-category row (review fix: makes the sort order
+               * visible instead of an invisible re-ordering). This is a
+               * <Text> sibling of the row TouchableOpacity, never a wrapper
+               * around it (containment rule).
+               */}
+              {showSuggestedLabel && index === 0 && (
+                <Text style={styles.groupLabel}>
+                  {SUGGESTED_GROUP_LABEL_FALLBACK_TH}
+                </Text>
+              )}
+              <TouchableOpacity
+                testID="supply-item-picker-row"
+                style={styles.row}
+                onPress={() => handlePick(item)}
+                accessibilityRole="button"
+                accessibilityLabel={item.name}
+              >
+                {/* Verbatim item name — FW-1: no brand/promo copy. */}
+                <Text style={styles.itemName} numberOfLines={1}>
+                  {item.name}
+                </Text>
+              </TouchableOpacity>
+            </View>
           )}
           ItemSeparatorComponent={() => <View style={styles.separator} />}
         />
@@ -289,6 +327,18 @@ const styles = StyleSheet.create({
     fontSize: T.type.bodyLarge.size,
     lineHeight: T.type.bodyLarge.lineHeight,
     fontFamily: T.type.bodyLarge.fontFamily,
+  },
+  // "แนะนำ" (suggested) group label — review fix, makes the suggested-first
+  // sort visible. text.secondary (jade-600) at label size (15sp) satisfies R4.
+  groupLabel: {
+    color: T.color.text.secondary,
+    fontSize: T.type.label.size,
+    lineHeight: T.type.label.lineHeight,
+    fontFamily: T.type.label.fontFamily,
+    fontWeight: T.type.label.fontWeight,
+    paddingHorizontal: T.spacing[3],
+    paddingTop: T.spacing[2],
+    paddingBottom: T.spacing[1],
   },
   separator: {
     height: 1,

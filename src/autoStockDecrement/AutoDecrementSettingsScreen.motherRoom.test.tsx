@@ -15,6 +15,20 @@
 
 // ─── Mocks ────────────────────────────────────────────────────────────────────
 
+// Real (non-mocked) useState so calling the component as a plain function
+// still exercises the actual re-render-tick mechanism (mutation → forceRerender).
+// This suite calls the component directly (no fiber/renderer), so React's
+// hook dispatcher is unset; jest.requireActual + a minimal manual dispatcher
+// shim lets a single `useState` call per invocation resolve correctly without
+// requiring a full reconciler. Each test call is a "fresh mount" (initial state).
+jest.mock('react', () => {
+  const actual = jest.requireActual<typeof import('react')>('react');
+  return {
+    ...actual,
+    useState: jest.fn((init: unknown) => [init, jest.fn()]),
+  };
+});
+
 jest.mock('react-native', () => ({
   View: 'View',
   Text: 'Text',
@@ -51,6 +65,7 @@ jest.mock('./consumptionMappingStore', () => ({
 jest.mock('../sync/supplySyncStore', () => ({
   supplySyncStore: {
     getAll: jest.fn(() => []),
+    getSupplyItems: jest.fn(() => []),
     getSupplyItem: jest.fn(() => undefined),
     getWatermark: jest.fn(() => undefined),
     getPendingCount: jest.fn(() => 0),
@@ -363,12 +378,21 @@ describe('AutoDecrementSettingsScreen — appsec 🟡1: disabled mapping is neve
     (consumptionMappingStore.getAll as jest.Mock).mockReturnValueOnce([DISABLED_DIAPER_MAPPING]);
     const { consentStore } = require('../consent/consentStore');
     (consentStore.isGranted as jest.Mock).mockImplementation(() => true);
+    // Review fix: the row shows the resolved item NAME (not the raw supplyItemId
+    // UUID) — resolve it via supplySyncStore.getSupplyItem, same as production.
+    const { supplySyncStore } = require('../sync/supplySyncStore');
+    (supplySyncStore.getSupplyItem as jest.Mock).mockImplementation((id: string) =>
+      id === DISABLED_DIAPER_MAPPING.supplyItemId
+        ? { id, name: 'ผ้าอ้อมสำเร็จรูป', category: 'diapers', onHandQty: 10, version: 1 }
+        : undefined,
+    );
 
     const tree = AutoDecrementSettingsScreen(baseProps) as React.ReactElement;
 
     // The mapping row (item name) must be present — not hidden just because enabled:false.
     const texts = collectText(tree);
-    expect(texts).toContain(DISABLED_DIAPER_MAPPING.supplyItemId);
+    expect(texts).toContain('ผ้าอ้อมสำเร็จรูป');
+    expect(texts).not.toContain(DISABLED_DIAPER_MAPPING.supplyItemId);
 
     // Its Switch must be present and reflect the OFF state (mother can turn it on).
     const switches = findAll(tree, (el) =>
@@ -379,6 +403,103 @@ describe('AutoDecrementSettingsScreen — appsec 🟡1: disabled mapping is neve
     expect((sw.props as Record<string, unknown>).value).toBe(false);
     const state = (sw.props as Record<string, unknown>).accessibilityState as { checked: boolean };
     expect(state.checked).toBe(false);
+
+    (supplySyncStore.getSupplyItem as jest.Mock).mockReset();
+    (supplySyncStore.getSupplyItem as jest.Mock).mockReturnValue(undefined);
+  });
+});
+
+describe('AutoDecrementSettingsScreen — review fix: item name resolution (no UUID leak)', () => {
+  afterEach(() => {
+    const { supplySyncStore } = require('../sync/supplySyncStore');
+    (supplySyncStore.getSupplyItem as jest.Mock).mockReset();
+    (supplySyncStore.getSupplyItem as jest.Mock).mockReturnValue(undefined);
+  });
+
+  // FAIL-ON-REVERT: this is the exact bug the review flagged — mapping.supplyItemId
+  // (a UUID) rendered verbatim as the item name. Resolving via supplySyncStore
+  // must show the real item name and never the raw UUID.
+  it('resolves the real supply item name via supplySyncStore — never renders the raw UUID', () => {
+    const { consumptionMappingStore } = require('./consumptionMappingStore');
+    (consumptionMappingStore.getAll as jest.Mock).mockReturnValueOnce([DIAPER_MAPPING]);
+    const { supplySyncStore } = require('../sync/supplySyncStore');
+    (supplySyncStore.getSupplyItem as jest.Mock).mockImplementation((id: string) =>
+      id === DIAPER_MAPPING.supplyItemId
+        ? { id, name: 'ผ้าอ้อมสำเร็จรูป', category: 'diapers', onHandQty: 10, version: 1 }
+        : undefined,
+    );
+
+    const tree = AutoDecrementSettingsScreen(baseProps) as React.ReactElement;
+    const texts = collectText(tree);
+
+    expect(texts).toContain('ผ้าอ้อมสำเร็จรูป');
+    expect(texts).not.toContain(DIAPER_MAPPING.supplyItemId);
+  });
+
+  it('falls back to the "no item linked" copy when the linked item cannot be found in the store', () => {
+    const { consumptionMappingStore } = require('./consumptionMappingStore');
+    (consumptionMappingStore.getAll as jest.Mock).mockReturnValueOnce([DIAPER_MAPPING]);
+    const { supplySyncStore } = require('../sync/supplySyncStore');
+    (supplySyncStore.getSupplyItem as jest.Mock).mockReturnValue(undefined);
+
+    const tree = AutoDecrementSettingsScreen(baseProps) as React.ReactElement;
+    const texts = collectText(tree);
+
+    expect(texts).toContain('autoDecrement.advisory.noItemLinked');
+    expect(texts).not.toContain(DIAPER_MAPPING.supplyItemId);
+  });
+});
+
+describe('AutoDecrementSettingsScreen — review fix: toggle/unlink trigger a re-render', () => {
+  // FAIL-ON-REVERT: the screen was stateless — handleToggle/handleUnlink wrote
+  // to the store but nothing told React to re-render, so the Switch never
+  // visually flipped. Verifies the handlers call the re-render trigger
+  // (React.useState's setter) so the UI actually reflects the mutation.
+  it('handleToggle calls the forceRerender setter returned by useState after enqueueing the update', () => {
+    const setStateSpy = jest.fn();
+    const useStateMock = React.useState as unknown as jest.Mock;
+    useStateMock.mockReturnValueOnce([0, setStateSpy]);
+
+    const { consumptionMappingStore } = require('./consumptionMappingStore');
+    (consumptionMappingStore.getAll as jest.Mock).mockReturnValueOnce([DIAPER_MAPPING]);
+
+    const tree = AutoDecrementSettingsScreen(baseProps) as React.ReactElement;
+    const switches = findAll(tree, (el) =>
+      (el.props as Record<string, unknown>).accessibilityRole === 'switch',
+    );
+    expect(switches.length).toBeGreaterThan(0);
+
+    const onValueChange = (switches[0]!.props as Record<string, unknown>)
+      .onValueChange as (v: boolean) => void;
+    onValueChange(true);
+
+    expect(consumptionMappingStore.enqueueUpdate).toHaveBeenCalledTimes(1);
+    expect(setStateSpy).toHaveBeenCalledTimes(1);
+  });
+
+  it('handleUnlink calls the forceRerender setter returned by useState after enqueueing the delete', () => {
+    const setStateSpy = jest.fn();
+    const useStateMock = React.useState as unknown as jest.Mock;
+    useStateMock.mockReturnValueOnce([0, setStateSpy]);
+
+    const { consumptionMappingStore } = require('./consumptionMappingStore');
+    (consumptionMappingStore.getAll as jest.Mock).mockReturnValueOnce([DIAPER_MAPPING]);
+
+    const tree = AutoDecrementSettingsScreen(baseProps) as React.ReactElement;
+    const unlinkBtns = findAll(tree, (el) => {
+      const props = el.props as Record<string, unknown>;
+      return (
+        props.accessibilityRole === 'button' &&
+        props.accessibilityLabel === 'autoDecrement.unlinkItem.a11yLabel'
+      );
+    });
+    expect(unlinkBtns.length).toBeGreaterThan(0);
+
+    const onPress = (unlinkBtns[0]!.props as Record<string, unknown>).onPress as () => void;
+    onPress();
+
+    expect(consumptionMappingStore.enqueueDelete).toHaveBeenCalledTimes(1);
+    expect(setStateSpy).toHaveBeenCalledTimes(1);
   });
 });
 

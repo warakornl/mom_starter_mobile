@@ -117,6 +117,18 @@ const CATEGORY_GLYPHS: Record<ExpenseCategory, string> = {
   'other': '▫',
 };
 
+// i18n GAP (REPORT to system-analyst/i18n owner — do NOT edit messages.ts from
+// this cluster): the following copy/labels are hardcoded and should be real
+// i18n keys (th + en) instead:
+//   'expenses.monthNavPrevA11y'  → accessibilityLabel for the "‹ previous month" button
+//   'expenses.monthNavNextA11y'  → accessibilityLabel for the "› next month" button
+//   'expenses.jumpToThisMonth'   → the "จump to current month" pill copy
+// Local fallback constants below unblock the fix now; replace with t(...)
+// calls once the keys land in the catalog.
+const MONTH_NAV_PREV_A11Y_FALLBACK_TH = 'เดือนก่อนหน้า';
+const MONTH_NAV_NEXT_A11Y_FALLBACK_TH = 'เดือนถัดไป';
+const JUMP_TO_THIS_MONTH_FALLBACK_TH = '⬤ เดือนนี้';
+
 /** Returns today's date as YYYY-MM-DD using the device-local civil date. */
 function localCivilToday(): string {
   const d = new Date();
@@ -315,7 +327,7 @@ function ExpenseFormModal({
           <View style={formStyles.echoContainer}>
             <Text style={formStyles.echoLabel}>{t('expenses.echoPrefix')}</Text>
             <Text style={formStyles.echoLine}>
-              {previewGlyph}{previewCatLabel}  {previewAmountStr}  {form.incurredOn}
+              {previewGlyph}{previewCatLabel}  {previewAmountStr}  {formatCivilDate(form.incurredOn, locale as Locale)}
               {form.note ? `\n${form.note}` : ''}
             </Text>
           </View>
@@ -651,7 +663,7 @@ function ExpenseRow({
   item: ExpenseRecord;
   onEdit: (item: ExpenseRecord) => void;
 }): React.JSX.Element {
-  const { t } = useT();
+  const { t, locale } = useT();
   const catLabel = t(`expenses.category.${item.category}` as
     | 'expenses.category.baby-supplies'
     | 'expenses.category.healthcare'
@@ -659,8 +671,12 @@ function ExpenseRow({
     | 'expenses.category.mother'
     | 'expenses.category.other');
 
+  // Review fix: format the raw ISO date (พ.ศ. in th, Gregorian in en) instead
+  // of echoing "YYYY-MM-DD" verbatim — matches the form's date field pattern.
+  const formattedDate = formatCivilDate(item.incurredOn, locale as Locale);
+
   // Screen-reader label per spec §7
-  const a11yLabel = `${satangToBaht(item.amount)} ${catLabel} ${item.incurredOn}${
+  const a11yLabel = `${satangToBaht(item.amount)} ${catLabel} ${formattedDate}${
     item.note ? ` ${item.note}` : ''
   }`;
 
@@ -682,7 +698,7 @@ function ExpenseRow({
         ) : (
           <Text style={rowStyles.noNote}>{t('expenses.noNote')}</Text>
         )}
-        <Text style={rowStyles.date}>{item.incurredOn}</Text>
+        <Text style={rowStyles.date}>{formattedDate}</Text>
       </View>
       <Text style={rowStyles.amount}>{satangToBaht(item.amount)}</Text>
     </TouchableOpacity>
@@ -1108,14 +1124,20 @@ export function ExpensesScreen({ tokenStorage, apiBaseUrl }: ExpensesScreenProps
         </View>
       )}
       {/* Error banner: genuine server/client errors only (not offline).
-          testID expenses-error matches screen anatomy + the documented testID list. */}
+          testID expenses-error matches screen anatomy + the documented testID list.
+          Review fix: add a VISIBLE retry affordance (role + label + retry text) —
+          previously the whole banner was tappable but showed no cue that tapping
+          retries. Reuses the existing 'general.retry' catalog key. */}
       {syncError && (
         <TouchableOpacity
           testID="expenses-error"
           style={styles.errorBar}
           onPress={() => void syncPull()}
+          accessibilityRole="button"
+          accessibilityLabel={`${syncError} ${t('general.retry')}`}
         >
           <Text style={styles.errorBarText}>{syncError}</Text>
+          <Text style={styles.errorBarRetryText}>{t('general.retry')}</Text>
         </TouchableOpacity>
       )}
       {conflictCount > 0 && (
@@ -1140,7 +1162,7 @@ export function ExpensesScreen({ tokenStorage, apiBaseUrl }: ExpensesScreenProps
               <TouchableOpacity
                 onPress={prevMonth}
                 accessibilityRole="button"
-                accessibilityLabel="Previous month"
+                accessibilityLabel={MONTH_NAV_PREV_A11Y_FALLBACK_TH}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 style={styles.monthNavBtn}
               >
@@ -1152,7 +1174,7 @@ export function ExpensesScreen({ tokenStorage, apiBaseUrl }: ExpensesScreenProps
               <TouchableOpacity
                 onPress={nextMonth}
                 accessibilityRole="button"
-                accessibilityLabel="Next month"
+                accessibilityLabel={MONTH_NAV_NEXT_A11Y_FALLBACK_TH}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 style={styles.monthNavBtn}
               >
@@ -1186,7 +1208,7 @@ export function ExpensesScreen({ tokenStorage, apiBaseUrl }: ExpensesScreenProps
                 }}
                 accessibilityRole="button"
               >
-                <Text style={styles.jumpToTodayText}>{'⬤ เดือนนี้ / This month'}</Text>
+                <Text style={styles.jumpToTodayText}>{JUMP_TO_THIS_MONTH_FALLBACK_TH}</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -1311,13 +1333,27 @@ const styles = StyleSheet.create({
     backgroundColor: T.color.surface.subtle,                                // #F5EDE6 ivory-200 (from #FBEDEE — blameless; per B3 spec)
     paddingVertical: 8,
     paddingHorizontal: T.spacing[4],                                        // 16dp
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: T.spacing[2],
+    minHeight: 48,                                                          // ≥48dp touch target (a11y)
   },
   errorBarText: {
     fontFamily: T.type.body.fontFamily,                                     // Sarabun-Regular (from IBMPlexSans-Regular)
     fontSize: T.type.body.size,                                             // 15sp (from 13sp — per B3 spec 15sp)
     lineHeight: T.type.body.lineHeight,                                     // 25
     color: T.color.text.primary,                                            // #7A3A52 roselle-700 (from #8E3A44 — blameless)
+  },
+  // Review fix: visible retry affordance on the error banner (was tappable
+  // with no visible cue that tapping retries).
+  errorBarRetryText: {
+    fontFamily: T.type.label.fontFamily,                                    // Sarabun-SemiBold
+    fontSize: T.type.body.size,                                             // 15sp
+    lineHeight: T.type.body.lineHeight,                                     // 25
+    fontWeight: T.type.label.fontWeight,
+    color: T.color.accent.interactive,                                      // #9A5F0A amber-700
+    textDecorationLine: 'underline',
   },
   infoBar: {
     backgroundColor: T.color.surface.wash.jade,                             // #E4EDE7 jade-100 (from #EBF2EC)

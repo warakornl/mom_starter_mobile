@@ -366,9 +366,13 @@ export function FeedingLogScreen({
          *
          * A11y containment rule: each chip is a standalone TouchableOpacity
          * sibling — NEVER inside accessible={true} View wrapper.
-         * accessibilityRole="checkbox" + accessibilityState.checked (toggle semantics).
+         *
+         * Review fix: this is a single-select group (exactly one kind active
+         * at a time) — accessibilityRole="radio" + a "radiogroup" role on the
+         * row wrapper is the correct semantics (was "checkbox", which implies
+         * independent multi-select, not mutually-exclusive choice).
          */}
-        <View style={styles.chipRow}>
+        <View style={styles.chipRow} accessibilityRole="radiogroup">
           {/*
            * Breastfeed chip — standalone TouchableOpacity (containment rule).
            * testID: feeding-log-breastfeed-chip
@@ -377,7 +381,7 @@ export function FeedingLogScreen({
             testID="feeding-log-breastfeed-chip"
             style={[styles.chip, kind === 'breastfeed' && styles.chipActive]}
             onPress={() => setKind('breastfeed')}
-            accessibilityRole="checkbox"
+            accessibilityRole="radio"
             accessibilityLabel={t('feedingLog.breastfeed')}
             accessibilityState={{ checked: kind === 'breastfeed' }}
           >
@@ -394,7 +398,7 @@ export function FeedingLogScreen({
             testID="feeding-log-pump-chip"
             style={[styles.chip, kind === 'pump' && styles.chipActive]}
             onPress={() => setKind('pump')}
-            accessibilityRole="checkbox"
+            accessibilityRole="radio"
             accessibilityLabel={t('feedingLog.pump')}
             accessibilityState={{ checked: kind === 'pump' }}
           >
@@ -691,13 +695,18 @@ const styles = StyleSheet.create({
   saveBtn: {
     height: T.button.primary.height,
     backgroundColor: T.button.primary.bg,
-    borderRadius: T.radius.pill,
+    // Review fix: align CTA shape with T.button.primary.radius (the ONE
+    // primary-CTA treatment) — was radius.pill (999), inconsistent with
+    // every other primary Save/Confirm button in this cluster.
+    borderRadius: T.button.primary.radius,
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: T.button.primary.height,
   },
   saveBtnDisabled: {
-    opacity: 0.5,
+    // Review fix: ad-hoc opacity → the shared disabled-CTA overlay token
+    // (T.scrim.amber), matching ExpensesScreen's saveBtnDisabled treatment.
+    backgroundColor: T.scrim.amber,
   },
   saveBtnText: {
     fontFamily: T.type.label.fontFamily,

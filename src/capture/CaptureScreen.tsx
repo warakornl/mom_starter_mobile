@@ -1215,7 +1215,8 @@ const styles = StyleSheet.create({
   },
   headerCloseText: {
     fontFamily: T.type.bodyLarge.fontFamily,
-    fontSize: 16,
+    fontSize: T.type.bodyLarge.size,       // 17sp (from hand-rolled 16, no lineHeight)
+    lineHeight: T.type.bodyLarge.lineHeight, // 28 — Thai LH ≥1.6×
     color: T.color.text.primary,
   },
   headerTitle: {
@@ -1238,9 +1239,9 @@ const styles = StyleSheet.create({
   },
   section: { gap: 8 },
   sectionLabel: {
-    fontFamily: T.type.bodyLarge.fontFamily,
-    fontSize: 15,
-    lineHeight: 22,
+    fontFamily: T.type.body.fontFamily,
+    fontSize: T.type.body.size,            // 15sp (was hand-rolled 15/22 — 22 was only 1.467× LH, fails Thai rule)
+    lineHeight: T.type.body.lineHeight,     // 25 — 1.667×
     color: T.color.text.primary,
   },
 
@@ -1251,8 +1252,8 @@ const styles = StyleSheet.create({
     borderRadius: T.radius.md,
     padding: 14,
     fontFamily: T.type.bodyLarge.fontFamily,
-    fontSize: 16,
-    lineHeight: 25,
+    fontSize: T.type.bodyLarge.size,        // 17sp (was hand-rolled 16/25)
+    lineHeight: T.type.bodyLarge.lineHeight, // 28
     color: T.color.text.heading,
     backgroundColor: T.input.bg,
   },
@@ -1261,9 +1262,9 @@ const styles = StyleSheet.create({
     textAlignVertical: 'top',
   },
   privacyLine: {
-    fontFamily: T.type.caption.fontFamily,
-    fontSize: 12,
-    lineHeight: 18,
+    fontFamily: T.type.micro.fontFamily,
+    fontSize: T.type.micro.size,           // 11sp (was hand-rolled 12/18 — 18/12=1.5× fails Thai rule)
+    lineHeight: T.type.micro.lineHeight,   // 18 — 1.636×
     color: T.color.text.primary,
     fontStyle: 'italic',
   },
@@ -1288,12 +1289,13 @@ const styles = StyleSheet.create({
   },
   dateTimeText: {
     fontFamily: T.type.bodyLarge.fontFamily,
-    fontSize: 16,
-    lineHeight: 24,
+    fontSize: T.type.bodyLarge.size,        // 17sp (was hand-rolled 16/24)
+    lineHeight: T.type.bodyLarge.lineHeight, // 28
     color: T.color.text.heading,
   },
   dateTimeEditIcon: {
-    fontSize: 14,
+    fontSize: T.type.caption.size,          // 13sp (was hand-rolled 14, no lineHeight)
+    lineHeight: T.type.caption.lineHeight,  // 21
     color: T.color.text.primary,
   },
 
@@ -1305,21 +1307,21 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   echoLabel: {
-    fontFamily: T.type.caption.fontFamily,
-    fontSize: 12,
-    lineHeight: 18,
+    fontFamily: T.type.micro.fontFamily,
+    fontSize: T.type.micro.size,           // 11sp (was hand-rolled 12/18)
+    lineHeight: T.type.micro.lineHeight,   // 18
     color: T.color.text.primary,
   },
   echoText: {
-    fontFamily: T.type.bodyLarge.fontFamily,
-    fontSize: 15,
-    lineHeight: 22,
+    fontFamily: T.type.body.fontFamily,
+    fontSize: T.type.body.size,            // 15sp (was hand-rolled 15/22 — 22 fails Thai LH rule)
+    lineHeight: T.type.body.lineHeight,    // 25
     color: T.color.text.heading, // INV-S1: verbatim, never coloured
   },
   echoPlaceholder: {
     fontFamily: T.type.caption.fontFamily,
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: T.type.caption.size,         // 13sp (was hand-rolled 14/20)
+    lineHeight: T.type.caption.lineHeight, // 21
     color: T.color.text.primary,
     fontStyle: 'italic',
   },
@@ -1334,15 +1336,17 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   errorPanelText: {
-    fontFamily: T.type.bodyLarge.fontFamily,
-    fontSize: 14,
+    fontFamily: T.type.body.fontFamily,
+    fontSize: T.type.body.size,            // 15sp (was hand-rolled 14, no lineHeight)
+    lineHeight: T.type.body.lineHeight,    // 25
     color: T.color.text.primary,
     flex: 1,
   },
   retryBtn: { paddingLeft: 12, minHeight: 48, justifyContent: 'center' },
   retryBtnText: {
-    fontFamily: T.type.bodyLarge.fontFamily,
-    fontSize: 14,
+    fontFamily: T.type.body.fontFamily,
+    fontSize: T.type.body.size,            // 15sp (was hand-rolled 14, no lineHeight)
+    lineHeight: T.type.body.lineHeight,    // 25
     color: T.color.text.primary,
   },
 
@@ -1362,20 +1366,20 @@ const styles = StyleSheet.create({
     backgroundColor: T.color.surface.base,
   },
   saveBtn: {
-    height: 52,
+    height: T.button.primary.height,        // 52dp
     backgroundColor: T.button.primary.bg,
-    borderRadius: 999, // radius/pill
+    borderRadius: T.button.primary.radius,  // 12dp — was hard-coded 999/pill; primary CTA uses radius.md
     alignItems: 'center',
     justifyContent: 'center',
-    minHeight: 52, // a11y ≥ 48dp
+    minHeight: T.button.primary.height,     // a11y ≥ 48dp
   },
   saveBtnDisabled: {
     backgroundColor: T.scrim.amber,
   },
   saveBtnText: {
     fontFamily: T.type.bodyLarge.fontFamily,
-    fontSize: 17,
-    lineHeight: 22,
+    fontSize: T.type.bodyLarge.size,        // 17sp
+    lineHeight: T.type.bodyLarge.lineHeight, // 28 (was hand-rolled 17/22 — 22 fails Thai LH rule)
     color: T.color.text.onDark,
   },
 
@@ -1390,13 +1394,19 @@ const styles = StyleSheet.create({
     fontFamily: T.type.heading2.fontFamily,
     fontSize: T.type.heading2.size,
     lineHeight: T.type.heading2.lineHeight,
-    color: T.color.list.bar.health, // jade-800 done stamp
+    // text.botanical (jade-800, #2F5042, 8.36:1 AAA on ivory-100) — the
+    // correct semantic token for body/confirmation TEXT. list.bar.health is
+    // meant for the 3dp list-row accent bar, not text; using it here risked
+    // silently drifting to a low-contrast list-bar value if that token were
+    // ever repointed (e.g. dark-mode jade-200 ≈1.38:1 — an invisible "saved"
+    // confirmation would be a real regression).
+    color: T.color.text.botanical, // jade-800 done stamp
     textAlign: 'center',
   },
   savedEcho: {
-    fontFamily: T.type.bodyLarge.fontFamily,
-    fontSize: 15,
-    lineHeight: 22,
+    fontFamily: T.type.body.fontFamily,
+    fontSize: T.type.body.size,             // 15sp (was hand-rolled 15/22 — 22 fails Thai LH rule)
+    lineHeight: T.type.body.lineHeight,     // 25
     color: T.color.text.heading,
     textAlign: 'center',
     backgroundColor: T.color.surface.subtle,
@@ -1414,26 +1424,28 @@ const styles = StyleSheet.create({
     backgroundColor: T.input.bg,
     borderWidth: 1,
     borderColor: T.color.surface.divider,
-    borderRadius: 999,
+    borderRadius: T.radius.pill,            // 999 — was hard-coded literal
     alignItems: 'center',
     justifyContent: 'center',
   },
   savedSecondaryBtnText: {
-    fontFamily: T.type.bodyLarge.fontFamily,
-    fontSize: 15,
+    fontFamily: T.type.body.fontFamily,
+    fontSize: T.type.body.size,             // 15sp (was hand-rolled 15, no lineHeight)
+    lineHeight: T.type.body.lineHeight,     // 25
     color: T.color.text.primary,
   },
   savedPrimaryBtn: {
     height: 48,
     paddingHorizontal: 24,
     backgroundColor: T.button.primary.bg,
-    borderRadius: 999,
+    borderRadius: T.radius.pill,            // 999 — was hard-coded literal
     alignItems: 'center',
     justifyContent: 'center',
   },
   savedPrimaryBtnText: {
-    fontFamily: T.type.bodyLarge.fontFamily,
-    fontSize: 15,
+    fontFamily: T.type.body.fontFamily,
+    fontSize: T.type.body.size,             // 15sp (was hand-rolled 15, no lineHeight)
+    lineHeight: T.type.body.lineHeight,     // 25
     color: T.color.text.onDark,
   },
 
@@ -1456,9 +1468,9 @@ const fieldStyles = StyleSheet.create({
   },
   numericInput: {
     flex: 1,
-    fontFamily: T.type.bodyLarge.fontFamily, // tabular figures — Sarabun
-    fontSize: 22,
-    lineHeight: 28,
+    fontFamily: T.type.heading1.fontFamily, // tabular figures — Sarabun (was bodyLarge/22 hand-rolled)
+    fontSize: T.type.heading1.size,         // 24sp — nearest standard token to the 22sp hero value
+    lineHeight: T.type.heading1.lineHeight, // 39 — Thai LH ≥1.6×
     color: T.color.text.heading,
     paddingVertical: 12,
   },
@@ -1468,8 +1480,8 @@ const fieldStyles = StyleSheet.create({
   },
   unitLabel: {
     fontFamily: T.type.bodyLarge.fontFamily,
-    fontSize: 16,
-    lineHeight: 24,
+    fontSize: T.type.bodyLarge.size,        // 17sp (was hand-rolled 16/24)
+    lineHeight: T.type.bodyLarge.lineHeight, // 28
     color: T.color.text.primary,
     marginLeft: 8,
   },
@@ -1485,17 +1497,18 @@ const fieldStyles = StyleSheet.create({
     minHeight: 56,
   },
   bpField: {
-    fontFamily: T.type.bodyLarge.fontFamily,
-    fontSize: 22,
-    lineHeight: 28,
+    fontFamily: T.type.heading1.fontFamily,  // (was bodyLarge/22 hand-rolled — matches numericInput hero pairing)
+    fontSize: T.type.heading1.size,          // 24sp
+    lineHeight: T.type.heading1.lineHeight,  // 39
     color: T.color.text.heading,
     paddingVertical: 12,
     width: 70,
     textAlign: 'center',
   },
   bpSeparator: {
-    fontFamily: T.type.bodyLarge.fontFamily,
-    fontSize: 22,
+    fontFamily: T.type.heading1.fontFamily,
+    fontSize: T.type.heading1.size,          // 24sp (was hand-rolled 22, no lineHeight)
+    lineHeight: T.type.heading1.lineHeight,  // 39
     color: T.color.text.primary,
     paddingHorizontal: 4,
   },
@@ -1506,8 +1519,8 @@ const fieldStyles = StyleSheet.create({
     borderRadius: T.radius.md,
     padding: 14,
     fontFamily: T.type.bodyLarge.fontFamily,
-    fontSize: 16,
-    lineHeight: 25,
+    fontSize: T.type.bodyLarge.size,         // 17sp (was hand-rolled 16/25)
+    lineHeight: T.type.bodyLarge.lineHeight, // 28
     color: T.color.text.heading,
     backgroundColor: T.input.bg,
     minHeight: 88,
@@ -1520,13 +1533,14 @@ const fieldStyles = StyleSheet.create({
     gap: 6,
   },
   hintIcon: {
-    fontSize: 13,
+    fontSize: T.type.caption.size,           // 13sp (was hand-rolled 13, no lineHeight)
+    lineHeight: T.type.caption.lineHeight,   // 21
     color: T.color.text.primary, // ink/soft (explicitly NOT status/attention amber)
   },
   hintText: {
     fontFamily: T.type.caption.fontFamily,
-    fontSize: 13,
-    lineHeight: 19,
+    fontSize: T.type.caption.size,           // 13sp (was hand-rolled 13/19 — 19/13=1.462× fails Thai rule)
+    lineHeight: T.type.caption.lineHeight,   // 21 — 1.615×
     color: T.color.text.primary, // ink/soft (capture-ui §4: never amber)
     flex: 1,
   },
@@ -1546,22 +1560,22 @@ const fieldStyles = StyleSheet.create({
   /** Plan name line — verbatim, semi-bold (INV-M4). */
   medPlanName: {
     fontFamily: T.type.heading2.fontFamily,
-    fontSize: 16,
-    lineHeight: 24,
+    fontSize: T.type.bodyLarge.size,        // 17sp (was hand-rolled 16/24)
+    lineHeight: T.type.bodyLarge.lineHeight, // 28
     color: T.color.text.heading, // verbatim, never coloured (INV-M4)
   },
   /** "จากแผนยา" / "From plan" secondary label below the plan name. */
   medPlanFrom: {
     fontFamily: T.type.caption.fontFamily,
-    fontSize: 13,
-    lineHeight: 19,
+    fontSize: T.type.caption.size,          // 13sp (was hand-rolled 13/19 — fails Thai LH rule)
+    lineHeight: T.type.caption.lineHeight,  // 21
     color: T.color.text.primary,
   },
   /** "ขนาด 1 เม็ด" dose line — verbatim (INV-M4). */
   medDose: {
     fontFamily: T.type.caption.fontFamily,
-    fontSize: 14,
-    lineHeight: 21,
+    fontSize: T.type.caption.size,          // 13sp (was hand-rolled 14/21)
+    lineHeight: T.type.caption.lineHeight,  // 21
     color: T.color.text.primary, // neutral, never coloured (INV-M4)
   },
   /**
@@ -1574,8 +1588,8 @@ const fieldStyles = StyleSheet.create({
   },
   medStatusLabel: {
     fontFamily: T.type.caption.fontFamily,
-    fontSize: 13,
-    lineHeight: 19,
+    fontSize: T.type.caption.size,          // 13sp (was hand-rolled 13/19 — fails Thai LH rule)
+    lineHeight: T.type.caption.lineHeight,  // 21
     color: T.color.text.primary,
   },
   /** Row containing the taken and missed chips (equal-weight flex row). */
@@ -1611,8 +1625,8 @@ const segStyles = StyleSheet.create({
   },
   chipText: {
     fontFamily: T.type.bodyLarge.fontFamily,
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: T.type.caption.size,          // 13sp (was hand-rolled 14/20 — 20/14=1.429× fails Thai rule)
+    lineHeight: T.type.caption.lineHeight,  // 21
     color: T.color.text.primary,
   },
   chipTextSelected: {
@@ -1645,14 +1659,16 @@ const pickerStyles = StyleSheet.create({
   },
   cancelBtn: { minHeight: 48, justifyContent: 'center' as const },
   cancelText: {
-    fontFamily: T.type.bodyLarge.fontFamily,
-    fontSize: 15,
+    fontFamily: T.type.body.fontFamily,
+    fontSize: T.type.body.size,             // 15sp (was hand-rolled 15, no lineHeight)
+    lineHeight: T.type.body.lineHeight,     // 25
     color: T.color.text.primary,
   },
   doneBtn: { minHeight: 48, justifyContent: 'center' as const },
   doneText: {
     fontFamily: T.type.heading2.fontFamily,
-    fontSize: 15,
+    fontSize: T.type.body.size,             // 15sp (was hand-rolled 15, no lineHeight)
+    lineHeight: T.type.body.lineHeight,     // 25
     color: T.color.accent.interactive,
   },
   picker: { alignSelf: 'center' as const },

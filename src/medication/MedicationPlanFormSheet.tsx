@@ -950,7 +950,10 @@ const styles = StyleSheet.create({
   },
   chipCheck: {
     fontSize: T.type.caption.size,                 // 13sp (from 12sp)
-    color: T.color.accent.identity,                // #B85C78 roselle-500 (from #A8505A)
+    // roselle-500 (#B85C78) on roselle-200 (#F2D0DC) chip bg was 3.07:1 @13sp —
+    // fails AA. Use text.primary (roselle-700, ~5.8:1) — same fix as
+    // chipTextActive below and matches CaptureScreen's chipTextSelected pattern.
+    color: T.color.text.primary,                   // #7A3A52 roselle-700
     fontWeight: '700',
   },
   chipText: {
@@ -960,7 +963,11 @@ const styles = StyleSheet.create({
     color: T.color.text.primary,                   // #7A3A52 roselle-700 (from #5F4A52)
   },
   chipTextActive: {
-    color: T.color.accent.identity,                // #B85C78 roselle-500 (from #A8505A)
+    // Selected freq-chip text was roselle-500 (#B85C78) on roselle-200
+    // (#F2D0DC) = 3.07:1 @13sp — fails AA. Use text.primary (roselle-700,
+    // ~5.8:1 on roselle-200) — the same token CaptureScreen uses for its
+    // selected chip text (segStyles.chipTextSelected).
+    color: T.color.text.primary,                   // #7A3A52 roselle-700
     fontWeight: '700',
   },
 
@@ -1024,13 +1031,18 @@ const styles = StyleSheet.create({
     height: 48,
     borderRadius: 24,
     borderWidth: 1.5,
-    borderColor: T.color.accent.identity,          // #B85C78 roselle-500 (from #A8505A)
+    // accent.interactive (amber-700, 4.90:1 AA on ivory-100) — was roselle-500
+    // (accent.identity), which duplicated the sheet's chip-selection accent
+    // as a SECOND unrelated accent and read at a lower 4.06:1. The stepper is
+    // an interactive control, not an identity/selection cue, so it now uses
+    // the interactive accent token instead (single-accent-per-sheet + better contrast).
+    borderColor: T.color.accent.interactive,       // #9A5F0A amber-700
     alignItems: 'center',
     justifyContent: 'center',
   },
   stepperBtnText: {
     fontSize: 22,
-    color: T.color.accent.identity,                // #B85C78 roselle-500 (from #A8505A)
+    color: T.color.accent.interactive,             // #9A5F0A amber-700 (4.90:1 AA on ivory-100)
     lineHeight: 28,
   },
   stepperValue: {

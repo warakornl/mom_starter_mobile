@@ -700,10 +700,16 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 40,
   },
-  // Timer — prominent secondary stat
+  // Timer — prominent secondary stat.
+  // fontFamily: 'monospace' only resolves to a real monospace typeface on
+  // Android — iOS silently falls back to the system default (no tabular
+  // alignment, and it isn't ห้องแม่'s Sarabun family either). Use the
+  // cross-platform Sarabun-SemiBold display token instead; tabular figures
+  // aren't required here (mm:ss is fixed-width enough at this size) and this
+  // keeps typography consistent with the rest of the screen.
   timerText: {
     fontSize: timerStyleTokens.timerFontSize,
-    fontFamily: 'monospace',
+    fontFamily: T.type.display.fontFamily,   // Sarabun-SemiBold (was Android-only 'monospace')
     color: T.color.text.heading,             // #4A2230 roselle-900 (from ink)
     textAlign: 'center',
     marginTop: 16,
@@ -745,17 +751,24 @@ const styles = StyleSheet.create({
     fontSize: T.type.caption.size,           // 13sp
     color: T.color.text.primary,             // #7A3A52 roselle-700 (from #9B9B9B)
   },
-  // Tap area — STATIC bg colour (INV-K2: ivory-200 regardless of count)
+  // Tap area — STATIC bg colour (INV-K2: ivory-200 regardless of count).
+  // K-5b forbids the border/emphasis varying BY COUNT — a fixed, always-on
+  // stronger border/elevation is allowed and required so the tap area reads
+  // as interactive rather than blending into the static safety-strip/panel
+  // surfaces around it (previous divider-colour border was ~1.1:1, visually
+  // identical to non-interactive panels). This static treatment never
+  // changes with movementCount.
   tapArea: {
     backgroundColor: T.color.surface.subtle, // #F5EDE6 ivory-200 — STATIC (INV-K2)
-    borderWidth: 1.5,
-    borderColor: T.color.surface.divider,    // #E8DDD5 (from #E5E5E5)
+    borderWidth: 2,
+    borderColor: T.color.accent.milestone,   // #B8720E amber-600 — static, ≥3:1 UI, never count-based
     borderRadius: 20,
     minHeight: 200,
     width: '100%',
     alignItems: 'center',
     justifyContent: 'center',
     marginVertical: 12,
+    ...T.elev[1],                            // static elevation (always-on, not count-driven)
   },
   tapAreaDisabled: {
     backgroundColor: T.color.surface.subtle, // ivory-200 — same (STATIC per INV-K2)

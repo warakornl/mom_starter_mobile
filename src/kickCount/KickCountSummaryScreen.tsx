@@ -41,20 +41,49 @@ export function KickCountSummaryScreen() {
   const route = useRoute<Route>();
   const { sessionId } = route.params;
 
+  // getSession() is a synchronous in-memory read — a null result once the
+  // effect has run means the id genuinely does not exist (stale deep link,
+  // tombstoned row) — that must show a distinct not-found state, not an
+  // eternal loading spinner (previously: loading forever whenever the id
+  // was missing/invalid).
+  type LoadState = 'loading' | 'found' | 'not-found';
+  const [loadState, setLoadState] = useState<LoadState>('loading');
   const [session, setSession] = useState<KickCountSessionRecord | null>(null);
 
   useEffect(() => {
     const s = kickCountSyncStore.getSession(sessionId);
     setSession(s ?? null);
+    setLoadState(s ? 'found' : 'not-found');
   }, [sessionId]);
 
   const handleViewHistory = () => navigation.navigate('KickCountHistory');
   const handleDone = () => navigation.navigate('KickCountHome');
 
-  if (!session) {
+  if (loadState === 'loading') {
     return (
       <View style={styles.container} testID="kick-summary-loading">
         <Text style={styles.loadingText}>{t('home.loading')}</Text>
+      </View>
+    );
+  }
+
+  if (loadState === 'not-found' || !session) {
+    // TODO(i18n owner — shared messages.ts, not editable by this cluster):
+    // add dedicated 'kick.summaryNotFound' key (see report). Falls back to
+    // the existing generic store-error copy so this state is never an
+    // eternal 'loading' skeleton in the meantime.
+    return (
+      <View style={styles.container} testID="kick-summary-not-found">
+        <Text style={styles.headline}>{t('kick.storeError')}</Text>
+        <TouchableOpacity
+          style={styles.primaryBtn}
+          onPress={handleDone}
+          accessibilityRole="button"
+          accessibilityLabel={t('kick.summaryDone')}
+          testID="kick-summary-not-found-done-btn"
+        >
+          <Text style={styles.primaryBtnText}>{t('kick.summaryDone')}</Text>
+        </TouchableOpacity>
       </View>
     );
   }

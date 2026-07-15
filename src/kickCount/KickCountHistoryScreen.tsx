@@ -39,7 +39,8 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RootStackParamList } from '../navigation/types';
 import { useT } from '../i18n/LanguageContext';
-import { interpolate } from '../i18n/messages';
+import { interpolate, formatCivilDate } from '../i18n/messages';
+import type { Locale } from '../auth/types';
 import { kickCountSyncStore } from './kickCountSyncStore';
 import type { KickCountSessionRecord } from './kickCountTypes';
 import { isStartAllowedByWeek } from './kickCountLogic';
@@ -66,6 +67,8 @@ interface KickCountHistoryScreenProps {
   lifecycle: Lifecycle;
   generalHealthConsented: boolean;
   onRequestConsent: () => void;
+  /** True when the device has no network connection (history reads local-first regardless). */
+  isOffline?: boolean;
 }
 
 // ─── Civil date helpers ───────────────────────────────────────────────────────
@@ -131,12 +134,14 @@ export function KickCountHistoryScreen({
   lifecycle,
   generalHealthConsented,
   onRequestConsent,
+  isOffline = false,
 }: KickCountHistoryScreenProps) {
-  const { t } = useT();
+  const { t, locale } = useT();
   const navigation = useNavigation<Nav>();
 
   const [sessions, setSessions] = useState<KickCountSessionRecord[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  type LoadState = 'loading' | 'loaded' | 'error';
+  const [loadState, setLoadState] = useState<LoadState>('loading');
   const [chartWidth, setChartWidth] = useState(CHART_FALLBACK_WIDTH);
 
   // ── Date-range state (last 7 days default) ───────────────────────────────────
@@ -151,10 +156,27 @@ export function KickCountHistoryScreen({
 
   const canStart = isStartAllowedByWeek(gestationalWeek, lifecycle);
 
+  // Retry counter — bumped by the error-state retry button so this effect
+  // (deps include retryCount) actually re-runs the store read.
+  const [retryCount, setRetryCount] = useState(0);
+
   useEffect(() => {
-    const active = kickCountSyncStore.getActiveSessions();
-    setSessions(active);
-    setIsLoading(false);
+    // K-8/Y-9: getActiveSessions() was previously an unguarded read — any
+    // store failure would throw during render with no error state to catch
+    // it. Guard it so a genuine failure surfaces the error panel instead of
+    // crashing the screen.
+    try {
+      const active = kickCountSyncStore.getActiveSessions();
+      setSessions(active);
+      setLoadState('loaded');
+    } catch {
+      setLoadState('error');
+    }
+  }, [retryCount]);
+
+  const handleRetryLoad = useCallback(() => {
+    setLoadState('loading');
+    setRetryCount((c) => c + 1);
   }, []);
 
   const handleStartPress = useCallback(() => {
@@ -233,12 +255,35 @@ export function KickCountHistoryScreen({
   const groups = groupByDate(filteredSessions);
   const rangeIsEmpty = filteredSessions.length === 0;
 
-  // ── Loading ─────────────────────────────────────────────────────────────────
+  // ── Loading (skeleton — matches Home's bone treatment) ────────────────────────
 
-  if (isLoading) {
+  if (loadState === 'loading') {
     return (
       <View style={styles.container} testID="kick-history-loading">
-        <Text style={styles.loadingText}>{t('home.loading')}</Text>
+        <View style={styles.skeletonRangeBone} />
+        <View style={styles.skeletonChartBone} />
+        <View style={styles.skeletonRowBone} />
+        <View style={styles.skeletonRowBone} />
+        <View style={styles.skeletonRowBone} />
+      </View>
+    );
+  }
+
+  // ── Error state (guards the previously-unguarded getActiveSessions() read) ────
+
+  if (loadState === 'error') {
+    return (
+      <View style={styles.container} testID="kick-history-error">
+        <Text style={styles.errorText}>{t('kick.storeError')}</Text>
+        <TouchableOpacity
+          onPress={handleRetryLoad}
+          style={styles.primaryBtn}
+          accessibilityRole="button"
+          accessibilityLabel={t('general.retry')}
+          testID="kick-history-retry-btn"
+        >
+          <Text style={styles.primaryBtnText}>{t('general.retry')}</Text>
+        </TouchableOpacity>
       </View>
     );
   }
@@ -248,6 +293,11 @@ export function KickCountHistoryScreen({
   if (sessions.length === 0) {
     return (
       <View style={styles.container} testID="kick-history-empty">
+        {isOffline && (
+          <View style={styles.offlinePill} testID="kick-history-offline-pill">
+            <Text style={styles.offlinePillText}>{t('kick.offlinePill')}</Text>
+          </View>
+        )}
         {lifecycle === 'postpartum' && (
           <View style={styles.postpartumBanner} testID="kick-history-postpartum-banner">
             <Text style={styles.postpartumBannerText}>{t('kick.postpartumBanner')}</Text>
@@ -274,6 +324,13 @@ export function KickCountHistoryScreen({
 
   const renderListHeader = () => (
     <>
+      {/* Offline pill (list state — history reads local-first regardless) */}
+      {isOffline && (
+        <View style={styles.offlinePill} testID="kick-history-offline-pill">
+          <Text style={styles.offlinePillText}>{t('kick.offlinePill')}</Text>
+        </View>
+      )}
+
       {/* SC-K6b postpartum read-only banner */}
       {lifecycle === 'postpartum' && (
         <View style={styles.postpartumBanner} testID="kick-history-postpartum-banner">
@@ -319,10 +376,10 @@ export function KickCountHistoryScreen({
                 setShowFromPicker((v) => !v);
               }}
               accessibilityRole="button"
-              accessibilityLabel={`${t('kick.chartFrom')} ${fromDate}`}
+              accessibilityLabel={`${t('kick.chartFrom')} ${formatCivilDate(fromDate, locale as Locale)}`}
               testID="kick-chart-from-btn"
             >
-              <Text style={styles.pickerBtnText}>{fromDate}</Text>
+              <Text style={styles.pickerBtnText}>{formatCivilDate(fromDate, locale as Locale)}</Text>
             </TouchableOpacity>
             {showFromPicker && (
               <DateTimePicker
@@ -346,10 +403,10 @@ export function KickCountHistoryScreen({
                 setShowToPicker((v) => !v);
               }}
               accessibilityRole="button"
-              accessibilityLabel={`${t('kick.chartTo')} ${toDate}`}
+              accessibilityLabel={`${t('kick.chartTo')} ${formatCivilDate(toDate, locale as Locale)}`}
               testID="kick-chart-to-btn"
             >
-              <Text style={styles.pickerBtnText}>{toDate}</Text>
+              <Text style={styles.pickerBtnText}>{formatCivilDate(toDate, locale as Locale)}</Text>
             </TouchableOpacity>
             {showToPicker && (
               <DateTimePicker
@@ -390,10 +447,12 @@ export function KickCountHistoryScreen({
         </View>
       )}
 
-      {/* ── Session list section header ───────────────────────────────────── */}
+      {/* ── Session list section header (พ.ศ.-aware, matches medication/capture) ── */}
       {!rangeIsEmpty && (
         <Text style={styles.listSectionLabel}>
-          {fromDate === toDate ? fromDate : `${fromDate} – ${toDate}`}
+          {fromDate === toDate
+            ? formatCivilDate(fromDate, locale as Locale)
+            : `${formatCivilDate(fromDate, locale as Locale)} – ${formatCivilDate(toDate, locale as Locale)}`}
         </Text>
       )}
     </>
@@ -401,9 +460,9 @@ export function KickCountHistoryScreen({
 
   const renderItem = ({ item: group }: { item: DateGroup }) => (
     <View key={group.date}>
-      {/* Section header: civil date only (D10) */}
+      {/* Section header: civil date only (D10) — พ.ศ.-aware display (raw ISO kept in testID) */}
       <Text style={styles.sectionHeader} testID={`kick-section-${group.date}`}>
-        {group.date}
+        {formatCivilDate(group.date, locale as Locale)}
       </Text>
       {group.sessions.map((s) => {
         const durationMin = s.durationSeconds ? Math.round(s.durationSeconds / 60) : 0;
@@ -468,13 +527,54 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: T.color.surface.base,       // #FBF6F1 ivory-100 (from #FFFFFF)
   },
-  loadingText: {
+  // ── Loading skeleton (matches KickCountHomeScreen's bone treatment) ─────────
+  skeletonRangeBone: {
+    height: 96,
+    borderRadius: T.radius.md,                    // 12dp
+    backgroundColor: T.skeleton.color,            // #F5EDE6 ivory-200
+    marginHorizontal: T.spacing[4],               // 16dp
+    marginTop: T.spacing[4],                      // 16dp
+    marginBottom: 12,
+  },
+  skeletonChartBone: {
+    height: 180,
+    borderRadius: T.radius.sm,                    // 6dp
+    backgroundColor: T.skeleton.color,            // #F5EDE6 ivory-200
+    marginHorizontal: T.spacing[4],               // 16dp
+    marginBottom: 16,
+  },
+  skeletonRowBone: {
+    height: T.list.row.minHeight,                 // 56dp
+    borderRadius: T.radius.sm,                    // 6dp
+    backgroundColor: T.skeleton.color,            // #F5EDE6 ivory-200
+    marginHorizontal: T.spacing[4],               // 16dp
+    marginBottom: 8,
+  },
+  // ── Error state ──────────────────────────────────────────────────────────────
+  errorText: {
     fontFamily: T.type.body.fontFamily,           // Sarabun-Regular
     fontSize: T.type.body.size,                   // 15sp
     lineHeight: T.type.body.lineHeight,           // 25
-    color: T.color.text.primary,                  // #7A3A52 roselle-700 (from #6B6B6B)
-    marginTop: 40,
+    color: T.color.text.primary,                  // #7A3A52 roselle-700
     textAlign: 'center',
+    marginTop: 40,
+    marginHorizontal: T.spacing[4],               // 16dp
+    marginBottom: 16,
+  },
+  // ── Offline pill (mirrors KickCountHomeScreen) ──────────────────────────────
+  offlinePill: {
+    backgroundColor: T.offlinePill.bg,            // #F5EDE6 ivory-200
+    borderRadius: T.radius.pill,                  // 999
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    alignSelf: 'center',
+    marginTop: 12,
+    marginBottom: 4,
+  },
+  offlinePillText: {
+    fontFamily: T.type.caption.fontFamily,        // Sarabun-Regular
+    fontSize: T.type.caption.size,                // 13sp — text.primary (R4)
+    color: T.color.text.primary,                  // #7A3A52 roselle-700
   },
   emptyHeadline: {
     fontFamily: T.type.heading2.fontFamily,       // Sarabun-SemiBold
@@ -550,7 +650,7 @@ const styles = StyleSheet.create({
     borderColor: T.color.surface.divider,         // #E8DDD5 (from #E3D8CE)
     paddingHorizontal: 12,
     paddingVertical: 4,
-    minHeight: 32,
+    minHeight: 48,                                // ≥48dp touch target (was 32dp)
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -581,7 +681,8 @@ const styles = StyleSheet.create({
     borderRadius: T.radius.sm,                   // 6dp (from 8dp)
     paddingHorizontal: 10,
     paddingVertical: 8,
-    minHeight: 44,
+    minHeight: 48,                               // ≥48dp touch target (was 44dp)
+    justifyContent: 'center',
   },
   pickerBtnText: {
     fontFamily: T.type.caption.fontFamily,        // Sarabun-Regular (tabular monospace for date)

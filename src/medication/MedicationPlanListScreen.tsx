@@ -213,9 +213,15 @@ export function MedicationPlanListScreen({
   const [plans, setPlans] = useState<MedicationPlan[]>([]);
   const [screenState, setScreenState] = useState<'loading' | 'list' | 'error'>('loading');
 
-  // ── Connectivity — B3 (wire to NetInfo post-MVP; false = assume online) ───
-  // MVP: isOffline is always false here; navigator/parent can set via prop or hook.
-  const [isOffline] = useState(false);
+  // ── Connectivity (B3) ──────────────────────────────────────────────────────
+  // Honest fix (design review): this was `const [isOffline] = useState(false)`
+  // — a setter-less state that could NEVER become true, i.e. a dead pill that
+  // always rendered nothing. No connectivity signal is wired into this screen
+  // by the navigator (BottomTabNavigator.tsx — a shared file this cluster
+  // cannot edit — does not pass an isOffline prop), so rather than keep a
+  // branch that can never fire, the offline pill is removed here. Re-add it
+  // once BottomTabNavigator threads a real connectivity signal through
+  // (see report: shared-file change needed).
 
   // ── general_health consent state — B4 ─────────────────────────────────────
   const [healthConsentGranted, setHealthConsentGranted] = useState(
@@ -450,18 +456,18 @@ export function MedicationPlanListScreen({
   return (
     <SafeAreaView style={styles.container}>
 
-      {/* ── Top bar: title + connectivity pill + Add (M4 + B3) ───────────── */}
+      {/* ── Top bar: title + Add (M4) ─────────────────────────────────────── */}
       <View style={styles.topBar}>
         <Text style={styles.topBarTitle} accessibilityRole="header">
           {t('medication.navTitle')}
         </Text>
         <View style={styles.topBarRight}>
-          {/* B3: offline pill — renders when isOffline=true */}
-          {isOffline && (
-            <View style={styles.offlinePill} accessibilityLiveRegion="polite">
-              <Text style={styles.offlinePillText}>{t('medication.offlinePill')}</Text>
-            </View>
-          )}
+          {/*
+            B3 offline pill removed here — it was dead (`useState(false)` with
+            no setter, so it could never render). No connectivity signal is
+            wired into this screen (see report). Re-add once one is threaded
+            through from BottomTabNavigator.
+          */}
           <TouchableOpacity
             testID="med-add-top"
             style={styles.topAddBtn}
@@ -721,18 +727,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
-  offlinePill: {
-    backgroundColor: T.offlinePill.bg,            // #F5EDE6 ivory-200 (from #EBE1D9)
-    borderRadius: T.radius.pill,                  // 999
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-  },
-  offlinePillText: {
-    fontFamily: T.type.caption.fontFamily,         // Sarabun-Regular (from IBMPlexSans-Regular)
-    fontSize: T.type.caption.size,                 // 13sp (from 12sp — caption; at 13sp use text.primary R4)
-    lineHeight: T.type.caption.lineHeight,         // 21
-    color: T.color.text.primary,                   // #7A3A52 roselle-700 (from #5F4A52 — jade-600 banned at 13sp R4)
-  },
   topAddBtn: {
     minWidth: 48,
     minHeight: 48,
@@ -889,9 +883,13 @@ const styles = StyleSheet.create({
     // flexDirection changed to column so logDoseBtn sits below the row
     flexDirection: 'column',
   },
+  // Inactive card: distinguished by a flatter surface (ivory-100 vs ivory-200)
+  // only — NOT by a blanket `opacity` on the whole card. A whole-subtree
+  // opacity dims caption text (13sp, text.primary 7.70:1 AAA on ivory-100)
+  // down toward ~4.2:1, silently failing AA. The glyph carries the "inactive"
+  // visual cue instead (pillGlyphInactive, decorative-only, hidden from SR).
   planCardInactive: {
     backgroundColor: T.color.surface.base,         // #FBF6F1 ivory-100 (from #FBF6F1 literal)
-    opacity: 0.75,
   },
   // Inner row: edit-body + trailing switch, side-by-side
   planCardRow: {

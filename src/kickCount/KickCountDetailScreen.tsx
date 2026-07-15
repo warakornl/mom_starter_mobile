@@ -17,7 +17,6 @@ import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
-  TouchableOpacity,
   StyleSheet,
   ScrollView,
 } from 'react-native';
@@ -38,17 +37,38 @@ export function KickCountDetailScreen() {
   const route = useRoute<Route>();
   const { sessionId } = route.params;
 
+  // getSession() is a synchronous in-memory read — "loading" is only ever
+  // transient (one render tick before the effect runs). Once the effect has
+  // run, a null session means the id genuinely does not exist in the store
+  // (e.g. stale deep link, tombstoned row) — that must show a distinct
+  // not-found state, not an eternal loading spinner (previously: loading
+  // forever whenever the id was missing/invalid).
+  type LoadState = 'loading' | 'found' | 'not-found';
+  const [loadState, setLoadState] = useState<LoadState>('loading');
   const [session, setSession] = useState<KickCountSessionRecord | null>(null);
 
   useEffect(() => {
     const s = kickCountSyncStore.getSession(sessionId);
     setSession(s ?? null);
+    setLoadState(s ? 'found' : 'not-found');
   }, [sessionId]);
 
-  if (!session) {
+  if (loadState === 'loading') {
     return (
       <View style={styles.container} testID="kick-detail-loading">
         <Text style={styles.loadingText}>{t('home.loading')}</Text>
+      </View>
+    );
+  }
+
+  if (loadState === 'not-found' || !session) {
+    // TODO(i18n owner — shared messages.ts, not editable by this cluster):
+    // add dedicated 'kick.detailNotFound' / 'kick.detailNotFoundBody' keys
+    // (see report). Falls back to the existing generic store-error copy so
+    // this state is never an eternal 'loading' skeleton in the meantime.
+    return (
+      <View style={styles.container} testID="kick-detail-not-found">
+        <Text style={styles.headline}>{t('kick.storeError')}</Text>
       </View>
     );
   }
@@ -58,11 +78,10 @@ export function KickCountDetailScreen() {
   const endTime = session.endedAt ? session.endedAt.split('T')[1] ?? '' : '';
   const startDate = session.startedAt.split('T')[0] ?? '';
 
-  const handleExportPdf = () => {
-    // TODO: POST /reports with pdf_egress consent check
-    // D9/K-7: note enters PDF only when includeLab=true (opt-in under sensitive_lab_results)
-    // This is a carry-forward — wiring the PDF endpoint is out of scope for this slice.
-  };
+  // PDF export (POST /reports + pdf_egress consent) is NOT implemented in
+  // this slice — the button is hidden below (design-reviewer: no dead
+  // buttons). Re-add a wired handleExportPdf in the same change that wires
+  // the endpoint.
 
   return (
     <ScrollView style={styles.container} testID="kick-detail-screen">
@@ -113,16 +132,12 @@ export function KickCountDetailScreen() {
       {/* Safety strip (K-5d) + disclaimer — always-on (INV-K6) */}
       <SafetyStrip t={t} />
 
-      {/* PDF export */}
-      <TouchableOpacity
-        style={styles.exportBtn}
-        onPress={handleExportPdf}
-        accessibilityRole="button"
-        accessibilityLabel={t('kick.detailExportPdf')}
-        testID="kick-detail-export-pdf-btn"
-      >
-        <Text style={styles.exportBtnText}>{t('kick.detailExportPdf')}</Text>
-      </TouchableOpacity>
+      {/*
+        PDF export — HIDDEN until wired (design-reviewer: no dead buttons).
+        handleExportPdf is a no-op TODO (POST /reports + pdf_egress consent
+        is not implemented in this slice). Re-enable this button in the same
+        change that wires the endpoint — do not un-hide it before then.
+      */}
     </ScrollView>
   );
 }
@@ -209,21 +224,6 @@ const styles = StyleSheet.create({
     fontFamily: T.type.body.fontFamily,       // Sarabun-Regular
     fontSize: T.type.body.size,               // 15sp
     lineHeight: T.type.body.lineHeight,       // 25
-    color: T.color.text.primary,              // #7A3A52 roselle-700 (from #1A1A1A)
-  },
-  exportBtn: {
-    borderWidth: 1,
-    borderColor: T.color.surface.divider,     // #E8DDD5 (from #E5E5E5)
-    borderRadius: T.button.secondary.radius,  // 12dp
-    height: T.button.primary.height,          // 52dp
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 16,
-    marginBottom: 32,
-  },
-  exportBtnText: {
-    fontFamily: T.type.body.fontFamily,       // Sarabun-Regular
-    fontSize: T.type.body.size,               // 15sp
     color: T.color.text.primary,              // #7A3A52 roselle-700 (from #1A1A1A)
   },
 });

@@ -100,6 +100,11 @@ export function KickCountHomeScreen({
     isLossState(lifecycle) ? 'loss' : 'loading',
   );
   const [hasDraft, setHasDraft] = useState(false);
+  // Retry counter: bumped by the error-state retry button so the init effect
+  // below (deps [lifecycle, syncPull, retryCount]) re-runs even when lifecycle
+  // and syncPull are unchanged — otherwise retry sets 'loading' but nothing
+  // ever re-fires init() and the screen is stuck on the skeleton forever.
+  const [retryCount, setRetryCount] = useState(0);
 
   // D6 / SC-K6a: module must NOT render before wk32
   const moduleVisible = shouldShowModule(gestationalWeek, lifecycle);
@@ -149,7 +154,7 @@ export function KickCountHomeScreen({
     }
     init();
     return () => { cancelled = true; };
-  }, [lifecycle, syncPull]);
+  }, [lifecycle, syncPull, retryCount]);
 
   // Y-2: pull on foreground (repopulate history when returning from background)
   useEffect(() => {
@@ -202,7 +207,13 @@ export function KickCountHomeScreen({
       <View style={styles.container} testID="kick-home-error">
         <Text style={styles.errorText}>{t('kick.storeError')}</Text>
         <TouchableOpacity
-          onPress={() => setScreenState('loading')}
+          onPress={() => {
+            // Bump retryCount so the init effect (deps include retryCount)
+            // actually re-runs — setting 'loading' alone does NOT re-trigger
+            // init() when lifecycle/syncPull are unchanged (dead-retry fix).
+            setScreenState('loading');
+            setRetryCount((c) => c + 1);
+          }}
           style={styles.retryBtn}
           accessibilityRole="button"
           accessibilityLabel={t('general.retry')}
@@ -251,22 +262,22 @@ export function KickCountHomeScreen({
         </View>
       )}
 
-      {/* Stage week label */}
-      <Text style={styles.weekLabel} accessibilityElementsHidden>
+      {/* Stage week label — announced to SR (gestational week is meaningful content) */}
+      <Text style={styles.weekLabel}>
         {interpolate(t('kick.weekLabel'), { n: displayWeek })}
       </Text>
 
       {/* Start button — only when canStart */}
       {canStart && (
         <TouchableOpacity
-          style={[styles.primaryBtn, isConsentGate && styles.primaryBtnDisabled]}
+          style={[styles.primaryBtn, isConsentGate && styles.consentGateBtn]}
           onPress={handleStartPress}
           accessibilityRole="button"
           accessibilityLabel={t('kick.startBtn')}
           accessibilityState={{ disabled: false }} // always pressable (routes to consent if needed)
           testID="kick-start-btn"
         >
-          <Text style={[styles.primaryBtnText, isConsentGate && styles.primaryBtnTextDisabled]}>
+          <Text style={[styles.primaryBtnText, isConsentGate && styles.consentGateBtnText]}>
             {t('kick.startBtn')}
           </Text>
         </TouchableOpacity>
@@ -361,8 +372,15 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     minHeight: T.button.primary.height,
   },
-  primaryBtnDisabled: {
-    backgroundColor: T.scrim.amber,          // rgba(154,95,10,0.45) amber-700 disabled
+  // Consent-gate treatment: the button IS pressable (routes to the consent
+  // flow, not a real disabled state) so the disabled-contrast exemption does
+  // NOT apply. Use a genuine secondary button (surface + border + text.primary
+  // label, 7.70:1 AAA on ivory-100) instead of a low-contrast "disabled" amber
+  // wash that previously read ~2.0:1 for its white label.
+  consentGateBtn: {
+    backgroundColor: T.color.surface.subtle, // #F5EDE6 ivory-200
+    borderWidth: 1,
+    borderColor: T.button.secondary.border,  // #E8DDD5 divider
   },
   primaryBtnText: {
     fontFamily: T.type.label.fontFamily,     // Sarabun-SemiBold
@@ -370,8 +388,8 @@ const styles = StyleSheet.create({
     color: T.color.text.onDark,              // #FFFFFF
     fontWeight: T.type.label.fontWeight,     // '600'
   },
-  primaryBtnTextDisabled: {
-    color: T.color.text.onDark,              // #FFFFFF (keep contrast on amber disabled)
+  consentGateBtnText: {
+    color: T.button.secondary.text,          // #7A3A52 roselle-700 — 7.70:1 AAA on ivory-200
   },
   consentCaption: {
     fontFamily: T.type.body.fontFamily,      // Sarabun-Regular

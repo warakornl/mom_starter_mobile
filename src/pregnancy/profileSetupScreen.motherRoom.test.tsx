@@ -33,9 +33,14 @@ jest.mock('./gestationalAge', () => ({
 jest.mock('../i18n/messages', () => ({
   formatCivilDate: jest.fn((d: string) => d),
 }));
+jest.mock('../icons', () => ({
+  StageT1Icon: 'StageT1Icon',
+  StageT2Icon: 'StageT2Icon',
+  StageT3Icon: 'StageT3Icon',
+}));
 
 import React from 'react';
-import { ProfileSetupScreen } from './ProfileSetupScreen';
+import { ProfileSetupScreen, convertBuddhistEraYearIfNeeded } from './ProfileSetupScreen';
 import { T } from '../theme/tokens';
 
 const mockTokenStorage = { load: jest.fn(() => Promise.resolve(null)), save: jest.fn(), clear: jest.fn() };
@@ -233,5 +238,39 @@ describe('ProfileSetupScreen — ห้องแม่ Phase 2 B1 reskin', () =>
     const tree = ProfileSetupScreen(editModeProps) as React.ReactElement;
     const cards = findAll(tree, (el) => (el.props as Record<string, unknown>).testID === 'profile-preview-card');
     expect(cards.length).toBeGreaterThan(0);
+  });
+
+  // ─── 🔴 BE/CE year-trap guard (FAIL-ON-REVERT) ──────────────────────────────
+  //
+  // A free-typed YYYY-MM-DD field must not silently accept a Buddhist-era (BE)
+  // year (e.g. 2569) as a Christian-era (CE) year, which would save an EDD
+  // ~543 years off. `convertBuddhistEraYearIfNeeded` is the real, executed
+  // guard used by handleDateConfirm/handleLmpConfirm — this test calls the
+  // REAL exported function (no re-implementation), proving fail-on-revert:
+  // deleting the `yearNum > 2100` branch makes this test RED.
+  describe('convertBuddhistEraYearIfNeeded — BE/CE year-trap guard', () => {
+    it('FAIL-ON-REVERT: converts a Buddhist-era year (2569) to CE (2026)', () => {
+      const result = convertBuddhistEraYearIfNeeded('2569-11-20');
+      expect(result.wasBe).toBe(true);
+      expect(result.corrected).toBe('2026-11-20');
+    });
+
+    it('leaves a normal CE year (2026) unchanged', () => {
+      const result = convertBuddhistEraYearIfNeeded('2026-11-20');
+      expect(result.wasBe).toBe(false);
+      expect(result.corrected).toBe('2026-11-20');
+    });
+
+    it('boundary: year 2100 (not > 2100) is treated as CE, unchanged', () => {
+      const result = convertBuddhistEraYearIfNeeded('2100-01-01');
+      expect(result.wasBe).toBe(false);
+      expect(result.corrected).toBe('2100-01-01');
+    });
+
+    it('boundary: year 2101 (> 2100) is converted BE→CE', () => {
+      const result = convertBuddhistEraYearIfNeeded('2101-01-01');
+      expect(result.wasBe).toBe(true);
+      expect(result.corrected).toBe('1558-01-01');
+    });
   });
 });

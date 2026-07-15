@@ -141,4 +141,47 @@ describe('ConsentScreen — ห้องแม่ Phase 2 B1 reskin', () => {
       return s.borderColor === '#EBE1D9';
     })).toHaveLength(0);
   });
+
+  // ─── 🔴 FAIL-ON-REVERT: policyLink is no longer an interactive "link" role ──
+  //
+  // policyLink had accessibilityRole="link" but no onPress/destination — a
+  // screen-reader-announced "link" that goes nowhere. Until a privacy-policy
+  // route exists, it must be plain non-interactive text. Reverting (re-adding
+  // accessibilityRole="link" without wiring an onPress) makes this test RED.
+  it('FAIL-ON-REVERT: policy_link text has NO accessibilityRole="link" (no destination wired yet)', () => {
+    const link = findAll(tree, (el) => (el.props as Record<string, unknown>).testID === 'consent-screen-policy-link')[0];
+    expect(link).toBeDefined();
+    expect((link.props as Record<string, unknown>).accessibilityRole).not.toBe('link');
+  });
+
+  // ─── 🔴 FAIL-ON-REVERT: retryBtn has a real accessible name + ≥48dp target ──
+  //
+  // retryBtn only renders when submitStatus === 'error'. useState is globally
+  // mocked to always return the initial value, so this ONE test overrides the
+  // 3rd useState call (submitStatus, in declaration order: generalHealthGranted,
+  // cloudStorageGranted, submitStatus, showSkipSheet) to force the error branch,
+  // then restores the shared mock for other tests.
+  it('FAIL-ON-REVERT: retryBtn has accessibilityRole="button" + accessibilityLabel + minHeight ≥48dp', () => {
+    const ReactActual = jest.requireMock('react') as { useState: jest.Mock };
+    let callIndex = 0;
+    ReactActual.useState.mockImplementation((init: unknown) => {
+      callIndex += 1;
+      if (callIndex === 3) return ['error', jest.fn()]; // submitStatus
+      return [init, jest.fn()];
+    });
+
+    const errorTree = ConsentScreen(baseProps) as React.ReactElement;
+
+    const btn = findAll(errorTree, (el) => (el.props as Record<string, unknown>).testID === 'consent-screen-retry-btn')[0];
+    expect(btn).toBeDefined();
+    const p = btn.props as Record<string, unknown>;
+    expect(p.accessibilityRole).toBe('button');
+    expect(typeof p.accessibilityLabel).toBe('string');
+    expect((p.accessibilityLabel as string).length).toBeGreaterThan(0);
+    const s = flat(p.style);
+    expect(Number(s.minHeight)).toBeGreaterThanOrEqual(48);
+
+    // Restore shared mock behaviour for subsequent tests.
+    ReactActual.useState.mockImplementation((i: unknown) => [i, jest.fn()]);
+  });
 });

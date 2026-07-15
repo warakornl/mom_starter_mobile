@@ -368,12 +368,19 @@ export function ConsentScreen({
           >
             {t('consent.text_version.label')} v1.0 ·{' '}
           </Text>
+          {/*
+            🔴 UX fix: was accessibilityRole="link" with no onPress/destination —
+            an interactive-looking element that goes nowhere. Made plain
+            non-interactive text until a privacy-policy screen/route exists.
+            REPORT (needs RootNavigator + i18n owner): add a PrivacyPolicy route
+            and wire onPress={() => navigation.navigate('PrivacyPolicy')} here,
+            then restore accessibilityRole="link".
+          */}
           <Text
             testID="consent-screen-policy-link"
             style={styles.policyLink}
-            accessibilityRole="link"
           >
-            {t('consent.policy_link')} ›
+            {t('consent.policy_link')}
           </Text>
         </View>
 
@@ -387,6 +394,8 @@ export function ConsentScreen({
               testID="consent-screen-retry-btn"
               style={styles.retryBtn}
               onPress={() => void handleRetry()}
+              accessibilityRole="button"
+              accessibilityLabel={t('consent.error.retry_btn')}
             >
               <Text style={styles.retryBtnLabel}>
                 {t('consent.error.retry_btn')}
@@ -490,15 +499,17 @@ const styles = StyleSheet.create({
     backgroundColor: T.color.surface.base,             // #FBF6F1
   },
   scroll: {
-    padding: 20,
-    paddingBottom: 40,
+    padding: T.spacing[5],                              // 20dp (token, was raw 20)
+    paddingBottom: T.spacing[10],                       // 40dp (token, was raw 40)
   },
 
   // Title / subtitle
   displayTitle: {
-    fontFamily: T.type.display.fontFamily,              // Sarabun-SemiBold
-    fontSize: 28,
-    lineHeight: 45,                                     // ~1.6× Thai
+    // 🟡 was made-up 28/45 (not a token pair) → nearest token is heading1 (24/39,
+    // 1.625×) since display (32/52) reads oversized for this screen's title role.
+    fontFamily: T.type.heading1.fontFamily,             // Sarabun-SemiBold
+    fontSize: T.type.heading1.size,                     // 24sp
+    lineHeight: T.type.heading1.lineHeight,             // 39 (1.625× — Thai rule)
     color: T.color.text.heading,                        // #4A2230 roselle-900
     marginBottom: T.spacing[2],                         // 8dp
     letterSpacing: 0,
@@ -515,7 +526,7 @@ const styles = StyleSheet.create({
   // Card (both items)
   card: {
     backgroundColor: T.color.surface.subtle,            // #F5EDE6 ivory-200 (NOT white)
-    borderRadius: 20,
+    borderRadius: T.radius.lg,                          // 20dp (token, was raw 20)
     borderWidth: 1,
     borderColor: T.color.surface.divider,               // #E8DDD5 (NOT #EBE1D9)
     padding: T.spacing[4],                              // 16dp
@@ -656,7 +667,9 @@ const styles = StyleSheet.create({
   retryBtn: {
     marginLeft: T.spacing[3],                           // 12dp
     paddingHorizontal: T.spacing[3],                    // 12dp
-    paddingVertical: T.spacing[1],                      // 4dp (was 6)
+    minHeight: 48,                                      // ≥48dp touch target (was paddingVertical 4)
+    justifyContent: 'center',
+    alignItems: 'center',
     borderRadius: T.radius.sm,                          // 6dp (was 6)
     borderWidth: 1,
     borderColor: T.color.text.primary,                  // #7A3A52 (NOT #A8505A)
@@ -712,7 +725,7 @@ const styles = StyleSheet.create({
   // Skip sheet (bottom sheet modal)
   sheetOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(58, 42, 48, 0.4)',           // overlay — not a color token
+    backgroundColor: T.scrim.color,                     // roselle-900 tinted scrim (token, was raw rgba(58,42,48,0.4))
     justifyContent: 'flex-end',
   },
   sheet: {
@@ -720,7 +733,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: T.radius.lg,                   // 20dp
     borderTopRightRadius: T.radius.lg,                  // 20dp
     padding: T.spacing[6],                              // 24dp
-    paddingBottom: 40,
+    paddingBottom: T.spacing[10],                       // 40dp (token, was raw 40)
   },
   sheetTitle: {
     fontFamily: T.type.heading2.fontFamily,             // Sarabun-SemiBold

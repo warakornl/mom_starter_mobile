@@ -278,6 +278,7 @@ export function ResetPasswordScreen({
             onPress={() => setShowNewPassword((v) => !v)}
             accessibilityRole="button"
             accessibilityLabel={showNewPassword ? t('login.hidePassword') : t('login.showPassword')}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
             <Text style={styles.eyeIcon}>{showNewPassword ? '🙈' : '👁'}</Text>
           </TouchableOpacity>
@@ -316,6 +317,7 @@ export function ResetPasswordScreen({
             onPress={() => setShowConfirm((v) => !v)}
             accessibilityRole="button"
             accessibilityLabel={showConfirm ? t('login.hidePassword') : t('login.showPassword')}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
             <Text style={styles.eyeIcon}>{showConfirm ? '🙈' : '👁'}</Text>
           </TouchableOpacity>
@@ -339,7 +341,7 @@ export function ResetPasswordScreen({
           accessibilityLabel={t('reset.submit')}
         >
           {loading ? (
-            <ActivityIndicator color="#FBF6F1" size="small" />
+            <ActivityIndicator color={T.button.primary.text} size="small" />
           ) : (
             <Text style={styles.submitText}>{t('reset.submit')}</Text>
           )}
@@ -363,8 +365,8 @@ const styles = StyleSheet.create({
   scroll: {
     flexGrow: 1,
     paddingHorizontal: T.spacing[6],                  // 24dp
-    paddingTop: 32,
-    paddingBottom: 40,
+    paddingTop: T.spacing[8],                         // 32dp (token, was raw 32)
+    paddingBottom: T.spacing[10],                     // 40dp (token, was raw 40)
   },
 
   // ── Centered states (token_invalid, missing_token) ──
@@ -372,7 +374,7 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingHorizontal: 32,
+    paddingHorizontal: T.spacing[8],                  // 32dp (token, was raw 32)
     backgroundColor: T.color.surface.base,            // #FBF6F1
   },
   stateTitle: {
@@ -389,8 +391,8 @@ const styles = StyleSheet.create({
   offlineStrip: {
     backgroundColor: T.color.surface.subtle,          // #F5EDE6 (not #FBF3EE)
     borderRadius: T.radius.sm,                        // 6dp
-    paddingVertical: 10,
-    paddingHorizontal: 14,
+    paddingVertical: T.spacing[3],                    // 12dp (token, was raw 10 — matches serverCard)
+    paddingHorizontal: T.spacing[4],                  // 16dp (token, was raw 14)
     marginBottom: T.spacing[3],                       // 12dp
   },
   offlineText: {
@@ -404,8 +406,8 @@ const styles = StyleSheet.create({
     borderRadius: T.radius.sm,                        // 6dp
     borderWidth: 1,
     borderColor: T.color.surface.divider,             // #E8DDD5 (not #EBE1D9)
-    paddingVertical: 12,
-    paddingHorizontal: 14,
+    paddingVertical: T.spacing[3],                    // 12dp (token, was raw 12)
+    paddingHorizontal: T.spacing[4],                  // 16dp (token, was raw 14)
     marginBottom: T.spacing[3],                       // 12dp
   },
   serverCardText: {
@@ -418,11 +420,13 @@ const styles = StyleSheet.create({
 
   // ── Form ──
   title: {
-    fontFamily: T.type.heading2.fontFamily,           // Sarabun-SemiBold
-    fontSize: 24,
-    lineHeight: 38,                                   // ~1.6× for Thai
+    // 🔴 was fontSize 24 / lineHeight 38 = 1.583× — FAILS Thai ≥1.6× rule.
+    // Use T.type.heading1 verbatim (24/39 = 1.625×, the token pair for this size).
+    fontFamily: T.type.heading1.fontFamily,           // Sarabun-SemiBold
+    fontSize: T.type.heading1.size,                   // 24sp
+    lineHeight: T.type.heading1.lineHeight,           // 39 (1.625× — Thai rule)
     color: T.color.text.heading,                      // #4A2230 roselle-900
-    marginBottom: 20,
+    marginBottom: T.spacing[5],                       // 20dp (token, was raw 20)
     letterSpacing: 0,
   },
   label: {
@@ -461,8 +465,12 @@ const styles = StyleSheet.create({
     marginBottom: 0,
   },
   eyeButton: {
-    paddingHorizontal: 10,
+    // 🟡 was <48dp (paddingHorizontal 10 around an 18sp icon, no hitSlop) —
+    // now width:48 + height:52 (matches input) + hitSlop on the touchable
+    // (added at both call sites) reaches ≥48dp in both dimensions.
+    width: 48,
     height: T.input.height,                           // 52dp (match input)
+    alignItems: 'center',
     justifyContent: 'center',
   },
   eyeIcon: {

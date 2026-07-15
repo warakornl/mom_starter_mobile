@@ -324,12 +324,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'center',
     gap: T.spacing[1],                                // 4dp (was 6 — closest token is spacing[1]=4)
-    marginBottom: 22,
+    marginBottom: T.spacing[6],                       // 24dp (token, was raw 22)
   },
   dot: { width: 28, height: 6, borderRadius: 3 },
   dotDone: { backgroundColor: T.color.text.botanical },    // #2F5042 jade-800
   dotActive: { backgroundColor: T.color.accent.interactive }, // #9A5F0A amber-700
-  dotWaiting: { backgroundColor: T.color.surface.divider }, // #E8DDD5
+  // 🟡 was backgroundColor: surface.divider (#E8DDD5 on #FBF6F1 = 1.24:1 — invisible
+  // as a meaningful state pip). Outlined treatment: transparent fill + roselle-500
+  // border (4.06:1 UI ≥3:1 ✓) so the "waiting" step is still legible, calmer than
+  // a filled roselle block for a not-yet-reached step.
+  dotWaiting: {
+    backgroundColor: 'transparent',
+    borderWidth: 1.5,
+    borderColor: T.color.accent.identity,               // #B85C78 roselle-500, 4.06:1 UI
+  },
 
   illustration: {
     alignItems: 'center',
@@ -342,8 +350,8 @@ const styles = StyleSheet.create({
 
   headlineBlock: {
     alignItems: 'center',
-    paddingHorizontal: 22,
-    marginBottom: 14,
+    paddingHorizontal: T.spacing[6],                  // 24dp (token, was raw 22)
+    marginBottom: T.spacing[3],                       // 12dp (token, was raw 14)
   },
   title: {
     fontFamily: T.type.heading2.fontFamily,           // Sarabun-SemiBold
@@ -384,7 +392,7 @@ const styles = StyleSheet.create({
     padding: T.spacing[3],                            // 12dp
     backgroundColor: T.color.surface.subtle,          // #F5EDE6 (NOT #FBF3EE)
     borderRadius: T.radius.sm,                        // 6dp (was 10)
-    marginBottom: 14,
+    marginBottom: T.spacing[3],                       // 12dp (token, was raw 14)
   },
   spamTipText: {
     fontFamily: T.type.caption.fontFamily,            // Sarabun-Regular
@@ -418,7 +426,7 @@ const styles = StyleSheet.create({
   errorCard: {
     backgroundColor: T.color.surface.subtle,          // #F5EDE6 (NOT white)
     borderRadius: T.radius.md,                        // 12dp
-    padding: 14,
+    padding: T.spacing[3],                            // 12dp (token, was raw 14)
     marginBottom: T.spacing[2],                       // 8dp (was 10)
     borderWidth: 1,
     borderColor: T.color.surface.divider,             // #E8DDD5

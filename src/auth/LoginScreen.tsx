@@ -249,6 +249,13 @@ export function LoginScreen({
           </TouchableOpacity>
         </View>
 
+        {/* 🟡 UX standardization: Register shows a short password hint under the
+            field; Login had none. Reusing 'register.passwordHint' (generic copy,
+            no Login-specific key exists yet) rather than inventing an untyped string. */}
+        {!showWrongCreds && (
+          <Text style={styles.passwordHint}>{t('register.passwordHint')}</Text>
+        )}
+
         {showWrongCreds && (
           <TouchableOpacity onPress={onForgotPassword} accessibilityRole="link">
             <Text style={styles.wrongCreds} accessibilityRole="alert">
@@ -386,6 +393,15 @@ const styles = StyleSheet.create({
     letterSpacing: 0,
   },
 
+  passwordHint: {
+    fontFamily: T.type.caption.fontFamily,         // Sarabun-Regular
+    fontSize: T.type.caption.size,                 // 13sp
+    lineHeight: T.type.caption.lineHeight,         // 21
+    color: T.color.text.primary,                   // #7A3A52 (NOT #94818A — BANNED)
+    marginTop: T.spacing[1],                       // 4dp
+    letterSpacing: 0,
+  },
+
   wrongCreds: {
     fontFamily: T.type.body.fontFamily,            // Sarabun-Regular
     fontSize: T.type.body.size,                    // 15sp
@@ -405,8 +421,8 @@ const styles = StyleSheet.create({
     marginTop: T.spacing[6],                       // 24dp
   },
   primaryButtonDisabled: {
-    // rgba amber-700 at 45% opacity per spec §1.4 (NOT old rose #DDA0A6)
-    backgroundColor: 'rgba(154, 95, 10, 0.45)',
+    // amber-700 at 45% opacity per spec §1.4 (NOT old rose #DDA0A6) — token, not inline rgba
+    backgroundColor: T.scrim.amber,
   },
   primaryButtonText: {
     fontFamily: T.type.label.fontFamily,           // Sarabun-SemiBold

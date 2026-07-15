@@ -27,7 +27,7 @@
  *   - All fonts: Sarabun; no IBMPlex; no banned hex
  */
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   View,
   Text,
@@ -90,6 +90,19 @@ export function ForgotPasswordScreen({
   // Resend cooldown — driven by outcome.resendAt (spec §2.5)
   const [resendCooldownUntil, setResendCooldownUntil] = useState<number>(0);
   const resendCoolingDown = Date.now() < resendCooldownUntil;
+
+  // 🟡 UX fix: resend button greys out for 60s with no explanation, reading as
+  // broken. Tick a countdown so the copy stays honest ("Resend link · 47s").
+  // TODO(i18n owner): add a templated key e.g.
+  //   'forgot.resendCooldown': 'ส่งอีกครั้งใน {seconds} วินาที'
+  // and swap the plain concatenation below for t('forgot.resendCooldown', { seconds }).
+  const [nowTick, setNowTick] = useState(Date.now());
+  useEffect(() => {
+    if (!resendCoolingDown) return;
+    const id = setInterval(() => setNowTick(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [resendCoolingDown]);
+  const resendSecondsLeft = Math.max(0, Math.ceil((resendCooldownUntil - nowTick) / 1000));
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const authClient = useMemo(() => createAuthClient(apiBaseUrl), [apiBaseUrl]);
@@ -186,7 +199,9 @@ export function ForgotPasswordScreen({
                 <ActivityIndicator color={T.button.primary.bg} size="small" />
               ) : (
                 <Text style={[styles.resendText, (resendCoolingDown || loading) && styles.resendTextDisabled]}>
-                  {t('forgot.resend')}
+                  {resendCoolingDown
+                    ? `${t('forgot.resend')} · ${resendSecondsLeft}s`
+                    : t('forgot.resend')}
                 </Text>
               )}
             </TouchableOpacity>
@@ -310,9 +325,15 @@ const styles = StyleSheet.create({
 
   // ── Confirmation block (jade-100 wash) ──
   confirmationBlock: {
+    // 🟡 was missing its promised jade-100 success wash bg (header comment said
+    // "confirmationBlock bg: T.color.surface.wash.jade" but no style had it).
     flex: 1,
     alignItems: 'center',
     paddingTop: T.spacing[8],                         // 32dp
+    paddingHorizontal: T.spacing[6],                  // 24dp
+    paddingBottom: T.spacing[8],                      // 32dp
+    backgroundColor: T.color.surface.wash.jade,       // #E4EDE7 jade-100 success wash
+    borderRadius: T.radius.lg,                        // 20dp
   },
   confirmTitle: {
     fontFamily: T.type.heading2.fontFamily,           // Sarabun-SemiBold
@@ -419,7 +440,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: T.input.border.default,              // #E8DDD5
     borderRadius: T.radius.md,                        // 12dp
-    paddingHorizontal: T.spacing[3],                  // 12dp
+    paddingHorizontal: T.spacing[4],                  // 16dp (was 12dp — matches Login/Register)
     fontFamily: T.type.bodyLarge.fontFamily,          // Sarabun-Regular
     fontSize: T.type.bodyLarge.size,                  // 17sp
     lineHeight: T.type.bodyLarge.lineHeight,          // 28

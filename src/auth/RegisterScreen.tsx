@@ -361,7 +361,7 @@ const styles = StyleSheet.create({
     marginTop: T.spacing[6],                          // 24dp
   },
   primaryButtonDisabled: {
-    backgroundColor: 'rgba(154, 95, 10, 0.45)',       // amber-700 at 45% (NOT #DDA0A6)
+    backgroundColor: T.scrim.amber,                   // amber-700 at 45% (token, NOT inline rgba, NOT #DDA0A6)
   },
   primaryButtonText: {
     fontFamily: T.type.label.fontFamily,              // Sarabun-SemiBold

@@ -149,4 +149,19 @@ describe('ResetPasswordScreen — ห้องแม่ Phase 2 B1 reskin', () =
       return s.borderColor === '#EBE1D9';
     })).toHaveLength(0);
   });
+
+  // ─── 🔴 FAIL-ON-REVERT: title lineHeight/fontSize ratio ≥1.6× (Thai rule) ───
+  //
+  // Was fontSize 24 / lineHeight 38 = 1.583× — FAILS the Thai stacked-tone-mark
+  // ≥1.6× rule. Now uses T.type.heading1 verbatim (24/39 = 1.625×). Reverting
+  // to the raw 24/38 pair makes this test RED.
+  it('FAIL-ON-REVERT: title uses T.type.heading1 verbatim (lineHeight/fontSize ≥1.6×)', () => {
+    const title = findFirst(tree, (el) => el.type === 'Text' && flat((el.props as Record<string, unknown>).style).fontFamily === T.type.heading1.fontFamily);
+    expect(title).not.toBeNull();
+    const s = flat((title!.props as Record<string, unknown>).style);
+    expect(s.fontSize).toBe(T.type.heading1.size);
+    expect(s.lineHeight).toBe(T.type.heading1.lineHeight);
+    const ratio = Number(s.lineHeight) / Number(s.fontSize);
+    expect(ratio).toBeGreaterThanOrEqual(1.6);
+  });
 });

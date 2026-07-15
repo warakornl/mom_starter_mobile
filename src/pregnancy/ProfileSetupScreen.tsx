@@ -38,7 +38,6 @@ import {
   StyleSheet,
   SafeAreaView,
   ScrollView,
-  Alert,
   ActivityIndicator,
   Modal,
   Platform,
@@ -51,6 +50,7 @@ import type { PregnancyProfile, Lifecycle } from './types';
 import { useT } from '../i18n/LanguageContext';
 import { formatCivilDate, type MessageKey } from '../i18n/messages';
 import { T } from '../theme/tokens';
+import { StageT1Icon, StageT2Icon, StageT3Icon } from '../icons';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -113,10 +113,14 @@ type InputMethod = 'due_date' | 'current_week';
 
 // ─── Stage helpers ────────────────────────────────────────────────────────────
 
-const STAGE_GLYPHS: Record<Stage, string> = {
-  T1: '🌱', // icon/stage-t1 (seedling)
-  T2: '🌿', // icon/stage-t2 (leaf/branch)
-  T3: '🌳', // icon/stage-t3 (tree)
+// 🟡 UX fix: swapped emoji-as-icon (🌱🌿🌳) for the existing SVG stage icon set
+// (src/icons/StageT1Icon.tsx etc.) — trivial swap, same component already used
+// elsewhere (StageBanner). Emoji rendering is platform-inconsistent and not a
+// design-system token; the SVG icons take a `color` prop from T.*.
+const STAGE_ICONS: Record<Stage, typeof StageT1Icon> = {
+  T1: StageT1Icon,
+  T2: StageT2Icon,
+  T3: StageT3Icon,
 };
 
 /** Type-safe map from Stage → catalog key, avoiding template-string casts. */
@@ -149,6 +153,27 @@ function addDays(dateStr: string, n: number): string {
 /** Derive EDD from LMP (LMP + 280 days). */
 function eddFromLmp(lmp: string): string {
   return addDays(lmp, 280);
+}
+
+/**
+ * BE/CE year-trap guard (Phase 2 B1 UX fix — 🔴).
+ *
+ * A free-typed YYYY-MM-DD field accepts a Buddhist-era (BE) year (e.g. 2569)
+ * as if it were Christian-era (CE), silently saving a date ~543 years off.
+ * BE = CE + 543, so any parsed year > 2100 is almost certainly a BE year
+ * typed by habit (Thai civil documents default to BE).
+ *
+ * Returns the corrected YYYY-MM-DD string (BE→CE, −543) when the year is a
+ * detected BE year, otherwise returns the input string unchanged.
+ */
+export function convertBuddhistEraYearIfNeeded(dateStr: string): { corrected: string; wasBe: boolean } {
+  const [y, m, d] = dateStr.split('-');
+  const yearNum = Number(y);
+  if (yearNum > 2100) {
+    const ceYear = String(yearNum - 543).padStart(4, '0');
+    return { corrected: `${ceYear}-${m}-${d}`, wasBe: true };
+  }
+  return { corrected: dateStr, wasBe: false };
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -191,6 +216,10 @@ export function ProfileSetupScreen({
   // ── UI state ─────────────────────────────────────────────────────────────────
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  // Inline (non-Alert) error text for the date-input modal + LMP modal (§ B1 fix).
+  const [dateModalError, setDateModalError] = useState<string | null>(null);
+  const [dateModalNotice, setDateModalNotice] = useState<string | null>(null);
+  const [lmpModalError, setLmpModalError] = useState<string | null>(null);
 
   // ── Derived live echo for current-week method ─────────────────────────────────
   const liveStage = stageFromWeek(currentWeek);
@@ -224,29 +253,45 @@ export function ProfileSetupScreen({
   function handleDateConfirm(): void {
     const trimmed = dateInputText.trim();
     if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
-      setEdd(trimmed);
+      // 🔴 BE/CE year-trap guard: a free-typed Buddhist-era year (e.g. 2569)
+      // must not silently save as a CE date ~543 years off.
+      const { corrected, wasBe } = convertBuddhistEraYearIfNeeded(trimmed);
+      setEdd(corrected);
+      setDateInputText(corrected);
       setShowDateModal(false);
       setErrorMsg(null);
+      setDateModalError(null);
+      // Surface a calm inline notice (not Alert) when we auto-corrected a BE year,
+      // so the correction is never silent.
+      // TODO(i18n owner): 'profile.dateFormatAlertMsg' is a TEMPORARY fallback —
+      // add a dedicated key 'profile.dateBeAutoConvertedNotice' explaining the
+      // BE→CE auto-conversion (see REPORT) and swap it in here.
+      setDateModalNotice(wasBe ? t('profile.dateFormatAlertMsg') : null);
       // AC-15: user confirmed a date — mark form dirty.
       onDirty?.();
     } else {
-      Alert.alert(t('profile.dateFormatAlertTitle'), t('profile.dateFormatAlertMsg'));
+      // Inline error text (calm, matches siblings) — NOT Alert.alert.
+      setDateModalError(t('profile.dateFormatAlertMsg'));
     }
   }
 
   function handleLmpConfirm(): void {
     const trimmed = lmpInputText.trim();
     if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
-      const derivedEdd = eddFromLmp(trimmed);
+      // 🔴 Same BE/CE guard applies to the LMP free-text field.
+      const { corrected } = convertBuddhistEraYearIfNeeded(trimmed);
+      const derivedEdd = eddFromLmp(corrected);
       setEdd(derivedEdd);
       setDateInputText(derivedEdd);
       setInputMethod('due_date');
       setShowLmpModal(false);
       setErrorMsg(null);
+      setLmpModalError(null);
       // AC-15: user derived EDD from LMP — mark form dirty.
       onDirty?.();
     } else {
-      Alert.alert(t('profile.dateFormatAlertTitle'), t('profile.dateFormatAlertMsg'));
+      // Inline error text (calm, matches siblings) — NOT Alert.alert.
+      setLmpModalError(t('profile.dateFormatAlertMsg'));
     }
   }
 
@@ -327,7 +372,7 @@ export function ProfileSetupScreen({
     }
 
     const stageName = t(STAGE_KEY_MAP[ga.currentStage]);
-    const stageGlyph = STAGE_GLYPHS[ga.currentStage];
+    const StageGlyphIcon = STAGE_ICONS[ga.currentStage];
     const weekDisplay = t('profile.weekDisplay', { n: ga.displayedWeek });
     const weekStr = ga.suppressDayDisplay
       ? weekDisplay
@@ -338,12 +383,12 @@ export function ProfileSetupScreen({
 
     return (
       <View testID="profile-preview-card" style={styles.previewCard} accessibilityRole="text">
-        <Text
+        <View
           style={styles.previewGlyph}
           accessibilityElementsHidden={true}
         >
-          {stageGlyph}
-        </Text>
+          <StageGlyphIcon color={T.color.accent.botanical} size={36} />
+        </View>
         <Text
           style={styles.previewStage}
           accessibilityLabel={`${stageName} ${weekStr}`}
@@ -446,7 +491,11 @@ export function ProfileSetupScreen({
             <Text style={styles.fieldLabel}>{t('profile.fieldDueDate')}</Text>
             <TouchableOpacity
               style={styles.dateField}
-              onPress={() => setShowDateModal(true)}
+              onPress={() => {
+                setDateModalError(null);
+                setDateModalNotice(null);
+                setShowDateModal(true);
+              }}
               accessibilityRole="button"
               accessibilityLabel={
                 edd
@@ -470,7 +519,10 @@ export function ProfileSetupScreen({
             {/* LMP quiet helper (§2.4) */}
             <TouchableOpacity
               style={styles.quietLink}
-              onPress={() => setShowLmpModal(true)}
+              onPress={() => {
+                setLmpModalError(null);
+                setShowLmpModal(true);
+              }}
               accessibilityRole="button"
               accessibilityLabel={t('profile.lmpLink')}
             >
@@ -540,9 +592,12 @@ export function ProfileSetupScreen({
               accessibilityLiveRegion="polite"
               accessibilityLabel={t(STAGE_KEY_MAP[liveStage])}
             >
-              <Text style={styles.stageEchoGlyph} accessibilityElementsHidden={true}>
-                {STAGE_GLYPHS[liveStage]}
-              </Text>
+              <View style={styles.stageEchoGlyph} accessibilityElementsHidden={true}>
+                {(() => {
+                  const LiveStageIcon = STAGE_ICONS[liveStage];
+                  return <LiveStageIcon color={T.color.accent.botanical} size={20} />;
+                })()}
+              </View>
               <Text style={styles.stageEchoText}>
                 {t('profile.stageEchoPrefix', { stage: t(STAGE_KEY_MAP[liveStage]) })}
               </Text>
@@ -595,7 +650,11 @@ export function ProfileSetupScreen({
         visible={showDateModal}
         animationType="slide"
         transparent
-        onRequestClose={() => setShowDateModal(false)}
+        onRequestClose={() => {
+          setDateModalError(null);
+          setDateModalNotice(null);
+          setShowDateModal(false);
+        }}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
@@ -612,10 +671,24 @@ export function ProfileSetupScreen({
               autoFocus
               accessibilityLabel={t('profile.fieldDueDate')}
             />
+            {dateModalError !== null && (
+              <Text style={styles.modalErrorText} accessibilityRole="alert">
+                {dateModalError}
+              </Text>
+            )}
+            {dateModalNotice !== null && (
+              <Text style={styles.modalNoticeText} accessibilityRole="text">
+                {dateModalNotice}
+              </Text>
+            )}
             <View style={styles.modalBtnRow}>
               <TouchableOpacity
                 style={styles.modalBtnSecondary}
-                onPress={() => setShowDateModal(false)}
+                onPress={() => {
+                  setDateModalError(null);
+                  setDateModalNotice(null);
+                  setShowDateModal(false);
+                }}
                 accessibilityRole="button"
                 accessibilityLabel={t('profile.dateModalCancel')}
               >
@@ -639,7 +712,10 @@ export function ProfileSetupScreen({
         visible={showLmpModal}
         animationType="slide"
         transparent
-        onRequestClose={() => setShowLmpModal(false)}
+        onRequestClose={() => {
+          setLmpModalError(null);
+          setShowLmpModal(false);
+        }}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
@@ -656,6 +732,11 @@ export function ProfileSetupScreen({
               autoFocus
               accessibilityLabel={t('profile.lmpModalTitle')}
             />
+            {lmpModalError !== null && (
+              <Text style={styles.modalErrorText} accessibilityRole="alert">
+                {lmpModalError}
+              </Text>
+            )}
             {lmpInputText.length === 10 && /^\d{4}-\d{2}-\d{2}$/.test(lmpInputText) && (
               <Text style={styles.lmpEstimate} accessibilityRole="text">
                 {t('profile.lmpEstimatePrefix', {
@@ -668,7 +749,10 @@ export function ProfileSetupScreen({
             <View style={styles.modalBtnRow}>
               <TouchableOpacity
                 style={styles.modalBtnSecondary}
-                onPress={() => setShowLmpModal(false)}
+                onPress={() => {
+                  setLmpModalError(null);
+                  setShowLmpModal(false);
+                }}
                 accessibilityRole="button"
                 accessibilityLabel={t('profile.dateModalCancel')}
               >
@@ -868,7 +952,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: T.spacing[1],                    // 4dp
   },
   stageEchoGlyph: {
-    fontSize: 20,
+    // 20×20 SVG stage icon (was emoji Text at fontSize 20)
+    width: 20,
+    height: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   stageEchoText: {
     fontFamily: T.type.body.fontFamily,                 // Sarabun-Regular
@@ -881,17 +969,20 @@ const styles = StyleSheet.create({
   // Confirmation preview (§2.5 mini — full confirmation is on navigate)
   previewCard: {
     backgroundColor: T.color.surface.subtle,            // #F5EDE6 ivory-200 (NOT white)
-    borderRadius: 20,
+    borderRadius: T.radius.lg,                          // 20dp (token, was raw 20)
     borderWidth: 1,
     borderColor: T.color.surface.divider,               // #E8DDD5 (NOT #EBE1D9)
-    padding: 20,
+    padding: T.spacing[5],                              // 20dp (token, was raw 20)
     alignItems: 'center',
     gap: T.spacing[2],                                  // 8dp
     marginVertical: T.spacing[2],                       // 8dp
   },
   previewGlyph: {
-    fontSize: 36,
-    lineHeight: 48,
+    // 36×36 SVG stage icon (was emoji Text at fontSize 36 / lineHeight 48)
+    width: 36,
+    height: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   previewStage: {
     fontFamily: T.type.heading2.fontFamily,             // Sarabun-SemiBold (NOT IBMPlex)
@@ -943,7 +1034,7 @@ const styles = StyleSheet.create({
     marginTop: T.spacing[2],                            // 8dp
   },
   primaryBtnDisabled: {
-    backgroundColor: 'rgba(154, 95, 10, 0.45)',         // amber-700 45% disabled (NOT #DDA0A6)
+    backgroundColor: T.scrim.amber,                     // amber-700 45% disabled (token, NOT inline rgba)
   },
   primaryBtnText: {
     fontFamily: T.type.label.fontFamily,                // Sarabun-SemiBold
@@ -977,7 +1068,7 @@ const styles = StyleSheet.create({
   // Modal (LMP helper + date picker) — surface.subtle bg, radius.lg top corners
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(58,42,48,0.5)',              // overlay — not a color token
+    backgroundColor: T.scrim.color,                     // roselle-900 tinted scrim (token, was raw rgba(58,42,48,0.5))
     justifyContent: 'flex-end',
   },
   modalCard: {
@@ -1011,6 +1102,22 @@ const styles = StyleSheet.create({
     fontSize: T.type.bodyLarge.size,                    // 17sp
     color: T.input.text,                                // #4A2230
     backgroundColor: T.input.bg,                        // #F5EDE6 ivory-200 (NOT surface.base)
+    letterSpacing: 0,
+  },
+  // Inline (calm, non-Alert) date-format error text inside date/LMP modals — §B1 fix
+  modalErrorText: {
+    fontFamily: T.type.body.fontFamily,                 // Sarabun-Regular
+    fontSize: T.type.body.size,                         // 15sp
+    lineHeight: T.type.body.lineHeight,                 // 25 (≥1.6× — Thai rule)
+    color: T.input.errorText,                           // #7A3A52 — form validation text token
+    letterSpacing: 0,
+  },
+  // Inline BE→CE auto-convert notice (calm confirmation, not an error)
+  modalNoticeText: {
+    fontFamily: T.type.body.fontFamily,                 // Sarabun-Regular
+    fontSize: T.type.body.size,                         // 15sp
+    lineHeight: T.type.body.lineHeight,                 // 25 (≥1.6× — Thai rule)
+    color: T.color.text.botanical,                      // #2F5042 jade-800 — calm informational tone
     letterSpacing: 0,
   },
   lmpEstimate: {

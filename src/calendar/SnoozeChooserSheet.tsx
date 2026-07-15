@@ -262,18 +262,21 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 12,
   },
+  // 🟡 fix: was 15/22 (1.47×) — below the Thai stacked-mark rule (§0 R2, ≥1.6×).
+  // Switched to T.type.body (15/25, 1.667×).
   optionLabel: {
-    fontFamily: T.type.bodyLarge.fontFamily,
-    fontSize: 15,
+    fontFamily: T.type.body.fontFamily,
+    fontSize: T.type.body.size,
     fontWeight: '600',
     color: T.color.text.primary,
-    lineHeight: 22,
+    lineHeight: T.type.body.lineHeight,
   },
+  // 🟡 fix: was 12/18 (1.5×) — below ≥1.6×. Switched to T.type.caption (13/21, 1.615×).
   optionSublabel: {
     fontFamily: T.type.caption.fontFamily,
-    fontSize: 12,
+    fontSize: T.type.caption.size,
     color: T.color.text.primary,
-    lineHeight: 18,
+    lineHeight: T.type.caption.lineHeight,
     marginTop: 2,
   },
   chevron: {

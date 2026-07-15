@@ -131,9 +131,15 @@ export function CalendarSyncPrivacyLevelScreen({
         </Text>
         <Text style={s.subtitle}>{C.subtitle}</Text>
 
-        {/* Radio group — a11y: role="radiogroup" via parent label */}
+        {/* Radio group — a11y: role="radiogroup" via parent label.
+            🟡 fix: was `accessible={false}` + accessibilityRole/Label on the
+            SAME node — a contradiction: accessible={false} means this node is
+            never exposed as an accessible element, so the radiogroup role/label
+            were silently dropped. Removed accessible={false} so the group role
+            actually takes effect; radiogroup does not collapse the child radio
+            buttons (unlike accessible={true}), so each option stays individually
+            focusable — containment rule is preserved. */}
         <View
-          accessible={false}
           accessibilityRole="radiogroup"
           accessibilityLabel="เลือกระดับความเป็นส่วนตัว"
         >
@@ -348,11 +354,15 @@ const s = StyleSheet.create({
     marginTop:       T.spacing[3],
     marginLeft:      T.spacing[6],
   },
+  // 🟡 fix: was color.text.secondary (jade-600) at 11sp — 4.21:1 FAILS AA
+  // (BANNED per tokens.ts) AND breaks R4 (jade-600 requires ≥15sp). Switched to
+  // text.primary (roselle-700, AAA at any size) — keeps the micro (11sp) size
+  // for the small label without needing a font-size bump.
   previewLabel: {
     fontFamily: T.type.micro.fontFamily,
     fontSize:   T.type.micro.size,
     lineHeight: T.type.micro.lineHeight,
-    color:      T.color.text.secondary,
+    color:      T.color.text.primary,
     marginBottom: T.spacing[1],
   },
   previewValue: {

@@ -461,17 +461,23 @@ export function ReminderFormScreen({
       {/* Type picker (simplified tap list) */}
       <Text style={styles.label}>{t('reminder.fieldType')}</Text>
       <View style={styles.chipRow}>
-        {REMINDER_TYPES.map((rt) => (
-          <TouchableOpacity
-            key={rt}
-            style={[styles.chip, type === rt && styles.chipSelected]}
-            onPress={() => setType(rt)}
-          >
-            <Text style={[styles.chipText, type === rt && styles.chipTextSelected]}>
-              {t(`reminder.type.${rt}` as MessageKey)}
-            </Text>
-          </TouchableOpacity>
-        ))}
+        {REMINDER_TYPES.map((rt) => {
+          const selected = type === rt;
+          return (
+            <TouchableOpacity
+              key={rt}
+              style={[styles.chip, selected && styles.chipSelected]}
+              onPress={() => setType(rt)}
+              accessibilityRole="button"
+              accessibilityState={{ selected }}
+              accessibilityLabel={t(`reminder.type.${rt}` as MessageKey)}
+            >
+              <Text style={[styles.chipText, selected && styles.chipTextSelected]}>
+                {t(`reminder.type.${rt}` as MessageKey)}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
       </View>
 
       {/* Care activity type control — tags the reminder for T-D auto-decrement trigger */}
@@ -547,6 +553,9 @@ export function ReminderFormScreen({
             key={f}
             testID={`reminder-freq-${f}`}
             style={[styles.chip, freq === f && styles.chipSelected]}
+            accessibilityRole="button"
+            accessibilityState={{ selected: freq === f }}
+            accessibilityLabel={t(`reminder.freq.${f}` as MessageKey)}
             onPress={() => {
               setFreq(f);
               // Clear byDay when switching away from weekly to avoid stale state
@@ -667,8 +676,11 @@ export function ReminderFormScreen({
                   onPress={() => removeTimeOfDay(idx)}
                   hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   accessibilityRole="button"
+                  // 🟡 fix: glyph-only "✕" had no accessibilityLabel — was
+                  // announced with no meaning to screen readers.
+                  accessibilityLabel={`${t('general.clear')} ${t('reminder.fieldTimesOfDay')} ${idx + 1}`}
                 >
-                  <Text style={styles.todRemoveText}>✕</Text>
+                  <Text style={styles.todRemoveText} accessibilityElementsHidden>✕</Text>
                 </TouchableOpacity>
               )}
             </View>
@@ -830,23 +842,25 @@ export function ReminderFormScreen({
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: T.color.surface.base, padding: 16 },
+  container: { flex: 1, backgroundColor: T.color.surface.base, padding: T.spacing[4] },
   label: {
     fontFamily: T.type.caption.fontFamily,
     fontSize: T.type.caption.size,
     color: T.color.text.botanical,
     fontWeight: '600',
-    marginTop: 16,
-    marginBottom: 4,
+    marginTop: T.spacing[4],
+    marginBottom: T.spacing[1],
   },
+  // 🟡 fix: was a hardcoded ~48dp-ish input (paddingV 12 + fontSize 15, no
+  // explicit minHeight) — now uses T.input.height (52dp) per token contract.
   input: {
     fontFamily: T.type.bodyLarge.fontFamily,
     backgroundColor: T.input.bg,
     borderRadius: T.radius.sm,
     borderWidth: 1,
     borderColor: T.color.surface.divider,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingHorizontal: T.spacing[4],
+    minHeight: T.input.height,
     fontSize: 15,
     color: T.color.text.heading,
   },
@@ -855,19 +869,23 @@ const styles = StyleSheet.create({
     fontFamily: T.type.caption.fontFamily,
     fontSize: 12,
     color: T.input.errorText,
-    marginTop: 4,
+    marginTop: T.spacing[1],
   },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 16,
-    marginBottom: 4,
+    marginTop: T.spacing[4],
+    marginBottom: T.spacing[1],
   },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 4 },
+  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: T.spacing[2], marginBottom: T.spacing[1] },
+  // 🟡 fix: chips were ~32-36dp tall (paddingV 6 + ~18sp text) — below ≥48dp
+  // touch target. Added explicit minHeight + centered content.
   chip: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+    paddingHorizontal: T.spacing[3],
+    paddingVertical: T.spacing[2],
+    minHeight: 48,
+    justifyContent: 'center',
     borderRadius: T.radius.sm,
     borderWidth: 1,
     borderColor: T.color.surface.divider,
@@ -875,8 +893,8 @@ const styles = StyleSheet.create({
   },
   /** byDay chips are square-ish for uniform weekday labels (จ/อ/พ etc.) */
   byDayChip: {
-    paddingHorizontal: 10,
-    minWidth: 38,
+    paddingHorizontal: T.spacing[2],
+    minWidth: 48,
     alignItems: 'center',
   },
   chipSelected: {
@@ -910,6 +928,7 @@ const styles = StyleSheet.create({
   },
 
   // ── Picker field (replaces TextInput for date/time) ──
+  // 🟡 fix: aligned to T.input.height (52dp) + token padding, matching `input`.
   pickerField: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -917,9 +936,8 @@ const styles = StyleSheet.create({
     borderRadius: T.radius.sm,
     borderWidth: 1,
     borderColor: T.color.surface.divider,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    minHeight: 48,
+    paddingHorizontal: T.spacing[4],
+    minHeight: T.input.height,
   },
   pickerFieldText: {
     fontFamily: T.type.bodyLarge.fontFamily,
@@ -928,14 +946,27 @@ const styles = StyleSheet.create({
     color: T.color.text.heading,
   },
   pickerFieldPlaceholder: { color: T.color.text.primary },
-  pickerChevron: { fontSize: 18, color: T.color.text.primary, marginLeft: 8 },
+  pickerChevron: { fontSize: 18, color: T.color.text.primary, marginLeft: T.spacing[2] },
 
   // Times-of-day row
-  todRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
+  todRow: { flexDirection: 'row', alignItems: 'center', marginBottom: T.spacing[2] },
   todPickerField: { flex: 1 },
-  todRemoveBtn: { padding: 10, marginLeft: 8 },
+  // 🟡 fix: was padding:10 (~36x36 with a 16sp glyph) — below ≥48dp touch target.
+  todRemoveBtn: {
+    minWidth: 48,
+    minHeight: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: T.spacing[2],
+  },
   todRemoveText: { color: T.color.text.primary, fontSize: 16 },
-  addTimeBtn: { marginTop: 4, marginBottom: 4, paddingVertical: 12, minHeight: 44, justifyContent: 'center' },
+  addTimeBtn: {
+    marginTop: T.spacing[1],
+    marginBottom: T.spacing[1],
+    paddingVertical: T.spacing[3],
+    minHeight: 48,
+    justifyContent: 'center',
+  },
   addTimeBtnText: {
     fontFamily: T.type.caption.fontFamily,
     color: T.color.text.botanical,
@@ -946,16 +977,24 @@ const styles = StyleSheet.create({
   // Until row (field + clear button)
   untilRow: { flexDirection: 'row', alignItems: 'center' },
   untilPickerField: { flex: 1 },
-  untilClearBtn: { padding: 10, marginLeft: 8 },
+  // 🟡 fix: was padding:10 (~36x36 with a 16sp glyph) — below ≥48dp touch target.
+  untilClearBtn: {
+    minWidth: 48,
+    minHeight: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginLeft: T.spacing[2],
+  },
   untilClearText: { color: T.color.text.primary, fontSize: 16 },
 
+  // 🟡 fix: removed fontStyle:'italic' — faux-italic on Sarabun (no true italic
+  // face shipped) renders as a synthetic shear that distorts Thai glyph shapes.
   carryForwardNote: {
     fontFamily: T.type.caption.fontFamily,
     fontSize: 11,
     color: T.color.text.primary,
-    fontStyle: 'italic',
-    marginTop: 16,
-    marginBottom: 4,
+    marginTop: T.spacing[4],
+    marginBottom: T.spacing[1],
   },
 
   // ── Bottom-sheet picker modal (iOS) ──

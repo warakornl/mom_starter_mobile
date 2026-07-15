@@ -16,7 +16,7 @@
  * SECURITY: no health data in props or navigation params (SD-9).
  */
 
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -27,6 +27,16 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { T } from '../../theme/tokens';
+
+/**
+ * How long the CS-1b decline-reassurance state stays visible before the sheet
+ * auto-dismisses (calls onDecline()). Gives the user time to read
+ * "ไม่เป็นไรค่ะ นัดของคุณยังอยู่ครบ…" before the modal closes.
+ * 🔴 fix: previously callers hid/popped the modal in the SAME tick as decline
+ * (setShowConsentSheet(false) / navigation.goBack()), so this state never
+ * rendered even though the internal `declined` flag was set correctly.
+ */
+const DECLINE_REASSURANCE_MS = 2200;
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -99,8 +109,17 @@ export function CalendarSyncConsentSheet({
 }: CalendarSyncConsentSheetProps) {
   const [declined, setDeclined] = useState(false);
   const [loading,  setLoading]  = useState(false);
+  const autoDismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const th = locale === 'th';
+
+  // Clear any pending auto-dismiss timer on unmount (avoid calling onDecline
+  // on an unmounted parent / leaking a timer across re-renders).
+  useEffect(() => {
+    return () => {
+      if (autoDismissTimerRef.current) clearTimeout(autoDismissTimerRef.current);
+    };
+  }, []);
 
   async function handleGrant() {
     setLoading(true);
@@ -112,15 +131,39 @@ export function CalendarSyncConsentSheet({
   }
 
   function handleDecline() {
+    // 🔴 fix: render the CS-1b reassurance FIRST (declined=true) and defer
+    // onDecline() — the actual dismiss signal to the parent — until after a
+    // short delay. Previously onDecline() was called synchronously here, and
+    // both callers (CalendarSyncSettingsScreen / RootNavigator) hide/pop the
+    // modal in that same tick, so the reassurance branch below was unreachable
+    // even though `declined` was set correctly.
     setDeclined(true);
+    if (autoDismissTimerRef.current) clearTimeout(autoDismissTimerRef.current);
+    autoDismissTimerRef.current = setTimeout(() => {
+      onDecline();
+    }, DECLINE_REASSURANCE_MS);
+  }
+
+  function handleDeclineCloseNow() {
+    // Manual close — user tapped "ปิด / Close" before the auto-dismiss timer
+    // fired. Cancel the timer and dismiss immediately (no double-call).
+    if (autoDismissTimerRef.current) {
+      clearTimeout(autoDismissTimerRef.current);
+      autoDismissTimerRef.current = null;
+    }
+    setDeclined(false);
     onDecline();
   }
 
   if (declined) {
-    // CS-1b — Post-decline reassurance state
+    // CS-1b — Post-decline reassurance state.
+    // `visible={true}` unconditionally (not the `visible` prop): this state
+    // must render regardless of what the parent's visibility flag has become,
+    // since the parent may have already flipped it to hide/pop the sheet.
+    // The auto-dismiss timer above is what actually ends this state.
     return (
       <Modal
-        visible={visible}
+        visible
         transparent
         animationType="slide"
         onRequestClose={() => {/* swipe-to-dismiss disabled — ม.19 */}}
@@ -140,7 +183,7 @@ export function CalendarSyncConsentSheet({
               <View style={s.stickyButtons}>
                 <TouchableOpacity
                   style={s.quietBtnBordered}
-                  onPress={() => { setDeclined(false); onDecline(); }}
+                  onPress={handleDeclineCloseNow}
                   testID="consent-cal-decline-close-btn"
                   accessibilityRole="button"
                   accessibilityLabel={COPY.close_btn}
@@ -196,6 +239,11 @@ export function CalendarSyncConsentSheet({
                 (th ? COPY.propagation_th : COPY.propagation_en)
               }
             >
+              {/* 🟡 KNOWN GAP (reported, not fixed here): no propagation_title_en
+                  exists in the VERBATIM legal-copy set (calendar-sync-consent-copy.md
+                  v1.0) — renders the Thai title even when locale='en'. Do NOT
+                  invent EN legal copy client-side; needs a doc-owner-approved
+                  EN string added to the copy doc + this COPY object. */}
               <Text style={s.infoBoxTitle} accessible={false}>
                 {COPY.propagation_title_th}
               </Text>

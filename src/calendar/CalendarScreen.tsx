@@ -38,11 +38,8 @@
  *   → calendarSyncStore.enqueueOccurrence() → executePush (fire-and-forget)
  *   TODO carry-forward: OS notification firing (expo-notifications not added)
  *
- * Design tokens (design-system.md):
- *   bg/warm-milk  #FBF6F1  surface/page  #FFFFFF  ink  #3A2A30
- *   rose/600      #A8505A  hairline      #EBE1D9
- *   teal/500      #3B8C8C  (reminder dots)
- *   sage/600      #4A7A56  (checklist/done dots)
+ * Design tokens: see src/theme/tokens.ts (T.*) — this screen consumes semantic
+ * tokens only (T.color.state.*, T.color.list.bar.*, T.type.*).
  *
  * Security: no health data logged.
  */
@@ -174,6 +171,18 @@ function monthDays(isoDate: string): string[] {
 function monthStartDow(isoDate: string): number {
   const [y, m] = isoDate.split('-').map(Number);
   return new Date(y, m - 1, 1).getDay();
+}
+
+/**
+ * Format a "YYYY-MM-DDTHH:mm" floating-civil occurrence time for human display
+ * (e.g. Alert body). Locale-aware date portion (พ.ศ. for th) via formatCivilDate;
+ * time portion is locale-independent "HH:mm" (24h, unambiguous).
+ * 🔴 fix: previously the RAW ISO string was shown verbatim in the mark-done Alert.
+ */
+function formatOccurrenceDateTime(scheduledLocalTime: string, locale: Locale): string {
+  const civilDate = scheduledLocalTime.slice(0, 10);
+  const time = scheduledLocalTime.slice(11, 16);
+  return `${formatCivilDate(civilDate, locale)} · ${time}`;
 }
 
 // ─── Projection logic ─────────────────────────────────────────────────────────
@@ -761,7 +770,9 @@ export function CalendarScreen({
 
       Alert.alert(
         displayTitle,
-        scheduledLocalTime,
+        // 🔴 fix: was the RAW ISO string ("2026-07-15T08:00"); now locale-aware
+        // (พ.ศ. for th) via formatOccurrenceDateTime.
+        formatOccurrenceDateTime(scheduledLocalTime, locale as Locale),
         [
           {
             text: t('calendar.markDone'),
@@ -895,7 +906,7 @@ export function CalendarScreen({
         ],
       );
     },
-    [t, refreshFromStore, syncPush, onEditReminder, handleMarkDoneConsentGrant, setShowSnoozeChooser],
+    [t, locale, refreshFromStore, syncPush, onEditReminder, handleMarkDoneConsentGrant, setShowSnoozeChooser],
   );
 
   // ── Render ──────────────────────────────────────────────────────────────────
@@ -974,8 +985,10 @@ export function CalendarScreen({
                 </Text>
                 {dot !== 'none' && (
                   <View
+                    testID={dot === 'rose' ? 'calendar-day-dot-missed' : undefined}
                     style={[
                       styles.dot,
+                      dot === 'rose' && styles.dotMissedRing,
                       dot === 'rose' && styles.dotRose,
                       dot === 'teal' && styles.dotTeal,
                       dot === 'sage' && styles.dotSage,
@@ -1195,7 +1208,8 @@ export function CalendarScreen({
 
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
-const CELL_SIZE = 44;
+// 🟡 fix: was 44 — below the ≥48dp touch-target minimum for the day cell.
+const CELL_SIZE = 48;
 const DOT_SIZE = 6;
 
 const styles = StyleSheet.create({
@@ -1234,9 +1248,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 12,
   },
-  monthArrow: { padding: 8 },
-  monthArrowText: { fontSize: 24, color: T.color.text.heading },
-  monthLabel: { fontSize: 17, fontWeight: '600', color: T.color.text.heading },
+  // 🟡 fix: was padding:8 (~40x40 with a 24sp glyph) — below ≥48dp touch target.
+  monthArrow: {
+    minWidth: 48,
+    minHeight: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  monthArrowText: { fontSize: 24, lineHeight: 24, color: T.color.text.heading },
+  // 🟡 fix: added lineHeight (Thai stacked-mark rule §0 R2, ≥1.6× size).
+  monthLabel: {
+    fontFamily: T.type.heading2.fontFamily,
+    fontSize: 17,
+    lineHeight: 28,
+    fontWeight: '600',
+    color: T.color.text.heading,
+  },
 
   dowRow: {
     flexDirection: 'row',
@@ -1271,7 +1298,13 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: T.color.list.bar.pregnancy,
   },
-  dayNumber: { fontSize: 14, color: T.color.text.heading },
+  // 🟡 fix: added lineHeight (Thai stacked-mark rule §0 R2, ≥1.6× size).
+  dayNumber: {
+    fontFamily: T.type.body.fontFamily,
+    fontSize: 14,
+    lineHeight: 23,
+    color: T.color.text.heading,
+  },
   dayNumberToday: { color: T.color.text.primary, fontWeight: '700' },
   dayNumberSelected: { fontWeight: '700' },
 
@@ -1281,14 +1314,35 @@ const styles = StyleSheet.create({
     borderRadius: DOT_SIZE / 2,
     marginTop: 2,
   },
-  // missed → roselle-500 (pregnancy bar colour — urgent)
-  dotRose: { backgroundColor: T.color.list.bar.pregnancy },
+  // missed → amber-700 (state.attention — distinct from due; "shape as primary
+  // cue" per tokens.ts comment). 🔴 fix: was aliased to the same token as `due`,
+  // making missed (urgent, top precedence) visually indistinguishable from due.
+  dotRose: { backgroundColor: T.color.state.attention },
+  /**
+   * Non-color cue for missed (🔴 fix): a visible ring around the dot so the
+   * distinction does not rely on color alone (WCAG SC 1.4.1) — shape as
+   * primary cue per tokens.ts `state.attention` comment. Ring is drawn OUTSIDE
+   * the dot's own box (negative margin offsets the added border width) so the
+   * dot's center position on the day cell is unchanged.
+   */
+  dotMissedRing: {
+    width: DOT_SIZE + 4,
+    height: DOT_SIZE + 4,
+    borderRadius: (DOT_SIZE + 4) / 2,
+    borderWidth: 1.5,
+    borderColor: T.color.state.attention,
+    margin: -2,
+  },
   // due → roselle-500 (reminder colour)
   dotTeal: { backgroundColor: T.color.list.bar.pregnancy },
   // done / checklist → jade-600 (success state)
   dotSage: { backgroundColor: T.color.state.success },
-  /** Kick-count dot — violet, distinct from rose/teal/sage (feat-kickcount-in-calendar). */
-  dotViolet: { backgroundColor: '#7B5EA7' },
+  /**
+   * Kick-count dot (distinct from rose/teal/sage). 🟡 fix: was inline hex
+   * '#7B5EA7' (non-palette purple) — replaced with an in-palette token
+   * (amber-600 / accent.milestone) per ห้องแม่ palette (roselle/amber/jade only).
+   */
+  dotViolet: { backgroundColor: T.color.accent.milestone },
 
   todayBtn: {
     alignSelf: 'center',
@@ -1358,9 +1412,11 @@ const styles = StyleSheet.create({
     flexShrink: 0,
   },
   agendaContent: { flex: 1 },
+  // 🟡 fix: added lineHeight (Thai stacked-mark rule §0 R2, ≥1.6× size).
   agendaTitle: {
     fontFamily: T.type.bodyLarge.fontFamily,
     fontSize: 15,
+    lineHeight: 24,
     color: T.color.text.heading,
     fontWeight: '500',
   },

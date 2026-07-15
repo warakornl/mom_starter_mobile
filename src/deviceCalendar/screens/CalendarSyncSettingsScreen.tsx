@@ -30,6 +30,7 @@ import {
   StyleSheet,
   ScrollView,
   Alert,
+  Linking,
 } from 'react-native';
 import { T } from '../../theme/tokens';
 import { CalendarSyncConsentSheet } from './CalendarSyncConsentSheet';
@@ -207,6 +208,10 @@ export function CalendarSyncSettingsScreen({
             <Text style={s.attentionBody}>{C.osDeniedBody}</Text>
             <TouchableOpacity
               style={s.attentionBtn}
+              // 🔴 fix: was a dead button (no onPress) — CS-6 recovery path was
+              // unreachable. Opens the OS app-settings screen so the user can
+              // re-grant calendar permission.
+              onPress={() => { void Linking.openSettings(); }}
               accessibilityRole="button"
               accessibilityLabel={C.osDeniedBtn}
               testID="calendar-sync-os-settings-btn"
@@ -366,7 +371,7 @@ const s = StyleSheet.create({
     borderColor:  T.color.state.attention,
     paddingVertical:   T.spacing[1],
     paddingHorizontal: T.spacing[3],
-    minHeight: 36,
+    minHeight: 48, // 🔴 fix: was 36 — below ≥48dp touch-target minimum
     justifyContent: 'center',
   },
   attentionBtnText: {

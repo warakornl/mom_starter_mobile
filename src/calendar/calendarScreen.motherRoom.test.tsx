@@ -303,6 +303,121 @@ describe('CalendarScreen — ห้องแม่ Phase 2 B2 reskin', () => {
     expect(ctaBtns.length).toBeGreaterThan(0);
   });
 
+  // ── Day-dot missed/due distinction (🔴 review fix) ─────────────────────────
+  // Bug: dotRose (missed) and dotTeal (due) both resolved to
+  // T.color.list.bar.pregnancy, making missed (top precedence, "urgent")
+  // visually IDENTICAL to due on the 6dp day-grid dot, with color as the only
+  // cue. Fix: missed → T.color.state.attention + a ring (non-color cue).
+  describe('day-grid missed/due dot distinction', () => {
+    const { calendarSyncStore } = jest.requireMock('../sync/calendarSyncStore') as {
+      calendarSyncStore: {
+        getActiveChecklistItems: jest.Mock;
+        getActiveReminders: jest.Mock;
+        getOccurrencesForReminder: jest.Mock;
+      };
+    };
+    const { expand } = jest.requireMock('../recurrence/recurrenceExpander') as {
+      expand: jest.Mock;
+    };
+
+    afterEach(() => {
+      calendarSyncStore.getActiveChecklistItems.mockReturnValue([]);
+      calendarSyncStore.getActiveReminders.mockReturnValue([]);
+      calendarSyncStore.getOccurrencesForReminder.mockReturnValue([]);
+      expand.mockReturnValue([]);
+    });
+
+    it('FAIL-ON-REVERT: missed dot does NOT use the same token as due (T.color.list.bar.pregnancy)', () => {
+      // One reminder projects to a single PAST civil day EARLIER IN THE SAME
+      // MONTH (day 1, when today is not day 1 — guaranteed to stay within the
+      // rendered displayMonth grid, unlike a plain "yesterday" which can cross
+      // a month boundary) with no materialized row → buildProjectedItems
+      // derives status='missed'.
+      const today = new Date();
+      // Guard: this construction requires today's day-of-month > 1 so day 1
+      // is strictly in the past within the same displayed month.
+      expect(today.getDate()).toBeGreaterThan(1);
+      const y = today.getFullYear();
+      const m = String(today.getMonth() + 1).padStart(2, '0');
+      const pastCivil = `${y}-${m}-01T09:00`;
+
+      calendarSyncStore.getActiveReminders.mockReturnValue([
+        {
+          id: 'rem-missed',
+          type: 'custom',
+          recurrenceRule: { freq: 'one_off' },
+          startAt: pastCivil,
+          sourceRefId: undefined,
+        },
+      ]);
+      expand.mockReturnValue([pastCivil]);
+
+      const tree = CalendarScreen(baseProps) as React.ReactElement;
+
+      // Locate the day-grid dot via its dedicated testID (calendar-day-dot-missed
+      // — set only when dayDotColor() === 'rose'/missed).
+      const missedDots = findAll(tree, (el) => {
+        return (el.props as Record<string, unknown>).testID === 'calendar-day-dot-missed';
+      });
+      expect(missedDots.length).toBeGreaterThan(0);
+      const missedStyle = flat((missedDots[0].props as Record<string, unknown>).style);
+
+      // Bug: missed previously resolved to T.color.list.bar.pregnancy — the
+      // SAME token as the due dot — making them visually identical.
+      expect(missedStyle.backgroundColor).not.toBe(T.color.list.bar.pregnancy);
+      // Fix: missed uses T.color.state.attention as a distinct token...
+      expect(missedStyle.backgroundColor).toBe(T.color.state.attention);
+      // ...AND a non-color ring cue (shape as primary cue — WCAG SC 1.4.1),
+      // so the distinction does not rely on color alone.
+      expect(missedStyle.borderWidth).toBeGreaterThan(0);
+      expect(missedStyle.borderColor).toBe(T.color.state.attention);
+    });
+
+    // ── Mark-done Alert body — locale-aware date, not the raw ISO string ────
+    // Bug: Alert.alert's body was the RAW ISO string
+    // ("2026-07-15T08:00") verbatim. Fix: formatOccurrenceDateTime() builds a
+    // "<formatCivilDate output> · HH:mm" string instead.
+    it('FAIL-ON-REVERT: mark-done Alert body is NOT the raw scheduledLocalTime ISO string', () => {
+      const today = new Date();
+      const y = today.getFullYear();
+      const m = String(today.getMonth() + 1).padStart(2, '0');
+      const d = String(today.getDate()).padStart(2, '0');
+      const todayCivil = `${y}-${m}-${d}T08:00`;
+
+      calendarSyncStore.getActiveReminders.mockReturnValue([
+        {
+          id: 'rem-due',
+          type: 'custom',
+          recurrenceRule: { freq: 'one_off' },
+          startAt: todayCivil,
+          sourceRefId: undefined,
+        },
+      ]);
+      expand.mockReturnValue([todayCivil]);
+
+      const tree = CalendarScreen(baseProps) as React.ReactElement;
+      const agendaItems = findAll(
+        tree,
+        (el) => (el.props as Record<string, unknown>).testID === 'calendar-agenda-item',
+      );
+      expect(agendaItems.length).toBeGreaterThan(0);
+
+      const onPress = (agendaItems[0].props as { onPress?: () => void }).onPress;
+      expect(typeof onPress).toBe('function');
+      onPress!();
+
+      const { Alert } = jest.requireMock('react-native') as { Alert: { alert: jest.Mock } };
+      expect(Alert.alert).toHaveBeenCalled();
+      const [, body] = Alert.alert.mock.calls[Alert.alert.mock.calls.length - 1];
+      // Raw ISO string uses "T" as the date/time separator with no spacing —
+      // the fix's format uses " · " between the (mocked passthrough)
+      // formatCivilDate output and the "HH:mm" time.
+      expect(body).not.toBe(todayCivil);
+      expect(body).toContain(' · ');
+      expect(body).toContain('08:00');
+    });
+  });
+
   // ── filterLossStateItems — pure-function loss gate tests ───────────────────
 
   it('LOSS-GATE: kick_count occurrence is filtered when lifecycle = "ended"', () => {

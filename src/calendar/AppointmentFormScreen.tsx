@@ -654,7 +654,7 @@ export function AppointmentFormScreen({
 // ─── Styles ───────────────────────────────────────────────────────────────────
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: T.color.surface.base, padding: 16 },
+  container: { flex: 1, backgroundColor: T.color.surface.base, padding: T.spacing[4] },
   /**
    * Disclaimer header band — roselle wash bg, always-on, never truncated (INV-A6).
    * Full-width, no line limit, never behind a "read more" control.
@@ -679,8 +679,8 @@ const styles = StyleSheet.create({
     fontSize: T.type.caption.size,
     color: T.color.text.botanical,
     fontWeight: '600',
-    marginTop: 16,
-    marginBottom: 4,
+    marginTop: T.spacing[4],
+    marginBottom: T.spacing[1],
   },
   hint: {
     fontFamily: T.type.caption.fontFamily,
@@ -688,19 +688,21 @@ const styles = StyleSheet.create({
     color: T.color.text.primary,
     marginBottom: 4,
   },
+  // 🟡 fix: was a hardcoded ~48dp-ish input (paddingV 12 + fontSize 15, no
+  // explicit minHeight) — now uses T.input.height (52dp) per token contract.
   input: {
     fontFamily: T.type.bodyLarge.fontFamily,
     backgroundColor: T.input.bg,
     borderRadius: T.radius.sm,
     borderWidth: 1,
     borderColor: T.color.surface.divider,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingHorizontal: T.spacing[4],
+    minHeight: T.input.height,
     fontSize: 15,
     color: T.color.text.heading,
   },
   inputError: { borderColor: T.input.border.error },
-  textarea: { minHeight: 80, textAlignVertical: 'top' },
+  textarea: { minHeight: 80, paddingVertical: T.spacing[3], textAlignVertical: 'top' },
   errorText: {
     fontFamily: T.type.caption.fontFamily,
     fontSize: 12,
@@ -711,11 +713,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginTop: 16,
-    marginBottom: 4,
+    marginTop: T.spacing[4],
+    marginBottom: T.spacing[1],
   },
 
   // ── Picker field (replaces TextInput for date/time) ──
+  // 🟡 fix: aligned to T.input.height (52dp) + token padding, matching `input`.
   pickerField: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -723,9 +726,8 @@ const styles = StyleSheet.create({
     borderRadius: T.radius.sm,
     borderWidth: 1,
     borderColor: T.color.surface.divider,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    minHeight: 48,
+    paddingHorizontal: T.spacing[4],
+    minHeight: T.input.height,
   },
   pickerFieldText: {
     fontFamily: T.type.bodyLarge.fontFamily,
@@ -810,9 +812,10 @@ const styles = StyleSheet.create({
   saveBtn: {
     backgroundColor: T.button.primary.bg,
     borderRadius: T.radius.md,
-    paddingVertical: 14,
+    minHeight: T.button.primary.height,
+    justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 24,
+    marginTop: T.spacing[6],
   },
   saveBtnText: {
     fontFamily: T.type.bodyLarge.fontFamily,
@@ -824,9 +827,9 @@ const styles = StyleSheet.create({
     borderColor: T.color.list.bar.pregnancy,
     borderWidth: 1,
     borderRadius: T.radius.md,
-    paddingVertical: 12,
+    paddingVertical: T.spacing[3],
     alignItems: 'center',
-    marginTop: 12,
+    marginTop: T.spacing[3],
   },
   deleteBtnText: {
     fontFamily: T.type.bodyLarge.fontFamily,
@@ -834,7 +837,12 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
   },
-  cancelBtn: { paddingVertical: 12, alignItems: 'center', marginTop: 8, marginBottom: 32 },
+  cancelBtn: {
+    paddingVertical: T.spacing[3],
+    alignItems: 'center',
+    marginTop: T.spacing[2],
+    marginBottom: T.spacing[8],
+  },
   cancelBtnText: {
     fontFamily: T.type.bodyLarge.fontFamily,
     color: T.color.text.primary,

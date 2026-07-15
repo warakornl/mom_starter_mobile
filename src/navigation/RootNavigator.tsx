@@ -923,6 +923,7 @@ function StackNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps): React
       >
         {({ navigation }) => (
           <ProfileInfoEditScreen
+            navigation={navigation}
             tokenStorage={tokenStorage}
             apiBaseUrl={apiBaseUrl}
             onSaveComplete={() => navigation.goBack()}

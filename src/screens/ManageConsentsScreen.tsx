@@ -330,6 +330,13 @@ export function ManageConsentsScreen({
                     style={styles.row}
                     onPress={() => handleToggle(type, !isOn)}
                     accessibilityRole="switch"
+                    // mobile-reviewer 🟡 (cluster 6 review): these three fragments are
+                    // hardcoded Thai, bypassing i18n/EN locale. REPORTED — needs
+                    // catalog keys 'consent.manage.row.stateOn' ('เปิดอยู่' / 'On'),
+                    // 'consent.manage.row.stateOff' ('ปิดอยู่' / 'Off'), and
+                    // 'consent.manage.row.toggleHint' ('กดสองครั้งเพื่อเปลี่ยน' /
+                    // 'Double tap to change'). Left as literals here (cannot edit
+                    // messages.ts — shared file) until those keys land.
                     accessibilityLabel={
                       `${t(ROW_TITLE_KEY[type] as Parameters<typeof t>[0])}, ${isOn ? 'เปิดอยู่' : 'ปิดอยู่'}, กดสองครั้งเพื่อเปลี่ยน`
                     }
@@ -399,21 +406,29 @@ export function ManageConsentsScreen({
         ))}
 
         {/* Footer */}
+        {/* mobile-reviewer fix (cluster 6 review): these two rows had
+         * accessibilityRole="link" with NO onPress and NO navigable target —
+         * an unreachable, misleading affordance for screen-reader users (a
+         * "link" that goes nowhere). Neither the privacy-policy screen nor a
+         * consent-history screen exists yet in this app, so until those routes
+         * are built these render as plain, non-interactive text (no role, no
+         * chevron implying navigation). See report: routes needed are
+         * `PrivacyPolicy` (consent.manage.policy_link) and `ConsentHistory`
+         * (consent.manage.history_link) — once added, restore
+         * accessibilityRole="link" + onPress={() => navigation.navigate(...)}. */}
         <View style={styles.footer}>
           <Text style={styles.footerCaption}>{t('consent.text_version.label')} v1.0</Text>
           <Text
             testID="consent-manage-policy-link"
-            style={styles.footerLink}
-            accessibilityRole="link"
+            style={styles.footerTextInactive}
           >
-            {t('consent.manage.policy_link')} ›
+            {t('consent.manage.policy_link')}
           </Text>
           <Text
             testID="consent-manage-history-link"
-            style={styles.footerLink}
-            accessibilityRole="link"
+            style={styles.footerTextInactive}
           >
-            {t('consent.manage.history_link')} ›
+            {t('consent.manage.history_link')}
           </Text>
         </View>
       </ScrollView>
@@ -554,10 +569,15 @@ const styles = StyleSheet.create({
     color: T.color.text.botanical,
     marginTop: 2,
   },
+  // mobile-reviewer fix (cluster 6 review): was T.type.micro (11sp) with
+  // T.color.text.secondary (jade-600) — jade-600 is HARD-gated to ≥15sp (§0 R4);
+  // at 11sp this fails the contrast floor. Bumped to T.type.caption (13sp) —
+  // still fails the ≥15sp floor for jade-600, so also retoken to
+  // T.color.text.botanical (jade-800, AAA at any size) to satisfy R4 cleanly.
   pendingSyncBadge: {
-    fontFamily: T.type.micro.fontFamily,
-    fontSize: T.type.micro.size,
-    color: T.color.text.secondary,
+    fontFamily: T.type.caption.fontFamily,
+    fontSize: T.type.caption.size,
+    color: T.color.text.botanical,
     marginTop: 2,
   },
 
@@ -576,7 +596,11 @@ const styles = StyleSheet.create({
 
   footer: { marginTop: T.spacing[6] },
   footerCaption: { fontSize: T.type.caption.size, color: T.color.text.botanical, marginBottom: T.spacing[1] + 2 },
-  footerLink: { fontSize: T.type.caption.size, color: T.color.accent.interactive, fontWeight: '700', marginBottom: T.spacing[1] },
+  // mobile-reviewer fix (cluster 6 review): was footerLink (accent.interactive,
+  // implying a navigable link) — these two rows have no route yet (see REPORT:
+  // PrivacyPolicy / ConsentHistory routes needed). Rendered as plain inactive
+  // text (text.primary, no chevron) until the routes exist.
+  footerTextInactive: { fontSize: T.type.caption.size, color: T.color.text.primary, marginBottom: T.spacing[1] },
 
   skeletonRow: {
     height: 52,
@@ -646,5 +670,11 @@ const styles = StyleSheet.create({
   },
   sheetSecondaryBtnLabel: { fontWeight: '700', fontSize: T.type.bodyLarge.size, color: T.color.accent.interactive },
   sheetQuietBtn: { alignItems: 'center', justifyContent: 'center', minHeight: 48 },
-  sheetQuietBtnLabel: { fontWeight: '700', fontSize: T.type.bodyLarge.size, color: T.color.state.error },
+  // cluster 6 review fix: this is the CANCEL / keep-consent button in the
+  // withdrawal sheet — not a genuine emergency. It was wired to the reserved
+  // error colour (T.color.state.error), which visually alarmed the mother over
+  // a calm "keep as is" choice. Retoned to quiet roselle-900 heading ink — the
+  // withdraw action itself (sheetSecondaryBtn, above) stays the calm
+  // amber-outline treatment.
+  sheetQuietBtnLabel: { fontWeight: '700', fontSize: T.type.bodyLarge.size, color: T.color.text.heading },
 });

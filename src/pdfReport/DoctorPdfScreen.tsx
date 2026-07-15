@@ -331,7 +331,14 @@ export function DoctorPdfScreen({
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.headerRow}>
-          <TouchableOpacity onPress={onBack} style={styles.backBtn} accessibilityRole="button">
+          {/* mobile-reviewer 🟡 fix (cluster 6 review): had role but no
+           * accessibilityLabel — a bare "‹" glyph announced with no meaning. */}
+          <TouchableOpacity
+            onPress={onBack}
+            style={styles.backBtn}
+            accessibilityRole="button"
+            accessibilityLabel={t('general.back')}
+          >
             <Text style={styles.backBtnText}>‹</Text>
           </TouchableOpacity>
           <Text style={styles.navTitle}>{t('pdf.screen.builderTitle')}</Text>
@@ -372,7 +379,14 @@ export function DoctorPdfScreen({
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.headerRow}>
-          <TouchableOpacity onPress={() => setBuilderState((p) => applyBackToBuilder(p))} style={styles.backBtn} accessibilityRole="button">
+          {/* mobile-reviewer 🟡 fix (cluster 6 review): had role but no
+           * accessibilityLabel. */}
+          <TouchableOpacity
+            onPress={() => setBuilderState((p) => applyBackToBuilder(p))}
+            style={styles.backBtn}
+            accessibilityRole="button"
+            accessibilityLabel={t('general.back')}
+          >
             <Text style={styles.backBtnText}>‹</Text>
           </TouchableOpacity>
           <Text style={styles.navTitle}>{t('pdf.screen.builderTitle')}</Text>
@@ -412,11 +426,17 @@ export function DoctorPdfScreen({
         </View>
 
         {/* PDF preview — scrollable native RN rendering (faithful to PDF sections) */}
+        {/* mobile-reviewer 🟡 (cluster 6 review): hardcoded English
+         * accessibilityLabel regardless of locale. REPORTED — needs an i18n
+         * key (e.g. 'pdf.screen.previewA11yLabel'). Left as a literal (cannot
+         * edit messages.ts — shared file) until that key lands; using the
+         * existing previewNavTitle translation as an interim locale-correct
+         * stand-in rather than a raw English string. */}
         <ScrollView
           testID="pdf-screen-preview"
           style={styles.previewScroll}
           contentContainerStyle={styles.previewContent}
-          accessibilityLabel="Report preview"
+          accessibilityLabel={t('pdf.screen.previewNavTitle')}
         >
           <ReportPreview
             html={builderState.generatedHtml}
@@ -461,7 +481,15 @@ export function DoctorPdfScreen({
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.headerRow}>
-        <TouchableOpacity onPress={onBack} style={styles.backBtn} accessibilityRole="button">
+        {/* mobile-reviewer 🟡 fix (cluster 6 review): had role but no
+         * accessibilityLabel — this is the 4th of 4 header back buttons
+         * flagged in review (the preview-phase one already had a label). */}
+        <TouchableOpacity
+          onPress={onBack}
+          style={styles.backBtn}
+          accessibilityRole="button"
+          accessibilityLabel={t('general.back')}
+        >
           <Text style={styles.backBtnText}>‹</Text>
         </TouchableOpacity>
         <Text style={styles.navTitle}>{t('pdf.screen.builderTitle')}</Text>
@@ -531,10 +559,18 @@ export function DoctorPdfScreen({
           <ManifestRow icon="◉" label={t('pdf.screen.manifestKickCounts')} />
           <ManifestRow icon="◉" label={t('pdf.screen.manifestSelfLogs')} />
           <ManifestRow icon="◉" label={t('pdf.screen.manifestAppointments')} />
-          {/* Lab notes row: display-only placeholder; toggle is DEFERRED (see above) */}
+          {/* Lab notes row: display-only placeholder; toggle is DEFERRED (see above).
+           * mobile-reviewer fix (cluster 6 review): was icon="☐" — an empty
+           * checkbox glyph that LOOKS tappable on a row with no onPress at
+           * all (every other row uses the non-interactive "◉" filled dot).
+           * Replaced with a plain non-interactive text badge (reusing the
+           * existing manifestLabDefault "ค่าเริ่มต้น: ซ่อนไว้" / "Default:
+           * hidden" copy — no new i18n key needed) instead of a
+           * checkbox-shaped glyph. */}
           <ManifestRow
-            icon="☐"
-            label={`${t('pdf.screen.manifestLabNotes')} — ${t('pdf.screen.manifestLabDefault')}`}
+            icon="◉"
+            label={t('pdf.screen.manifestLabNotes')}
+            badge={t('pdf.screen.manifestLabDefault')}
           />
         </View>
 
@@ -611,12 +647,19 @@ export function DoctorPdfScreen({
 
             {/* Year stepper: ‹ YYYY › */}
             <View style={styles.pickerYearRow}>
+              {/* mobile-reviewer 🟡 (cluster 6 review): hardcoded English
+               * a11y strings regardless of locale. REPORTED — needs i18n keys
+               * 'picker.previousYear' / 'picker.nextYear'. Using the already
+               * locale-correct year label text as an interim stand-in (still
+               * announces meaningfully in both locales) until those keys land. */}
               <TouchableOpacity
                 testID="pdf-picker-year-prev"
                 style={styles.pickerStepBtn}
                 onPress={() => setPickerYear((y) => y - 1)}
                 accessibilityRole="button"
-                accessibilityLabel="Previous year"
+                accessibilityLabel={
+                  locale === 'th' ? `พ.ศ. ก่อนหน้า ${pickerYear + 543 - 1}` : `Previous year, ${pickerYear - 1}`
+                }
               >
                 <Text style={styles.pickerStepText}>{'‹'}</Text>
               </TouchableOpacity>
@@ -628,7 +671,9 @@ export function DoctorPdfScreen({
                 style={styles.pickerStepBtn}
                 onPress={() => setPickerYear((y) => y + 1)}
                 accessibilityRole="button"
-                accessibilityLabel="Next year"
+                accessibilityLabel={
+                  locale === 'th' ? `พ.ศ. ถัดไป ${pickerYear + 543 + 1}` : `Next year, ${pickerYear + 1}`
+                }
               >
                 <Text style={styles.pickerStepText}>{'›'}</Text>
               </TouchableOpacity>
@@ -673,13 +718,23 @@ export function DoctorPdfScreen({
 interface ManifestRowProps {
   icon: string;
   label: string;
+  /**
+   * Optional plain-text badge (mobile-reviewer fix, cluster 6 review) —
+   * renders as non-interactive text, never a checkbox-shaped glyph.
+   */
+  badge?: string;
 }
 
-function ManifestRow({ icon, label }: ManifestRowProps): React.JSX.Element {
+function ManifestRow({ icon, label, badge }: ManifestRowProps): React.JSX.Element {
   return (
     <View style={styles.manifestRow}>
       <Text style={styles.manifestIcon} accessibilityElementsHidden>{icon}</Text>
-      <Text style={styles.manifestLabel}>{label}</Text>
+      <Text style={styles.manifestLabel}>
+        {label}
+        {badge != null ? (
+          <Text style={styles.manifestBadge}>{'  · '}{badge}</Text>
+        ) : null}
+      </Text>
     </View>
   );
 }
@@ -728,11 +783,19 @@ function ReportPreview({
       : profile.lifecycle === 'ended' ? L.lifecycleEnded
         : L.lifecyclePregnant;
 
+  // mobile-reviewer fix (cluster 6 review): was raw ISO (dateFrom/dateTo,
+  // e.g. "2026-06-01 – 2026-07-31") — a Gregorian date the mother never
+  // picked in that form (the picker above is month/พ.ศ.-granularity). Reuses
+  // the SAME formatYearMonth formatter as the correct พ.ศ. picker (single
+  // source of truth — no risk of drifting into a different พ.ศ. convention).
+  const rangeFromLabel = formatYearMonth(dateFrom.slice(0, 7), locale);
+  const rangeToLabel = formatYearMonth(dateTo.slice(0, 7), locale);
+
   return (
     <View style={styles.previewPage}>
       {/* Header — derived from shared LABELS */}
       <Text style={styles.previewH1}>{L.reportTitle}</Text>
-      <Text style={styles.previewRange}>{L.rangeLabel}: {dateFrom} {L.rangeSep} {dateTo}</Text>
+      <Text style={styles.previewRange}>{L.rangeLabel}: {rangeFromLabel} {L.rangeSep} {rangeToLabel}</Text>
       <View style={styles.divider} />
 
       {/* Profile */}
@@ -1191,6 +1254,13 @@ const styles = StyleSheet.create({
     fontSize: T.type.caption.size,
     color: T.color.text.heading,
     flex: 1,
+  },
+  // mobile-reviewer fix (cluster 6 review): plain-text badge replacing the
+  // tappable-looking "☐" glyph on the lab-notes row.
+  manifestBadge: {
+    fontFamily: T.type.caption.fontFamily,
+    fontSize: T.type.caption.size,
+    color: T.color.text.primary,
   },
 
   // Where card

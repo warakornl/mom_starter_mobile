@@ -118,6 +118,23 @@ export function LossConfirmScreen({
   async function handleConfirm(): Promise<void> {
     if (submitting) return; // single-flight guard (§10.1)
 
+    // mobile-reviewer fix (cluster 6 review, พ.ศ. round-trip trap): this field
+    // is optional free-text YYYY-MM-DD (raw Gregorian), but a mother who has
+    // seen a พ.ศ. (Buddhist Era = Gregorian+543) date elsewhere in the app
+    // could type a BE year here by habit (e.g. "2569" instead of "2026"),
+    // silently recording a loss date centuries in the future. Reject inline
+    // — reusing the existing calm "outside the range that can be recorded"
+    // copy (no new alarming wording, tone preserved) — no bounce, no dialog,
+    // same inline-hint pattern as every other validation on this screen.
+    const trimmedForBeCheck = dateInput.trim();
+    if (trimmedForBeCheck.length >= 4) {
+      const typedYear = Number(trimmedForBeCheck.slice(0, 4));
+      if (Number.isFinite(typedYear) && typedYear > 2100) {
+        setDateHint(t('loss.confirm.dateRangeHint'));
+        return;
+      }
+    }
+
     const today = localCivilToday();
     const validation = validateLossDate(dateInput, today, edd);
     if (!validation.valid) {
@@ -193,6 +210,14 @@ export function LossConfirmScreen({
 
       // BLOCKER-2: any other server error (4xx/5xx) is a real failure — never
       // treated as success. Calm, retryable, no local-state flip.
+      // mobile-reviewer 🟡 (cluster 6 review): this generic 5xx branch reuses
+      // loss.error.conflict ("another device made a change"), which is
+      // misleading for a plain server error — no conflicting device is
+      // implied here. REPORTED — needs a distinct i18n key (e.g.
+      // 'loss.error.generic' = calm "couldn't save right now, try again"
+      // copy, mirroring birth.errorGeneric's tone) so this path stops
+      // borrowing conflict-specific wording. Left as-is (cannot edit
+      // messages.ts — shared file) until that key lands.
       setErrorMsg(t('loss.error.conflict'));
     } catch {
       // BLOCKER-2 still holds: network/offline failure is a real failure —

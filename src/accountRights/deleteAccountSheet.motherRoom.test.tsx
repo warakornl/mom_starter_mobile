@@ -2,7 +2,13 @@
  * deleteAccountSheet.motherRoom.test.tsx
  * TDD: ห้องแม่ Phase 2 B4 reskin — DeleteAccountSheet
  *
- * Key rule: confirm CTA = T.button.primary.bg (amber-700), NOT rose/700 (#9B1C35).
+ * Key rule (mobile-reviewer safe-pattern fix, cluster 6 review): Cancel is the
+ * PROMOTED primary (T.button.primary.bg amber-700 fill, ≥52dp) — the safe,
+ * easy action, matching LossConfirmScreen's "Go back" treatment. The
+ * destructive "ยืนยันลบบัญชี" control is NON-promoted (outlined/quiet, NOT
+ * T.button.primary.bg, and NOT the old rose/700 #9B1C35 red either) — it must
+ * never wear the app's promoted amber CTA fill, which would invert the
+ * safe-default hierarchy.
  */
 
 jest.mock('react-native', () => ({
@@ -121,7 +127,20 @@ describe('DeleteAccountSheet — ห้องแม่ Phase 2 B4 reskin', () =>
     })).toHaveLength(0);
   });
 
-  it('confirm button bg is T.button.primary.bg amber-700 NOT #9B1C35', () => {
+  it('cancel button (safe exit) is the PROMOTED primary — T.button.primary.bg amber-700', () => {
+    const tree = DeleteAccountSheet(baseProps) as React.ReactElement;
+    if (tree == null) return;
+    const btn = findAll(tree, (el) => {
+      const p = el.props as Record<string, unknown>;
+      return p.testID === 'delete-sheet-cancel-btn';
+    })[0];
+    expect(btn).toBeDefined();
+    const styleArr = (btn.props as Record<string, unknown>).style as unknown[];
+    const base = flat(Array.isArray(styleArr) ? styleArr[0] : styleArr);
+    expect(base.backgroundColor).toBe(T.button.primary.bg);
+  });
+
+  it('confirm/delete button (destructive) is NEVER the promoted primary fill — no false safety cue', () => {
     const tree = DeleteAccountSheet(baseProps) as React.ReactElement;
     if (tree == null) return;
     const btn = findAll(tree, (el) => {
@@ -131,7 +150,20 @@ describe('DeleteAccountSheet — ห้องแม่ Phase 2 B4 reskin', () =>
     expect(btn).toBeDefined();
     const styleArr = (btn.props as Record<string, unknown>).style as unknown[];
     const base = flat(Array.isArray(styleArr) ? styleArr[0] : styleArr);
-    expect(base.backgroundColor).toBe(T.button.primary.bg);
+    expect(base.backgroundColor).not.toBe(T.button.primary.bg);
     expect(base.backgroundColor).not.toBe('#9B1C35');
+  });
+
+  it('confirm/delete button still carries a clear, non-generic label (not just a small quiet link)', () => {
+    const tree = DeleteAccountSheet(baseProps) as React.ReactElement;
+    if (tree == null) return;
+    const btn = findAll(tree, (el) => {
+      const p = el.props as Record<string, unknown>;
+      return p.testID === 'delete-sheet-confirm-btn';
+    })[0];
+    expect(btn).toBeDefined();
+    const label = (btn.props as { accessibilityLabel?: string }).accessibilityLabel ?? '';
+    expect(label.length).toBeGreaterThan(0);
+    expect(label).toMatch(/ลบบัญชี|Delete my account/);
   });
 });

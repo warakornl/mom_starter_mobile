@@ -114,3 +114,48 @@ describe('ProfileEditScreen — ห้องแม่ Phase 2 B4 reskin', () => 
     expect(s.backgroundColor).toBe(T.color.surface.base);
   });
 });
+
+// ─── mobile-reviewer 🟡 fix (cluster 6 review): not-found/guard dead-ends ────
+describe('ProfileEditScreen — not-found / guard-not-editable "กลับ" back button', () => {
+  afterEach(() => {
+    const mockUseState = (jest.requireMock('react') as { useState: jest.Mock }).useState;
+    mockUseState.mockImplementation((init: unknown) => [init, jest.fn()]);
+  });
+
+  it('not-found state renders a "กลับ" button wired to navigation.goBack()', () => {
+    const mockUseState = (jest.requireMock('react') as { useState: jest.Mock }).useState;
+    // First useState call in the component is `outcome`.
+    let call = 0;
+    mockUseState.mockImplementation((init: unknown) => {
+      call += 1;
+      if (call === 1) return [{ type: 'not-found' }, jest.fn()];
+      return [init, jest.fn()];
+    });
+
+    const goBack = jest.fn();
+    const nav = { ...mockNavigation, goBack };
+    const tree = ProfileEditScreen({ ...baseProps, navigation: nav as never }) as React.ReactElement;
+    const backBtn = findAll(tree, (el) => (el.props as { testID?: string }).testID === 'profile-edit-notfound-back')[0];
+    expect(backBtn).toBeDefined();
+    (backBtn.props as { onPress: () => void }).onPress();
+    expect(goBack).toHaveBeenCalledTimes(1);
+  });
+
+  it('guard-not-editable state renders a "กลับ" button wired to navigation.goBack()', () => {
+    const mockUseState = (jest.requireMock('react') as { useState: jest.Mock }).useState;
+    let call = 0;
+    mockUseState.mockImplementation((init: unknown) => {
+      call += 1;
+      if (call === 1) return [{ type: 'guard-not-editable' }, jest.fn()];
+      return [init, jest.fn()];
+    });
+
+    const goBack = jest.fn();
+    const nav = { ...mockNavigation, goBack };
+    const tree = ProfileEditScreen({ ...baseProps, navigation: nav as never }) as React.ReactElement;
+    const backBtn = findAll(tree, (el) => (el.props as { testID?: string }).testID === 'profile-edit-guard-back')[0];
+    expect(backBtn).toBeDefined();
+    (backBtn.props as { onPress: () => void }).onPress();
+    expect(goBack).toHaveBeenCalledTimes(1);
+  });
+});

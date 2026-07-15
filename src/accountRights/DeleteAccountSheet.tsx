@@ -14,11 +14,23 @@
  *   [stepUpDegraded notice — only when stepUpDegraded=true] (§3.6)
  *   [DELETE_ERROR notice — only when deleteError is set] (§3.7)
  *   Divider
- *   Confirm button (disabled until floor satisfied + not in-flight, §3.3)
- *   Cancel button (§3.4)
+ *   Cancel button — PROMOTED primary (§3.4, mobile-reviewer safe-pattern fix)
+ *   Confirm button — clearly-labeled, NON-promoted destructive (§3.3)
+ *
+ * mobile-reviewer fix (safe-default hierarchy, cluster 6 review):
+ *   Previously the destructive "ยืนยันลบบัญชี" control wore the app's PROMOTED
+ *   primary style (amber-filled 52dp pill — identical to every Save/Grant CTA)
+ *   while Cancel was a quiet 44dp link. That inverts the safe-default pattern
+ *   used everywhere else in the app (LossConfirmScreen: the safe exit is the
+ *   prominent action; the deliberate/destructive path is quiet). Hierarchy is
+ *   now: Cancel = filled amber-700 52dp primary pill (the easy, prominent
+ *   choice); "ยืนยันลบบัญชี" = an outlined/quiet destructive control, still
+ *   clearly labeled (not merely small/gray) and still gated by the
+ *   type-to-confirm floor + accessibilityState — never ambiguous about what
+ *   it does.
  *
  * Accessibility:
- *   - All touch targets ≥ 48dp / ≥ 52dp for destructive confirm (UI spec §5.1)
+ *   - All touch targets ≥ 48dp / ≥ 52dp for the promoted Cancel action (UI spec §5.1)
  *   - Confirm button: accessibilityState={{ disabled }} — kept in SR navigation
  *     (tabindex=-1 semantics via pointer-events:none; SR virtual cursor still reaches
  *     it to read the explanatory label) — UI spec §5.3 I-2.
@@ -320,8 +332,33 @@ export function DeleteAccountSheet({
           {/* Divider */}
           <View style={styles.divider} />
 
-          {/* ── Confirm / Retry button (§3.3) ── */}
-          {/* When DELETE_ERROR: "Retry"; otherwise: "Delete my account" */}
+          {/* ── Cancel button — PROMOTED primary (§3.4, safe-pattern fix) ── */}
+          {/* The easy, prominent action: filled amber-700 52dp pill — matches
+           * LossConfirmScreen's "Go back" treatment (TONE-5 safe-exit pattern). */}
+          <TouchableOpacity
+            testID="delete-sheet-cancel-btn"
+            style={[
+              styles.cancelBtn,
+              !cancelEnabled && styles.cancelBtnDisabled,
+            ]}
+            onPress={() => { if (cancelEnabled) onCancelTap(); }}
+            accessibilityRole="button"
+            accessibilityLabel={
+              locale === 'th'
+                ? 'ยกเลิกการลบบัญชี'
+                : 'Cancel account deletion'
+            }
+            accessibilityState={{ disabled: !cancelEnabled }}
+          >
+            <Text style={styles.cancelBtnLabel}>
+              {t('accountRights.delete.cancelBtn')}
+            </Text>
+          </TouchableOpacity>
+
+          {/* ── Confirm / Retry button (§3.3) — NON-promoted destructive ── */}
+          {/* When DELETE_ERROR: "Retry"; otherwise: "Delete my account".
+           * Clearly-labeled outlined/quiet control — never the app's promoted
+           * primary style, so it can never be mistaken for a routine Save/Grant. */}
           <TouchableOpacity
             testID="delete-sheet-confirm-btn"
             style={[
@@ -351,40 +388,19 @@ export function DeleteAccountSheet({
             {deleteInFlight ? (
               <ActivityIndicator
                 size="small"
-                color={T.color.text.onDark}
+                color={T.color.text.primary}
                 testID="delete-sheet-confirm-spinner"
               />
             ) : (
-              <Text style={styles.confirmBtnLabel}>
+              <Text style={[
+                styles.confirmBtnLabel,
+                !confirmEnabled && styles.confirmBtnLabelDisabled,
+              ]}>
                 {deleteError !== null
                   ? t('accountRights.delete.retryBtn')
                   : t('accountRights.delete.confirmBtn')}
               </Text>
             )}
-          </TouchableOpacity>
-
-          {/* ── Cancel button (§3.4) ── */}
-          <TouchableOpacity
-            testID="delete-sheet-cancel-btn"
-            style={[
-              styles.cancelBtn,
-              !cancelEnabled && styles.cancelBtnDisabled,
-            ]}
-            onPress={() => { if (cancelEnabled) onCancelTap(); }}
-            accessibilityRole="button"
-            accessibilityLabel={
-              locale === 'th'
-                ? 'ยกเลิกการลบบัญชี'
-                : 'Cancel account deletion'
-            }
-            accessibilityState={{ disabled: !cancelEnabled }}
-          >
-            <Text style={[
-              styles.cancelBtnLabel,
-              !cancelEnabled && styles.cancelBtnLabelDisabled,
-            ]}>
-              {t('accountRights.delete.cancelBtn')}
-            </Text>
           </TouchableOpacity>
 
           {/* Extra bottom padding for home-bar safe area */}
@@ -591,8 +607,10 @@ const styles = StyleSheet.create({
     marginVertical: 16,
   },
 
-  // Confirm button (§3.3) — amber-700 per B4 spec (NOT clinical red)
-  confirmBtn: {
+  // Cancel button (§3.4) — PROMOTED primary: filled amber-700 52dp pill.
+  // Safe-pattern fix: the easy exit is the prominent action (mirrors
+  // LossConfirmScreen's "Go back" — TONE-5).
+  cancelBtn: {
     minHeight: T.button.primary.height,
     backgroundColor: T.button.primary.bg,
     borderRadius: T.radius.pill,
@@ -601,31 +619,38 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     paddingHorizontal: 24,
   },
-  confirmBtnDisabled: {
-    opacity: 0.4,
-  },
-  confirmBtnLabel: {
-    fontFamily: T.type.label.fontFamily,
-    fontSize: T.type.body.size,
-    color: T.color.text.onDark,
-  },
-
-  // Cancel button (§3.4 — quiet, ≥ 44dp)
-  cancelBtn: {
-    minHeight: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 4,
-  },
   cancelBtnDisabled: {
     opacity: 0.4,
   },
   cancelBtnLabel: {
     fontFamily: T.type.label.fontFamily,
     fontSize: T.type.body.size,
+    color: T.color.text.onDark,
+  },
+
+  // Confirm button (§3.3) — NON-promoted destructive: outlined/quiet, but
+  // clearly labeled (not merely a small gray link) and ≥48dp. Never the
+  // app's promoted-primary amber fill (safe-pattern fix).
+  confirmBtn: {
+    minHeight: 48,
+    backgroundColor: T.color.surface.base,
+    borderWidth: 1.5,
+    borderColor: T.color.accent.identity,
+    borderRadius: T.radius.pill,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 4,
+    paddingHorizontal: 24,
+  },
+  confirmBtnDisabled: {
+    opacity: 0.4,
+  },
+  confirmBtnLabel: {
+    fontFamily: T.type.label.fontFamily,
+    fontSize: T.type.body.size,
     color: T.color.text.heading,
   },
-  cancelBtnLabelDisabled: {
+  confirmBtnLabelDisabled: {
     color: T.color.text.primary,
   },
 

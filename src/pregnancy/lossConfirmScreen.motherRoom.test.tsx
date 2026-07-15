@@ -291,4 +291,29 @@ describe('LossConfirmScreen — Screen B (§3 / functional-spec §14)', () => {
     await expect((confirm!.props as { onPress: () => Promise<void> }).onPress()).resolves.not.toThrow();
     expect(onLossRecorded).not.toHaveBeenCalled();
   });
+
+  // ─── mobile-reviewer fix (cluster 6 review, พ.ศ. round-trip trap) ──────────
+  //
+  // This harness mocks useState to always return the initializer, so
+  // dateInput is unobservable via render (same limitation noted in
+  // birthEventScreen.motherRoom.test.tsx). Verified at the source level
+  // instead: the >2100 guard must exist and must run BEFORE the network
+  // call, so a BE-era year value can never reach recordLossEvent.
+  it('source-level guard: a typed year > 2100 is rejected inline before any network call, tone preserved (reuses existing calm copy)', () => {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const fs = require('fs') as typeof import('fs');
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const path = require('path') as typeof import('path');
+    const source = fs.readFileSync(path.join(__dirname, 'LossConfirmScreen.tsx'), 'utf8');
+
+    const guardIdx = source.indexOf('typedYear > 2100');
+    const clientCallIdx = source.indexOf('client.recordLossEvent(');
+    expect(guardIdx).toBeGreaterThan(-1);
+    expect(clientCallIdx).toBeGreaterThan(-1);
+    expect(guardIdx).toBeLessThan(clientCallIdx);
+
+    // Tone preserved: the guard reuses the existing calm dateRangeHint copy,
+    // not a new alarming string.
+    expect(source).toMatch(/setDateHint\(t\('loss\.confirm\.dateRangeHint'\)\);\s*\n\s*return;/);
+  });
 });

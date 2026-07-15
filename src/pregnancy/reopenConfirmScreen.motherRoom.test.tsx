@@ -169,3 +169,39 @@ describe('ReopenConfirmScreen — show-form render (real controls)', () => {
     expect(typeof callArg.onError).toBe('function');
   });
 });
+
+// ─── mobile-reviewer 🟡 fix (cluster 6 review): not-found/guard dead-ends ────
+describe('ReopenConfirmScreen — not-found / guard-not-editable "กลับ" back button', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  function seedOutcome(type: 'not-found' | 'guard-not-editable'): void {
+    let callIndex = 0;
+    mockUseState.mockImplementation((init: unknown) => {
+      callIndex += 1;
+      if (callIndex === 1) return [{ type }, jest.fn()];
+      return [init, jest.fn()];
+    });
+  }
+
+  it('not-found state renders a "กลับ" button wired to onGoBack', () => {
+    seedOutcome('not-found');
+    const onGoBack = jest.fn();
+    const tree = ReopenConfirmScreen({ ...baseProps, onGoBack }) as React.ReactElement;
+    const backBtn = byTestId(tree, 'reopen-notfound-back');
+    expect(backBtn).toBeDefined();
+    (backBtn!.props as { onPress: () => void }).onPress();
+    expect(onGoBack).toHaveBeenCalledTimes(1);
+  });
+
+  it('guard-not-editable state renders a "กลับ" button wired to onGoBack', () => {
+    seedOutcome('guard-not-editable');
+    const onGoBack = jest.fn();
+    const tree = ReopenConfirmScreen({ ...baseProps, onGoBack }) as React.ReactElement;
+    const backBtn = byTestId(tree, 'reopen-guard-back');
+    expect(backBtn).toBeDefined();
+    (backBtn!.props as { onPress: () => void }).onPress();
+    expect(onGoBack).toHaveBeenCalledTimes(1);
+  });
+});

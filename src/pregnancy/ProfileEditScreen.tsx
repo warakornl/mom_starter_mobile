@@ -78,6 +78,14 @@ export interface EditNavigationProp {
     screen: 'LossConfirm',
     params: { profileVersion: number },
   ): void;
+  /**
+   * mobile-reviewer 🟡 fix (cluster 6 review): used by the explicit "กลับ"
+   * button on the not-found / guard-not-editable dead-end states — these
+   * previously showed text-only with no way back except the native header
+   * back (easy to miss, and absent entirely on Android hardware-back-less
+   * flows). Standard React Navigation stack method.
+   */
+  goBack(): void;
 }
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -214,19 +222,40 @@ export function ProfileEditScreen({
   }
 
   // AC-14: 404 — profile not found
+  // mobile-reviewer 🟡 fix (cluster 6 review): was text-only — a dead end
+  // with no explicit way back besides the native header back button.
   if (outcome.type === 'not-found') {
     return (
       <SafeAreaView style={styles.centeredContainer}>
         <Text style={styles.noticeText}>{t('profile.editNotFound')}</Text>
+        <TouchableOpacity
+          style={styles.retryBtn}
+          onPress={() => navigation.goBack()}
+          accessibilityRole="button"
+          accessibilityLabel={t('general.back')}
+          testID="profile-edit-notfound-back"
+        >
+          <Text style={styles.retryBtnText}>{t('general.back')}</Text>
+        </TouchableOpacity>
       </SafeAreaView>
     );
   }
 
   // AC-14: Postpartum/ended guard
+  // mobile-reviewer 🟡 fix (cluster 6 review): same text-only dead-end fix.
   if (outcome.type === 'guard-not-editable') {
     return (
       <SafeAreaView style={styles.centeredContainer}>
         <Text style={styles.noticeText}>{t('profile.editNotEditable')}</Text>
+        <TouchableOpacity
+          style={styles.retryBtn}
+          onPress={() => navigation.goBack()}
+          accessibilityRole="button"
+          accessibilityLabel={t('general.back')}
+          testID="profile-edit-guard-back"
+        >
+          <Text style={styles.retryBtnText}>{t('general.back')}</Text>
+        </TouchableOpacity>
       </SafeAreaView>
     );
   }

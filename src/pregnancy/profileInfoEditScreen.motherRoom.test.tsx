@@ -110,4 +110,40 @@ describe('ProfileInfoEditScreen — ห้องแม่ Phase 2 B4 reskin', ()
       expect(base.backgroundColor).toBe(T.button.primary.bg);
     }
   });
+
+  // ─── mobile-reviewer fixes (cluster 6 review) ──────────────────────────────
+
+  it('accepts an optional `navigation` prop typed for the unsaved-changes guard', () => {
+    // Type-level + no-crash smoke check: passing navigation must not throw,
+    // proving the prop is wired (screenState is 'loading' in this harness, so
+    // the error-state retry button below is checked separately).
+    const mockNav = { addListener: jest.fn(() => jest.fn()), dispatch: jest.fn() };
+    expect(() => ProfileInfoEditScreen({ ...baseProps, navigation: mockNav })).not.toThrow();
+  });
+});
+
+describe('ProfileInfoEditScreen — error-state retry button (mobile-reviewer 🟡 fix)', () => {
+  it('retry button has accessibilityRole="button" and a non-empty accessibilityLabel', () => {
+    // Force the error branch by seeding useState so screenState.mode === 'error'.
+    const mockUseState = (jest.requireMock('react') as { useState: jest.Mock }).useState;
+    let call = 0;
+    mockUseState.mockImplementation((init: unknown) => {
+      call += 1;
+      // First useState call in the component is screenState.
+      if (call === 1) return [{ mode: 'error', message: 'load failed' }, jest.fn()];
+      return [init, jest.fn()];
+    });
+
+    const tree = ProfileInfoEditScreen(baseProps) as React.ReactElement;
+    const retryBtn = findAll(tree, (el) => (el.props as { testID?: string }).testID === 'profile-info-edit-retry-btn')[0];
+    expect(retryBtn).toBeDefined();
+    expect((retryBtn.props as { accessibilityRole?: string }).accessibilityRole).toBe('button');
+    expect((retryBtn.props as { accessibilityLabel?: string }).accessibilityLabel).toBeTruthy();
+
+    const styleArr = (retryBtn.props as Record<string, unknown>).style as unknown;
+    const base = flat(styleArr);
+    expect(base.minHeight).toBeGreaterThanOrEqual(48);
+
+    mockUseState.mockImplementation((init: unknown) => [init, jest.fn()]);
+  });
 });

@@ -107,6 +107,14 @@ export function SettingsScreen({
         )}
 
         {/* Calendar Sync row — CS-4 entry point (calendar-sync-ui.md §3.1) */}
+        {/* mobile-reviewer 🟡 (cluster 6 review): title + a11y label/hint are
+         * hardcoded Thai, bypassing i18n (no English translation, ever).
+         * REPORTED — needs catalog keys 'settings.calendarSync.title'
+         * ('ซิงก์ปฏิทินในเครื่อง' / 'Sync calendar on device'),
+         * 'settings.calendarSync.a11yLabel' (same string, reusable), and
+         * 'settings.calendarSync.a11yHint' ('เปิดการตั้งค่าปฏิทิน' / 'Opens
+         * calendar settings'). Left as literals here (cannot edit
+         * messages.ts — shared file) until those keys land. */}
         {onCalendarSync && (
           <TouchableOpacity
             testID="settings-calendar-sync-btn"
@@ -183,7 +191,10 @@ const styles = StyleSheet.create({
   menuRowTextGroup: {
     flex: 1,
   },
+  // mobile-reviewer fix (cluster 6 review): was missing fontFamily (fell back
+  // to system font, no Thai-capable Sarabun guarantee).
   menuRowText: {
+    fontFamily: T.type.body.fontFamily,
     fontSize: T.type.body.size,
     lineHeight: T.type.body.lineHeight,
     color: T.color.text.heading,

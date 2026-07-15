@@ -37,6 +37,7 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
@@ -52,6 +53,27 @@ import {
   validateNameInput,
 } from './profileInfoEditLogic';
 import type { NameFormState } from './profileInfoEditLogic';
+import { buildBeforeRemoveHandler } from './profileEditBeforeRemoveHandler';
+import type { BeforeRemoveEvent } from './profileEditBeforeRemoveHandler';
+
+// ─── Navigation interface (mirrors ProfileEditScreen's AC-15 guard) ───────────
+
+/**
+ * Minimal navigation prop for the unsaved-changes guard (mobile-reviewer fix,
+ * cluster 6 review — mirrors ProfileEditScreen's AC-15 beforeRemove pattern).
+ * OPTIONAL: when omitted the guard is simply not registered (backward-compat
+ * with any existing call sites) — see report: RootNavigator's ProfileInfoEdit
+ * Stack.Screen render-prop currently does not pass `navigation` through; it
+ * needs one line added (`navigation={navigation}`) to activate this guard in
+ * production.
+ */
+export interface InfoEditNavigationProp {
+  addListener(
+    event: 'beforeRemove',
+    callback: (e: BeforeRemoveEvent) => void,
+  ): () => void;
+  dispatch(action: Readonly<{ type: string }>): void;
+}
 
 // ─── Props ─────────────────────────────────────────────────────────────────────
 
@@ -71,6 +93,13 @@ export interface ProfileInfoEditScreenProps {
    * then navigate.reset to Welcome. Reuse the exact runner from RootNavigator.
    */
   onSessionExpired: () => void;
+  /**
+   * OPTIONAL (mobile-reviewer fix, cluster 6 review): when provided, registers
+   * the same unsaved-changes beforeRemove guard as ProfileEditScreen (AC-15) —
+   * navigating away with an unsaved name edit shows a discard-confirm Alert.
+   * Omit to preserve today's behavior (silent discard on back).
+   */
+  navigation?: InfoEditNavigationProp;
 }
 
 // ─── Component ─────────────────────────────────────────────────────────────────
@@ -80,8 +109,16 @@ export function ProfileInfoEditScreen({
   apiBaseUrl,
   onSaveComplete,
   onSessionExpired,
+  navigation,
 }: ProfileInfoEditScreenProps): React.JSX.Element {
   const { t } = useT();
+
+  // ── Unsaved-changes guard (mobile-reviewer fix, cluster 6 review) ───────────
+  // Mirrors ProfileEditScreen's AC-15 dirty-tracking: set true on any
+  // user-driven field edit, cleared on successful save / session-expiry /
+  // fresh entry GET. Only actually intercepts navigation when `navigation`
+  // is provided by the caller (optional prop — see report).
+  const isDirtyRef = useRef(false);
 
   // ── State ──────────────────────────────────────────────────────────────────
   const [screenState, setScreenState] = useState<InfoScreenState>({ mode: 'loading' });
@@ -112,12 +149,18 @@ export function ProfileInfoEditScreen({
 
   // ── Entry GET ──────────────────────────────────────────────────────────────
   const doEntryGet = useCallback(async () => {
+    isDirtyRef.current = false; // fresh load — form matches server, not dirty
     await runInfoEntryGet({
       tokenStorage,
       apiBaseUrl,
       pendingErrorRef,
       loadErrorMessage: t('profile.editLoadError'),
-      onSessionExpired,
+      onSessionExpired: () => {
+        // Clear dirty BEFORE onSessionExpired so the logout navigation reset
+        // is not trapped by the beforeRemove guard (mirrors ProfileEditScreen).
+        isDirtyRef.current = false;
+        onSessionExpired();
+      },
       setScreenState,
       setFormState,
       setSaveError,
@@ -128,6 +171,22 @@ export function ProfileInfoEditScreen({
     void doEntryGet();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // ── Unsaved-changes guard registration (mobile-reviewer fix) ────────────────
+  // Only registers when the caller provides `navigation` (optional prop).
+  useEffect(() => {
+    if (!navigation) return;
+    const unsubscribe = navigation.addListener(
+      'beforeRemove',
+      buildBeforeRemoveHandler(
+        isDirtyRef,
+        Alert.alert,
+        (action) => navigation.dispatch(action),
+        t as (key: string) => string,
+      ),
+    );
+    return unsubscribe;
+  }, [navigation, t]);
 
   // ── Validate fields ────────────────────────────────────────────────────────
   // UI-level validation: updates per-field error state and returns overall validity.
@@ -159,8 +218,16 @@ export function ProfileInfoEditScreen({
       pendingErrorRef,
       conflictMessage: t('profileInfo.error.conflict'),
       genericErrorMessage: t('profileInfo.error.generic'),
-      onSessionExpired,
-      onSaveComplete,
+      onSessionExpired: () => {
+        isDirtyRef.current = false;
+        onSessionExpired();
+      },
+      onSaveComplete: (profile) => {
+        // Save succeeded — clear dirty BEFORE onSaveComplete so the caller's
+        // subsequent goBack() is not intercepted by the beforeRemove guard.
+        isDirtyRef.current = false;
+        onSaveComplete(profile);
+      },
       setScreenState,
       setSaveError,
       runEntryGet: doEntryGet,
@@ -224,10 +291,15 @@ export function ProfileInfoEditScreen({
     return (
       <SafeAreaView style={styles.container} testID="profile-info-edit-error">
         <Text style={styles.errorMessage}>{screenState.message}</Text>
+        {/* mobile-reviewer 🟡 fix (cluster 6 review): was ~41dp with no
+         * accessibilityRole/Label — below the 48dp floor and invisible to
+         * screen readers as an actionable control. */}
         <TouchableOpacity
           style={styles.retryBtn}
           onPress={() => void doEntryGet()}
           testID="profile-info-edit-retry-btn"
+          accessibilityRole="button"
+          accessibilityLabel={t('profile.editLoadRetry')}
         >
           <Text style={styles.retryBtnText}>{t('profile.editLoadRetry')}</Text>
         </TouchableOpacity>
@@ -260,6 +332,7 @@ export function ProfileInfoEditScreen({
             formState.motherFirstName,
             t('profileInfo.placeholder.motherFirstName'),
             (text) => {
+              isDirtyRef.current = true; // mobile-reviewer fix: unsaved-changes guard
               setFormState((prev) => ({ ...prev, motherFirstName: text }));
               setErrors((prev) => ({ ...prev, motherFirstName: null }));
             },
@@ -273,6 +346,7 @@ export function ProfileInfoEditScreen({
             formState.motherLastName,
             t('profileInfo.placeholder.motherLastName'),
             (text) => {
+              isDirtyRef.current = true; // mobile-reviewer fix: unsaved-changes guard
               setFormState((prev) => ({ ...prev, motherLastName: text }));
               setErrors((prev) => ({ ...prev, motherLastName: null }));
             },
@@ -286,6 +360,7 @@ export function ProfileInfoEditScreen({
             formState.babyName,
             t('profileInfo.placeholder.babyName'),
             (text) => {
+              isDirtyRef.current = true; // mobile-reviewer fix: unsaved-changes guard
               setFormState((prev) => ({ ...prev, babyName: text }));
               setErrors((prev) => ({ ...prev, babyName: null }));
             },
@@ -352,13 +427,17 @@ const styles = StyleSheet.create({
     color: T.color.text.primary,
     fontSize: T.type.caption.size,
   },
+  // mobile-reviewer fix (cluster 6 review): was paddingVertical:10 (~41dp
+  // total) → explicit minHeight ≥48dp tap target.
   retryBtn: {
     marginHorizontal: 20,
-    paddingVertical: 10,
+    minHeight: 48,
     paddingHorizontal: 20,
     backgroundColor: T.button.primary.bg,
     borderRadius: T.radius.sm,
     alignSelf: 'center',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   retryBtnText: {
     color: T.color.text.onDark,
@@ -385,12 +464,17 @@ const styles = StyleSheet.create({
     color: T.color.text.primary,
     fontSize: T.type.micro.size,
   },
+  // mobile-reviewer fix (cluster 6 review): was paddingVertical:10 (<52dp
+  // total, below T.input.height) and missing fontFamily. Now uses
+  // T.input.height as an explicit minHeight and Sarabun-Regular fontFamily.
   input: {
     borderWidth: 1,
     borderColor: T.input.border.default,
     borderRadius: T.radius.sm,
-    paddingVertical: 10,
+    minHeight: T.input.height,
+    paddingVertical: 12,
     paddingHorizontal: 12,
+    fontFamily: T.type.body.fontFamily,
     fontSize: T.type.body.size,
     color: T.input.text,
     backgroundColor: T.input.bg,

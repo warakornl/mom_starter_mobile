@@ -102,7 +102,7 @@ export function BirthEventScreen({
   apiBaseUrl,
   profileVersion,
   onBirthRecorded,
-  onCancel: _onCancel,
+  onCancel,
 }: BirthEventScreenProps): React.JSX.Element {
   const { t, locale } = useT();
 
@@ -131,6 +131,11 @@ export function BirthEventScreen({
   // ── UI state ──────────────────────────────────────────────────────────────
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  // mobile-reviewer fix (cluster 6 review, พ.ศ. round-trip trap): inline guard
+  // message shown UNDER the date modal input when a typed year looks like a
+  // Buddhist-Era (พ.ศ.) year instead of the raw Gregorian year the field
+  // actually stores. Cleared whenever the modal input changes.
+  const [dateModalGuardMsg, setDateModalGuardMsg] = useState<string | null>(null);
 
   // ── Validation ────────────────────────────────────────────────────────────
   const canSave = birthDate.length === 10 && !saving && hospitalErrorMsg == null;
@@ -143,8 +148,25 @@ export function BirthEventScreen({
       Alert.alert(t('birth.dateFormatAlertTitle'), t('birth.dateFormatAlertMsg'));
       return;
     }
+
+    // mobile-reviewer fix (cluster 6 review, พ.ศ. round-trip trap): the field
+    // DISPLAYS via formatCivilDate (which shows พ.ศ. = Gregorian+543) but is
+    // TYPED/STORED as raw Gregorian YYYY-MM-DD. A mother who sees "พ.ศ. 2569"
+    // on screen and types "2569" back into this field would silently record a
+    // birth date 543 years in the future. year > 2100 is not a plausible
+    // Gregorian birth year in this app — reject inline (no Continue-anyway
+    // path for BE-year values; this is a data-corruption trap, not a
+    // borderline typo like a 1-2 day future slip).
+    const year = Number(trimmed.slice(0, 4));
+    if (year > 2100) {
+      setDateModalGuardMsg(t('birth.dateFormatAlertMsg'));
+      return;
+    }
+    setDateModalGuardMsg(null);
+
     // Soft guard: birth date should not be in the future (§5 — non-blocking typo hint).
     // The server enforces the actual bound; this is a UX convenience only.
+    // (year > 2100 is handled above and never reaches this Continue-anyway path.)
     const today = localCivilToday();
     if (trimmed > today) {
       Alert.alert(
@@ -328,6 +350,20 @@ export function BirthEventScreen({
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* mobile-reviewer 🟡 fix (cluster 6 review): onCancel was received as a
+       * prop but never rendered anywhere — a dead affordance with no way back
+       * without saving. Explicit in-screen cancel/back, top-left, ≥48dp. */}
+      <View style={styles.cancelRow}>
+        <TouchableOpacity
+          testID="birth-cancel-btn"
+          style={styles.cancelBtn}
+          onPress={onCancel}
+          accessibilityRole="button"
+          accessibilityLabel={t('general.back')}
+        >
+          <Text style={styles.cancelBtnText}>{'‹ '}{t('general.back')}</Text>
+        </TouchableOpacity>
+      </View>
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
@@ -428,7 +464,13 @@ export function BirthEventScreen({
           accessibilityLabel={t('birth.fieldNote')}
           textAlignVertical="top"
         />
-        <Text style={styles.encryptionNote} accessibilityElementsHidden={true}>
+        {/* mobile-reviewer 🟡 fix (cluster 6 review): this line is the PDPA
+         * trust marker ("stored encrypted on device and cloud") — hiding it
+         * from screen readers denied that reassurance to blind/low-vision
+         * mothers specifically. Unhidden; the 🔒 glyph prefix stays decorative
+         * (no separate accessibilityElementsHidden needed since it's inline
+         * text, not a standalone icon). */}
+        <Text style={styles.encryptionNote}>
           {t('birth.encryptionNote')}
         </Text>
 
@@ -561,20 +603,45 @@ export function BirthEventScreen({
               {t('birth.dateModalHint')}
             </Text>
             <TextInput
+              testID="birth-date-modal-input"
               style={styles.modalInput}
               value={dateInputText}
-              onChangeText={setDateInputText}
-              placeholder={'2026-06-29'}
+              onChangeText={(v) => {
+                setDateInputText(v);
+                setDateModalGuardMsg(null);
+              }}
+              // mobile-reviewer 🟡 (cluster 6 review): the hardcoded literal
+              // '2026-06-29' placeholder goes stale every year and hardcodes
+              // English digits with no i18n key. REPORTED — needs a neutral
+              // format-hint i18n key (e.g. 'birth.dateModalPlaceholder' =
+              // 'YYYY-MM-DD'). Using the format token directly here as a
+              // neutral stand-in until that key lands.
+              placeholder={'YYYY-MM-DD'}
               placeholderTextColor={T.input.placeholder}
               keyboardType="numeric"
               autoFocus
               accessibilityLabel={t('birth.fieldBirthDate')}
               maxLength={10}
             />
+            {/* mobile-reviewer fix (พ.ศ. round-trip trap): inline guard shown
+             * when the typed year looks like a Buddhist-Era year (>2100) —
+             * no silent +543-year data corruption, no Continue-anyway path. */}
+            {dateModalGuardMsg != null && (
+              <Text
+                testID="birth-date-modal-guard-msg"
+                style={styles.modalGuardText}
+                accessibilityLiveRegion="polite"
+              >
+                {dateModalGuardMsg}
+              </Text>
+            )}
             <View style={styles.modalBtns}>
               <TouchableOpacity
                 style={styles.modalCancelBtn}
-                onPress={() => setShowDateModal(false)}
+                onPress={() => {
+                  setDateModalGuardMsg(null);
+                  setShowDateModal(false);
+                }}
                 accessibilityRole="button"
                 accessibilityLabel={t('birth.dateModalCancel')}
               >
@@ -708,6 +775,23 @@ const styles = StyleSheet.create({
     gap: 16,
   },
 
+  // Cancel / back row (mobile-reviewer 🟡 fix — onCancel now rendered)
+  cancelRow: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+  },
+  cancelBtn: {
+    minHeight: 48,
+    justifyContent: 'center',
+    alignSelf: 'flex-start',
+    paddingHorizontal: 4,
+  },
+  cancelBtnText: {
+    fontFamily: T.type.body.fontFamily,
+    fontSize: T.type.body.size,
+    color: T.color.text.primary,
+  },
+
   // Header
   headerRow: {
     alignItems: 'center',
@@ -749,8 +833,11 @@ const styles = StyleSheet.create({
     marginTop: 8,
     marginBottom: 2,
   },
+  // mobile-reviewer fix (cluster 6 review): was T.color.accent.identity
+  // (roselle-500, 4.06:1 — borderline at this 15sp label size). Retoned to
+  // T.color.text.primary (roselle-700, 7.70:1 AAA) per fix note.
   required: {
-    color: T.color.accent.identity,
+    color: T.color.text.primary,
   },
 
   // Date field — ≥56dp height per a11y
@@ -955,6 +1042,14 @@ const styles = StyleSheet.create({
     color: T.input.text,
     textAlign: 'center',
     letterSpacing: 2,
+  },
+  // พ.ศ. round-trip guard message (mobile-reviewer fix, cluster 6 review)
+  modalGuardText: {
+    fontFamily: T.type.caption.fontFamily,
+    fontSize: T.type.caption.size,
+    lineHeight: T.type.caption.lineHeight,
+    color: T.input.errorText,
+    textAlign: 'center',
   },
   modalBtns: {
     flexDirection: 'row',

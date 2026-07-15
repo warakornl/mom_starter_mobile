@@ -109,4 +109,18 @@ describe('SettingsScreen — ห้องแม่ Phase 2 B4 reskin', () => {
     const s = flat((rows[0].props as Record<string, unknown>).style);
     expect(s.backgroundColor).toBe(T.color.surface.subtle);
   });
+
+  // mobile-reviewer fix (cluster 6 review): menuRowText was missing fontFamily.
+  it('menu row text carries the Thai-capable fontFamily token', () => {
+    const tree = SettingsScreen(baseProps) as React.ReactElement;
+    const texts = findAll(tree, (el) => {
+      const s = flat((el.props as Record<string, unknown>).style);
+      return s.fontWeight === '500' && s.color === T.color.text.heading;
+    });
+    expect(texts.length).toBeGreaterThan(0);
+    for (const el of texts) {
+      const s = flat((el.props as Record<string, unknown>).style);
+      expect(s.fontFamily).toBe(T.type.body.fontFamily);
+    }
+  });
 });

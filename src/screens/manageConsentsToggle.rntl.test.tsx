@@ -188,3 +188,33 @@ describe('ManageConsentsScreen — toggle ON', () => {
     expect(consentQueue.hasPendingEntry('general_health', true)).toBe(true);
   });
 });
+
+// ─── mobile-reviewer fix (cluster 6 review): footer policy/history rows ──────
+//
+// consent-manage-policy-link and consent-manage-history-link previously had
+// accessibilityRole="link" with no onPress and no navigable target — a dead,
+// misleading affordance for screen-reader users. They must now render as
+// plain, non-interactive text (no "link" role) until the PrivacyPolicy /
+// ConsentHistory routes exist (see report).
+describe('ManageConsentsScreen — footer policy/history rows (no dead link role)', () => {
+  it('renders the policy and history rows as plain text — NOT accessibilityRole="link"', async () => {
+    render(
+      <LanguageProvider>
+        <ManageConsentsScreen
+          tokenStorage={TOKEN_STORAGE}
+          apiBaseUrl="https://api.test.invalid"
+          onBack={jest.fn()}
+        />
+      </LanguageProvider>,
+    );
+
+    const policyRow = await screen.findByTestId('consent-manage-policy-link');
+    const historyRow = await screen.findByTestId('consent-manage-history-link');
+
+    expect(policyRow.props.accessibilityRole).not.toBe('link');
+    expect(historyRow.props.accessibilityRole).not.toBe('link');
+    // Also must not be reachable via getByRole('link') — proves no dead
+    // link-role affordance is exposed to assistive tech.
+    expect(screen.queryByRole('link')).toBeNull();
+  });
+});

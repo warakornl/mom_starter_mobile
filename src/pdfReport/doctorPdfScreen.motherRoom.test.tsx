@@ -176,4 +176,27 @@ describe('DoctorPdfScreen — ห้องแม่ Phase 2 B4 reskin', () => {
     });
     expect(btns.length).toBeGreaterThan(0);
   });
+
+  // ─── mobile-reviewer fixes (cluster 6 review) ──────────────────────────────
+
+  it('builder-phase header back button has a non-empty accessibilityLabel', () => {
+    const tree = DoctorPdfScreen(baseProps) as React.ReactElement;
+    const backBtns = findAll(tree, (el) => {
+      const p = el.props as Record<string, unknown>;
+      return p.accessibilityRole === 'button' && p.onPress === baseProps.onBack;
+    });
+    expect(backBtns.length).toBeGreaterThan(0);
+    for (const btn of backBtns) {
+      expect((btn.props as { accessibilityLabel?: string }).accessibilityLabel).toBeTruthy();
+    }
+  });
+
+  it('the lab-notes manifest row no longer uses the tappable-looking "☐" glyph', () => {
+    const tree = DoctorPdfScreen(baseProps) as React.ReactElement;
+    const glyphHits = findAll(tree, (el) => {
+      const p = el.props as Record<string, unknown>;
+      return p.children === '☐';
+    });
+    expect(glyphHits).toHaveLength(0);
+  });
 });

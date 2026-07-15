@@ -141,21 +141,42 @@ export function ReopenConfirmScreen({
 
   // ─── Render — not-found / guard-not-editable / error (calm backstops) ──────
 
+  // mobile-reviewer 🟡 fix (cluster 6 review): was text-only — a dead end
+  // with no explicit way back besides the native header back button.
   if (outcome.type === 'not-found') {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.centered}>
           <Text style={styles.noticeText}>{t('profile.editNotFound')}</Text>
+          <TouchableOpacity
+            testID="reopen-notfound-back"
+            style={styles.goBackBtn}
+            onPress={onGoBack}
+            accessibilityRole="button"
+            accessibilityLabel={t('general.back')}
+          >
+            <Text style={styles.goBackBtnText}>{t('general.back')}</Text>
+          </TouchableOpacity>
         </View>
       </SafeAreaView>
     );
   }
 
+  // mobile-reviewer 🟡 fix (cluster 6 review): same text-only dead-end fix.
   if (outcome.type === 'guard-not-editable') {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.centered}>
           <Text style={styles.noticeText}>{t('profile.editNotEditable')}</Text>
+          <TouchableOpacity
+            testID="reopen-guard-back"
+            style={styles.goBackBtn}
+            onPress={onGoBack}
+            accessibilityRole="button"
+            accessibilityLabel={t('general.back')}
+          >
+            <Text style={styles.goBackBtnText}>{t('general.back')}</Text>
+          </TouchableOpacity>
         </View>
       </SafeAreaView>
     );

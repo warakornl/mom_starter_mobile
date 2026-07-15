@@ -164,3 +164,62 @@ describe('PregnancySummaryScreen — ห้องแม่ Phase 2 B4 reskin', (
     }).not.toThrow();
   });
 });
+
+// ─── Core delivery/med value font-size FIX (CLUSTER 2 review) ────────────────
+//
+// FAIL-ON-REVERT: medLabel/medDays/deliveryRowLabel/deliveryRowValue were at
+// caption 13sp — the same size as disclaimers/fine print. These are PRIMARY
+// recap data the mother is reading, not fine print, so they are bumped to
+// body 15sp. Overrides the module-level buildPregnancySummary mock (via
+// mockReturnValueOnce) with real medication + delivery data so these rows
+// actually render text to assert on.
+
+describe('PregnancySummaryScreen — core delivery/med value font size FIX', () => {
+  it('FAIL-ON-REVERT: medication label/day-count rows use body 15sp, not caption 13sp', () => {
+    const summaryMock = jest.requireMock('./pregnancySummary') as { buildPregnancySummary: jest.Mock };
+    summaryMock.buildPregnancySummary.mockReturnValueOnce({
+      needsEdd: false,
+      T1: { kicks: null, medications: [{ planId: 'p1', label: 'Folic acid', distinctDayCount: 12 }] },
+      T2: { kicks: null, medications: [] },
+      T3: { kicks: null, medications: [] },
+      delivery: null,
+    });
+    const tree = PregnancySummaryScreen(baseProps) as React.ReactElement;
+
+    const labelEl = findAll(tree, (el) => (el.props as Record<string, unknown>).children === 'Folic acid')[0];
+    expect(labelEl).toBeDefined();
+    const labelStyle = flat((labelEl!.props as Record<string, unknown>).style);
+    expect(labelStyle.fontSize).toBe(T.type.body.size);
+    expect(labelStyle.fontSize).not.toBe(T.type.caption.size);
+  });
+
+  it('FAIL-ON-REVERT: delivery type/date rows use body 15sp, not caption 13sp', () => {
+    const summaryMock = jest.requireMock('./pregnancySummary') as { buildPregnancySummary: jest.Mock };
+    summaryMock.buildPregnancySummary.mockReturnValueOnce({
+      needsEdd: false,
+      T1: { kicks: null, medications: [] },
+      T2: { kicks: null, medications: [] },
+      T3: { kicks: null, medications: [] },
+      delivery: {
+        deliveryType: 'vaginal',
+        hospitalAdmissionDate: '2026-12-01',
+        hospitalDischargeDate: '2026-12-03',
+      },
+    });
+    const tree = PregnancySummaryScreen(baseProps) as React.ReactElement;
+
+    const valueEl = findAll(tree, (el) => (el.props as Record<string, unknown>).children === 'birth.delivery.vaginal')[0];
+    expect(valueEl).toBeDefined();
+    const valueStyle = flat((valueEl!.props as Record<string, unknown>).style);
+    expect(valueStyle.fontSize).toBe(T.type.body.size);
+    expect(valueStyle.fontSize).not.toBe(T.type.caption.size);
+  });
+
+  it('disclaimer text (short) remains at caption 13sp — NOT bumped (disclaimers stay 13sp)', () => {
+    const tree = PregnancySummaryScreen(baseProps) as React.ReactElement;
+    const disclaimerEl = findAll(tree, (el) => (el.props as Record<string, unknown>).children === 'pregnancySummary.disclaimer.short')[0];
+    expect(disclaimerEl).toBeDefined();
+    const s = flat((disclaimerEl!.props as Record<string, unknown>).style);
+    expect(s.fontSize).toBe(T.type.caption.size);
+  });
+});

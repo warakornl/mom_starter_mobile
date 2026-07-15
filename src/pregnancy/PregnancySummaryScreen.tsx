@@ -370,6 +370,17 @@ export function PregnancySummaryScreen({
                 {t('pregnancySummary.disclaimer.full')}
               </Text>
             </ScrollView>
+            {/*
+              REPORTED (not fixed here — src/i18n/messages.ts is a shared
+              file outside this task's edit scope): hardcoded Thai 'ปิด' with
+              no English translation. No existing key is an exact semantic
+              match — 'accountRights.export.dismiss' is th:'ปิด' but
+              en:'Dismiss' (wrong verb for "close this modal"), and there is
+              no generic 'general.close' key. Needs a new key, e.g.
+              'pregnancySummary.disclaimer.close': th 'ปิด' / en 'Close'
+              (or promote a shared 'general.close' key if other screens have
+              the same gap — solution-architect/system-analyst to confirm).
+            */}
             <TouchableOpacity
               style={styles.modalCloseBtn}
               onPress={() => setShowFullDisclaimer(false)}
@@ -543,17 +554,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 2,
   },
+  // FIX: core medication data (plan name + distinct-day count) bumped from
+  // caption 13sp to body 15sp — 13sp is reserved for disclaimers only; these
+  // are primary recap values the mother is reading, not fine print.
   medLabel: {
     flex: 1,
-    fontFamily: T.type.caption.fontFamily,
-    fontSize: T.type.caption.size,
-    lineHeight: T.type.caption.lineHeight,
+    fontFamily: T.type.body.fontFamily,
+    fontSize: T.type.body.size,
+    lineHeight: T.type.body.lineHeight,
     color: T.color.text.heading,
   },
   medDays: {
-    fontFamily: T.type.caption.fontFamily,
-    fontSize: T.type.caption.size,
-    lineHeight: T.type.caption.lineHeight,
+    fontFamily: T.type.body.fontFamily,
+    fontSize: T.type.body.size,
+    lineHeight: T.type.body.lineHeight,
     color: T.color.text.primary,
     marginLeft: 8,
   },
@@ -592,17 +606,19 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     paddingVertical: 2,
   },
+  // FIX: core delivery record values (type, admission/discharge dates) bumped
+  // from caption 13sp to body 15sp — same rationale as medLabel/medDays above.
   deliveryRowLabel: {
-    fontFamily: T.type.caption.fontFamily,
-    fontSize: T.type.caption.size,
-    lineHeight: T.type.caption.lineHeight,
+    fontFamily: T.type.body.fontFamily,
+    fontSize: T.type.body.size,
+    lineHeight: T.type.body.lineHeight,
     color: T.color.text.primary,
     flex: 1,
   },
   deliveryRowValue: {
-    fontFamily: T.type.caption.fontFamily,
-    fontSize: T.type.caption.size,
-    lineHeight: T.type.caption.lineHeight,
+    fontFamily: T.type.body.fontFamily,
+    fontSize: T.type.body.size,
+    lineHeight: T.type.body.lineHeight,
     color: T.color.text.heading,
     flex: 1,
     textAlign: 'right',

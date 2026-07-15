@@ -152,4 +152,26 @@ describe('SuggestionBanner — ห้องแม่ Phase 2 B4 reskin', () => {
     const result = SuggestionBanner(baseProps);
     expect(result).not.toBeNull();
   });
+
+  // ─── Touch-target rule: ≥48dp (CLUSTER 2 review fix) ──────────────────────
+  //
+  // FAIL-ON-REVERT: startBtn/viewAllBtn were height:36 (below the a11y ≥48dp
+  // touch-target minimum). Both are now minHeight:48 with hitSlop as a
+  // pointer-buffer on top (not a substitute for the box minimum).
+
+  it('FAIL-ON-REVERT: start button minHeight is >= 48dp', () => {
+    const tree = SuggestionBanner(baseProps) as React.ReactElement;
+    const btn = findAll(tree, (el) => (el.props as Record<string, unknown>).testID === 'suggestion-banner-action')[0];
+    expect(btn).toBeDefined();
+    const s = flat((btn.props as Record<string, unknown>).style);
+    expect(s.minHeight as number).toBeGreaterThanOrEqual(48);
+  });
+
+  it('FAIL-ON-REVERT: view-all button minHeight is >= 48dp', () => {
+    const tree = SuggestionBanner({ ...baseProps, onViewAll: jest.fn() }) as React.ReactElement;
+    const btn = findAll(tree, (el) => (el.props as Record<string, unknown>).testID === 'suggestion-banner-view-all')[0];
+    expect(btn).toBeDefined();
+    const s = flat((btn.props as Record<string, unknown>).style);
+    expect(s.minHeight as number).toBeGreaterThanOrEqual(48);
+  });
 });

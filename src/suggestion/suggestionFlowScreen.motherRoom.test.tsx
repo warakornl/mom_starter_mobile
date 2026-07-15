@@ -58,6 +58,20 @@ const baseProps = {
   onBack: jest.fn(),
 };
 
+// NOTE: SuggestionFlowScreen renders SuggestionCard (a function component)
+// per suggestion via .map(); React does not expand function-type elements
+// until an actual renderer mounts them. Since this test calls
+// SuggestionFlowScreen(props) directly, the walker recursively INVOKES any
+// function-type element with its own props to expand it into its real
+// returned tree (otherwise nested testIDs/styles inside each card are
+// invisible to findAll).
+function expand(el: React.ReactElement): unknown {
+  if (typeof el.type === 'function') {
+    return (el.type as (props: unknown) => unknown)(el.props);
+  }
+  return (el.props as { children?: unknown }).children;
+}
+
 function findAll(node: unknown, pred: (el: React.ReactElement) => boolean): React.ReactElement[] {
   const acc: React.ReactElement[] = [];
   function walk(n: unknown): void {
@@ -66,7 +80,7 @@ function findAll(node: unknown, pred: (el: React.ReactElement) => boolean): Reac
     if (!React.isValidElement(n)) return;
     const el = n as React.ReactElement;
     if (pred(el)) acc.push(el);
-    walk((el.props as { children?: unknown }).children);
+    walk(expand(el));
   }
   walk(node); return acc;
 }
@@ -167,5 +181,40 @@ describe('SuggestionFlowScreen — ห้องแม่ Phase 2 B4 reskin', () 
     // At T2 week 20 there should be at least one offerable suggestion in the catalog.
     // If this becomes fragile, loosen to `expect(result).toBeDefined()`.
     expect(Array.isArray(result)).toBe(true);
+  });
+
+  // ─── Touch-target rule: ≥48dp + visible accent bar (CLUSTER 2 review fix) ──
+
+  it('FAIL-ON-REVERT: card action buttons (start/snooze/dismiss) all have minHeight >= 48dp', () => {
+    const tree = SuggestionFlowScreen(baseProps) as React.ReactElement;
+    const actionBtns = findAll(tree, (el) => {
+      const testID = (el.props as Record<string, unknown>).testID;
+      return typeof testID === 'string' && (
+        testID.startsWith('suggestion-card-start-') ||
+        testID.startsWith('suggestion-card-snooze-') ||
+        testID.startsWith('suggestion-card-dismiss-')
+      );
+    });
+    expect(actionBtns.length).toBeGreaterThan(0);
+    for (const btn of actionBtns) {
+      const s = flat((btn.props as Record<string, unknown>).style);
+      expect(s.minHeight as number).toBeGreaterThanOrEqual(48);
+    }
+  });
+
+  it('FAIL-ON-REVERT: card left-accent border is a VISIBLE roselle/jade tone, not the pale amber-100 wash', () => {
+    const tree = SuggestionFlowScreen(baseProps) as React.ReactElement;
+    const cards = findAll(tree, (el) => {
+      const testID = (el.props as Record<string, unknown>).testID;
+      return typeof testID === 'string' && testID.startsWith('suggestion-card-') &&
+        !testID.includes('start') && !testID.includes('snooze') && !testID.includes('dismiss') &&
+        !testID.includes('anc-');
+    });
+    expect(cards.length).toBeGreaterThan(0);
+    for (const card of cards) {
+      const s = flat((card.props as Record<string, unknown>).style);
+      expect(s.borderLeftColor).not.toBe(T.color.surface.wash.amber);
+      expect([T.list.row.accentBar.pregnancy, T.list.row.accentBar.health]).toContain(s.borderLeftColor);
+    }
   });
 });

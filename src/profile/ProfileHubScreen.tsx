@@ -596,6 +596,10 @@ const styles = StyleSheet.create({
   },
   badgeText: {
     fontSize: T.type.caption.size,
+    // FIX: lineHeight was missing — Thai stacked tone marks clip without an
+    // explicit ≥1.6×-size line height (§0 R2). caption.lineHeight is 21sp
+    // (1.615×), matching the same fontSize token used here.
+    lineHeight: T.type.caption.lineHeight,
     fontFamily: T.type.label.fontFamily,
   },
   badgePregnantText: {
@@ -680,12 +684,19 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   menuRowText: {
+    // FIX: missing fontFamily — was falling back to the OS default sans
+    // (not Sarabun). fontWeight:'500' dropped in favour of Sarabun-SemiBold
+    // (T.type.label — Sarabun only ships 400/600 weights; '500' does not
+    // correspond to a real Sarabun cut and silently falls back to system font
+    // on some platforms, which is the same underlying bug).
+    fontFamily: T.type.label.fontFamily,   // Sarabun-SemiBold
     fontSize: T.type.body.size,
     lineHeight: T.type.body.lineHeight,
     color: T.color.text.heading,
-    fontWeight: '500',
   },
   menuRowSubtext: {
+    // FIX: missing fontFamily — was falling back to the OS default sans.
+    fontFamily: T.type.caption.fontFamily, // Sarabun-Regular
     fontSize: T.type.caption.size,
     lineHeight: T.type.caption.lineHeight,
     color: T.color.text.primary,
@@ -709,15 +720,24 @@ const styles = StyleSheet.create({
     borderColor: T.color.surface.divider,
   },
   logoutText: {
+    // FIX: missing fontFamily — was falling back to the OS default sans.
+    // fontWeight:'500' dropped for the same reason as menuRowText above.
+    fontFamily: T.type.label.fontFamily,   // Sarabun-SemiBold
     color: T.color.text.primary,
     fontSize: T.type.body.size,
     lineHeight: T.type.body.lineHeight,
-    fontWeight: '500',
   },
 
   // ── Delete row (§3.5) ────────────────────────────────────────────────────────
   // Destructive signal carried by text.primary + chevron. No alarming red.
   deleteRowLabelText: {
+    // FIX: missing fontFamily — inherited menuRowText's fontFamily via style
+    // array merge in JSX ([styles.menuRowText, styles.deleteRowLabelText]),
+    // so this was NOT actually rendering without a font in practice — but is
+    // fixed explicitly here so this style object is correct in isolation too
+    // (defensive: any future caller using deleteRowLabelText alone must not
+    // silently lose the font).
+    fontFamily: T.type.label.fontFamily,   // Sarabun-SemiBold
     color: T.color.text.primary,
   },
   deleteRowChevron: {

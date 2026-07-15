@@ -8,62 +8,45 @@
  *
  * Dimensions: 120×80dp, viewBox="0 0 120 80"
  * Stroke: 1.5dp jade-800 (light); #C4D9CB (dark) — color prop
- * Animation: path-length grow 400ms ease-out on mount (standard motion only).
- *   Reduce-motion: AccessibilityInfo.isReduceMotionEnabled() → static SVG.
  * A11y: decorative — accessibilityElementsHidden={true}.
  * Node count: ≤40 path nodes total (§3.2 constraint).
+ *
+ * FIX (dead animation removed): §3.2 originally called for a 400ms path-length
+ * grow animation on mount (reduce-motion aware). The `progress` Animated.Value
+ * was created and driven (Animated.timing + reduce-motion check) but never
+ * actually applied to any SVG prop (no strokeDashoffset/strokeDasharray wiring
+ * on the <Path> elements below) — it was dead code that did nothing visible.
+ * Wiring per-path strokeDasharray/strokeDashoffset correctly for ~20 discrete
+ * <Path> segments (each needs its own measured path length) is non-trivial
+ * and error-prone to hand-author; per review guidance this component now
+ * renders STATIC only. The `animated` prop is kept (accepted, currently a
+ * no-op) so callers (WeeklyMilestoneSheet's isLoss branch) do not need a
+ * simultaneous prop-removal change; REPORTED — re-introducing the animation
+ * is a separate, deliberate follow-up (e.g. via react-native-svg's
+ * AnimatedProps or a single wrapping Animated.View opacity/scale fade instead
+ * of true path-length growth, which would need no per-path measurement).
  */
 
-import React, { useEffect, useState } from 'react';
-import { Animated, Easing, AccessibilityInfo } from 'react-native';
+import React from 'react';
 import Svg, { Path, G } from 'react-native-svg';
 import { T } from '../theme/tokens';
 
 interface Props {
   /** Stroke color — T.color.accent.botanical (light) or T.dark.accent.botanical (dark). */
   color?: string;
-  /** When true, path-length grow animation plays on mount. Respects reduce-motion. */
+  /**
+   * Accepted for backward-compat with callers (WeeklyMilestoneSheet passes
+   * `animated={!isLoss}`). Currently a NO-OP — see file header FIX note: the
+   * path-length grow animation was dead code and has been removed rather than
+   * wired, to avoid non-trivial per-path stroke-length authoring.
+   */
   animated?: boolean;
 }
 
-/**
- * MilestoneHeroIllustration renders static when reduce-motion is enabled or
- * when animated=false. When animated=true + reduce-motion=false, a CSS-like
- * path-length animation grows the strokes from root-to-tip over 400ms ease-out.
- *
- * §3.2: "Triggered once on mount. NOT triggered on subsequent re-renders."
- */
 export function MilestoneHeroIllustration({
   color = T.color.accent.botanical,
-  animated = true,
+  animated: _animated = true,
 }: Props): React.JSX.Element {
-  const [reduceMotion, setReduceMotion] = useState(false);
-  // Animated value 0→1 drives strokeDashoffset (simulated path-length grow)
-  const progress = React.useRef(new Animated.Value(0)).current;
-
-  // Check reduce-motion preference once on mount
-  useEffect(() => {
-    AccessibilityInfo.isReduceMotionEnabled()
-      .then((enabled) => { setReduceMotion(enabled); })
-      .catch(() => { /* non-fatal — default false */ });
-  }, []);
-
-  // Trigger path-length animation once on mount (§3.2: "once on mount")
-  useEffect(() => {
-    if (!animated || reduceMotion) {
-      progress.setValue(1); // static: fully visible
-      return;
-    }
-    progress.setValue(0);
-    Animated.timing(progress, {
-      toValue:        1,
-      duration:       400, // §3.2: 400ms ease-out
-      easing:         Easing.inOut(Easing.ease),
-      useNativeDriver: false,
-    }).start();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [animated, reduceMotion]); // progress ref is stable
-
   const sw = 1.5;
   const lc = 'round' as const;
   const lj = 'round' as const;

@@ -127,6 +127,7 @@ export function SuggestionBanner({
           onPress={onAction}
           accessibilityRole="button"
           accessibilityLabel={cardA11y}
+          hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
         >
           <Text style={styles.startBtnText}>{startLabel}</Text>
         </TouchableOpacity>
@@ -138,6 +139,7 @@ export function SuggestionBanner({
             onPress={onViewAll}
             accessibilityRole="button"
             accessibilityLabel={viewAllLabel}
+            hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
           >
             <Text style={styles.viewAllText}>{viewAllLabel}</Text>
           </TouchableOpacity>
@@ -227,9 +229,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 
+  // Touch-target rule: ≥48dp (was 36dp — FIXED; hitSlop above adds a further
+  // 6dp buffer on each edge, hitSlop is a pointer-buffer only, not a
+  // substitute for the ≥48dp minimum box).
   startBtn: {
-    height: 36,
+    minHeight: 48,
     paddingHorizontal: 16,
+    paddingVertical: 8,
     backgroundColor: T.button.primary.bg,
     borderRadius: T.radius.pill,
     alignItems: 'center',
@@ -242,8 +248,9 @@ const styles = StyleSheet.create({
   },
 
   viewAllBtn: {
-    height: 36,
+    minHeight: 48,
     paddingHorizontal: 12,
+    paddingVertical: 8,
     alignItems: 'center',
     justifyContent: 'center',
   },

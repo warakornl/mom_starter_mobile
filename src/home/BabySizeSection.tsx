@@ -9,7 +9,8 @@
  *   'postpartum' — baby footprint icon + age line + warm note + postpartum disclaimer
  *
  * S5 (legal §5): disclaimer is ALWAYS-ON in both variants. NEVER conditionally hidden.
- *   Color: #5F4A52 (inkSoft, ~7.6:1 AAA). Font: 13pt Regular.
+ *   Color: T.color.text.primary (roselle-700 #7A3A52, 7.70:1 AAA). Font: 13sp Regular,
+ *   LH 21sp (T.type.caption — meets §0 R2 Thai ≥1.6× rule).
  *   NEVER use #94818A/11pt (withdrawn per design-reviewer B1).
  *
  * S6/S7 Invariant (legal §5 CR-1 — Milk Code / no-ad-targeting):
@@ -143,57 +144,58 @@ function DisclaimerModal({
 const modalStyles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: T.scrim.color,          // roselle-900-tinted scrim (was rgba(0,0,0,0.4))
     justifyContent: 'flex-end',
   },
   sheet: {
-    backgroundColor: '#FBF6F1',
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
+    backgroundColor: T.color.surface.base,   // ivory-100 #FBF6F1
+    borderTopLeftRadius: T.radius.lg,        // 20dp
+    borderTopRightRadius: T.radius.lg,
     maxHeight: '80%',
-    paddingBottom: 32,
+    paddingBottom: T.spacing[8],             // 32dp
   },
   handle: {
     width: 40,
     height: 4,
-    backgroundColor: '#C8B9C0',
+    backgroundColor: T.color.surface.subtle, // ivory-200 (nearest surface token; was #C8B9C0)
     borderRadius: 2,
     alignSelf: 'center',
-    marginTop: 12,
-    marginBottom: 8,
+    marginTop: T.spacing[3],                 // 12dp
+    marginBottom: T.spacing[2],              // 8dp
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 24,
-    paddingVertical: 12,
+    paddingHorizontal: T.spacing[6],         // 24dp
+    paddingVertical: T.spacing[3],           // 12dp
     borderBottomWidth: 1,
-    borderBottomColor: '#EBE1D9',
+    borderBottomColor: T.color.surface.divider, // #E8DDD5 (was #EBE1D9)
   },
   title: {
     flex: 1,
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 16,
-    color: '#3A2A30',
+    fontFamily: T.type.heading2.fontFamily,  // Sarabun-SemiBold
+    fontSize: T.type.heading2.size,          // 20sp
+    lineHeight: T.type.heading2.lineHeight,  // 33sp — Thai LH rule
+    color: T.color.text.heading,             // roselle-900 #4A2230
   },
   closeBtn: {
-    minHeight: 44,
-    minWidth: 44,
+    minHeight: 48,
+    minWidth: 48,
     alignItems: 'center',
     justifyContent: 'center',
   },
   closeBtnText: {
-    fontFamily: 'IBMPlexSans-Regular',
+    fontFamily: T.type.body.fontFamily,      // Sarabun-Regular
     fontSize: 18,
-    color: '#5F4A52',
+    color: T.color.text.primary,             // roselle-700 #7A3A52
   },
   body: { flex: 1 },
-  bodyContent: { padding: 24 },
+  bodyContent: { padding: T.spacing[6] },    // 24dp
   bodyText: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 15,
-    lineHeight: 24,
-    color: '#3A2A30',
+    fontFamily: T.type.body.fontFamily,      // Sarabun-Regular
+    fontSize: T.type.body.size,              // 15sp
+    lineHeight: T.type.body.lineHeight,      // 25sp — Thai LH rule
+    color: T.color.text.heading,             // roselle-900 #4A2230
   },
 });
 
@@ -252,7 +254,7 @@ export function BabySizeSection(props: BabySizeSectionProps): React.JSX.Element 
             accessibilityLabel={a11yLabel}
           >
             {/* Icon: decorative — merged into parent's accessible element */}
-            <FruitIcon color="#A8505A" size={28} />
+            <FruitIcon color={T.color.accent.identity} size={28} />
             <View style={babySizeStyles.textCol}>
               {/* Primary line: fruit name */}
               <Text style={babySizeStyles.primaryLinePink}>{fruitName}</Text>
@@ -266,7 +268,7 @@ export function BabySizeSection(props: BabySizeSectionProps): React.JSX.Element 
             {t('home.babySizeDisclaimer')}
           </Text>
 
-          {/* "ดูเพิ่มเติม" — ≥44dp tap target (design B3 / §3.2).
+          {/* "ดูเพิ่มเติม" — ≥48dp tap target (design B3 / §3.2 / a11y touch-target rule).
               OUTSIDE the accessibilityRole="text" container so VoiceOver can reach
               this button as a standalone interactive element (root-cause fix). */}
           <TouchableOpacity
@@ -329,7 +331,7 @@ export function BabySizeSection(props: BabySizeSectionProps): React.JSX.Element 
           accessibilityLabel={ppA11yLabel}
         >
           {/* BabyFootprintIcon: decorative — merged into parent's accessible element */}
-          <BabyFootprintIcon color="#4C6B57" size={28} />
+          <BabyFootprintIcon color={T.color.accent.botanical} size={28} />
           <View style={babySizeStyles.textCol}>
             {/* Primary line: age */}
             <Text style={babySizeStyles.primaryLineInk}>{ageLabel}</Text>
@@ -343,7 +345,7 @@ export function BabySizeSection(props: BabySizeSectionProps): React.JSX.Element 
           {t('home.babyPostpartumDisclaimer')}
         </Text>
 
-        {/* "ดูเพิ่มเติม" — ≥44dp tap target.
+        {/* "ดูเพิ่มเติม" — ≥48dp tap target (a11y touch-target rule).
             OUTSIDE the accessibilityRole="text" container (root-cause fix). */}
         <TouchableOpacity
           testID="baby-size-disclaimer-link"
@@ -358,8 +360,8 @@ export function BabySizeSection(props: BabySizeSectionProps): React.JSX.Element 
           </Text>
         </TouchableOpacity>
 
-        {/* 16dp spacer — postpartum has no size numbers, so no source ribbon here. */}
-        <View style={{ height: 16 }} accessibilityElementsHidden={true} />
+        {/* Bottom spacer — postpartum has no size numbers, so no source ribbon here. */}
+        <View style={babySizeStyles.postpartumBottomSpacer} accessibilityElementsHidden={true} />
       </View>
 
       <DisclaimerModal
@@ -376,16 +378,15 @@ export function BabySizeSection(props: BabySizeSectionProps): React.JSX.Element 
 // Reuses HomeTabScreen's section/sectionLabel tokens. New styles below.
 
 const styles = StyleSheet.create({
-  section: { gap: 8 },
+  section: { gap: T.spacing[2] },            // 8dp
   sectionLabel: {
-    fontFamily: T.sectionLabelFontFamily,
-    fontSize: T.sectionLabelFontSize,
-    lineHeight: 16,
-    letterSpacing: T.sectionLabelLetterSpacing,
-    textTransform: 'uppercase',
-    color: T.sectionLabelColor,
-    marginTop: 16,
-    marginBottom: 8,
+    fontFamily: T.type.label.fontFamily,     // Sarabun-SemiBold
+    fontSize: T.type.label.size,             // 15sp
+    lineHeight: T.type.label.lineHeight,     // 24sp — Thai LH rule (was 16, hardcoded)
+    letterSpacing: T.type.label.letterSpacing, // 0 — Thai: zero tracking, no uppercase
+    color: T.color.text.botanical,           // jade-800 #2F5042
+    marginTop: T.spacing[4],                 // 16dp
+    marginBottom: T.spacing[2],              // 8dp
   },
 });
 
@@ -393,71 +394,79 @@ const babySizeStyles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: T.spacing[3],                       // 12dp
   },
   textCol: {
     flex: 1,
-    gap: 4,
+    gap: T.spacing[1],                       // 4dp
   },
   primaryLinePink: {
     // Fruit name — pregnant variant
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 16,
-    lineHeight: 24,
-    color: '#A8505A', // rose/600
+    fontFamily: T.type.label.fontFamily,     // Sarabun-SemiBold
+    fontSize: T.type.label.size,             // 15sp
+    lineHeight: T.type.label.lineHeight,     // 24sp — Thai LH rule
+    color: T.color.accent.identity,          // roselle-500 #B85C78 (was #A8505A)
   },
   primaryLineInk: {
     // Baby age — postpartum variant
-    fontFamily: 'IBMPlexSans-SemiBold',
-    fontSize: 16,
-    lineHeight: 24,
-    color: '#3A2A30', // ink
+    fontFamily: T.type.label.fontFamily,     // Sarabun-SemiBold
+    fontSize: T.type.label.size,             // 15sp
+    lineHeight: T.type.label.lineHeight,     // 24sp — Thai LH rule
+    color: T.color.text.heading,             // roselle-900 #4A2230 (was #3A2A30)
   },
   secondaryLine: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 13,
-    lineHeight: 19,
-    color: '#5F4A52', // inkSoft
+    fontFamily: T.type.caption.fontFamily,   // Sarabun-Regular
+    fontSize: T.type.caption.size,           // 13sp
+    lineHeight: T.type.caption.lineHeight,   // 21sp — Thai LH rule (was 19, 1.46×)
+    color: T.color.text.primary,             // roselle-700 #7A3A52 (was #5F4A52)
   },
   /**
    * disclaimer — LEGALLY MANDATORY (S5). Always-on in both variants.
-   * Color: #5F4A52 (inkSoft, ~7.6:1 AAA). Font: 13pt Regular.
+   * Color: T.color.text.primary (roselle-700, 7.70:1 AAA). Font: 13sp Regular,
+   * LH 21sp (1.615× — meets §0 R2 Thai stacked-tone-mark rule; was 19/1.46×).
    * NEVER change to #94818A/11pt (withdrawn per design-reviewer B1).
    */
   disclaimer: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 13,
-    lineHeight: 19,
-    color: '#5F4A52',
-    marginTop: 8,
+    fontFamily: T.type.caption.fontFamily,   // Sarabun-Regular
+    fontSize: T.type.caption.size,           // 13sp
+    lineHeight: T.type.caption.lineHeight,   // 21sp — Thai LH rule ✓
+    color: T.color.text.primary,             // roselle-700 #7A3A52 (was #5F4A52)
+    marginTop: T.spacing[2],                 // 8dp
   },
   /**
    * sourceRibbon — G-size-2 research pass source attribution.
    * Pregnant variant only (postpartum has no size numbers).
-   * Color: #5F4A52 (inkSoft, ~7.6:1 AAA). Font: 11pt Regular.
+   * Color: T.color.text.primary (roselle-700). Font: 11sp Regular, LH 18sp (1.636×).
    * NEVER use #94818A (withdrawn per design-reviewer B1 — too low contrast for small text).
    */
   sourceRibbon: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 11,
-    lineHeight: 16,
-    color: '#5F4A52',
-    marginTop: 4,
+    fontFamily: T.type.micro.fontFamily,     // Sarabun-Regular
+    fontSize: T.type.micro.size,             // 11sp
+    lineHeight: T.type.micro.lineHeight,     // 18sp — Thai LH rule (was 16, 1.45×)
+    color: T.color.text.primary,             // roselle-700 #7A3A52 (was #5F4A52)
+    marginTop: T.spacing[1],                 // 4dp
   },
   /**
-   * disclaimerLinkRow — ≥44dp tap target (design B3).
-   * minHeight:44 + hitSlop:8 ensures ≥44dp tappable area under dynamic type.
+   * disclaimerLinkRow — ≥48dp tap target (design B3 / a11y touch-target rule).
+   * minHeight:48 + hitSlop:8 ensures ≥48dp tappable area under dynamic type.
    */
   disclaimerLinkRow: {
-    minHeight: 44,
+    minHeight: 48,
     justifyContent: 'center',
     alignSelf: 'flex-start',
   },
   disclaimerLink: {
-    fontFamily: 'IBMPlexSans-Regular',
-    fontSize: 13,
-    lineHeight: 19,
-    color: '#A8505A', // rose/600
+    fontFamily: T.type.caption.fontFamily,   // Sarabun-Regular
+    fontSize: T.type.caption.size,           // 13sp
+    lineHeight: T.type.caption.lineHeight,   // 21sp — Thai LH rule
+    color: T.color.accent.identity,          // roselle-500 #B85C78 (was #A8505A)
     textDecorationLine: 'underline',
+  },
+  /**
+   * postpartumBottomSpacer — replaces the former inline `<View style={{height:16}}>`.
+   * Postpartum variant has no source ribbon, so this closes the section gap.
+   */
+  postpartumBottomSpacer: {
+    height: T.spacing[4],                    // 16dp
   },
 });

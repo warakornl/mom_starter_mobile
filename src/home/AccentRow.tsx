@@ -15,7 +15,13 @@
  *   - A11y containment rule: the outer Touchable has the role; inner Views are
  *     accessibilityElementsHidden={true} (avoid double-announce from nested text).
  *   - accessibilityLabel = caller-supplied `accessibilityLabel` or title + " " + value.
- *   - minHeight: T.list.row.minHeight (56dp) — ≥48dp tap target.
+ *   - minHeight: T.list.row.minHeight (56dp) — ≥48dp tap target (row grows via
+ *     minHeight, not a fixed height, so 2-line title/value below still fits).
+ *
+ * FIX (Thai truncation): title + value now allow up to 2 lines
+ * (numberOfLines={2}) with adjustsFontSizeToFit/minimumFontScale={0.85} as an
+ * auto-shrink fallback, instead of hard-clipping longer Thai health labels at
+ * 1 line with no way to read the rest.
  *
  * Security: never log row values (may contain health data).
  */
@@ -75,9 +81,24 @@ export function AccentRow({
 
       {/* Content zone: label column + value column */}
       <View style={styles.contentZone}>
+        {/*
+          FIX (Thai truncation): title/value were numberOfLines={1}, which
+          clips longer Thai health labels (e.g. "นัดฝากครรภ์ครั้งถัดไป") with
+          no way to recover the hidden text — silent data loss for the
+          mother. Now allow up to 2 lines + adjustsFontSizeToFit as an
+          auto-shrink fallback before wrapping exhausts, so a 2-line label
+          still fits the row rather than clipping a 3rd line.
+        */}
         {/* Label column */}
         <View style={styles.labelCol}>
-          <Text style={styles.titleText} numberOfLines={1}>{title}</Text>
+          <Text
+            style={styles.titleText}
+            numberOfLines={2}
+            adjustsFontSizeToFit
+            minimumFontScale={0.85}
+          >
+            {title}
+          </Text>
           {subtitle ? (
             <Text style={styles.subtitleText} numberOfLines={1}>{subtitle}</Text>
           ) : null}
@@ -85,7 +106,14 @@ export function AccentRow({
 
         {/* Value column (right-aligned) */}
         <View style={styles.valueCol}>
-          <Text style={styles.valueText} numberOfLines={1}>{value}</Text>
+          <Text
+            style={styles.valueText}
+            numberOfLines={2}
+            adjustsFontSizeToFit
+            minimumFontScale={0.85}
+          >
+            {value}
+          </Text>
           {valueSubtitle ? (
             <Text style={styles.subtitleText} numberOfLines={1}>{valueSubtitle}</Text>
           ) : null}

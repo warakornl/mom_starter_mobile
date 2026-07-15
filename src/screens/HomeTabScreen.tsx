@@ -340,9 +340,21 @@ function StageBadge({
   const isT3 = stage === 'T3';
 
   return (
-    <View style={stageBadgeStyles.row} accessibilityElementsHidden={true}>
-      <StageIcon color={T.color.accent.identity} size={20} />
-      <Text style={stageBadgeStyles.label}>{stageName}</Text>
+    <View style={stageBadgeStyles.outer}>
+      {/*
+        A11Y FIX: the stage label row is decorative-summary text only, so it is
+        collapsed via accessibilityElementsHidden — but the T3 birth-event CTA
+        MUST live OUTSIDE this hidden container (containment rule: an
+        accessibilityElementsHidden subtree swallows ALL descendants on
+        VoiceOver, including nested TouchableOpacity — making the birth CTA
+        permanently unreachable to a screen-reader user). Previously the CTA
+        was a sibling INSIDE stageBadgeStyles.row (hidden), so a VoiceOver user
+        could never register a birth event. Moved to a true sibling below.
+      */}
+      <View style={stageBadgeStyles.row} accessibilityElementsHidden={true}>
+        <StageIcon color={T.color.accent.identity} size={20} />
+        <Text style={stageBadgeStyles.label}>{stageName}</Text>
+      </View>
       {isT3 && (
         <TouchableOpacity
           testID="home-birth-cta"
@@ -355,17 +367,21 @@ function StageBadge({
           <Text style={stageBadgeStyles.birthCtaText}>{t('home.birthCta')}</Text>
         </TouchableOpacity>
       )}
-      {/* Suppress accessibilityElementsHidden on children so birthCta is reachable */}
     </View>
   );
 }
 
 const stageBadgeStyles = StyleSheet.create({
-  row: {
+  outer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: T.spacing[2],
     flexWrap: 'wrap',
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: T.spacing[2],
   },
   label: {
     fontFamily: T.type.label.fontFamily,    // Sarabun-SemiBold
@@ -376,7 +392,7 @@ const stageBadgeStyles = StyleSheet.create({
   birthCta: {
     marginLeft: T.spacing[1],
     paddingVertical: T.spacing[1],          // 4dp vertical padding for tap target
-    minHeight: 32,
+    minHeight: 48,                          // a11y touch-target rule: ≥48dp
     justifyContent: 'center',
   },
   birthCtaText: {
@@ -587,9 +603,56 @@ const ctaStyles = StyleSheet.create({
 });
 
 // ─── Error panel (§4.1 state 3) ───────────────────────────────────────────────
+//
+// FIX (offline state): §4.1's state matrix promises a distinct, calm "offline"
+// state (T.offlinePill token exists precisely for this) rather than collapsing
+// every failure into the generic error panel. `isOffline` renders the calm
+// offlinePill treatment (same visual language as KickCountHomeScreen /
+// ExpensesScreen / MedicationPlanListScreen's offline pills) instead of the
+// alarming heading + retry-only panel.
+//
+// KNOWN GAP (reported — see PR notes): the network-error signal is currently
+// approximated from `message === 'Network request failed'` (the literal
+// string RN's fetch polyfill throws on a real network failure, and the same
+// string other API clients in this codebase — e.g. consentApiClient.ts,
+// syncClient.ts — normalize into `code: 'network_error'`). pregnancyApiClient
+// .getProfile() does NOT wrap its fetchFn call in try/catch and GetProfileResult
+// has no `code`/`status:0` network variant, so a true `code === 'network_error'`
+// check is not available at this layer without an upstream contract change to
+// pregnancyApiClient.ts / types.ts / homeTabSnapshotLoader.ts (out of scope for
+// this pass — those files are outside rn-mobile-dev's edit list for this task).
 
-function ErrorPanel({ onRetry }: { onRetry: () => void }): React.JSX.Element {
+function ErrorPanel({
+  onRetry,
+  isOffline = false,
+}: {
+  onRetry: () => void;
+  isOffline?: boolean;
+}): React.JSX.Element {
   const { t } = useT();
+
+  if (isOffline) {
+    return (
+      <View style={errorStyles.panel}>
+        <View
+          style={errorStyles.offlinePill}
+          accessibilityLiveRegion="polite"
+          testID="home-offline-pill"
+        >
+          <Text style={errorStyles.offlinePillText}>{t('home.errorSubline')}</Text>
+        </View>
+        <TouchableOpacity
+          style={errorStyles.retryBtn}
+          onPress={onRetry}
+          accessibilityRole="button"
+          accessibilityLabel={t('general.retry')}
+        >
+          <Text style={errorStyles.retryBtnText}>{t('general.retry')}</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
   return (
     <View style={errorStyles.panel}>
       <Text style={errorStyles.headline}>{t('home.errorHeadline')}</Text>
@@ -627,6 +690,21 @@ const errorStyles = StyleSheet.create({
     fontSize: T.type.body.size,             // 15sp — §0 R4: jade-600 ≥15sp ✓
     lineHeight: T.type.body.lineHeight,     // 25sp
     color: T.errorPanel.body,               // jade-600 #4A7A5C (at 15sp — R4 ✓)
+    textAlign: 'center',
+  },
+  // Offline pill — calm, non-alarming treatment (§4.1 state matrix "offline"
+  // distinct from "error"). Same token pattern as KickCountHomeScreen §B3.
+  offlinePill: {
+    backgroundColor: T.offlinePill.bg,      // ivory-200 #F5EDE6
+    borderRadius: T.radius.pill,
+    paddingHorizontal: T.spacing[4],        // 16dp
+    paddingVertical: T.spacing[2],          // 8dp
+  },
+  offlinePillText: {
+    fontFamily: T.type.body.fontFamily,     // Sarabun-Regular
+    fontSize: T.type.body.size,             // 15sp — R4 ≥15sp ✓
+    lineHeight: T.type.body.lineHeight,     // 25sp
+    color: T.offlinePill.text,              // jade-600 #4A7A5C (at ≥15sp)
     textAlign: 'center',
   },
   retryBtn: {
@@ -832,12 +910,18 @@ export function HomeTabScreen({
     );
   }
 
-  // ─── Error (§4.1 state 3) ─────────────────────────────────────────────────
+  // ─── Error / Offline (§4.1 state 3 / state matrix "offline") ─────────────
+  // See ErrorPanel's "KNOWN GAP" comment above: `message === 'Network request
+  // failed'` is the best-effort signal available at this layer today (RN's
+  // fetch polyfill's literal rejection text, matching the `network_error`
+  // convention already used by consentApiClient/syncClient/accountApiClient
+  // elsewhere in this codebase).
 
   if (state.kind === 'error') {
+    const isOffline = state.message === 'Network request failed';
     return (
       <SafeAreaView style={styles.container}>
-        <ErrorPanel onRetry={() => void loadProfile()} />
+        <ErrorPanel onRetry={() => void loadProfile()} isOffline={isOffline} />
       </SafeAreaView>
     );
   }
@@ -1057,7 +1141,12 @@ export function HomeTabScreen({
 
       {/* §4.2: WeeklyMilestoneSheet — Modal owned here so isLoss can be threaded in.
           Week-zone tap (onPress above) → setMilestoneSheetVisible(true).
-          CTA → onCapture (navigates to CaptureScreen). */}
+          CTA → onCapture (navigates to CaptureScreen).
+          FIX (permanent-skeleton bug): gestationalWeek is now threaded through
+          so the sheet can resolve real weekly content itself (see
+          WeeklyMilestoneSheet.tsx WEEKLY_MILESTONE_CATALOG) instead of
+          rendering with no `content` prop at all (which was a permanent
+          loading skeleton — resolveState(undefined) always returned 'loading'). */}
       <WeeklyMilestoneSheet
         visible={milestoneSheetVisible}
         onClose={() => setMilestoneSheetVisible(false)}
@@ -1066,6 +1155,7 @@ export function HomeTabScreen({
           onCapture?.();
         }}
         isLoss={isLoss}
+        gestationalWeek={isLoss ? undefined : ga.gestationalWeek}
       />
     </SafeAreaView>
   );
@@ -1101,7 +1191,7 @@ const styles = StyleSheet.create({
 
   // Doctor Report row — secondary action row (below amber CTA)
   doctorReportRow: {
-    backgroundColor: T.color.surface.base,        // #FFFFFF
+    backgroundColor: T.color.surface.base,        // ivory-100 #FBF6F1 (stale comment fixed — was mislabeled #FFFFFF)
     borderRadius: T.radius.md,                    // 12dp
     borderWidth: 1,
     borderColor: T.color.surface.divider,         // #E8DDD5

@@ -166,4 +166,48 @@ describe('ProfileHubScreen — ห้องแม่ Phase 2 B4 reskin', () => {
       expect(p.color).not.toBe('#9B1C35');
     }
   });
+
+  // ─── Missing fontFamily FIX (CLUSTER 2 review) ────────────────────────────
+  //
+  // FAIL-ON-REVERT: logoutText / settings menuRowText previously had NO
+  // fontFamily at all — they silently fell back to the OS default sans
+  // (Roboto/San Francisco), not Sarabun. Every text style object in the
+  // ScrollView content must now declare fontFamily.
+
+  it('FAIL-ON-REVERT: logout row text style has fontFamily set', () => {
+    const tree = ProfileHubScreen(baseProps) as React.ReactElement;
+    const logoutTextEl = findAll(tree, (el) => (el.props as Record<string, unknown>).children === 'home.logout')[0];
+    expect(logoutTextEl).toBeDefined();
+    const s = flat((logoutTextEl!.props as Record<string, unknown>).style);
+    expect(typeof s.fontFamily).toBe('string');
+    expect(s.fontFamily).toBe(T.type.label.fontFamily);
+  });
+
+  it('FAIL-ON-REVERT: settings menu row text style has fontFamily set', () => {
+    const tree = ProfileHubScreen({ ...baseProps, onSettings: jest.fn() }) as React.ReactElement;
+    const settingsTextEl = findAll(tree, (el) => (el.props as Record<string, unknown>).children === 'settings.navTitle')[0];
+    expect(settingsTextEl).toBeDefined();
+    const s = flat((settingsTextEl!.props as Record<string, unknown>).style);
+    expect(typeof s.fontFamily).toBe('string');
+    expect(s.fontFamily).toBe(T.type.label.fontFamily);
+  });
+
+  it('FAIL-ON-REVERT: badgeText style has lineHeight set (Thai clip fix)', () => {
+    const snapshotMock = jest.requireMock('../pregnancy/PregnancyProfileContext') as {
+      useProfileSnapshot: jest.Mock;
+    };
+    snapshotMock.useProfileSnapshot.mockReturnValueOnce({
+      lifecycle: 'pregnant',
+      gestationalWeek: 20,
+      edd: null,
+      motherFirstNameDecoded: null,
+      birthDate: null,
+      todayCivil: '2026-07-11',
+    });
+    const tree = ProfileHubScreen(baseProps) as React.ReactElement;
+    const badgeTextEl = findAll(tree, (el) => (el.props as Record<string, unknown>).children === 'profile.summary.badgePregnant')[0];
+    expect(badgeTextEl).toBeDefined();
+    const s = flat((badgeTextEl!.props as Record<string, unknown>).style);
+    expect(typeof s.lineHeight).toBe('number');
+  });
 });

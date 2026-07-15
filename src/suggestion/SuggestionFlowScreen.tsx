@@ -193,10 +193,22 @@ function SuggestionCard({
     Alert.alert(snoozeTitle, undefined, options, { cancelable: true });
   }
 
+  // FIX (invisible accent bar): borderLeftColor was T.color.surface.wash.amber
+  // (amber-100 #FDF0D5, a very pale wash) against the card's own ivory-200
+  // background — effectively invisible. Now uses the same visible
+  // roselle/jade 3dp-equivalent accent convention as AccentRow.tsx
+  // (T.list.row.accentBar.pregnancy / .health), keyed by captureTarget so
+  // kick-count/self-log read as "pregnancy" rows and appointment/medication/
+  // supplies read as "health" rows.
+  const accentBarColor =
+    captureTarget === 'kick_count' || captureTarget === 'self_log'
+      ? T.list.row.accentBar.pregnancy   // roselle-500 #B85C78
+      : T.list.row.accentBar.health;     // jade-800 #2F5042
+
   return (
     <View
       testID={`suggestion-card-${key}`}
-      style={cardStyles.card}
+      style={[cardStyles.card, { borderLeftColor: accentBarColor }]}
       accessible={true}
       accessibilityLabel={cardA11y}
       accessibilityRole="none"
@@ -261,6 +273,7 @@ function SuggestionCard({
           onPress={() => onStart(key)}
           accessibilityRole="button"
           accessibilityLabel={`${startLabel}: ${title} — ${captureTypeA11y}`}
+          hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
         >
           <Text style={cardStyles.startBtnText}>{startLabel}</Text>
         </TouchableOpacity>
@@ -271,6 +284,7 @@ function SuggestionCard({
           onPress={handleSnooze}
           accessibilityRole="button"
           accessibilityLabel={`${snoozeLabel}: ${title}`}
+          hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
         >
           <Text style={cardStyles.snoozeBtnText}>{`${snoozeLabel} ▾`}</Text>
         </TouchableOpacity>
@@ -281,6 +295,7 @@ function SuggestionCard({
           onPress={() => onDismiss(key)}
           accessibilityRole="button"
           accessibilityLabel={`${dismissLabel}: ${title}`}
+          hitSlop={{ top: 4, bottom: 4, left: 4, right: 4 }}
         >
           <Text style={cardStyles.dismissBtnText}>{dismissLabel}</Text>
         </TouchableOpacity>
@@ -298,8 +313,11 @@ const cardStyles = StyleSheet.create({
     padding: 16,
     gap: 10,
     ...T.elev[1],
-    borderLeftWidth: 4,
-    borderLeftColor: T.color.surface.wash.amber,
+    // borderLeftWidth/Color: base values here; borderLeftColor is overridden
+    // per-card above (accentBarColor) to a visible roselle/jade tone — the
+    // previous amber-100 wash default was invisible against the card bg.
+    borderLeftWidth: T.list.row.accentBar.width, // 3dp — matches AccentRow
+    borderLeftColor: T.list.row.accentBar.health, // jade-800 fallback
   },
   titleRow: {
     flexDirection: 'row',
@@ -359,9 +377,11 @@ const cardStyles = StyleSheet.create({
     gap: 8,
     flexWrap: 'wrap',
   },
+  // Touch-target rule: ≥48dp (was 40dp — FIXED across all three action buttons).
   startBtn: {
-    height: 40,
+    minHeight: 48,
     paddingHorizontal: 20,
+    paddingVertical: 8,
     backgroundColor: T.button.primary.bg,
     borderRadius: T.radius.pill,
     alignItems: 'center',
@@ -374,8 +394,9 @@ const cardStyles = StyleSheet.create({
     color: T.color.text.onDark,
   },
   snoozeBtn: {
-    height: 40,
+    minHeight: 48,
     paddingHorizontal: 14,
+    paddingVertical: 8,
     backgroundColor: T.color.surface.subtle,
     borderWidth: 1.5,
     borderColor: T.color.surface.divider,
@@ -390,8 +411,9 @@ const cardStyles = StyleSheet.create({
     color: T.color.text.heading,
   },
   dismissBtn: {
-    height: 40,
+    minHeight: 48,
     paddingHorizontal: 10,
+    paddingVertical: 8,
     alignItems: 'center',
     justifyContent: 'center',
   },

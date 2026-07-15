@@ -82,59 +82,107 @@ export interface WeeklyMilestoneSheetProps {
    * §4.2: "ลูกของคุณ" section hidden; botanical hero static; CTA unchanged.
    */
   isLoss?: boolean;
-  /** Weekly content. When undefined, sheet shows loading state. */
+  /**
+   * Explicit weekly content override (primarily for tests / a future
+   * server-driven content source). When provided, this WINS over the
+   * gestationalWeek-derived catalog lookup below.
+   *
+   * FIX (permanent-skeleton bug): previously HomeTabScreen rendered this
+   * sheet with NO `content` prop at all, so resolveState(undefined) always
+   * returned 'loading' — the sheet was a permanent skeleton ("the home hero
+   * tap opens eternal bones"). `content` is now OPTIONAL and falls back to
+   * `resolveWeeklyMilestoneContent(gestationalWeek)` below when omitted.
+   */
   content?: WeeklyMilestoneContent;
+  /**
+   * Current gestational week — used to resolve real content from the static
+   * WEEKLY_MILESTONE_CATALOG below when `content` is not explicitly passed.
+   * Optional: when both `content` and `gestationalWeek` are omitted, the
+   * sheet shows the 'empty' state (not an infinite loading skeleton).
+   */
+  gestationalWeek?: number;
 }
 
 // ─── Sheet state ──────────────────────────────────────────────────────────────
 
 type SheetState =
-  | { kind: 'loading' }
   | { kind: 'success'; content: WeeklyMilestoneContent }
   | { kind: 'empty' }
   | { kind: 'error' };
 
-function resolveState(content: WeeklyMilestoneContent | undefined): SheetState {
-  if (content === undefined) return { kind: 'loading' };
-  if (!content.babyBodyText && !content.selfCareText && !content.tipText) {
+/**
+ * WEEKLY_MILESTONE_CATALOG — minimal in-file static content, bucketed by
+ * trimester (T1 wk<=13, T2 14-27, T3 >=28 — matches gestationalAge.ts
+ * currentStage bands).
+ *
+ * CONTENT SOURCE STATUS: placeholder generic/factual copy — same register as
+ * home.babySizeDisclaimer (general information, not medical advice). This is
+ * NOT clinician-authored per-week content. [content pending SA/legal review
+ * before production — flag per BabySizeSection precedent (see
+ * docs/legal/baby-size-content-legal.md pattern); a full week-by-week (5–40)
+ * clinician-signed catalog is a separate content-authoring task and may
+ * belong in a SHARED content module if other screens need the same data —
+ * REPORTED upstream rather than guessed.]
+ *
+ * S6/S7-equivalent invariant: this content is DISPLAY-ONLY and driven solely
+ * by gestationalWeek (civil-date derived) — never wired into ads, product
+ * recommendations, or feeding-introduction paths.
+ */
+const WEEKLY_MILESTONE_CATALOG: Record<'T1' | 'T2' | 'T3', WeeklyMilestoneContent> = {
+  T1: {
+    babyBodyText: 'ในไตรมาสแรก อวัยวะสำคัญของลูกกำลังก่อตัวขึ้นทีละน้อย',
+    selfCareText: 'ร่างกายคุณแม่กำลังปรับตัวรับการเปลี่ยนแปลงของฮอร์โมน พักผ่อนให้เพียงพอและดื่มน้ำสม่ำเสมอ',
+    tipText: 'จดบันทึกอาการที่สังเกตได้ในแต่ละวัน จะช่วยให้พูดคุยกับแพทย์ได้ง่ายขึ้นในนัดถัดไป',
+  },
+  T2: {
+    babyBodyText: 'ในไตรมาสที่สอง ลูกน้อยเริ่มเคลื่อนไหวและเติบโตอย่างต่อเนื่อง',
+    selfCareText: 'ช่วงนี้คุณแม่หลายคนเริ่มรู้สึกมีแรงมากขึ้น ลองทำกิจกรรมเบาๆ ที่ทำให้ผ่อนคลาย',
+    tipText: 'หากยังไม่ได้เริ่มนับการเคลื่อนไหวของลูก ลองสังเกตช่วงเวลาที่ลูกไหวบ่อยในแต่ละวัน',
+  },
+  T3: {
+    babyBodyText: 'ในไตรมาสที่สาม ลูกน้อยกำลังเตรียมพร้อมสำหรับการคลอด',
+    selfCareText: 'ร่างกายคุณแม่อาจรู้สึกหนักขึ้น ลองปรับท่านอนและพักผ่อนบ่อยขึ้นตามที่ร่างกายต้องการ',
+    tipText: 'เตรียมกระเป๋าสำหรับไปโรงพยาบาลไว้ล่วงหน้า จะช่วยให้อุ่นใจเมื่อถึงเวลาคลอด',
+  },
+};
+
+/**
+ * Resolve trimester bucket from gestationalWeek — mirrors gestationalAge.ts
+ * currentStage bands (T1 <=13, T2 14-27, T3 >=28) so the sheet's content
+ * always matches the week shown in the home hero.
+ */
+function resolveWeeklyMilestoneContent(
+  gestationalWeek: number | undefined,
+): WeeklyMilestoneContent | undefined {
+  if (gestationalWeek === undefined) return undefined;
+  const stage: 'T1' | 'T2' | 'T3' =
+    gestationalWeek <= 13 ? 'T1' : gestationalWeek <= 27 ? 'T2' : 'T3';
+  return WEEKLY_MILESTONE_CATALOG[stage];
+}
+
+/**
+ * resolveState — content is resolved SYNCHRONOUSLY from the static catalog
+ * (or an explicit `content` override), so there is no async 'loading' phase
+ * anymore (FIX: previously resolveState(undefined) always returned 'loading'
+ * because HomeTabScreen never passed a `content` prop — permanent skeleton).
+ *
+ * 'error' is reached defensively when gestationalWeek is a non-finite /
+ * out-of-range number (e.g. NaN from a malformed profile) — a genuine
+ * "we could not resolve this week's content" case, distinct from 'empty'
+ * (a valid week with deliberately no copy).
+ */
+function resolveState(
+  content: WeeklyMilestoneContent | undefined,
+  gestationalWeek: number | undefined,
+): SheetState {
+  if (gestationalWeek !== undefined && !Number.isFinite(gestationalWeek)) {
+    return { kind: 'error' };
+  }
+  if (!content || (!content.babyBodyText && !content.selfCareText && !content.tipText)) {
     return { kind: 'empty' };
   }
   return { kind: 'success', content };
 }
-
-// ─── Sheet skeleton ───────────────────────────────────────────────────────────
-
-function SheetSkeleton(): React.JSX.Element {
-  return (
-    <View style={skelStyles.container} accessibilityLabel="กำลังโหลดข้อมูลสัปดาห์">
-      {/* Botanical hero skeleton: 120×80dp ivory-200 rectangle */}
-      <View style={skelStyles.heroBone} />
-      {/* Section bones (3 text rows per section) */}
-      <View style={[skelStyles.bone, { width: '40%' }]} />
-      <View style={skelStyles.bone} />
-      <View style={[skelStyles.bone, { width: '80%' }]} />
-      <View style={[skelStyles.bone, { width: '40%' }]} />
-      <View style={skelStyles.bone} />
-    </View>
-  );
-}
-
-const skelStyles = StyleSheet.create({
-  container: { gap: T.spacing[3] },
-  heroBone: {
-    width: 120,
-    height: 80,
-    borderRadius: T.radius.sm,
-    backgroundColor: T.skeleton.color,
-    alignSelf: 'center',
-  },
-  bone: {
-    height: 20,
-    borderRadius: T.radius.sm,
-    backgroundColor: T.skeleton.color,
-    width: '100%',
-  },
-});
 
 // ─── Section heading ──────────────────────────────────────────────────────────
 
@@ -142,8 +190,13 @@ function SectionHeading({ label }: { label: string }): React.JSX.Element {
   return (
     <Text
       style={sheetStyles.sectionLabel}
-      accessibilityRole="text"
-      // §4.2: heading level 2 announced by SR (using accessibilityRole='text' per containment rule)
+      // FIX: role="text" collapsed this into plain text for screen readers —
+      // it announces as a heading now (role="header"), matching the §4.2 spec
+      // comment ("heading level 2 announced by SR") which the code did not
+      // actually implement. accessibilityRole="text" on a bare <Text> with no
+      // interactive descendants does not trip the containment rule (nothing
+      // to swallow), so this is a safe, isolated fix.
+      accessibilityRole="header"
     >
       {label}
     </Text>
@@ -158,9 +211,24 @@ export function WeeklyMilestoneSheet({
   onNavigateToCapture,
   isLoss = false,
   content,
+  gestationalWeek,
 }: WeeklyMilestoneSheetProps): React.JSX.Element {
-  const { t } = useT();
-  const state = resolveState(content);
+  const { t, locale } = useT();
+  // REPORTED (not added here — src/i18n/messages.ts is a shared file outside
+  // this task's edit scope): needs a new key 'milestone.error' (th: e.g.
+  // "ไม่สามารถโหลดข้อมูลสัปดาห์นี้ได้" / en: "Could not load this week's
+  // content"). `t()` is strictly typed against MessageKey, so an
+  // as-yet-unadded key fails `tsc`, not just a runtime miss — using a plain
+  // locale-branched literal below until the key exists (same pattern as
+  // PregnancySummaryScreen.tsx's reported 'ปิด' gap).
+  const errorText = locale === 'th'
+    ? 'ไม่สามารถโหลดข้อมูลสัปดาห์นี้ได้'
+    : "Could not load this week's content";
+  // FIX (permanent-skeleton bug): `content` now falls back to the static
+  // catalog resolved from `gestationalWeek` when the caller (HomeTabScreen)
+  // does not pass an explicit override.
+  const resolvedContent = content ?? resolveWeeklyMilestoneContent(gestationalWeek);
+  const state = resolveState(resolvedContent, gestationalWeek);
 
   return (
     <Modal
@@ -226,7 +294,9 @@ export function WeeklyMilestoneSheet({
                 importantForAccessibility="no-hide-descendants"
               />
               <SectionHeading label={t('milestone.babySection')} />
-              {state.kind === 'loading' && <SheetSkeleton />}
+              {state.kind === 'error' && (
+                <Text style={sheetStyles.errorText}>{errorText}</Text>
+              )}
               {state.kind === 'empty' && (
                 <Text style={sheetStyles.emptyText}>{t('milestone.empty')}</Text>
               )}
@@ -246,7 +316,9 @@ export function WeeklyMilestoneSheet({
               importantForAccessibility="no-hide-descendants"
             />
             <SectionHeading label={t('milestone.maternitySection')} />
-            {state.kind === 'loading' && <SheetSkeleton />}
+            {state.kind === 'error' && (
+              <Text style={sheetStyles.errorText}>{errorText}</Text>
+            )}
             {state.kind === 'empty' && (
               <Text style={sheetStyles.emptyText}>{t('milestone.empty')}</Text>
             )}
@@ -257,7 +329,9 @@ export function WeeklyMilestoneSheet({
             ) : null}
           </View>
 
-          {/* §4.2: "เคล็ดลับ" section — always present */}
+          {/* §4.2: "เคล็ดลับ" section — always present.
+              FIX: this section previously had NO empty/error body text at all
+              (missing "เคล็ดลับ" section body in loading/empty per review). */}
           <View style={sheetStyles.section}>
             <View style={sheetStyles.sectionDivider}
               accessibilityElementsHidden={true}
@@ -265,6 +339,12 @@ export function WeeklyMilestoneSheet({
               importantForAccessibility="no-hide-descendants"
             />
             <SectionHeading label={t('milestone.tipSection')} />
+            {state.kind === 'error' && (
+              <Text style={sheetStyles.errorText}>{errorText}</Text>
+            )}
+            {state.kind === 'empty' && (
+              <Text style={sheetStyles.emptyText}>{t('milestone.empty')}</Text>
+            )}
             {state.kind === 'success' && state.content.tipText ? (
               <Text style={sheetStyles.bodyText}>
                 {state.content.tipText}
@@ -391,6 +471,14 @@ const sheetStyles = StyleSheet.create({
     fontSize: T.type.body.size,               // 15sp — R4 ≥15sp ✓
     lineHeight: T.type.body.lineHeight,       // 25sp
     color: T.color.text.secondary,            // jade-600 #4A7A5C (R4 ✓ at 15sp)
+  },
+
+  // Error state text — roselle-700 at 15sp (safe at any size, unlike jade-600)
+  errorText: {
+    fontFamily: T.type.body.fontFamily,       // Sarabun-Regular
+    fontSize: T.type.body.size,               // 15sp
+    lineHeight: T.type.body.lineHeight,       // 25sp
+    color: T.color.text.primary,              // roselle-700 #7A3A52
   },
 
   // §4.2: Amber CTA — amber-700, radius.md 12dp, 52dp, Sarabun/600 white

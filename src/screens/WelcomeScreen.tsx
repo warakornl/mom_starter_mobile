@@ -145,13 +145,13 @@ const styles = StyleSheet.create({
   headlineBlock: {
     flex: 1,
     justifyContent: 'center',
-    alignItems: 'flex-start',               // left-aligned per spec
-    // Owner live-test (2026-07): headline read as "ตกขอบซ้าย" (too tight to the
-    // left). Owner chose "keep left-aligned but move further from the edge", so
-    // the headline gets an extra inset ON TOP of the container's 24dp gutter
-    // (→ ~36dp from the screen edge). CTAs stay at the 24dp gutter (this inset
-    // is scoped to the headline block only), matching the approved layout.
-    paddingHorizontal: T.spacing[3],        // +12dp headline-only inset
+    // Design-reviewer verdict (2026-07): the earlier LEFT-aligned lockup read as
+    // "ตกขอบซ้าย" because it was the only left-anchored element in an otherwise
+    // center-dominant composition (centered disclaimer + full-width CTAs). The
+    // fix is by PRINCIPLE, not inset tuning: center the hero lockup so it shares
+    // the same central axis as the CTAs/disclaimer. The ad-hoc +12dp inset was
+    // removed — the block now sits at the standard 24dp container gutter.
+    alignItems: 'center',
     paddingBottom: T.spacing[6],            // 24dp
   },
   appName: {
@@ -160,14 +160,16 @@ const styles = StyleSheet.create({
     lineHeight: T.type.display.lineHeight,  // 52 (Thai ≥1.6× fix from F-3)
     color: T.color.text.heading,            // #4A2230 roselle-900
     marginBottom: T.spacing[2],             // 8dp
+    textAlign: 'center',                    // centered hero lockup
   },
   tagline: {
     fontFamily: T.type.bodyLarge.fontFamily, // Sarabun-Regular
     fontSize: T.type.bodyLarge.size,         // 17sp (size up to body.large per spec)
     lineHeight: T.type.bodyLarge.lineHeight, // 28
     color: T.color.text.primary,             // #7A3A52
-    alignSelf: 'stretch',                    // full available width so Thai wraps naturally (no forced \n, no left-edge clip)
+    alignSelf: 'stretch',                    // full available width so Thai wraps naturally (no forced \n, no clip)
     flexShrink: 1,                           // Thai line-breaking: no clip
+    textAlign: 'center',                     // centered hero lockup (matches appName)
   },
 
   // CTA buttons

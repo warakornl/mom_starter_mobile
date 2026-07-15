@@ -282,24 +282,38 @@ describe('WelcomeScreen — ห้องแม่ Phase 2 B1 reskin', () => {
     expect(s.backgroundColor).toBe(T.color.surface.base);
   });
 
-  // ── Headline inset (owner live-test fix: "ตกขอบซ้าย") ──────────────────────
-  // The headline block (the flex-start lockup that holds appName + tagline) must
-  // carry an extra horizontal inset on top of the container gutter so the text
-  // sits further from the left edge. Fail-on-revert: removing the inset breaks it.
+  // ── Headline is CENTERED (design-reviewer verdict for "ตกขอบซ้าย") ──────────
+  // The earlier left-aligned lockup + ad-hoc +12dp inset read as misaligned in a
+  // center-dominant composition. The principled fix is a centered hero lockup at
+  // the standard gutter (no extra inset). Fail-on-revert: reverting to
+  // flex-start or re-adding the inset breaks these.
 
-  it('headline block has a +12dp horizontal inset (owner "ตกขอบซ้าย" fix)', () => {
+  it('headline lockup is CENTERED, not left-aligned (design-reviewer verdict)', () => {
+    const appName = findFirst(
+      tree,
+      (el) => {
+        if (el.type !== 'Text') return false;
+        const s = flatStyle((el.props as Record<string, unknown>).style);
+        return s.fontSize === 32;
+      },
+    );
+    expect(appName).not.toBeNull();
+    expect(flatStyle((appName!.props as Record<string, unknown>).style).textAlign).toBe('center');
+
+    // headline block: uniquely the View with justifyContent 'center' + paddingBottom 24dp
     const headline = findFirst(
       tree,
       (el) => {
         if (el.type !== 'View') return false;
         const s = flatStyle((el.props as Record<string, unknown>).style);
-        return s.alignItems === 'flex-start';
+        return s.justifyContent === 'center' && s.paddingBottom === T.spacing[6];
       },
     );
     expect(headline).not.toBeNull();
     const s = flatStyle((headline!.props as Record<string, unknown>).style);
-    expect(s.paddingHorizontal).toBe(T.spacing[3]); // 12dp headline-only inset
-    // and it must be additive to the container's own gutter (both present)
+    expect(s.alignItems).toBe('center');           // centered, NOT flex-start
+    expect(s.paddingHorizontal).toBeUndefined();   // ad-hoc +12dp inset removed
+    // container keeps its single 24dp gutter for ALL body elements (one axis)
     const container = flatStyle((tree.props as Record<string, unknown>).style);
     expect(container.paddingHorizontal).toBe(T.spacing[6]); // 24dp gutter unchanged
   });

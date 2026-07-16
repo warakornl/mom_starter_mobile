@@ -78,6 +78,8 @@ import { calendarSyncStore } from '../sync/calendarSyncStore';
 import { resetTokenStore, clearResetToken } from '../deepLink/resetDeepLink';
 import { ConsentScreen } from '../screens/ConsentScreen';
 import { ManageConsentsScreen } from '../screens/ManageConsentsScreen';
+import { PrivacyPolicyScreen } from '../screens/PrivacyPolicyScreen';
+import { ConsentHistoryScreen } from '../screens/ConsentHistoryScreen';
 import { SuggestionFlowScreen } from '../suggestion/SuggestionFlowScreen';
 import { CaptureScreen } from '../capture/CaptureScreen';
 import { DoctorPdfScreen } from '../pdfReport/DoctorPdfScreen';
@@ -1014,6 +1016,38 @@ function StackNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps): React
       >
         {({ navigation }) => (
           <ManageConsentsScreen
+            tokenStorage={tokenStorage}
+            apiBaseUrl={apiBaseUrl}
+            onBack={() => navigation.goBack()}
+            onNavigatePrivacyPolicy={() => navigation.navigate('PrivacyPolicy')}
+            onNavigateConsentHistory={() => navigation.navigate('ConsentHistory')}
+          />
+        )}
+      </Stack.Screen>
+
+      {/* PrivacyPolicy — task #40. Entry: ManageConsents footer link.
+       * headerShown: false — renders its own back button (same convention as
+       * ManageConsentsScreen / AutoDecrementSettingsScreen / CaptureScreen).
+       * Honest "in progress" placeholder — see PrivacyPolicyScreen.tsx doc
+       * comment: no lawyer-approved policy copy exists yet (§Z-5 open gate). */}
+      <Stack.Screen
+        name="PrivacyPolicy"
+        options={{ title: t('privacyPolicy.title'), headerShown: false }}
+      >
+        {({ navigation }) => (
+          <PrivacyPolicyScreen onBack={() => navigation.goBack()} />
+        )}
+      </Stack.Screen>
+
+      {/* ConsentHistory — task #40. Entry: ManageConsents footer link.
+       * headerShown: false — renders its own back button (same convention).
+       * Real, read-only history view backed by GET /v1/account/consents. */}
+      <Stack.Screen
+        name="ConsentHistory"
+        options={{ title: t('consent.history.title'), headerShown: false }}
+      >
+        {({ navigation }) => (
+          <ConsentHistoryScreen
             tokenStorage={tokenStorage}
             apiBaseUrl={apiBaseUrl}
             onBack={() => navigation.goBack()}

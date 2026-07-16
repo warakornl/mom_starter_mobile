@@ -75,6 +75,20 @@ export interface ManageConsentsScreenProps {
   tokenStorage: TokenStorage;
   apiBaseUrl: string;
   onBack: () => void;
+  /**
+   * Navigate to PrivacyPolicyScreen (task #40 — was a dead footer link;
+   * now a real, honest-placeholder route since no lawyer-approved policy
+   * copy exists yet — see PrivacyPolicyScreen.tsx doc comment).
+   * Optional for backward compat with any caller not yet passing it;
+   * the row renders as an inactive Text (no role) when absent, same as before.
+   */
+  onNavigatePrivacyPolicy?: () => void;
+  /**
+   * Navigate to ConsentHistoryScreen (task #40 — was a dead footer link;
+   * now wired to the real GET /v1/account/consents endpoint).
+   * Optional for backward compat; row renders as inactive Text when absent.
+   */
+  onNavigateConsentHistory?: () => void;
 }
 
 // ─── Row state ────────────────────────────────────────────────────────────────
@@ -136,6 +150,8 @@ export function ManageConsentsScreen({
   tokenStorage,
   apiBaseUrl,
   onBack,
+  onNavigatePrivacyPolicy,
+  onNavigateConsentHistory,
 }: ManageConsentsScreenProps): React.JSX.Element {
   const { t, locale } = useT();
 
@@ -399,30 +415,54 @@ export function ManageConsentsScreen({
         ))}
 
         {/* Footer */}
-        {/* mobile-reviewer fix (cluster 6 review): these two rows had
-         * accessibilityRole="link" with NO onPress and NO navigable target —
-         * an unreachable, misleading affordance for screen-reader users (a
-         * "link" that goes nowhere). Neither the privacy-policy screen nor a
-         * consent-history screen exists yet in this app, so until those routes
-         * are built these render as plain, non-interactive text (no role, no
-         * chevron implying navigation). See report: routes needed are
-         * `PrivacyPolicy` (consent.manage.policy_link) and `ConsentHistory`
-         * (consent.manage.history_link) — once added, restore
-         * accessibilityRole="link" + onPress={() => navigation.navigate(...)}. */}
+        {/* task #40 fix: these two rows previously had accessibilityRole="link"
+         * with NO onPress and NO navigable target (mobile-reviewer cluster 6
+         * finding) — an unreachable, misleading affordance for screen-reader
+         * users. Both routes now exist (PrivacyPolicyScreen — honest
+         * "in progress" placeholder, no lawyer-approved copy exists yet;
+         * ConsentHistoryScreen — real, wired to GET /v1/account/consents), so
+         * these render as real interactive links whenever the caller passes
+         * the nav callbacks; they fall back to the prior inactive-text
+         * treatment only if a caller doesn't wire the callbacks (defensive
+         * backward-compat, should not happen once RootNavigator is updated). */}
         <View style={styles.footer}>
           <Text style={styles.footerCaption}>{t('consent.text_version.label')} v1.0</Text>
-          <Text
-            testID="consent-manage-policy-link"
-            style={styles.footerTextInactive}
-          >
-            {t('consent.manage.policy_link')}
-          </Text>
-          <Text
-            testID="consent-manage-history-link"
-            style={styles.footerTextInactive}
-          >
-            {t('consent.manage.history_link')}
-          </Text>
+          {onNavigatePrivacyPolicy ? (
+            <TouchableOpacity
+              testID="consent-manage-policy-link"
+              style={styles.footerLinkRow}
+              onPress={onNavigatePrivacyPolicy}
+              accessibilityRole="link"
+              accessibilityLabel={t('consent.manage.policy_link')}
+            >
+              <Text style={styles.footerLinkText}>{t('consent.manage.policy_link')} ›</Text>
+            </TouchableOpacity>
+          ) : (
+            <Text
+              testID="consent-manage-policy-link"
+              style={styles.footerTextInactive}
+            >
+              {t('consent.manage.policy_link')}
+            </Text>
+          )}
+          {onNavigateConsentHistory ? (
+            <TouchableOpacity
+              testID="consent-manage-history-link"
+              style={styles.footerLinkRow}
+              onPress={onNavigateConsentHistory}
+              accessibilityRole="link"
+              accessibilityLabel={t('consent.manage.history_link')}
+            >
+              <Text style={styles.footerLinkText}>{t('consent.manage.history_link')} ›</Text>
+            </TouchableOpacity>
+          ) : (
+            <Text
+              testID="consent-manage-history-link"
+              style={styles.footerTextInactive}
+            >
+              {t('consent.manage.history_link')}
+            </Text>
+          )}
         </View>
       </ScrollView>
 
@@ -594,6 +634,9 @@ const styles = StyleSheet.create({
   // PrivacyPolicy / ConsentHistory routes needed). Rendered as plain inactive
   // text (text.primary, no chevron) until the routes exist.
   footerTextInactive: { fontSize: T.type.caption.size, color: T.color.text.primary, marginBottom: T.spacing[1] },
+  // task #40: real interactive footer links (>=48dp tap target).
+  footerLinkRow: { minHeight: 48, justifyContent: 'center' },
+  footerLinkText: { fontSize: T.type.caption.size, color: T.color.accent.interactive, fontWeight: '600' },
 
   skeletonRow: {
     height: 52,

@@ -210,6 +210,30 @@ export type RootStackParamList = {
    */
   ManageConsents: undefined;
 
+  /**
+   * PrivacyPolicy — task #40. Entry: ManageConsents footer "นโยบายความเป็นส่วนตัว" link.
+   *
+   * No params — SD-9: static content only, no health data.
+   *
+   * NOTE: no lawyer-approved final privacy-policy copy exists in the repo yet
+   * (legal-register.md §Z-5 is an open gate). This screen is an HONEST
+   * "in progress" placeholder — NOT invented legal text. See
+   * PrivacyPolicyScreen.tsx doc comment for the investigation trail.
+   */
+  PrivacyPolicy: undefined;
+
+  /**
+   * ConsentHistory — task #40. Entry: ManageConsents footer "ประวัติความยินยอม" link.
+   *
+   * No params — SD-9: the screen performs its own GET /v1/account/consents
+   * on mount (mirrors ManageConsentsScreen's hydrate-on-mount pattern) rather
+   * than receiving consent records via route params.
+   *
+   * Real, read-only history view backed by the real endpoint (already wired
+   * via consentApiClient.getConsents) — NOT an in-memory fake.
+   */
+  ConsentHistory: undefined;
+
   // ── Kick Count — stack-pushed over tabs ─────────────────────────────────────
   /**
    * KickCountHome — SC-K0: module entry.

@@ -1032,10 +1032,23 @@ const th = {
   // Home banner: policy version update (§4.6)
   'consent.home.version_update_banner': 'นโยบายความเป็นส่วนตัวมีการอัปเดต · ดูสิ่งที่เปลี่ยนแปลง ›',
 
-  // Consent history (§6)
+  // Consent history (§6) — real screen wired to GET /v1/account/consents (task #40)
   'consent.history.title': 'ประวัติความยินยอม',
   'consent.history.item.granted': 'ให้ความยินยอม',
   'consent.history.item.withdrawn': 'ถอนความยินยอม',
+  'consent.history.empty': 'ยังไม่มีประวัติความยินยอม',
+  'consent.history.load_error': 'โหลดประวัติไม่สำเร็จ ลองอีกครั้ง',
+  'consent.history.load_retry_btn': 'ลองอีกครั้ง',
+  'consent.history.version_prefix': 'เวอร์ชันข้อความ',
+
+  // Privacy Policy placeholder (task #40) — no lawyer-approved policy copy
+  // exists yet (legal-register.md §Z-5 gate is still open: "ห้าม launch โดย
+  // ลิงก์ไปหน้าเปล่า" — but an honest "in progress" screen is NOT "หน้าเปล่า").
+  // DO NOT replace this with invented legal text — only legal-counsel-approved
+  // copy may go here, once §Z-5 is signed off.
+  'privacyPolicy.title': 'นโยบายความเป็นส่วนตัว',
+  'privacyPolicy.pending_notice': 'นโยบายความเป็นส่วนตัวฉบับเต็มอยู่ระหว่างจัดทำและรอทนายความตรวจสอบ จะแสดงที่นี่เมื่อพร้อม',
+  'privacyPolicy.pending_subnote': 'ระหว่างนี้ คุณสามารถดูและจัดการสิทธิ์ความยินยอมทั้งหมดได้ที่ บัญชี › จัดการความยินยอม',
 
   // ── Suggestion system (suggestion-flow-ui.md) ─────────────────────────────
   // Home banner — §5.3 suggestion banner (single, light, routes out)
@@ -2495,10 +2508,22 @@ const en: MsgShape = {
   // Home banner: policy version update
   'consent.home.version_update_banner': 'Privacy policy updated · See what changed ›',
 
-  // Consent history
+  // Consent history — real screen wired to GET /v1/account/consents (task #40)
   'consent.history.title': 'Consent History',
   'consent.history.item.granted': 'Granted',
   'consent.history.item.withdrawn': 'Withdrawn',
+  'consent.history.empty': 'No consent history yet',
+  'consent.history.load_error': "Couldn't load history. Try again",
+  'consent.history.load_retry_btn': 'Try again',
+  'consent.history.version_prefix': 'Text version',
+
+  // Privacy Policy placeholder (task #40) — no lawyer-approved policy copy
+  // exists yet (legal-register.md §Z-5 gate is still open). DO NOT replace
+  // this with invented legal text — only legal-counsel-approved copy may go
+  // here, once §Z-5 is signed off.
+  'privacyPolicy.title': 'Privacy Policy',
+  'privacyPolicy.pending_notice': 'The full privacy policy is being prepared and is pending legal review. It will appear here once ready.',
+  'privacyPolicy.pending_subnote': 'In the meantime, you can view and manage all your consent permissions in Account > Manage Permissions.',
 
   // ── Suggestion system (suggestion-flow-ui.md) ─────────────────────────────
   // Home banner — §5.3 suggestion banner

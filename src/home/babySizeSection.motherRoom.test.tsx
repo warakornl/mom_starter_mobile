@@ -44,6 +44,7 @@ jest.mock('../icons', () => ({
   BabySizeLargeRibbedRoundIcon: 'BabySizeLargeRibbedRoundIcon',
   BabySizeWatermelonIcon: 'BabySizeWatermelonIcon',
   BabyFootprintIcon: 'BabyFootprintIcon',
+  CloseIcon: 'CloseIcon',
 }));
 
 import React from 'react';

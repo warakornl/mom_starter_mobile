@@ -72,6 +72,7 @@ jest.mock('../icons', () => ({
   BabySizeLargeRibbedRoundIcon: () => null,
   BabySizeWatermelonIcon:    () => null,
   BabyFootprintIcon:         () => null,
+  CloseIcon:                 () => null,
 }));
 
 jest.mock('../i18n/LanguageContext', () => ({

@@ -69,6 +69,7 @@ import {
   BabySizeLargeRibbedRoundIcon,
   BabySizeWatermelonIcon,
   BabyFootprintIcon,
+  CloseIcon,
 } from '../icons';
 
 const BABY_SIZE_ICON_MAP: Record<BabySizeIconKey, React.FC<{ color: string; size: number }>> = {
@@ -131,7 +132,7 @@ function DisclaimerModal({
               accessibilityLabel={closeLabel}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
-              <Text style={modalStyles.closeBtnText}>✕</Text>
+              <CloseIcon color={T.color.text.primary} size={18} />
             </TouchableOpacity>
           </View>
           <ScrollView style={modalStyles.body} contentContainerStyle={modalStyles.bodyContent}>
@@ -185,11 +186,6 @@ const modalStyles = StyleSheet.create({
     minWidth: 48,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  closeBtnText: {
-    fontFamily: T.type.body.fontFamily,      // Sarabun-Regular
-    fontSize: 18,
-    color: T.color.text.primary,             // roselle-700 #7A3A52
   },
   body: { flex: 1 },
   bodyContent: { padding: T.spacing[6] },    // 24dp

@@ -55,6 +55,7 @@ import { toCivilDate, toCivilTime, parseCivilDate, parseCivilTime } from './date
 import { setPendingCalendarFocusDate } from './pendingCalendarFocusDate';
 import { reanchor } from '../notifications';
 import { T } from '../theme/tokens';
+import { CloseIcon } from '../icons/CloseIcon';
 import type { Lifecycle } from '../pregnancy/types';
 
 // ─── FLAG-4 grammar validation — imported from pure-TS module (testable) ──────
@@ -680,7 +681,7 @@ export function ReminderFormScreen({
                   // announced with no meaning to screen readers.
                   accessibilityLabel={`${t('general.clear')} ${t('reminder.fieldTimesOfDay')} ${idx + 1}`}
                 >
-                  <Text style={styles.todRemoveText} accessibilityElementsHidden>✕</Text>
+                  <CloseIcon color={T.color.text.primary} size={16} />
                 </TouchableOpacity>
               )}
             </View>
@@ -726,7 +727,7 @@ export function ReminderFormScreen({
                 accessibilityLabel={t('general.clear')}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
               >
-                <Text style={styles.untilClearText}>✕</Text>
+                <CloseIcon color={T.color.text.primary} size={16} />
               </TouchableOpacity>
             ) : null}
           </View>
@@ -959,7 +960,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginLeft: T.spacing[2],
   },
-  todRemoveText: { color: T.color.text.primary, fontSize: 16 },
   addTimeBtn: {
     marginTop: T.spacing[1],
     marginBottom: T.spacing[1],
@@ -985,7 +985,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginLeft: T.spacing[2],
   },
-  untilClearText: { color: T.color.text.primary, fontSize: 16 },
 
   // 🟡 fix: removed fontStyle:'italic' — faux-italic on Sarabun (no true italic
   // face shipped) renders as a synthetic shear that distorts Thai glyph shapes.

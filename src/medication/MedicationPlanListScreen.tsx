@@ -63,6 +63,8 @@ import {
 import { MedicationPlanFormSheet } from './MedicationPlanFormSheet';
 import { shouldShowLogDose } from './logDoseParams';
 import { T } from '../theme/tokens';
+import { TabPillIcon } from '../icons/TabPillIcon';
+import { LockIcon } from '../icons/LockIcon';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -601,12 +603,12 @@ export function MedicationPlanListScreen({
                     accessibilityHint={undefined}
                   >
                     {/* F2: Leading pill glyph */}
-                    <Text
-                      style={[styles.pillGlyph, !plan.active && styles.pillGlyphInactive]}
+                    <View
+                      style={!plan.active ? styles.pillGlyphInactive : undefined}
                       accessibilityElementsHidden
                     >
-                      💊
-                    </Text>
+                      <TabPillIcon color={T.color.accent.interactive} size={20} />
+                    </View>
 
                     <View style={styles.planCardMain}>
                       {/* Name */}
@@ -623,12 +625,12 @@ export function MedicationPlanListScreen({
                       {/* F3: schedule preview (localized, inactive appended) */}
                       <Text style={styles.planPreview} numberOfLines={1}>{preview}</Text>
                       {/* F2: encryption notice (§3) */}
-                      <Text
-                        style={styles.encryptionNotice}
-                        accessibilityElementsHidden
-                      >
-                        🔒 {t('medication.encryptionNotice')}
-                      </Text>
+                      <View style={styles.encryptionNoticeRow} accessibilityElementsHidden>
+                        <LockIcon color={T.color.text.primary} size={11} />
+                        <Text style={styles.encryptionNotice}>
+                          {t('medication.encryptionNotice')}
+                        </Text>
+                      </View>
                     </View>
                   </TouchableOpacity>
 
@@ -908,10 +910,6 @@ const styles = StyleSheet.create({
     minHeight: 72,
   },
   // F2: leading medication glyph
-  pillGlyph: {
-    fontSize: 20,
-    color: T.color.accent.interactive,             // #9A5F0A amber-700 (from #A8505A)
-  },
   pillGlyphInactive: {
     opacity: 0.4,
   },
@@ -944,12 +942,17 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   // F2: encryption notice
+  encryptionNoticeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 3,
+  },
   encryptionNotice: {
     fontFamily: T.type.micro.fontFamily,           // Sarabun-Regular (from IBMPlexSans-Regular)
     fontSize: T.type.micro.size,                   // 11sp (from 12sp)
     lineHeight: T.type.micro.lineHeight,           // 18
     color: T.color.text.primary,                   // #7A3A52 roselle-700 (from #94818A)
-    marginTop: 3,
   },
 
   // B1: trailing Switch zone — ≥48×48dp, ≥12dp clear of row body

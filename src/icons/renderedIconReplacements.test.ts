@@ -179,6 +179,13 @@ const GUARD_CASES: GuardCase[] = [
     file: 'src/capture/CaptureScreen.tsx',
     forbidden: ['✎'],
   },
+  {
+    // Found via the repo-wide self-inventory grep (not in the original task
+    // list) — same colorful-emoji-clashes-with-stroke-system class as the
+    // MedicationPlanFormSheet 💊/🔒 instances, so it is in scope.
+    file: 'src/medication/MedicationPlanListScreen.tsx',
+    forbidden: ['💊', '🔒'],
+  },
 ];
 
 /**

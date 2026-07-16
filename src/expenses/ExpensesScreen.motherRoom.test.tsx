@@ -196,8 +196,9 @@ describe('ExpensesScreen — review fix: month-nav accessibilityLabels are not h
         props.accessibilityRole === 'button' &&
         typeof props.hitSlop === 'object' &&
         // Distinguish month-nav chevrons from other buttons by their
-        // accessibilityLabel matching the new fallback constants.
-        (props.accessibilityLabel === 'เดือนก่อนหน้า' || props.accessibilityLabel === 'เดือนถัดไป')
+        // accessibilityLabel matching the real i18n catalog keys
+        // (t() is mocked to echo the key in this suite).
+        (props.accessibilityLabel === 'expenses.monthNavPrevA11y' || props.accessibilityLabel === 'expenses.monthNavNextA11y')
       );
     });
     expect(monthNavBtns.length).toBe(2);

@@ -117,18 +117,6 @@ const CATEGORY_GLYPHS: Record<ExpenseCategory, string> = {
   'other': '▫',
 };
 
-// i18n GAP (REPORT to system-analyst/i18n owner — do NOT edit messages.ts from
-// this cluster): the following copy/labels are hardcoded and should be real
-// i18n keys (th + en) instead:
-//   'expenses.monthNavPrevA11y'  → accessibilityLabel for the "‹ previous month" button
-//   'expenses.monthNavNextA11y'  → accessibilityLabel for the "› next month" button
-//   'expenses.jumpToThisMonth'   → the "จump to current month" pill copy
-// Local fallback constants below unblock the fix now; replace with t(...)
-// calls once the keys land in the catalog.
-const MONTH_NAV_PREV_A11Y_FALLBACK_TH = 'เดือนก่อนหน้า';
-const MONTH_NAV_NEXT_A11Y_FALLBACK_TH = 'เดือนถัดไป';
-const JUMP_TO_THIS_MONTH_FALLBACK_TH = '⬤ เดือนนี้';
-
 /** Returns today's date as YYYY-MM-DD using the device-local civil date. */
 function localCivilToday(): string {
   const d = new Date();
@@ -1162,7 +1150,7 @@ export function ExpensesScreen({ tokenStorage, apiBaseUrl }: ExpensesScreenProps
               <TouchableOpacity
                 onPress={prevMonth}
                 accessibilityRole="button"
-                accessibilityLabel={MONTH_NAV_PREV_A11Y_FALLBACK_TH}
+                accessibilityLabel={t('expenses.monthNavPrevA11y')}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 style={styles.monthNavBtn}
               >
@@ -1174,7 +1162,7 @@ export function ExpensesScreen({ tokenStorage, apiBaseUrl }: ExpensesScreenProps
               <TouchableOpacity
                 onPress={nextMonth}
                 accessibilityRole="button"
-                accessibilityLabel={MONTH_NAV_NEXT_A11Y_FALLBACK_TH}
+                accessibilityLabel={t('expenses.monthNavNextA11y')}
                 hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 style={styles.monthNavBtn}
               >
@@ -1208,7 +1196,7 @@ export function ExpensesScreen({ tokenStorage, apiBaseUrl }: ExpensesScreenProps
                 }}
                 accessibilityRole="button"
               >
-                <Text style={styles.jumpToTodayText}>{JUMP_TO_THIS_MONTH_FALLBACK_TH}</Text>
+                <Text style={styles.jumpToTodayText}>{t('expenses.jumpToThisMonth')}</Text>
               </TouchableOpacity>
             )}
           </View>

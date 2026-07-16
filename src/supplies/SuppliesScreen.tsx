@@ -88,21 +88,6 @@ interface FormState {
   lowThreshold: string;
 }
 
-// i18n GAP (REPORT to system-analyst/i18n owner — do NOT edit messages.ts from
-// this cluster): no 'supplies.offlinePill' or 'supplies.addFirst' key exists
-// yet. ExpensesScreen already has both keys; SuppliesScreen needs the same
-// two added to the catalog (th + en) so this calm-offline copy and "add first
-// item" CTA can go through useT() like every other string on this screen.
-// Local fallback constants below unblock the UI fix now; replace with
-// t('supplies.offlinePill') / t('supplies.addFirst') once the keys land.
-const OFFLINE_PILL_FALLBACK_TH = 'ออฟไลน์ · จะซิงค์เมื่อมีเน็ต';
-const ADD_FIRST_FALLBACK_TH = 'เพิ่มรายการแรก';
-// ExpensesScreen has 'expenses.deleteToast' / 'expenses.deleteUndo' — the same
-// two keys ('supplies.deleteToast' / 'supplies.deleteUndo') should be added to
-// the catalog for SuppliesScreen (REPORT — do not edit messages.ts here).
-const DELETE_TOAST_FALLBACK_TH = 'ลบรายการแล้ว';
-const DELETE_UNDO_FALLBACK_TH = 'เลิกทำ';
-
 const EMPTY_FORM: FormState = {
   id: undefined,
   name: '',
@@ -714,8 +699,7 @@ export function SuppliesScreen({
           list stays interactive. Shown for network_error only — NOT the error banner. */}
       {isOffline && !syncing && (
         <View testID="supplies-offline-pill" style={styles.offlinePill}>
-          {/* i18n gap — see OFFLINE_PILL_FALLBACK_TH comment above (REPORT) */}
-          <Text style={styles.offlinePillText}>{OFFLINE_PILL_FALLBACK_TH}</Text>
+          <Text style={styles.offlinePillText}>{t('supplies.offlinePill')}</Text>
         </View>
       )}
       {/* Error banner: genuine server/client errors only (not offline). */}
@@ -755,16 +739,15 @@ export function SuppliesScreen({
         ListEmptyComponent={
           <View testID="supplies-empty" style={styles.emptyContainer}>
             <Text style={styles.emptyText}>{t('supplies.empty')}</Text>
-            {/* "Add first item" CTA (review fix, matches ExpensesScreen's empty
-                state) — i18n gap, see ADD_FIRST_FALLBACK_TH comment (REPORT). */}
+            {/* "Add first item" CTA (review fix, matches ExpensesScreen's empty state). */}
             <TouchableOpacity
               testID="supplies-add-empty"
               style={styles.addFirstBtn}
               onPress={openAdd}
               accessibilityRole="button"
-              accessibilityLabel={ADD_FIRST_FALLBACK_TH}
+              accessibilityLabel={t('supplies.addFirst')}
             >
-              <Text style={styles.addFirstBtnText}>{ADD_FIRST_FALLBACK_TH}</Text>
+              <Text style={styles.addFirstBtnText}>{t('supplies.addFirst')}</Text>
             </TouchableOpacity>
           </View>
         }
@@ -826,15 +809,15 @@ export function SuppliesScreen({
       {/* Undo-delete toast (review fix — gentler pattern, matches ExpensesScreen) */}
       {deleteToastVisible && (
         <View testID="supplies-delete-toast" style={styles.deleteToast}>
-          <Text style={styles.deleteToastText}>{DELETE_TOAST_FALLBACK_TH}</Text>
+          <Text style={styles.deleteToastText}>{t('supplies.deleteToast')}</Text>
           <TouchableOpacity
             testID="supplies-delete-undo"
             onPress={handleUndoDelete}
             accessibilityRole="button"
-            accessibilityLabel={DELETE_UNDO_FALLBACK_TH}
+            accessibilityLabel={t('supplies.deleteUndo')}
             style={styles.deleteToastUndoBtn}
           >
-            <Text style={styles.deleteToastUndoText}>{DELETE_UNDO_FALLBACK_TH}</Text>
+            <Text style={styles.deleteToastUndoText}>{t('supplies.deleteUndo')}</Text>
           </TouchableOpacity>
         </View>
       )}

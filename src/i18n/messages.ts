@@ -204,6 +204,12 @@ const th = {
   'picker.selectDate': 'เลือกวันที่',
   'picker.selectTime': 'เลือกเวลา',
   'picker.selectMonth': 'เลือกเดือน',
+  // Year-stepper a11y labels (DoctorPdfScreen month/year picker) — {year} is
+  // ALREADY locale-converted by the caller (พ.ศ. for th, Gregorian for en)
+  // before interpolation, matching the พ.ศ. round-trip convention used
+  // elsewhere in this file.
+  'picker.previousYear': 'พ.ศ. ก่อนหน้า {year}',
+  'picker.nextYear': 'พ.ศ. ถัดไป {year}',
 
   // ── Home screen (calendar-home) ───────────────────────────────────────────────
   // Template keys use {n}, {d}, {date}, {days}, {pct} placeholders.
@@ -286,6 +292,32 @@ const th = {
   'calendarSync.disableKeep': 'ปิดและเก็บนัดไว้',
   'calendarSync.disableCancel': 'ยกเลิก',
   'calendarSync.back': 'ย้อนกลับ',
+
+  // ── Calendar Sync Privacy Level screen (CS-5/CS-5b) — mirrors
+  // CalendarSyncPrivacyLevelScreen.tsx's C object. Reuses calendarSync.back /
+  // .privacyGeneric / .privacyDescriptive / .disableCancel where copy is
+  // byte-for-byte identical to the sibling settings screen.
+  'calendarSyncPrivacyLevel.title': 'ระดับความเป็นส่วนตัว',
+  'calendarSyncPrivacyLevel.subtitle': 'เลือกว่าจะให้แสดงชื่ออะไรในปฏิทินและหน้าจอล็อก',
+  'calendarSyncPrivacyLevel.genericDesc':
+    'ในหน้าจอล็อก: "การแจ้งเตือน"\n' +
+    'ในแอปปฏิทิน: "นัดตรวจครรภ์"\n' +
+    'ไม่แสดงชื่อนัดหรือข้อมูลสุขภาพ ผู้อื่นที่เห็นโทรศัพท์ของคุณจะไม่รู้ว่าเป็นนัดอะไร',
+  'calendarSyncPrivacyLevel.descriptiveDesc':
+    'ในหน้าจอล็อกและแอปปฏิทิน: ชื่อที่คุณตั้งให้นัดนั้น\n' +
+    'สะดวกกว่า แต่ผู้ที่เห็นหน้าจอโทรศัพท์ของคุณจะเห็นชื่อนัดได้',
+  'calendarSyncPrivacyLevel.confirmTitle': 'ยืนยันการแสดงชื่อนัด',
+  'calendarSyncPrivacyLevel.confirmMsg':
+    'ชื่อนัดของคุณจะปรากฏในหน้าจอล็อกและแอปปฏิทิน ซึ่งอาจรวมถึงข้อมูลที่คุณบันทึกไว้' +
+    ' ผู้อื่นที่เห็นโทรศัพท์ของคุณจะมองเห็นสิ่งเหล่านี้ได้',
+  'calendarSyncPrivacyLevel.confirmBtn': 'ยืนยัน แสดงชื่อนัด',
+  'calendarSyncPrivacyLevel.recommended': 'แนะนำ',
+  'calendarSyncPrivacyLevel.lockScreenPreview': 'ตัวอย่างหน้าจอล็อก',
+  'calendarSyncPrivacyLevel.lockScreenGeneric': '"การแจ้งเตือน"',
+  'calendarSyncPrivacyLevel.lockScreenDescriptive': '"ชื่อนัดของคุณ"',
+  'calendarSyncPrivacyLevel.radioGroupA11yLabel': 'เลือกระดับความเป็นส่วนตัว',
+  'calendarSyncPrivacyLevel.genericA11yHint': "แสดง 'การแจ้งเตือน' บนหน้าจอล็อก ปลอดภัยกว่า",
+  'calendarSyncPrivacyLevel.descriptiveA11yHint': 'แสดงชื่อนัดจริงบนหน้าจอล็อก',
 
   // ── Profile Setup ─────────────────────────────────────────────────────────────
   'profile.navTitle': 'ตั้งกำหนดคลอด',
@@ -726,6 +758,9 @@ const th = {
   'birth.emptyHint': 'เพิ่มวันที่คลอดเพื่อบันทึก',
   'birth.dateModalTitle': 'เลือกวันที่คลอด',
   'birth.dateModalHint': 'กรอกในรูปแบบ YYYY-MM-DD เช่น 2026-06-29',
+  // Neutral format-hint placeholder — same literal in both locales (a format
+  // TOKEN, not translatable prose, and not a stale hardcoded year example).
+  'birth.dateModalPlaceholder': 'YYYY-MM-DD',
   'birth.dateModalCancel': 'ยกเลิก',
   'birth.dateModalConfirm': 'ยืนยัน',
   'birth.dateFormatAlertTitle': 'รูปแบบวันที่',
@@ -1099,6 +1134,10 @@ const th = {
   'pdf.screen.navTitle': 'รายงานสำหรับแพทย์',
   'pdf.screen.builderTitle': 'รายงานสำหรับแพทย์',
   'pdf.screen.previewNavTitle': 'ตัวอย่างรายงาน',
+  // Dedicated a11y label for the scrollable preview region (was reusing
+  // previewNavTitle as an interim stand-in — same copy, now its own key so
+  // the nav-title and the region label can diverge independently later).
+  'pdf.screen.previewA11yLabel': 'ตัวอย่างรายงาน',
   'pdf.screen.dateRangeLabel': 'ช่วงเวลา',
   'pdf.screen.monthFrom': 'เดือนเริ่ม',
   'pdf.screen.monthTo': 'เดือนสิ้นสุด',
@@ -1642,6 +1681,11 @@ const th = {
   // Errors — Screen B
   'loss.error.consentRequired': 'การบันทึกต้องเปิดสิทธิ์ "บันทึกสุขภาพในเครื่อง" ก่อน',
   'loss.error.conflict': 'มีการเปลี่ยนแปลงจากอุปกรณ์อื่น ระบบได้ปรับข้อมูลให้เป็นปัจจุบันแล้ว',
+  // Distinct key for a plain server error (4xx/5xx, NOT a device conflict) —
+  // mirrors birth.errorGeneric's calm tone. Previously this path borrowed
+  // loss.error.conflict, which misleadingly implied another device made a
+  // change when none did (mobile-reviewer 🟡, cluster 6 review).
+  'loss.error.generic': 'บันทึกไม่สำเร็จในขณะนี้ กรุณาลองอีกครั้ง',
   'loss.error.goToConsent': 'ไปที่การตั้งค่าความยินยอม',
   'loss.error.offlineQueued': 'ออฟไลน์ · ยังไม่ได้บันทึก · จะลองใหม่เมื่อออนไลน์',
   // Screen C — reopen (neutral, no blame, no "are you sure you gave up?" framing)
@@ -1751,6 +1795,8 @@ const en: MsgShape = {
   'picker.selectDate': 'Select date',
   'picker.selectTime': 'Select time',
   'picker.selectMonth': 'Select month',
+  'picker.previousYear': 'Previous year, {year}',
+  'picker.nextYear': 'Next year, {year}',
 
   // ── Home screen ──────────────────────────────────────────────────────────────
   'home.loading': 'Loading',
@@ -1821,6 +1867,29 @@ const en: MsgShape = {
   'calendarSync.disableKeep': 'Turn off and keep appointments',
   'calendarSync.disableCancel': 'Cancel',
   'calendarSync.back': 'Back',
+
+  // ── Calendar Sync Privacy Level screen (CS-5/CS-5b) ───────────────────────────
+  'calendarSyncPrivacyLevel.title': 'Privacy level',
+  'calendarSyncPrivacyLevel.subtitle': 'Choose what name shows up in your calendar and lock screen',
+  'calendarSyncPrivacyLevel.genericDesc':
+    'On lock screen: "Reminder"\n' +
+    'In calendar app: "Prenatal appointment"\n' +
+    "Doesn't show the appointment name or health details. Anyone who sees your phone won't know what it's for.",
+  'calendarSyncPrivacyLevel.descriptiveDesc':
+    'On lock screen and calendar app: the name you gave the appointment\n' +
+    'More convenient, but anyone who sees your phone screen can see the appointment name.',
+  'calendarSyncPrivacyLevel.confirmTitle': 'Confirm showing appointment names',
+  'calendarSyncPrivacyLevel.confirmMsg':
+    'Your appointment name will appear on the lock screen and in the calendar app, which may include information you saved.' +
+    ' Anyone who sees your phone will be able to see this.',
+  'calendarSyncPrivacyLevel.confirmBtn': 'Confirm, show appointment names',
+  'calendarSyncPrivacyLevel.recommended': 'Recommended',
+  'calendarSyncPrivacyLevel.lockScreenPreview': 'Lock screen preview',
+  'calendarSyncPrivacyLevel.lockScreenGeneric': '"Reminder"',
+  'calendarSyncPrivacyLevel.lockScreenDescriptive': '"Your appointment name"',
+  'calendarSyncPrivacyLevel.radioGroupA11yLabel': 'Choose privacy level',
+  'calendarSyncPrivacyLevel.genericA11yHint': "Shows 'Reminder' on the lock screen. Safer.",
+  'calendarSyncPrivacyLevel.descriptiveA11yHint': 'Shows the real appointment name on the lock screen',
 
   // ── Profile Setup ─────────────────────────────────────────────────────────────
   'profile.navTitle': 'Set due date',
@@ -2193,6 +2262,7 @@ const en: MsgShape = {
   'birth.emptyHint': 'Add a birth date to save',
   'birth.dateModalTitle': 'Choose birth date',
   'birth.dateModalHint': 'Enter in YYYY-MM-DD format, e.g. 2026-06-29',
+  'birth.dateModalPlaceholder': 'YYYY-MM-DD',
   'birth.dateModalCancel': 'Cancel',
   'birth.dateModalConfirm': 'Confirm',
   'birth.dateFormatAlertTitle': 'Date format',
@@ -2515,6 +2585,7 @@ const en: MsgShape = {
   'pdf.screen.navTitle': 'Doctor report',
   'pdf.screen.builderTitle': 'Doctor report',
   'pdf.screen.previewNavTitle': 'Report preview',
+  'pdf.screen.previewA11yLabel': 'Report preview',
   'pdf.screen.dateRangeLabel': 'Date range',
   'pdf.screen.monthFrom': 'Month from',
   'pdf.screen.monthTo': 'Month to',
@@ -2964,6 +3035,7 @@ const en: MsgShape = {
   'loss.result.quietAck': 'Recorded',
   'loss.error.consentRequired': 'Recording this requires the "store health data on device" permission to be on.',
   'loss.error.conflict': 'Another device made a change — your view has been updated.',
+  'loss.error.generic': "Couldn't save right now — please try again.",
   'loss.error.goToConsent': 'Go to consent settings',
   'loss.error.offlineQueued': "Offline · not saved yet — it will retry automatically once you're back online",
   'loss.reopen.entry': 'Edit this record',

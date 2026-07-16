@@ -28,6 +28,7 @@ import {
   Modal,
 } from 'react-native';
 import { T } from '../../theme/tokens';
+import { useT } from '../../i18n/LanguageContext';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -44,33 +45,6 @@ export interface CalendarSyncPrivacyLevelScreenProps {
   onBack: () => void;
 }
 
-// ─── Copy ─────────────────────────────────────────────────────────────────────
-
-const C = {
-  title:                 'ระดับความเป็นส่วนตัว',
-  subtitle:              'เลือกว่าจะให้แสดงชื่ออะไรในปฏิทินและหน้าจอล็อก',
-  genericLabel:          'ซ่อนชื่อนัด (ปลอดภัยกว่า)',
-  genericDesc:
-    'ในหน้าจอล็อก: "การแจ้งเตือน"\n' +
-    'ในแอปปฏิทิน: "นัดตรวจครรภ์"\n' +
-    'ไม่แสดงชื่อนัดหรือข้อมูลสุขภาพ ผู้อื่นที่เห็นโทรศัพท์ของคุณจะไม่รู้ว่าเป็นนัดอะไร',
-  descriptiveLabel:      'แสดงชื่อนัด',
-  descriptiveDesc:
-    'ในหน้าจอล็อกและแอปปฏิทิน: ชื่อที่คุณตั้งให้นัดนั้น\n' +
-    'สะดวกกว่า แต่ผู้ที่เห็นหน้าจอโทรศัพท์ของคุณจะเห็นชื่อนัดได้',
-  confirmTitle:          'ยืนยันการแสดงชื่อนัด',
-  confirmMsg:
-    'ชื่อนัดของคุณจะปรากฏในหน้าจอล็อกและแอปปฏิทิน ซึ่งอาจรวมถึงข้อมูลที่คุณบันทึกไว้' +
-    ' ผู้อื่นที่เห็นโทรศัพท์ของคุณจะมองเห็นสิ่งเหล่านี้ได้',
-  confirmBtn:            'ยืนยัน แสดงชื่อนัด',
-  cancelBtn:             'ยกเลิก',
-  back:                  'ย้อนกลับ',
-  recommended:           'แนะนำ',
-  lockScreenPreview:     'ตัวอย่างหน้าจอล็อก',
-  lockScreenGeneric:     '"การแจ้งเตือน"',
-  lockScreenDescriptive: '"ชื่อนัดของคุณ"',
-} as const;
-
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function CalendarSyncPrivacyLevelScreen({
@@ -78,6 +52,7 @@ export function CalendarSyncPrivacyLevelScreen({
   onLevelSelected,
   onBack,
 }: CalendarSyncPrivacyLevelScreenProps) {
+  const { t } = useT();
   const [pendingLevel, setPendingLevel] = useState<PrivacyLevel | null>(null);
   const [showConfirm, setShowConfirm]   = useState(false);
 
@@ -114,10 +89,10 @@ export function CalendarSyncPrivacyLevelScreen({
         style={s.backBtn}
         onPress={onBack}
         accessibilityRole="button"
-        accessibilityLabel={C.back}
+        accessibilityLabel={t('calendarSync.back')}
         testID="privacy-level-back-btn"
       >
-        <Text style={s.backBtnText}>{C.back}</Text>
+        <Text style={s.backBtnText}>{t('calendarSync.back')}</Text>
       </TouchableOpacity>
 
       <ScrollView contentContainerStyle={s.scroll}>
@@ -127,9 +102,9 @@ export function CalendarSyncPrivacyLevelScreen({
           accessibilityRole="header"
           testID="privacy-level-title"
         >
-          {C.title}
+          {t('calendarSyncPrivacyLevel.title')}
         </Text>
-        <Text style={s.subtitle}>{C.subtitle}</Text>
+        <Text style={s.subtitle}>{t('calendarSyncPrivacyLevel.subtitle')}</Text>
 
         {/* Radio group — a11y: role="radiogroup" via parent label.
             🟡 fix: was `accessible={false}` + accessibilityRole/Label on the
@@ -141,7 +116,7 @@ export function CalendarSyncPrivacyLevelScreen({
             focusable — containment rule is preserved. */}
         <View
           accessibilityRole="radiogroup"
-          accessibilityLabel="เลือกระดับความเป็นส่วนตัว"
+          accessibilityLabel={t('calendarSyncPrivacyLevel.radioGroupA11yLabel')}
         >
           {/* Option A: Generic (recommended, default) */}
           <TouchableOpacity
@@ -151,9 +126,9 @@ export function CalendarSyncPrivacyLevelScreen({
             ]}
             onPress={() => handleSelect('generic')}
             accessibilityRole="radio"
-            accessibilityLabel={C.genericLabel}
+            accessibilityLabel={t('calendarSync.privacyGeneric')}
             accessibilityState={{ checked: currentLevel === 'generic' }}
-            accessibilityHint="แสดง 'การแจ้งเตือน' บนหน้าจอล็อก ปลอดภัยกว่า"
+            accessibilityHint={t('calendarSyncPrivacyLevel.genericA11yHint')}
             testID="privacy-level-generic-option"
           >
             <View style={s.optionHeader}>
@@ -162,17 +137,17 @@ export function CalendarSyncPrivacyLevelScreen({
                   <View style={s.radioDot} />
                 )}
               </View>
-              <Text style={s.optionLabel}>{C.genericLabel}</Text>
+              <Text style={s.optionLabel}>{t('calendarSync.privacyGeneric')}</Text>
               {/* Recommended badge */}
               <View style={s.badge}>
-                <Text style={s.badgeText}>{C.recommended}</Text>
+                <Text style={s.badgeText}>{t('calendarSyncPrivacyLevel.recommended')}</Text>
               </View>
             </View>
-            <Text style={s.optionDesc}>{C.genericDesc}</Text>
+            <Text style={s.optionDesc}>{t('calendarSyncPrivacyLevel.genericDesc')}</Text>
             {/* Lock screen preview */}
             <View style={s.previewBox}>
-              <Text style={s.previewLabel}>{C.lockScreenPreview}</Text>
-              <Text style={s.previewValue}>{C.lockScreenGeneric}</Text>
+              <Text style={s.previewLabel}>{t('calendarSyncPrivacyLevel.lockScreenPreview')}</Text>
+              <Text style={s.previewValue}>{t('calendarSyncPrivacyLevel.lockScreenGeneric')}</Text>
             </View>
           </TouchableOpacity>
 
@@ -184,9 +159,9 @@ export function CalendarSyncPrivacyLevelScreen({
             ]}
             onPress={() => handleSelect('descriptive')}
             accessibilityRole="radio"
-            accessibilityLabel={C.descriptiveLabel}
+            accessibilityLabel={t('calendarSync.privacyDescriptive')}
             accessibilityState={{ checked: currentLevel === 'descriptive' }}
-            accessibilityHint="แสดงชื่อนัดจริงบนหน้าจอล็อก"
+            accessibilityHint={t('calendarSyncPrivacyLevel.descriptiveA11yHint')}
             testID="privacy-level-descriptive-option"
           >
             <View style={s.optionHeader}>
@@ -195,13 +170,13 @@ export function CalendarSyncPrivacyLevelScreen({
                   <View style={s.radioDot} />
                 )}
               </View>
-              <Text style={s.optionLabel}>{C.descriptiveLabel}</Text>
+              <Text style={s.optionLabel}>{t('calendarSync.privacyDescriptive')}</Text>
             </View>
-            <Text style={s.optionDesc}>{C.descriptiveDesc}</Text>
+            <Text style={s.optionDesc}>{t('calendarSyncPrivacyLevel.descriptiveDesc')}</Text>
             {/* Lock screen preview */}
             <View style={s.previewBox}>
-              <Text style={s.previewLabel}>{C.lockScreenPreview}</Text>
-              <Text style={s.previewValue}>{C.lockScreenDescriptive}</Text>
+              <Text style={s.previewLabel}>{t('calendarSyncPrivacyLevel.lockScreenPreview')}</Text>
+              <Text style={s.previewValue}>{t('calendarSyncPrivacyLevel.lockScreenDescriptive')}</Text>
             </View>
           </TouchableOpacity>
         </View>
@@ -222,26 +197,26 @@ export function CalendarSyncPrivacyLevelScreen({
               accessibilityRole="header"
               accessibilityLiveRegion="assertive"
             >
-              {C.confirmTitle}
+              {t('calendarSyncPrivacyLevel.confirmTitle')}
             </Text>
-            <Text style={s.confirmMsg}>{C.confirmMsg}</Text>
+            <Text style={s.confirmMsg}>{t('calendarSyncPrivacyLevel.confirmMsg')}</Text>
             <TouchableOpacity
               style={s.confirmPrimaryBtn}
               onPress={handleConfirm}
               testID="privacy-level-confirm-btn"
               accessibilityRole="button"
-              accessibilityLabel={C.confirmBtn}
+              accessibilityLabel={t('calendarSyncPrivacyLevel.confirmBtn')}
             >
-              <Text style={s.confirmPrimaryBtnText}>{C.confirmBtn}</Text>
+              <Text style={s.confirmPrimaryBtnText}>{t('calendarSyncPrivacyLevel.confirmBtn')}</Text>
             </TouchableOpacity>
             <TouchableOpacity
               style={s.confirmCancelBtn}
               onPress={handleCancel}
               testID="privacy-level-cancel-btn"
               accessibilityRole="button"
-              accessibilityLabel={C.cancelBtn}
+              accessibilityLabel={t('calendarSync.disableCancel')}
             >
-              <Text style={s.confirmCancelBtnText}>{C.cancelBtn}</Text>
+              <Text style={s.confirmCancelBtnText}>{t('calendarSync.disableCancel')}</Text>
             </TouchableOpacity>
           </View>
         </View>

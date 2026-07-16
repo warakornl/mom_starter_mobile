@@ -51,6 +51,8 @@ import {
 import type { MedicationPlan } from '../sync/syncTypes';
 import { decodeFieldFromBase64 } from '../capture/captureScreenLogic';
 import { T } from '../theme/tokens';
+import { LockIcon } from '../icons/LockIcon';
+import { CloseIcon } from '../icons/CloseIcon';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -353,12 +355,13 @@ export function MedicationPlanFormSheet({
               {isEdit ? t('medication.editTitle') : t('medication.addTitle')}
             </Text>
             <TouchableOpacity
+              style={styles.closeBtn}
               onPress={onClose}
               accessibilityRole="button"
               accessibilityLabel={t('general.cancel')}
               hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             >
-              <Text style={styles.closeBtn}>✕</Text>
+              <CloseIcon color={T.color.text.primary} size={17} />
             </TouchableOpacity>
           </View>
 
@@ -386,7 +389,7 @@ export function MedicationPlanFormSheet({
           ) : null}
           {/* F7: name field privacy line with icon/lock glyph (§5.1/§10.3) */}
           <View style={styles.privacyRow} accessibilityElementsHidden>
-            <Text style={styles.privacyIcon}>🔒</Text>
+            <LockIcon color={T.color.text.primary} size={11} />
             <Text style={styles.privacyLine}>{t('medication.privacyLine')}</Text>
           </View>
 
@@ -406,7 +409,7 @@ export function MedicationPlanFormSheet({
           />
           {/* F7: dose field privacy line with icon/lock glyph (§5.2/§10.3) */}
           <View style={styles.privacyRow} accessibilityElementsHidden>
-            <Text style={styles.privacyIcon}>🔒</Text>
+            <LockIcon color={T.color.text.primary} size={11} />
             <Text style={styles.privacyLine}>{t('medication.privacyLine')}</Text>
           </View>
 
@@ -508,7 +511,7 @@ export function MedicationPlanFormSheet({
                       accessibilityLabel={t('medication.removeTime')}
                       hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                     >
-                      <Text style={styles.timeChipRemoveText}>✕</Text>
+                      <CloseIcon color={T.color.text.primary} size={17} />
                     </TouchableOpacity>
                   )}
                 </View>
@@ -836,13 +839,10 @@ const styles = StyleSheet.create({
     color: T.color.text.heading,                   // #4A2230 roselle-900 (from #3A2A30)
   },
   closeBtn: {
-    fontSize: T.type.bodyLarge.size,               // 17sp (from 18sp)
-    color: T.color.text.primary,                   // #7A3A52 roselle-700 (from #94818A)
-    padding: 4,
     minWidth: 44,
     minHeight: 44,
-    textAlign: 'center',
-    lineHeight: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 
   // ── Consent nudge ─────────────────────────────────────────────────────────
@@ -912,11 +912,6 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
     marginTop: 4,
     gap: 4,
-  },
-  privacyIcon: {
-    fontSize: T.type.micro.size,                   // 11sp (from 12sp)
-    color: T.color.text.primary,                   // #7A3A52 roselle-700 (from #94818A)
-    lineHeight: T.type.micro.lineHeight,           // 18
   },
   privacyLine: {
     fontFamily: T.type.micro.fontFamily,           // Sarabun-Regular (from IBMPlexSans-Regular)
@@ -999,10 +994,6 @@ const styles = StyleSheet.create({
     minHeight: 48,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  timeChipRemoveText: {
-    fontSize: T.type.bodyLarge.size,               // 17sp (from 16sp)
-    color: T.color.text.primary,                   // #7A3A52 roselle-700 (from #94818A)
   },
   addTimeBtn: {
     minHeight: 48,

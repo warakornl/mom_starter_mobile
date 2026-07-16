@@ -610,13 +610,12 @@ export function BirthEventScreen({
                 setDateInputText(v);
                 setDateModalGuardMsg(null);
               }}
-              // mobile-reviewer 🟡 (cluster 6 review): the hardcoded literal
-              // '2026-06-29' placeholder goes stale every year and hardcodes
-              // English digits with no i18n key. REPORTED — needs a neutral
-              // format-hint i18n key (e.g. 'birth.dateModalPlaceholder' =
-              // 'YYYY-MM-DD'). Using the format token directly here as a
-              // neutral stand-in until that key lands.
-              placeholder={'YYYY-MM-DD'}
+              // Fixed (task #40 tail): now sourced from the catalog
+              // ('birth.dateModalPlaceholder') instead of a hardcoded
+              // literal. Same neutral 'YYYY-MM-DD' format token in both
+              // locales — it's a format token, not translatable prose, so
+              // no stale year example and no locale-digit gap.
+              placeholder={t('birth.dateModalPlaceholder')}
               placeholderTextColor={T.input.placeholder}
               keyboardType="numeric"
               autoFocus

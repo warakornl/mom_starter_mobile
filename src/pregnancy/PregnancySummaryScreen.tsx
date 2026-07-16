@@ -370,24 +370,13 @@ export function PregnancySummaryScreen({
                 {t('pregnancySummary.disclaimer.full')}
               </Text>
             </ScrollView>
-            {/*
-              REPORTED (not fixed here — src/i18n/messages.ts is a shared
-              file outside this task's edit scope): hardcoded Thai 'ปิด' with
-              no English translation. No existing key is an exact semantic
-              match — 'accountRights.export.dismiss' is th:'ปิด' but
-              en:'Dismiss' (wrong verb for "close this modal"), and there is
-              no generic 'general.close' key. Needs a new key, e.g.
-              'pregnancySummary.disclaimer.close': th 'ปิด' / en 'Close'
-              (or promote a shared 'general.close' key if other screens have
-              the same gap — solution-architect/system-analyst to confirm).
-            */}
             <TouchableOpacity
               style={styles.modalCloseBtn}
               onPress={() => setShowFullDisclaimer(false)}
               accessibilityRole="button"
-              accessibilityLabel={'ปิด'}
+              accessibilityLabel={t('pregnancySummary.disclaimer.close')}
             >
-              <Text style={styles.modalCloseBtnText}>{'ปิด'}</Text>
+              <Text style={styles.modalCloseBtnText}>{t('pregnancySummary.disclaimer.close')}</Text>
             </TouchableOpacity>
           </View>
         </View>

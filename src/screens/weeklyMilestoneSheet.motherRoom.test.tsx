@@ -121,7 +121,9 @@ describe('WeeklyMilestoneSheet — permanent-skeleton bug FIX', () => {
     const tree = WeeklyMilestoneSheet({ ...baseProps, gestationalWeek: NaN }) as React.ReactElement;
     const texts = findAll(tree, (el) => typeof (el.props as Record<string, unknown>).children === 'string')
       .map((el) => (el.props as Record<string, unknown>).children as string);
-    expect(texts.some((t) => t.includes('ไม่สามารถโหลดข้อมูลสัปดาห์นี้ได้'))).toBe(true);
+    // t() is mocked to echo the key — assert the real catalog key is used
+    // (milestone.error), not a hardcoded/locale-branched literal.
+    expect(texts.some((t) => t.includes('milestone.error'))).toBe(true);
   });
 });
 

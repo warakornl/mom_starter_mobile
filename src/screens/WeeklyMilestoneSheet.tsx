@@ -213,17 +213,8 @@ export function WeeklyMilestoneSheet({
   content,
   gestationalWeek,
 }: WeeklyMilestoneSheetProps): React.JSX.Element {
-  const { t, locale } = useT();
-  // REPORTED (not added here — src/i18n/messages.ts is a shared file outside
-  // this task's edit scope): needs a new key 'milestone.error' (th: e.g.
-  // "ไม่สามารถโหลดข้อมูลสัปดาห์นี้ได้" / en: "Could not load this week's
-  // content"). `t()` is strictly typed against MessageKey, so an
-  // as-yet-unadded key fails `tsc`, not just a runtime miss — using a plain
-  // locale-branched literal below until the key exists (same pattern as
-  // PregnancySummaryScreen.tsx's reported 'ปิด' gap).
-  const errorText = locale === 'th'
-    ? 'ไม่สามารถโหลดข้อมูลสัปดาห์นี้ได้'
-    : "Could not load this week's content";
+  const { t } = useT();
+  const errorText = t('milestone.error');
   // FIX (permanent-skeleton bug): `content` now falls back to the static
   // catalog resolved from `gestationalWeek` when the caller (HomeTabScreen)
   // does not pass an explicit override.

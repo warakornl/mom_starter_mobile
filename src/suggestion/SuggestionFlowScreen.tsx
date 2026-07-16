@@ -45,13 +45,14 @@ import {
 import { getOfferable } from './suggestionEngine';
 import { suggestionStore } from './suggestionStore';
 import { SUGGESTION_CATALOG } from './suggestionCatalog';
-import type { OfferableSuggestion, SuggestionKey, CaptureTarget, SuggestionCatalogEntry, AncFormPrefill } from './types';
+import type { OfferableSuggestion, SuggestionKey, SuggestionCatalogEntry, AncFormPrefill } from './types';
 import type { Stage } from '../pregnancy/gestationalAge';
 import type { Lifecycle } from '../pregnancy/types';
 import { useT } from '../i18n/LanguageContext';
 import { T } from '../theme/tokens';
 import { buildAncStartPayload } from './ancHandleStart';
 import { ANC_PREFILL_DATE, ANC_CATALOG_COPY } from './ancConfig';
+import { getCategoryIcon } from './categoryIcon';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -91,15 +92,7 @@ export interface SuggestionFlowScreenProps {
   onAncStart?: (prefill: AncFormPrefill) => void;
 }
 
-// ─── Capture-type glyphs ─────────────────────────────────────────────────────
-
-const CAPTURE_GLYPHS: Record<CaptureTarget, string> = {
-  kick_count:  '🌀',
-  medication:  '💊',
-  appointment: '📋',
-  supplies:    '🎒',
-  self_log:    '📓',
-};
+// ─── Capture-type icon — shared helper (categoryIcon.tsx) ────────────────────
 
 // ─── Evidence glyph (shape + text — not colour alone; design-system §2.1) ────
 
@@ -165,7 +158,7 @@ function SuggestionCard({
   const evidenceLabel = t(evidenceKey);
   const sourcePrefix = t('suggestion.source.prefix');
   const evidenceGlyph = EVIDENCE_GLYPHS[evidenceStrength] ?? '○';
-  const captureGlyph = CAPTURE_GLYPHS[captureTarget] ?? '🌱';
+  const CaptureIcon = getCategoryIcon(captureTarget);
   const captureTypeA11y = t(`suggestion.captureType.${captureTarget}` as Parameters<typeof t>[0]);
 
   const startLabel = t('suggestion.action.start');
@@ -215,9 +208,9 @@ function SuggestionCard({
     >
       {/* Title row */}
       <View style={cardStyles.titleRow}>
-        <Text style={cardStyles.glyph} accessibilityElementsHidden={true}>
-          {captureGlyph}
-        </Text>
+        <View style={cardStyles.glyphIcon} accessibilityElementsHidden={true}>
+          <CaptureIcon color={T.color.text.heading} size={18} />
+        </View>
         <Text style={cardStyles.title} accessibilityElementsHidden={true} numberOfLines={2}>
           {title}
         </Text>
@@ -324,9 +317,8 @@ const cardStyles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: 8,
   },
-  glyph: {
-    fontSize: 18,
-    lineHeight: 26,
+  glyphIcon: {
+    marginTop: 4, // aligns 18dp icon with the title's first line (bodyLarge lineHeight)
   },
   title: {
     flex: 1,
@@ -443,10 +435,12 @@ function DismissedSection({
       {entries.map((entry) => {
         const titleKey = `suggestion.${entry.key}.title` as Parameters<typeof t>[0];
         const title = t(titleKey);
-        const glyph = CAPTURE_GLYPHS[entry.captureTarget] ?? '🌱';
+        const DismissedIcon = getCategoryIcon(entry.captureTarget);
         return (
           <View key={entry.key} style={dismissedStyles.row} testID={`suggestion-dismissed-${entry.key}`}>
-            <Text style={dismissedStyles.glyph} accessibilityElementsHidden={true}>{glyph}</Text>
+            <View style={dismissedStyles.glyph} accessibilityElementsHidden={true}>
+              <DismissedIcon color={T.color.text.primary} size={16} />
+            </View>
             <Text style={dismissedStyles.title} numberOfLines={2}>{title}</Text>
             <TouchableOpacity
               testID={`suggestion-reenable-${entry.key}`}
@@ -487,8 +481,6 @@ const dismissedStyles = StyleSheet.create({
     padding: 12,
   },
   glyph: {
-    fontSize: 16,
-    lineHeight: 22,
     flexShrink: 0,
   },
   title: {

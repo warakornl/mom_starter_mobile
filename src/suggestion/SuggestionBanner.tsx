@@ -36,18 +36,12 @@ import {
 import type { OfferableSuggestion } from './types';
 import { useT } from '../i18n/LanguageContext';
 import { T } from '../theme/tokens';
+import { getCategoryIcon } from './categoryIcon';
+import { CloseIcon } from '../icons/CloseIcon';
 
-// ─── Capture-type glyph map ───────────────────────────────────────────────────
-// Emoji glyphs — consistent with SuggestionFlowScreen.tsx CAPTURE_GLYPHS.
-// These are rendered inside a decorative disc (accessibilityElementsHidden).
-
-const CAPTURE_GLYPHS: Record<string, string> = {
-  kick_count:  '🌀',
-  medication:  '💊',
-  appointment: '📋',
-  supplies:    '🎒',
-  self_log:    '📓',
-};
+// Capture-type icon — shared helper (categoryIcon.tsx), consistent with
+// SuggestionFlowScreen.tsx. Rendered inside a decorative disc
+// (accessibilityElementsHidden).
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -74,7 +68,7 @@ export function SuggestionBanner({
 
   if (!topSuggestion) return null;
 
-  const glyph = CAPTURE_GLYPHS[topSuggestion.captureTarget] ?? '🌱';
+  const CategoryIcon = getCategoryIcon(topSuggestion.captureTarget);
   const titleKey = `suggestion.${topSuggestion.key}.title` as Parameters<typeof t>[0];
   const title = t(titleKey);
   const headline = t('suggestion.banner.headline');
@@ -95,7 +89,7 @@ export function SuggestionBanner({
       {/* Top row: glyph disc + headline + dismiss button */}
       <View style={styles.topRow}>
         <View style={styles.glyphDisc} accessibilityElementsHidden={true}>
-          <Text style={styles.glyph}>{glyph}</Text>
+          <CategoryIcon color={T.color.text.primary} size={18} />
         </View>
 
         <View style={styles.textCol}>
@@ -115,7 +109,7 @@ export function SuggestionBanner({
           accessibilityLabel={dismissA11y}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
         >
-          <Text style={styles.dismissIcon}>✕</Text>
+          <CloseIcon color={T.color.text.primary} size={14} />
         </TouchableOpacity>
       </View>
 
@@ -185,11 +179,6 @@ const styles = StyleSheet.create({
     flexShrink: 0,
     marginTop: 2,
   },
-  glyph: {
-    fontSize: 18,
-    lineHeight: 22,
-  },
-
   textCol: {
     flex: 1,
     gap: 2,
@@ -217,11 +206,6 @@ const styles = StyleSheet.create({
     flexShrink: 0,
     marginTop: -2,
   },
-  dismissIcon: {
-    fontSize: 14,
-    color: T.color.text.primary,
-  },
-
   // Actions
   actionRow: {
     flexDirection: 'row',

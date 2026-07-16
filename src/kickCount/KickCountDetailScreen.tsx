@@ -29,6 +29,7 @@ import { kickCountSyncStore } from './kickCountSyncStore';
 import type { KickCountSessionRecord } from './kickCountTypes';
 import { SafetyStrip } from './KickCountHomeScreen';
 import { T } from '../theme/tokens';
+import { BookIcon } from '../icons/BookIcon';
 
 type Route = NativeStackScreenProps<RootStackParamList, 'KickCountDetail'>['route'];
 
@@ -85,7 +86,9 @@ export function KickCountDetailScreen() {
   return (
     <ScrollView style={styles.container} testID="kick-detail-screen">
       {/* Header */}
-      <Text style={styles.bookIcon} accessibilityElementsHidden>📖</Text>
+      <View style={styles.bookIcon} accessibilityElementsHidden>
+        <BookIcon color={T.color.text.heading} size={42} />
+      </View>
       <Text style={styles.headline}>{t('kick.summaryHeadline')}</Text>
       <Text style={styles.dateTime}>
         {startDate}  {startTime}{endTime ? ` – ${endTime}` : ''}
@@ -156,8 +159,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   bookIcon: {
-    fontSize: 42,
-    textAlign: 'center',
+    alignItems: 'center',
     marginTop: 16,
     marginBottom: 8,
   },

@@ -31,6 +31,7 @@ import { kickCountSyncStore } from './kickCountSyncStore';
 import type { KickCountSessionRecord } from './kickCountTypes';
 import { SafetyStrip } from './KickCountHomeScreen';
 import { T } from '../theme/tokens';
+import { BookIcon } from '../icons/BookIcon';
 
 type Nav = NativeStackNavigationProp<RootStackParamList, 'KickCountSummary'>;
 type Route = NativeStackScreenProps<RootStackParamList, 'KickCountSummary'>['route'];
@@ -93,9 +94,10 @@ export function KickCountSummaryScreen() {
       {/*
         K-5b: icon/book (not done stamp ◉).
         The book icon conveys "saved to record" — not "achieved target".
-        Using text "📖" as placeholder; production would use icon/book glyph.
       */}
-      <Text style={styles.bookIcon} accessibilityElementsHidden>📖</Text>
+      <View style={styles.bookIcon} accessibilityElementsHidden>
+        <BookIcon color={T.color.text.heading} size={42} />
+      </View>
 
       <Text style={styles.headline}>{t('kick.summaryHeadline')}</Text>
       <Text style={styles.startedAt}>{session.startedAt.replace('T', '  ')}</Text>
@@ -180,7 +182,7 @@ const styles = StyleSheet.create({
   },
   // K-5b: icon/book — NOT done stamp ◉ (no sage/700)
   bookIcon: {
-    fontSize: 42,
+    alignItems: 'center',
     marginTop: 24,
     marginBottom: 8,
   },

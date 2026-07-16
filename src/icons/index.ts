@@ -40,3 +40,15 @@ export { BabySizeSquashIcon }           from './BabySizeSquashIcon';           /
 export { BabySizeLargeRibbedRoundIcon } from './BabySizeLargeRibbedRoundIcon'; // wks 31, 34–35, 40
 export { BabySizeWatermelonIcon }       from './BabySizeWatermelonIcon';       // wks 37–39
 export { BabyFootprintIcon }            from './BabyFootprintIcon';            // postpartum only
+
+// ── Rendered-icon replacements (emoji/glyph → stroke icon; task #40 Wave 2) ──
+export { EnvelopeIcon }  from './EnvelopeIcon';   // ✉️ → email/verify affordance
+export { EyeIcon }       from './EyeIcon';        // 👁 → password "show" toggle
+export { EyeOffIcon }    from './EyeOffIcon';     // 🙈 → password "hide" toggle
+export { BookIcon }      from './BookIcon';       // 📖 → "saved to record"
+export { ReceiptIcon }   from './ReceiptIcon';    // 🧾 → expenses empty state
+export { LockIcon }      from './LockIcon';       // 🔒 → privacy/local-only note
+export { CloseIcon }     from './CloseIcon';      // ✕ → close/dismiss/unlink/clear
+export { EditIcon }      from './EditIcon';       // ✎ → editable field affordance
+export { BagIcon }       from './BagIcon';        // 🎒 → suggestion: supplies
+export { NotebookIcon }  from './NotebookIcon';   // 📓 → suggestion: self_log

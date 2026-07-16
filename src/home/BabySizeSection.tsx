@@ -103,11 +103,13 @@ function DisclaimerModal({
   onClose,
   title,
   body,
+  closeLabel,
 }: {
   visible: boolean;
   onClose: () => void;
   title: string;
   body: string;
+  closeLabel: string;
 }): React.JSX.Element {
   return (
     <Modal
@@ -126,7 +128,7 @@ function DisclaimerModal({
               onPress={onClose}
               style={modalStyles.closeBtn}
               accessibilityRole="button"
-              accessibilityLabel="ปิด / Close"
+              accessibilityLabel={closeLabel}
               hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             >
               <Text style={modalStyles.closeBtnText}>✕</Text>
@@ -276,7 +278,7 @@ export function BabySizeSection(props: BabySizeSectionProps): React.JSX.Element 
             style={babySizeStyles.disclaimerLinkRow}
             onPress={() => setModalVisible(true)}
             accessibilityRole="button"
-            accessibilityLabel="ดูข้อความแจ้งเตือนฉบับเต็ม / View full disclaimer"
+            accessibilityLabel={t('home.babySizeDisclaimerLinkA11y')}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
             <Text style={babySizeStyles.disclaimerLink}>
@@ -296,6 +298,7 @@ export function BabySizeSection(props: BabySizeSectionProps): React.JSX.Element 
           onClose={() => setModalVisible(false)}
           title={t('home.babySizeDisclaimerModalTitle')}
           body={t('home.babySizeFullDisclaimer')}
+          closeLabel={t('home.babySizeDisclaimerModalClose')}
         />
       </>
     );
@@ -369,6 +372,7 @@ export function BabySizeSection(props: BabySizeSectionProps): React.JSX.Element 
         onClose={() => setModalVisible(false)}
         title={t('home.babySizeDisclaimerModalTitle')}
         body={t('home.babyPostpartumDisclaimer')}
+        closeLabel={t('home.babySizeDisclaimerModalClose')}
       />
     </>
   );

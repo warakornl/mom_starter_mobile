@@ -62,13 +62,12 @@ export function KickCountDetailScreen() {
   }
 
   if (loadState === 'not-found' || !session) {
-    // TODO(i18n owner — shared messages.ts, not editable by this cluster):
-    // add dedicated 'kick.detailNotFound' / 'kick.detailNotFoundBody' keys
-    // (see report). Falls back to the existing generic store-error copy so
-    // this state is never an eternal 'loading' skeleton in the meantime.
+    // Distinct not-found state (stale deep link / tombstoned row) — never an
+    // eternal loading skeleton, and distinct from the generic store-error copy.
     return (
       <View style={styles.container} testID="kick-detail-not-found">
-        <Text style={styles.headline}>{t('kick.storeError')}</Text>
+        <Text style={styles.headline}>{t('kick.detailNotFound')}</Text>
+        <Text style={styles.dateTime}>{t('kick.detailNotFoundBody')}</Text>
       </View>
     );
   }

@@ -426,17 +426,14 @@ export function DoctorPdfScreen({
         </View>
 
         {/* PDF preview — scrollable native RN rendering (faithful to PDF sections) */}
-        {/* mobile-reviewer 🟡 (cluster 6 review): hardcoded English
-         * accessibilityLabel regardless of locale. REPORTED — needs an i18n
-         * key (e.g. 'pdf.screen.previewA11yLabel'). Left as a literal (cannot
-         * edit messages.ts — shared file) until that key lands; using the
-         * existing previewNavTitle translation as an interim locale-correct
-         * stand-in rather than a raw English string. */}
+        {/* Fixed (task #40 tail): now uses its own dedicated catalog key
+         * ('pdf.screen.previewA11yLabel') instead of borrowing
+         * previewNavTitle as an interim stand-in. */}
         <ScrollView
           testID="pdf-screen-preview"
           style={styles.previewScroll}
           contentContainerStyle={styles.previewContent}
-          accessibilityLabel={t('pdf.screen.previewNavTitle')}
+          accessibilityLabel={t('pdf.screen.previewA11yLabel')}
         >
           <ReportPreview
             html={builderState.generatedHtml}
@@ -647,19 +644,19 @@ export function DoctorPdfScreen({
 
             {/* Year stepper: ‹ YYYY › */}
             <View style={styles.pickerYearRow}>
-              {/* mobile-reviewer 🟡 (cluster 6 review): hardcoded English
-               * a11y strings regardless of locale. REPORTED — needs i18n keys
-               * 'picker.previousYear' / 'picker.nextYear'. Using the already
-               * locale-correct year label text as an interim stand-in (still
-               * announces meaningfully in both locales) until those keys land. */}
+              {/* Fixed (task #40 tail): a11y labels now sourced from the
+               * catalog ('picker.previousYear' / 'picker.nextYear') instead
+               * of an inline ternary literal. {year} is computed the same
+               * way as the visible year label below (+543 for th) before
+               * interpolation — visible/announced year always match. */}
               <TouchableOpacity
                 testID="pdf-picker-year-prev"
                 style={styles.pickerStepBtn}
                 onPress={() => setPickerYear((y) => y - 1)}
                 accessibilityRole="button"
-                accessibilityLabel={
-                  locale === 'th' ? `พ.ศ. ก่อนหน้า ${pickerYear + 543 - 1}` : `Previous year, ${pickerYear - 1}`
-                }
+                accessibilityLabel={t('picker.previousYear', {
+                  year: locale === 'th' ? pickerYear + 543 - 1 : pickerYear - 1,
+                })}
               >
                 <Text style={styles.pickerStepText}>{'‹'}</Text>
               </TouchableOpacity>
@@ -671,9 +668,9 @@ export function DoctorPdfScreen({
                 style={styles.pickerStepBtn}
                 onPress={() => setPickerYear((y) => y + 1)}
                 accessibilityRole="button"
-                accessibilityLabel={
-                  locale === 'th' ? `พ.ศ. ถัดไป ${pickerYear + 543 + 1}` : `Next year, ${pickerYear + 1}`
-                }
+                accessibilityLabel={t('picker.nextYear', {
+                  year: locale === 'th' ? pickerYear + 543 + 1 : pickerYear + 1,
+                })}
               >
                 <Text style={styles.pickerStepText}>{'›'}</Text>
               </TouchableOpacity>

@@ -199,4 +199,36 @@ describe('DoctorPdfScreen — ห้องแม่ Phase 2 B4 reskin', () => {
     });
     expect(glyphHits).toHaveLength(0);
   });
+
+  // ─── i18n stopgap fix (task #40 tail) — two REPORTED a11y gaps ────────────
+  //
+  // The preview phase and year-stepper controls only render inside deeply
+  // nested useState-dependent branches this test file's plain-function
+  // harness cannot reach (builderState/pickerVisible are opaque objects
+  // returned by mocked modules, not toggleable via the global useState
+  // pass-through mock used here). Source-level guards prove the actual fix
+  // is wired, mirroring the convention used in
+  // birthEventScreen.motherRoom.test.tsx / lossConfirmScreen tests.
+  describe('FAIL-ON-REVERT: catalog-key wiring for the two REPORTED a11y gaps', () => {
+    const fs = jest.requireActual('fs') as typeof import('fs');
+    const path = jest.requireActual('path') as typeof import('path');
+    const source = fs.readFileSync(path.join(__dirname, 'DoctorPdfScreen.tsx'), 'utf8');
+
+    it('preview ScrollView a11y label uses the dedicated pdf.screen.previewA11yLabel catalog key', () => {
+      expect(source).toContain("t('pdf.screen.previewA11yLabel')");
+      // Must NOT still be borrowing previewNavTitle as an interim stand-in
+      // for the preview region's accessibilityLabel specifically.
+      expect(source).not.toMatch(/accessibilityLabel=\{t\('pdf\.screen\.previewNavTitle'\)\}/);
+    });
+
+    it('year-stepper prev/next buttons use picker.previousYear / picker.nextYear catalog keys, not an inline locale ternary', () => {
+      expect(source).toContain("t('picker.previousYear'");
+      expect(source).toContain("t('picker.nextYear'");
+      // The old hardcoded-regardless-of-locale literals must be gone.
+      expect(source).not.toContain('พ.ศ. ก่อนหน้า ${');
+      expect(source).not.toContain('พ.ศ. ถัดไป ${');
+      expect(source).not.toMatch(/`Previous year, \$\{/);
+      expect(source).not.toMatch(/`Next year, \$\{/);
+    });
+  });
 });

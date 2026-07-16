@@ -192,9 +192,10 @@ interface WeightRegionProps {
   onChangeText: (v: string) => void;
   hint: string | null;
   unit: string;
+  a11yLabel: string;
 }
 
-function WeightRegion({ value, onChangeText, hint, unit }: WeightRegionProps): React.JSX.Element {
+function WeightRegion({ value, onChangeText, hint, unit, a11yLabel }: WeightRegionProps): React.JSX.Element {
   return (
     <View style={fieldStyles.regionContainer}>
       <View style={fieldStyles.numericRow}>
@@ -206,7 +207,7 @@ function WeightRegion({ value, onChangeText, hint, unit }: WeightRegionProps): R
           keyboardType="decimal-pad"
           placeholder="0.0"
           placeholderTextColor={T.input.placeholder}
-          accessibilityLabel={`น้ำหนัก กิโลกรัม ช่องข้อความ / Weight, kilograms, edit text`}
+          accessibilityLabel={a11yLabel}
           returnKeyType="done"
         />
         <Text style={fieldStyles.unitLabel} accessibilityElementsHidden>{unit}</Text>
@@ -235,6 +236,8 @@ interface BpRegionProps {
   systolicHint: string | null;
   diastolicHint: string | null;
   unit: string;
+  systolicA11yLabel: string;
+  diastolicA11yLabel: string;
 }
 
 function BpRegion({
@@ -245,6 +248,8 @@ function BpRegion({
   systolicHint,
   diastolicHint,
   unit,
+  systolicA11yLabel,
+  diastolicA11yLabel,
 }: BpRegionProps): React.JSX.Element {
   return (
     <View style={fieldStyles.regionContainer}>
@@ -260,7 +265,7 @@ function BpRegion({
           keyboardType="number-pad"
           placeholder="120"
           placeholderTextColor={T.input.placeholder}
-          accessibilityLabel="ซิสโตลิก mmHg / Systolic, mmHg, edit text"
+          accessibilityLabel={systolicA11yLabel}
           returnKeyType="next"
         />
         <Text style={fieldStyles.bpSeparator} accessibilityElementsHidden>/</Text>
@@ -275,7 +280,7 @@ function BpRegion({
           keyboardType="number-pad"
           placeholder="78"
           placeholderTextColor={T.input.placeholder}
-          accessibilityLabel="ไดแอสโตลิก mmHg / Diastolic, mmHg, edit text"
+          accessibilityLabel={diastolicA11yLabel}
           returnKeyType="done"
         />
         <Text style={fieldStyles.unitLabel} accessibilityElementsHidden>{unit}</Text>
@@ -937,6 +942,7 @@ export function CaptureScreen({ tokenStorage, apiBaseUrl }: CaptureScreenProps):
               onChangeText={setWeightValue}
               hint={weightValue.trim() ? weightValidation.hint : null}
               unit={t('capture.unit.kg')}
+              a11yLabel={t('capture.a11y.weightInput')}
             />
           )}
           {captureType === 'blood_pressure' && (
@@ -948,6 +954,8 @@ export function CaptureScreen({ tokenStorage, apiBaseUrl }: CaptureScreenProps):
               systolicHint={systolicValue.trim() ? systolicValidation.hint : null}
               diastolicHint={diastolicValue.trim() ? diastolicValidation.hint : null}
               unit={t('capture.unit.mmHg')}
+              systolicA11yLabel={t('capture.a11y.systolicInput')}
+              diastolicA11yLabel={t('capture.a11y.diastolicInput')}
             />
           )}
           {(captureType === 'swelling' || captureType === 'lochia' || captureType === 'symptom') && (

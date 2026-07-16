@@ -25,7 +25,7 @@ jest.mock('react', () => {
   return { ...r, useState: jest.fn((i: unknown) => [i, jest.fn()]) };
 });
 jest.mock('../i18n/LanguageContext', () => ({
-  useT: () => ({ t: (k: string) => k, locale: 'th' }),
+  useT: jest.fn(() => ({ t: (k: string) => k, locale: 'th' })),
 }));
 jest.mock('./pregnancyApiClient', () => ({ createPregnancyClient: jest.fn(() => ({})) }));
 jest.mock('./gestationalAge', () => ({ localCivilToday: jest.fn(() => '2026-07-11') }));
@@ -255,6 +255,27 @@ describe('LossConfirmScreen — Screen B (§3 / functional-spec §14)', () => {
     await (confirm!.props as { onPress: () => Promise<void> }).onPress();
 
     expect(onLossRecorded).not.toHaveBeenCalled();
+  });
+
+  it('FAIL-ON-REVERT: 500 server error calls t() with the distinct loss.error.generic key, never loss.error.conflict', async () => {
+    const recordLossEvent = jest.fn().mockResolvedValue({ ok: false, status: 500, code: 'server_error', message: 'x' });
+    (
+      jest.requireMock('./pregnancyApiClient') as { createPregnancyClient: jest.Mock }
+    ).createPregnancyClient.mockReturnValue({ recordLossEvent });
+    mockTokenStorage.load.mockResolvedValue({ accessToken: 'tok' });
+
+    const tSpy = jest.fn((k: string) => k);
+    const { useT } = jest.requireMock('../i18n/LanguageContext') as { useT: jest.Mock };
+    useT.mockReturnValueOnce({ t: tSpy, locale: 'th' });
+
+    const tree = LossConfirmScreen({ ...baseProps, onLossRecorded: jest.fn() });
+    const confirm = byTestId(tree, 'loss-confirm-quiet');
+    await (confirm!.props as { onPress: () => Promise<void> }).onPress();
+
+    // The real handler must have called t() with the dedicated generic key —
+    // never with the misleading device-conflict key — for a plain 500.
+    expect(tSpy).toHaveBeenCalledWith('loss.error.generic');
+    expect(tSpy).not.toHaveBeenCalledWith('loss.error.conflict');
   });
 
   // ─── Offline optimistic-apply producer (direct-rest-offline-resilience) ───

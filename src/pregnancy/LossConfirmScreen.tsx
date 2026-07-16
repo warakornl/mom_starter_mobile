@@ -210,15 +210,12 @@ export function LossConfirmScreen({
 
       // BLOCKER-2: any other server error (4xx/5xx) is a real failure — never
       // treated as success. Calm, retryable, no local-state flip.
-      // mobile-reviewer 🟡 (cluster 6 review): this generic 5xx branch reuses
-      // loss.error.conflict ("another device made a change"), which is
-      // misleading for a plain server error — no conflicting device is
-      // implied here. REPORTED — needs a distinct i18n key (e.g.
-      // 'loss.error.generic' = calm "couldn't save right now, try again"
-      // copy, mirroring birth.errorGeneric's tone) so this path stops
-      // borrowing conflict-specific wording. Left as-is (cannot edit
-      // messages.ts — shared file) until that key lands.
-      setErrorMsg(t('loss.error.conflict'));
+      // Fixed (task #40 tail): this generic 4xx/5xx branch now uses its own
+      // distinct key (loss.error.generic) instead of borrowing
+      // loss.error.conflict ("another device made a change"), which was
+      // misleading here — no conflicting device is implied on a plain
+      // server error.
+      setErrorMsg(t('loss.error.generic'));
     } catch {
       // BLOCKER-2 still holds: network/offline failure is a real failure —
       // onLossRecorded (the server-confirmed callback) is NEVER called here.

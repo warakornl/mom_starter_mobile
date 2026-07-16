@@ -9,6 +9,12 @@
 
 // ─── Mocks ────────────────────────────────────────────────────────────────────
 
+jest.mock('react-native-svg', () => ({
+  __esModule: true,
+  default: 'Svg', Svg: 'Svg', Path: 'Path', Circle: 'Circle', Rect: 'Rect',
+  Line: 'Line', G: 'G', Ellipse: 'Ellipse',
+}));
+
 jest.mock('react-native', () => ({
   View: 'View', Text: 'Text', TextInput: 'TextInput', TouchableOpacity: 'TouchableOpacity',
   ScrollView: 'ScrollView', Modal: 'Modal', StyleSheet: { create: (o: unknown) => o },

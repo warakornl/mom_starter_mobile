@@ -112,6 +112,7 @@ import {
 } from './medicationCaptureLogic';
 import type { SelfLogInput } from '../sync/syncTypes';
 import { T } from '../theme/tokens';
+import { EditIcon } from '../icons/EditIcon';
 
 // ─── Navigation types ─────────────────────────────────────────────────────────
 
@@ -982,7 +983,7 @@ export function CaptureScreen({ tokenStorage, apiBaseUrl }: CaptureScreenProps):
               accessibilityLabel={`${t('capture.field.when')}: ${formatCaptureDate(dateCivil, locale as Locale)}`}
             >
               <Text style={styles.dateTimeText}>{formatCaptureDate(dateCivil, locale as Locale)}</Text>
-              <Text style={styles.dateTimeEditIcon} accessibilityElementsHidden>✎</Text>
+              <EditIcon color={T.color.text.primary} size={13} />
             </TouchableOpacity>
             {/* Time button → opens time picker (blocker #4: setTimeStr now wired) */}
             <TouchableOpacity
@@ -993,7 +994,7 @@ export function CaptureScreen({ tokenStorage, apiBaseUrl }: CaptureScreenProps):
               accessibilityLabel={`${t('capture.field.when')}: ${timeStr}`}
             >
               <Text style={styles.dateTimeText}>{timeStr}</Text>
-              <Text style={styles.dateTimeEditIcon} accessibilityElementsHidden>✎</Text>
+              <EditIcon color={T.color.text.primary} size={13} />
             </TouchableOpacity>
           </View>
         </View>
@@ -1300,11 +1301,6 @@ const styles = StyleSheet.create({
     fontSize: T.type.bodyLarge.size,        // 17sp (was hand-rolled 16/24)
     lineHeight: T.type.bodyLarge.lineHeight, // 28
     color: T.color.text.heading,
-  },
-  dateTimeEditIcon: {
-    fontSize: T.type.caption.size,          // 13sp (was hand-rolled 14, no lineHeight)
-    lineHeight: T.type.caption.lineHeight,  // 21
-    color: T.color.text.primary,
   },
 
   // Echo line (capture-ui §0 signature)

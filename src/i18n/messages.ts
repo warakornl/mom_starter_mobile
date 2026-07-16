@@ -258,6 +258,34 @@ const th = {
   'settings.pregnancy': 'การตั้งครรภ์',
   'settings.editPregnancy': 'แก้ไขข้อมูลการตั้งครรภ์',
   'settings.editPregnancySubtitle': 'วันกำหนดคลอด / อายุครรภ์',
+  // ── Calendar sync row (Settings list entry point — CS-4, cluster 6 review fix) ─
+  'settings.calendarSync.title': 'ซิงก์ปฏิทินในเครื่อง',
+  'settings.calendarSync.a11yLabel': 'ซิงก์ปฏิทินในเครื่อง',
+  'settings.calendarSync.a11yHint': 'เปิดการตั้งค่าปฏิทิน',
+
+  // ── Calendar Sync Settings screen (CS-4 hub) — mirrors CalendarSyncSettingsScreen.tsx's C object ──
+  'calendarSync.title': 'ปฏิทินในเครื่อง',
+  'calendarSync.subtitle': 'ซิงก์นัดฝากครรภ์ไปยังปฏิทินในเครื่องของคุณ',
+  'calendarSync.toggleLabel': 'เพิ่มนัดลงปฏิทิน',
+  'calendarSync.toggleEnabled': 'เปิดอยู่',
+  'calendarSync.toggleDisabled': 'ปิดอยู่',
+  'calendarSync.privacyRow': 'ระดับความเป็นส่วนตัว',
+  'calendarSync.privacyRowA11yHint': 'เปิดหน้าเลือกระดับความเป็นส่วนตัว',
+  'calendarSync.privacyGeneric': 'ซ่อนชื่อนัด (ปลอดภัยกว่า)',
+  'calendarSync.privacyDescriptive': 'แสดงชื่อนัด',
+  'calendarSync.disableRow': 'ปิดการซิงก์ปฏิทิน',
+  'calendarSync.offlineStrip': 'คุณออฟไลน์อยู่ การซิงก์ใหม่จะทำเมื่อมีอินเทอร์เน็ต',
+  'calendarSync.osDeniedTitle': 'สิทธิ์ปฏิทินถูกปฏิเสธ',
+  'calendarSync.osDeniedBody': 'เปิดสิทธิ์ปฏิทินในการตั้งค่าเครื่อง เพื่อให้แอปเพิ่มนัดได้',
+  'calendarSync.osDeniedBtn': 'ไปที่การตั้งค่า',
+  'calendarSync.statusEnabled': 'เปิดใช้งาน',
+  'calendarSync.statusDisabled': 'ปิดใช้งาน',
+  'calendarSync.disableDialogTitle': 'ปิดการซิงก์ปฏิทิน',
+  'calendarSync.disableDialogMsg': 'จะให้ลบนัดที่เพิ่มลงปฏิทินแล้วด้วยหรือไม่?',
+  'calendarSync.disableDelete': 'ปิดและลบนัดออกจากปฏิทิน',
+  'calendarSync.disableKeep': 'ปิดและเก็บนัดไว้',
+  'calendarSync.disableCancel': 'ยกเลิก',
+  'calendarSync.back': 'ย้อนกลับ',
 
   // ── Profile Setup ─────────────────────────────────────────────────────────────
   'profile.navTitle': 'ตั้งกำหนดคลอด',
@@ -281,6 +309,9 @@ const th = {
   'profile.dateModalConfirm': 'ยืนยันวันนี้',
   'profile.dateFormatAlertTitle': 'รูปแบบวันที่',
   'profile.dateFormatAlertMsg': 'กรุณากรอกวันที่ในรูปแบบ YYYY-MM-DD',
+  /** BE/CE year-trap guard notice: shown (calm inline, not Alert) when a free-typed
+   *  Buddhist-era year was auto-corrected to Christian-era so the correction is never silent. */
+  'profile.dateBeAutoConvertedNotice': 'ปรับปีจาก พ.ศ. เป็น ค.ศ. ให้อัตโนมัติแล้ว ตรวจสอบวันที่อีกครั้งก่อนบันทึก',
   /** template: {date} = formatted EDD */
   'profile.eddPreviewPrefix': 'กำหนดคลอด {date}',
   'profile.deliveryWindow': 'เตรียมคลอด',
@@ -429,6 +460,12 @@ const th = {
   'supplies.shortcutBtn': 'รายการเตรียมคลอด ›',
   'supplies.autoDecrementSettings': 'ตั้งค่าตัดสต็อกอัตโนมัติ ›',
   'supplies.feedingLog': 'บันทึกการให้นม ›',
+  // Offline pill / empty-state add CTA / delete toast — mirrors ExpensesScreen's
+  // expenses.offlinePill / expenses.addFirst / expenses.deleteToast / expenses.deleteUndo.
+  'supplies.offlinePill': 'ออฟไลน์ · จะซิงค์เมื่อมีเน็ต',
+  'supplies.addFirst': 'เพิ่มรายการแรก',
+  'supplies.deleteToast': 'ลบรายการแล้ว',
+  'supplies.deleteUndo': 'เลิกทำ',
 
   // ── Auto-stock-decrement (ตัดสต็อกอัตโนมัติ) ──────────────────────────────────
   //
@@ -475,6 +512,8 @@ const th = {
   'supplyItemPicker.navTitle': 'เลือกของใช้',
   'supplyItemPicker.emptyState': 'ยังไม่มีของใช้ในบ้าน ลองเพิ่มของใช้ก่อนนะคะ',
   'supplyItemPicker.backA11y': 'กลับ',
+  /** Group label for the "suggested first" sort order — informational grouping only, never a hard filter. */
+  'supplyItemPicker.suggestedGroupLabel': 'แนะนำ',
 
   // Screen 2 — Sub-unit setup (การตั้งค่าบรรจุภัณฑ์)
   'subUnitSetup.sectionTitle': 'การตัดสต็อกอัตโนมัติ',
@@ -786,6 +825,11 @@ const th = {
   'kick.consentGateCaption': 'ต้องให้ความยินยอมก่อนเริ่มบันทึก',
   // Store error
   'kick.storeError': 'เปิดข้อมูลในเครื่องไม่สำเร็จ',
+  // Not-found states (stale deep link / tombstoned row) — distinct from the
+  // generic store-error and from the transient loading skeleton.
+  'kick.detailNotFound': 'ไม่พบข้อมูลการนับนี้',
+  'kick.detailNotFoundBody': 'รายการนี้อาจถูกลบไปแล้ว หรือลิงก์ไม่ถูกต้อง',
+  'kick.summaryNotFound': 'ไม่พบข้อมูลการนับนี้',
   // SC-K6b postpartum read-only
   'kick.postpartumBanner': 'บันทึกระหว่างตั้งครรภ์ · ดูได้แบบอ่านอย่างเดียว',
   // Loss-state replacement (lifecycle='ended') — Gate 2 (G2-DELIV) + Gate 1 supplementary
@@ -917,6 +961,12 @@ const th = {
   'consent.manage.row.cloud_storage.caption': 'บันทึกเห็นเหมือนกันทุกเครื่อง',
   'consent.manage.row.pdf_egress.caption': 'สรุปให้คุณหมอ',
   'consent.manage.row.sensitive_lab.caption': 'บันทึกอิสระในรายการตรวจทุกหมวด',
+  // S8 row switch-state a11y fragments (cluster 6 review fix — was hardcoded Thai literals)
+  'consent.manage.row.stateOn': 'เปิดอยู่',
+  'consent.manage.row.stateOff': 'ปิดอยู่',
+  'consent.manage.row.toggleHint': 'กดสองครั้งเพื่อเปลี่ยน',
+  /** Generic a11y-label suffix appended after a destructive confirm button's title, e.g. "ปิดการบันทึกสุขภาพ, ยืนยัน" */
+  'consent.manage.confirmA11ySuffix': 'ยืนยัน',
 
   // S8 withdrawal confirmation sheets (§3.3.2 + consent-copy.md §7)
   'consent.manage.withdraw_confirm.general_health.title': 'ปิดการบันทึกสุขภาพ',
@@ -1082,6 +1132,10 @@ const th = {
   'expenses.totalLabel': 'เดือนนี้ใช้ไป',
   /** template: {n} = count */
   'expenses.totalCount': '{n} รายการ',
+  // Month navigation (was hardcoded fallback constants — cluster review fix)
+  'expenses.monthNavPrevA11y': 'เดือนก่อนหน้า',
+  'expenses.monthNavNextA11y': 'เดือนถัดไป',
+  'expenses.jumpToThisMonth': '⬤ เดือนนี้',
   // Category breakdown (§2.2)
   'expenses.category.baby-supplies': 'ของใช้เด็ก',
   'expenses.category.healthcare': 'สุขภาพ',
@@ -1159,6 +1213,10 @@ const th = {
   // Unit labels (display only — not user-typed)
   'capture.unit.kg': 'กก.',
   'capture.unit.mmHg': 'mmHg',
+  // a11y labels for numeric self-log inputs (was hardcoded bilingual concat — cluster review fix)
+  'capture.a11y.weightInput': 'น้ำหนัก กิโลกรัม ช่องข้อความ',
+  'capture.a11y.systolicInput': 'ซิสโตลิก mmHg ช่องข้อความ',
+  'capture.a11y.diastolicInput': 'ไดแอสโตลิก mmHg ช่องข้อความ',
 
   // ── Quick Capture — Medication family (capture-ui §3.1 + medication-behavior §B) ─
   // Plan name / dose are VERBATIM (never translated, never parsed — INV-M4).
@@ -1387,6 +1445,7 @@ const th = {
   'milestone.tipSection': 'เคล็ดลับ',
   'milestone.journalCta': 'เขียนบันทึกวันนี้',
   'milestone.empty': 'ยังไม่มีข้อมูลสำหรับสัปดาห์นี้',
+  'milestone.error': 'ไม่สามารถโหลดข้อมูลสัปดาห์นี้ได้',
 
   // ── Baby Size Comparison — Home Section (baby-size-home-section.md) ───────────
   // Design §7.7 — new i18n keys. Fruit names live in babySizeData.ts (static table).
@@ -1419,7 +1478,11 @@ const th = {
   'home.babyPostpartumDisclaimer': 'อายุของลูกคำนวณจากวันเกิดที่คุณบันทึก เพื่อเป็นข้อมูลทั่วไป ไม่ใช่การประเมินพัฒนาการหรือคำแนะนำทางการแพทย์ พัฒนาการของเด็กแต่ละคนแตกต่างกันได้ หากมีข้อกังวล โปรดปรึกษาแพทย์หรือผู้ให้บริการด้านสุขภาพ',
   /** "ดูเพิ่มเติม" link — opens full-form disclaimer modal (≥44dp tap target) */
   'home.babySizeDisclaimerLink': 'ดูเพิ่มเติม',
+  /** a11y label for the disclaimer-link button (was hardcoded bilingual "... / View full disclaimer") */
+  'home.babySizeDisclaimerLinkA11y': 'ดูข้อความแจ้งเตือนฉบับเต็ม',
   'home.babySizeDisclaimerModalTitle': 'ข้อมูลสำคัญ',
+  /** Close button a11y label for the DisclaimerModal (was hardcoded bilingual "ปิด / Close") */
+  'home.babySizeDisclaimerModalClose': 'ปิด',
   /**
    * Source ribbon — pregnant variant only (size numbers). Postpartum has no numbers.
    * G-size-2 research pass: source = BabyCenter Fetal Growth Chart.
@@ -1445,6 +1508,8 @@ const th = {
    */
   'forgot.confirmBody': 'เราได้ส่งลิงก์รีเซ็ตรหัสผ่านไปยังอีเมลของคุณแล้ว โปรดตรวจกล่องอีเมล (รวมถึงโฟลเดอร์สแปม)',
   'forgot.resend': 'ส่งลิงก์อีกครั้ง',
+  /** template: {seconds} = whole seconds remaining until resend is re-enabled */
+  'forgot.resendCooldown': 'ส่งอีกครั้งใน {seconds} วินาที',
   'forgot.backToLogin': 'กลับไปหน้าเข้าสู่ระบบ',
   'forgot.rateLimited': 'ส่งบ่อยเกินไป · ลองใหม่ภายหลัง',
   'forgot.offline': 'คุณออฟไลน์อยู่',
@@ -1526,6 +1591,7 @@ const th = {
   'pregnancySummary.disclaimer.seeMore': 'ดูเพิ่มเติม',
   'pregnancySummary.disclaimer.full':
     'ข้อมูลในหน้านี้เป็นสิ่งที่คุณบันทึกไว้เอง นำมารวบรวมและจัดกลุ่มตามช่วงการตั้งครรภ์เพื่อให้คุณย้อนทบทวน ไม่ใช่การประเมิน การวินิจฉัย หรือคำแนะนำทางการแพทย์ หากมีข้อสงสัยหรือกังวลเกี่ยวกับสุขภาพของคุณหรือลูกน้อย โปรดปรึกษาแพทย์หรือผู้ให้บริการด้านสุขภาพของคุณ',
+  'pregnancySummary.disclaimer.close': 'ปิด',
 
   // Hospital-stay fields in BirthEventScreen
   // Design: pregnancy-summary-design.md §1.3 — optional, client-validated.
@@ -1727,6 +1793,34 @@ const en: MsgShape = {
   'settings.pregnancy': 'Pregnancy',
   'settings.editPregnancy': 'Edit pregnancy profile',
   'settings.editPregnancySubtitle': 'Due date / gestational age',
+  // ── Calendar sync row (Settings list entry point — CS-4, cluster 6 review fix) ─
+  'settings.calendarSync.title': 'Sync calendar on device',
+  'settings.calendarSync.a11yLabel': 'Sync calendar on device',
+  'settings.calendarSync.a11yHint': 'Opens calendar settings',
+
+  // ── Calendar Sync Settings screen (CS-4 hub) ──────────────────────────────────
+  'calendarSync.title': 'Calendar on device',
+  'calendarSync.subtitle': "Sync your prenatal appointments to your device's calendar",
+  'calendarSync.toggleLabel': 'Add appointments to calendar',
+  'calendarSync.toggleEnabled': 'On',
+  'calendarSync.toggleDisabled': 'Off',
+  'calendarSync.privacyRow': 'Privacy level',
+  'calendarSync.privacyRowA11yHint': 'Opens the privacy level picker',
+  'calendarSync.privacyGeneric': 'Hide appointment names (safer)',
+  'calendarSync.privacyDescriptive': 'Show appointment names',
+  'calendarSync.disableRow': 'Turn off calendar sync',
+  'calendarSync.offlineStrip': "You're offline · new sync will happen once you're back online",
+  'calendarSync.osDeniedTitle': 'Calendar permission denied',
+  'calendarSync.osDeniedBody': 'Turn on calendar permission in device settings so the app can add appointments',
+  'calendarSync.osDeniedBtn': 'Go to Settings',
+  'calendarSync.statusEnabled': 'Enabled',
+  'calendarSync.statusDisabled': 'Disabled',
+  'calendarSync.disableDialogTitle': 'Turn off calendar sync',
+  'calendarSync.disableDialogMsg': 'Also delete appointments already added to your calendar?',
+  'calendarSync.disableDelete': 'Turn off and delete from calendar',
+  'calendarSync.disableKeep': 'Turn off and keep appointments',
+  'calendarSync.disableCancel': 'Cancel',
+  'calendarSync.back': 'Back',
 
   // ── Profile Setup ─────────────────────────────────────────────────────────────
   'profile.navTitle': 'Set due date',
@@ -1749,6 +1843,7 @@ const en: MsgShape = {
   'profile.dateModalConfirm': 'Confirm',
   'profile.dateFormatAlertTitle': 'Date format',
   'profile.dateFormatAlertMsg': 'Please enter the date in YYYY-MM-DD format',
+  'profile.dateBeAutoConvertedNotice': 'We converted the year from Buddhist Era to Christian Era automatically — please check the date again before saving.',
   'profile.eddPreviewPrefix': 'Due {date}',
   'profile.deliveryWindow': 'Preparing for birth',
   'profile.stageEchoPrefix': 'You are in {stage}',
@@ -1868,6 +1963,10 @@ const en: MsgShape = {
   'supplies.shortcutBtn': 'Supply checklist ›',
   'supplies.autoDecrementSettings': 'Auto-decrement settings ›',
   'supplies.feedingLog': 'Log feeding ›',
+  'supplies.offlinePill': 'Offline · Will sync once online',
+  'supplies.addFirst': 'Add your first item',
+  'supplies.deleteToast': 'Item deleted',
+  'supplies.deleteUndo': 'Undo',
 
   // ── Auto-stock-decrement ───────────────────────────────────────────────────────
 
@@ -1907,6 +2006,7 @@ const en: MsgShape = {
   'supplyItemPicker.navTitle': 'Choose a supply',
   'supplyItemPicker.emptyState': 'No supplies yet — try adding one first.',
   'supplyItemPicker.backA11y': 'Back',
+  'supplyItemPicker.suggestedGroupLabel': 'Suggested',
 
   // Screen 2 — Sub-unit setup
   'subUnitSetup.sectionTitle': 'Auto stock decrement',
@@ -2171,6 +2271,9 @@ const en: MsgShape = {
   'kick.offlinePill': 'Offline · Saved locally',
   'kick.consentGateCaption': 'Consent required before recording',
   'kick.storeError': 'Could not read local data',
+  'kick.detailNotFound': 'This session could not be found',
+  'kick.detailNotFoundBody': 'This entry may have been removed, or the link is invalid.',
+  'kick.summaryNotFound': 'This session could not be found',
   'kick.postpartumBanner': 'Recorded during pregnancy · Read-only',
   // Loss-state replacement (lifecycle='ended') — Gate 2 (G2-DELIV)
   'kick.lossReplacement': 'This feature is not available at this time',
@@ -2287,6 +2390,11 @@ const en: MsgShape = {
   'consent.manage.row.cloud_storage.caption': 'Same records across all your devices',
   'consent.manage.row.pdf_egress.caption': 'Summaries for your doctor',
   'consent.manage.row.sensitive_lab.caption': 'Free-text notes in all checklist items',
+  // S8 row switch-state a11y fragments
+  'consent.manage.row.stateOn': 'On',
+  'consent.manage.row.stateOff': 'Off',
+  'consent.manage.row.toggleHint': 'Double tap to change',
+  'consent.manage.confirmA11ySuffix': 'Confirm',
 
   // S8 withdrawal confirmation sheets
   'consent.manage.withdraw_confirm.general_health.title': 'Turn off health logging',
@@ -2436,6 +2544,10 @@ const en: MsgShape = {
   // Month total (§2.1)
   'expenses.totalLabel': 'Spent this month',
   'expenses.totalCount': '{n} expenses',
+  // Month navigation
+  'expenses.monthNavPrevA11y': 'Previous month',
+  'expenses.monthNavNextA11y': 'Next month',
+  'expenses.jumpToThisMonth': '⬤ This month',
   // Category breakdown (§2.2)
   'expenses.category.baby-supplies': 'Baby supplies',
   'expenses.category.healthcare': 'Healthcare',
@@ -2513,6 +2625,10 @@ const en: MsgShape = {
   // Unit labels (display only — not user-typed)
   'capture.unit.kg': 'kg',
   'capture.unit.mmHg': 'mmHg',
+  // a11y labels for numeric self-log inputs
+  'capture.a11y.weightInput': 'Weight, kilograms, edit text',
+  'capture.a11y.systolicInput': 'Systolic, mmHg, edit text',
+  'capture.a11y.diastolicInput': 'Diastolic, mmHg, edit text',
 
   // ── Quick Capture — Medication family (capture-ui §3.1 + medication-behavior §B) ─
   // Plan name / dose are VERBATIM. taken / missed EQUAL weight — never amber (INV-M2).
@@ -2699,6 +2815,7 @@ const en: MsgShape = {
   'milestone.tipSection': 'Tip',
   'milestone.journalCta': 'Write a journal entry today',
   'milestone.empty': 'No content available for this week',
+  'milestone.error': "Could not load this week's content",
 
   // ── Baby Size Comparison — Home Section ───────────────────────────────────────
   // EN disclaimer strings: LEGAL-APPROVED verbatim (G-size-1 advisory sign-off 2026-07-10).
@@ -2716,7 +2833,9 @@ const en: MsgShape = {
   // LEGAL-APPROVED verbatim (G-size-1 advisory sign-off 2026-07-10). DO NOT paraphrase.
   'home.babyPostpartumDisclaimer': 'Your baby\'s age is calculated from the birth date you entered, for general information only. This is not a developmental assessment or medical advice. Every child develops differently. If you have any concerns, please consult your doctor or healthcare provider.',
   'home.babySizeDisclaimerLink': 'Full disclaimer',
+  'home.babySizeDisclaimerLinkA11y': 'View full disclaimer',
   'home.babySizeDisclaimerModalTitle': 'Important information',
+  'home.babySizeDisclaimerModalClose': 'Close',
   // [source/year to confirm before prod: research pass = BabyCenter Fetal Growth Chart; year 2024 pending confirmation on the cited page]
   'home.babySizeSourceRibbon': 'Approximate reference data: BabyCenter Fetal Growth Chart, 2024',
 
@@ -2735,6 +2854,8 @@ const en: MsgShape = {
    */
   'forgot.confirmBody': "We've sent a password-reset link to your email. Please check your inbox (including spam).",
   'forgot.resend': 'Resend link',
+  /** template: {seconds} = whole seconds remaining until resend is re-enabled */
+  'forgot.resendCooldown': 'Resend in {seconds}s',
   'forgot.backToLogin': 'Back to sign in',
   'forgot.rateLimited': 'Too many requests — please try again later.',
   'forgot.offline': "You're offline",
@@ -2804,6 +2925,7 @@ const en: MsgShape = {
   'pregnancySummary.disclaimer.seeMore': 'See more',
   'pregnancySummary.disclaimer.full':
     'The information on this screen is data you recorded yourself, gathered and grouped by stage of pregnancy so you can look back on it. It is not an assessment, diagnosis, or medical advice. If you have any questions or concerns about your health or your baby, please consult your doctor or healthcare provider.',
+  'pregnancySummary.disclaimer.close': 'Close',
 
   // Hospital-stay fields in BirthEventScreen
   // OQ-PS4: warn (not block) if admission is far from birthDate.

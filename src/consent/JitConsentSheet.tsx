@@ -203,8 +203,9 @@ export function JitConsentSheet({
                   onPress={onRetry}
                   style={styles.retryBtn}
                   accessibilityRole="button"
+                  accessibilityLabel={t('consent.jit.retry_btn')}
                 >
-                  <Text style={styles.retryBtnLabel}>
+                  <Text style={styles.retryBtnLabel} accessibilityElementsHidden>
                     {t('consent.jit.retry_btn')} ›
                   </Text>
                 </TouchableOpacity>
@@ -347,7 +348,8 @@ const styles = StyleSheet.create({
     fontSize: T.type.caption.size,
     color: T.color.text.primary,
   },
-  retryBtn: { marginLeft: 8 },
+  // >=48dp tap target (a11y essentials — touch targets must be >=48dp).
+  retryBtn: { marginLeft: 8, minHeight: 48, justifyContent: 'center' },
   retryBtnLabel: {
     fontFamily: T.type.label.fontFamily,
     fontSize: T.type.caption.size,
@@ -423,7 +425,10 @@ const styles = StyleSheet.create({
   declineBtnLabel: {
     fontFamily: T.type.label.fontFamily,
     fontSize: T.type.body.size,
-    color: T.color.text.primary,
+    // Quiet/decline/"hide notes" action ink — matches ManageConsentsScreen's
+    // sheetQuietBtnLabel fix (cluster 6 review): calm confirmed-choice heading
+    // ink, not body-copy primary ink and never the reserved error/alarm color.
+    color: T.color.text.heading,
   },
   declineBtnDisabled: {
     opacity: 0.5,

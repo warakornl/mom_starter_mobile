@@ -170,7 +170,10 @@ const styles = StyleSheet.create({
   notNowText: {
     fontFamily: T.type.body.fontFamily,
     fontSize: T.type.body.size,
-    color: T.color.text.primary,
+    // Quiet/cancel action ink — matches ManageConsentsScreen's sheetQuietBtnLabel
+    // fix (cluster 6 review): calm confirmed-choice heading ink, not body-copy
+    // primary ink and never the reserved error/alarm color.
+    color: T.color.text.heading,
   },
   notNowDisabled: { opacity: 0.5 },
   changeLaterNote: {

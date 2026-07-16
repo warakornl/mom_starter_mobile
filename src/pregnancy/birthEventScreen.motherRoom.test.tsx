@@ -28,6 +28,7 @@ jest.mock('./hospitalStayLogic', () => ({
 
 import React from 'react';
 import { BirthEventScreen } from './BirthEventScreen';
+import { BuddhistDateField } from './BuddhistDateField';
 import { T } from '../theme/tokens';
 
 const mockTokenStorage = { load: jest.fn(), save: jest.fn(), clear: jest.fn() };
@@ -167,11 +168,30 @@ describe('BirthEventScreen — ห้องแม่ Phase 2 B4 reskin', () => {
     expect((notes[0].props as Record<string, unknown>).accessibilityElementsHidden).not.toBe(true);
   });
 
-  it('พ.ศ. round-trip guard: date modal input + guard message elements are wired (testIDs present)', () => {
+  it('พ.ศ. round-trip guard: birth-date field delegates to BuddhistDateField in reject mode (guard is wired)', () => {
+    // The BE/CE year-trap guard now lives in ONE shared place (BuddhistDateField
+    // + buddhistDateGuard.ts). This screen must render a <BuddhistDateField> in
+    // guardMode="reject" wired to its birth-date state — that is what routes a
+    // typed BE year (e.g. 2569) through the shared guard instead of silently
+    // storing +543 years. We assert the screen-level wiring here; the guard's
+    // runtime behavior is proven by BuddhistDateField.rntl.test.tsx. Finding by
+    // component type (not by an internal testID) survives the correct refactor.
     const tree = BirthEventScreen(baseProps) as React.ReactElement;
-    const dateInput = findAll(tree, (el) => (el.props as { testID?: string }).testID === 'birth-date-modal-input')[0];
-    expect(dateInput).toBeDefined();
-    expect(typeof (dateInput.props as { onChangeText?: unknown }).onChangeText).toBe('function');
+    const field = findAll(tree, (el) => el.type === BuddhistDateField)[0];
+    expect(field).toBeDefined();
+    const p = field.props as {
+      variant?: string;
+      guardMode?: string;
+      modalInputTestID?: string;
+      onChange?: unknown;
+      onPreCommit?: unknown;
+    };
+    expect(p.variant).toBe('modal');
+    expect(p.guardMode).toBe('reject'); // typed BE year is REJECTED inline, not silently corrected
+    expect(p.modalInputTestID).toBe('birth-date-modal-input');
+    expect(typeof p.onChange).toBe('function');
+    // The future-date Continue-anyway Alert runs strictly AFTER the guard, via onPreCommit.
+    expect(typeof p.onPreCommit).toBe('function');
   });
 
   it('source-level guard: BirthEventScreen rejects any typed year > 2100 inline (no Continue-anyway path)', () => {

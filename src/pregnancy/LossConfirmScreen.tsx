@@ -40,7 +40,6 @@ import {
   View,
   Text,
   TouchableOpacity,
-  TextInput,
   StyleSheet,
   SafeAreaView,
   ScrollView,
@@ -53,6 +52,8 @@ import { useT } from '../i18n/LanguageContext';
 import { T } from '../theme/tokens';
 import { validateLossDate, buildLossEventInput } from './lossEventLogic';
 import type { PregnancyProfile } from './types';
+import { isBuddhistEraYear } from './buddhistDateGuard';
+import { BuddhistDateField } from './BuddhistDateField';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -126,13 +127,16 @@ export function LossConfirmScreen({
     // — reusing the existing calm "outside the range that can be recorded"
     // copy (no new alarming wording, tone preserved) — no bounce, no dialog,
     // same inline-hint pattern as every other validation on this screen.
+    //
+    // Task #40: the BE-year detection itself now lives in ONE shared place —
+    // buddhistDateGuard.ts's isBuddhistEraYear (same typedYear > 2100
+    // threshold + arithmetic BuddhistDateField / ProfileSetupScreen /
+    // BirthEventScreen all use) — no re-implementation here, just delegation.
     const trimmedForBeCheck = dateInput.trim();
-    if (trimmedForBeCheck.length >= 4) {
-      const typedYear = Number(trimmedForBeCheck.slice(0, 4));
-      if (Number.isFinite(typedYear) && typedYear > 2100) {
-        setDateHint(t('loss.confirm.dateRangeHint'));
-        return;
-      }
+    const typedYear = Number(trimmedForBeCheck.slice(0, 4));
+    if (trimmedForBeCheck.length >= 4 && Number.isFinite(typedYear) && isBuddhistEraYear(trimmedForBeCheck)) {
+      setDateHint(t('loss.confirm.dateRangeHint'));
+      return;
     }
 
     const today = localCivilToday();
@@ -251,17 +255,21 @@ export function LossConfirmScreen({
 
         <Text style={styles.fieldLabel}>{t('loss.confirm.dateLabel')}</Text>
         <Text style={styles.skipHint}>{t('loss.confirm.dateSkipHint')}</Text>
-        <TextInput
+        {/* Task #40: shared BuddhistDateField, inline variant — SAME plain
+         * controlled TextInput this screen always had (no modal — this
+         * screen's own handleConfirm owns validation timing, calling the
+         * SAME shared guard function, isBuddhistEraYear, that
+         * BuddhistDateField's modal variant uses internally). */}
+        <BuddhistDateField
           testID="loss-confirm-date"
-          style={styles.dateField}
+          variant="inline"
           value={dateInput}
           onChangeText={(v) => {
             setDateInput(v);
             setDateHint(null);
           }}
+          a11yLabel={t('loss.confirm.dateLabel')}
           placeholder={t('loss.confirm.datePlaceholder')}
-          placeholderTextColor={T.input.placeholder}
-          accessibilityLabel={t('loss.confirm.dateLabel')}
           editable={!submitting}
         />
         {dateHint != null && (

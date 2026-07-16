@@ -51,6 +51,8 @@ import { useT } from '../i18n/LanguageContext';
 import { formatCivilDate, type MessageKey } from '../i18n/messages';
 import { T } from '../theme/tokens';
 import { StageT1Icon, StageT2Icon, StageT3Icon } from '../icons';
+import { BuddhistDateField } from './BuddhistDateField';
+import { convertBuddhistEraYearIfNeeded } from './buddhistDateGuard';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -158,23 +160,13 @@ function eddFromLmp(lmp: string): string {
 /**
  * BE/CE year-trap guard (Phase 2 B1 UX fix — 🔴).
  *
- * A free-typed YYYY-MM-DD field accepts a Buddhist-era (BE) year (e.g. 2569)
- * as if it were Christian-era (CE), silently saving a date ~543 years off.
- * BE = CE + 543, so any parsed year > 2100 is almost certainly a BE year
- * typed by habit (Thai civil documents default to BE).
- *
- * Returns the corrected YYYY-MM-DD string (BE→CE, −543) when the year is a
- * detected BE year, otherwise returns the input string unchanged.
+ * Task #40: the guard implementation now lives in ONE shared place —
+ * buddhistDateGuard.ts (used by BuddhistDateField and every pregnancy date
+ * screen). Re-exported here (not just imported-and-used) because this
+ * screen's own test file (profileSetupScreen.motherRoom.test.tsx) imports
+ * `convertBuddhistEraYearIfNeeded` directly from './ProfileSetupScreen'.
  */
-export function convertBuddhistEraYearIfNeeded(dateStr: string): { corrected: string; wasBe: boolean } {
-  const [y, m, d] = dateStr.split('-');
-  const yearNum = Number(y);
-  if (yearNum > 2100) {
-    const ceYear = String(yearNum - 543).padStart(4, '0');
-    return { corrected: `${ceYear}-${m}-${d}`, wasBe: true };
-  }
-  return { corrected: dateStr, wasBe: false };
-}
+export { convertBuddhistEraYearIfNeeded } from './buddhistDateGuard';
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -198,9 +190,6 @@ export function ProfileSetupScreen({
   // ── Due-date path ────────────────────────────────────────────────────────────
   // The raw edd string (YYYY-MM-DD); empty string = not set
   const [edd, setEdd] = useState<string>(existingProfile?.edd ?? '');
-  // Simple date input modal (carry-forward: replace with full BE calendar picker)
-  const [showDateModal, setShowDateModal] = useState(false);
-  const [dateInputText, setDateInputText] = useState<string>(existingProfile?.edd ?? '');
 
   // ── Current-week path ────────────────────────────────────────────────────────
   // gestationalWeek is number | null (null when postpartum) — check explicitly.
@@ -209,17 +198,18 @@ export function ProfileSetupScreen({
     : 20;
   const [currentWeek, setCurrentWeek] = useState<number>(initWeek);
 
-  // ── LMP helper modal ─────────────────────────────────────────────────────────
+  // ── LMP helper modal (kept hand-rolled — it derives+previews an estimated
+  // EDD live as-you-type, a distinct shape from a plain date field, so it is
+  // NOT adopted into BuddhistDateField; it still calls the SAME shared guard
+  // function, convertBuddhistEraYearIfNeeded, so there remains only ONE BE
+  // guard implementation in the codebase) ─────────────────────────────────
   const [showLmpModal, setShowLmpModal] = useState(false);
   const [lmpInputText, setLmpInputText] = useState('');
+  const [lmpModalError, setLmpModalError] = useState<string | null>(null);
 
   // ── UI state ─────────────────────────────────────────────────────────────────
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  // Inline (non-Alert) error text for the date-input modal + LMP modal (§ B1 fix).
-  const [dateModalError, setDateModalError] = useState<string | null>(null);
-  const [dateModalNotice, setDateModalNotice] = useState<string | null>(null);
-  const [lmpModalError, setLmpModalError] = useState<string | null>(null);
 
   // ── Derived live echo for current-week method ─────────────────────────────────
   const liveStage = stageFromWeek(currentWeek);
@@ -250,36 +240,30 @@ export function ProfileSetupScreen({
     onDirty?.();
   }
 
-  function handleDateConfirm(): void {
-    const trimmed = dateInputText.trim();
-    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
-      // 🔴 BE/CE year-trap guard: a free-typed Buddhist-era year (e.g. 2569)
-      // must not silently save as a CE date ~543 years off.
-      const { corrected, wasBe } = convertBuddhistEraYearIfNeeded(trimmed);
-      setEdd(corrected);
-      setDateInputText(corrected);
-      setShowDateModal(false);
-      setErrorMsg(null);
-      setDateModalError(null);
-      // Surface a calm inline notice (not Alert) when we auto-corrected a BE year,
-      // so the correction is never silent.
-      setDateModalNotice(wasBe ? t('profile.dateBeAutoConvertedNotice') : null);
-      // AC-15: user confirmed a date — mark form dirty.
-      onDirty?.();
-    } else {
-      // Inline error text (calm, matches siblings) — NOT Alert.alert.
-      setDateModalError(t('profile.dateFormatAlertMsg'));
-    }
+  // Task #40: the BE/CE year-trap guard + modal-confirm parsing for the
+  // due-date field now live in the shared BuddhistDateField component
+  // (guardMode="auto-convert" — silently corrects a detected BE year and
+  // surfaces a calm inline notice, matching this screen's original
+  // handleDateConfirm behaviour byte-for-byte). This onChange handler only
+  // does what was left OUTSIDE the guard/parsing itself: committing the
+  // value to this screen's own state and firing AC-15 onDirty.
+  function handleDateChange(corrected: string): void {
+    setEdd(corrected);
+    setErrorMsg(null);
+    // AC-15: user confirmed a date — mark form dirty.
+    onDirty?.();
   }
 
   function handleLmpConfirm(): void {
     const trimmed = lmpInputText.trim();
     if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
-      // 🔴 Same BE/CE guard applies to the LMP free-text field.
+      // 🔴 Same BE/CE guard applies to the LMP free-text field — calls the
+      // SAME shared guard function BuddhistDateField uses (task #40: one
+      // guard implementation, reused here because the LMP modal's live
+      // preview-as-you-type UX is a distinct shape from a plain date field).
       const { corrected } = convertBuddhistEraYearIfNeeded(trimmed);
       const derivedEdd = eddFromLmp(corrected);
       setEdd(derivedEdd);
-      setDateInputText(derivedEdd);
       setInputMethod('due_date');
       setShowLmpModal(false);
       setErrorMsg(null);
@@ -486,32 +470,24 @@ export function ProfileSetupScreen({
         {inputMethod === 'due_date' && (
           <View>
             <Text style={styles.fieldLabel}>{t('profile.fieldDueDate')}</Text>
-            <TouchableOpacity
-              style={styles.dateField}
-              onPress={() => {
-                setDateModalError(null);
-                setDateModalNotice(null);
-                setShowDateModal(true);
-              }}
-              accessibilityRole="button"
-              accessibilityLabel={
-                edd
-                  ? `${t('profile.fieldDueDate')}, ${formatCivilDate(edd, locale)}`
-                  : `${t('profile.fieldDueDate')}, ${t('profile.datePlaceholder')}`
-              }
-            >
-              <Text
-                style={[
-                  styles.dateFieldText,
-                  !edd && styles.dateFieldPlaceholder,
-                ]}
-              >
-                {edd ? formatCivilDate(edd, locale) : t('profile.datePlaceholder')}
-              </Text>
-              <Text style={styles.dateFieldChevron} accessibilityElementsHidden={true}>
-                {' ›'}
-              </Text>
-            </TouchableOpacity>
+            <BuddhistDateField
+              testID="profile-date-field"
+              modalInputTestID="profile-date-modal-input"
+              variant="modal"
+              guardMode="auto-convert"
+              value={edd}
+              onChange={handleDateChange}
+              a11yLabel={t('profile.fieldDueDate')}
+              placeholder={t('profile.datePlaceholder')}
+              displayValue={edd ? formatCivilDate(edd, locale) : undefined}
+              modalTitle={t('profile.dateModalTitle')}
+              modalHint={t('profile.dateModalHint')}
+              modalPlaceholder="2026-11-20"
+              modalCancelLabel={t('profile.dateModalCancel')}
+              modalConfirmLabel={t('profile.dateModalConfirm')}
+              formatErrorMessage={t('profile.dateFormatAlertMsg')}
+              beAutoConvertedNotice={t('profile.dateBeAutoConvertedNotice')}
+            />
 
             {/* LMP quiet helper (§2.4) */}
             <TouchableOpacity
@@ -642,67 +618,6 @@ export function ProfileSetupScreen({
         <Text style={styles.footnote}>{t('profile.footnote')}</Text>
       </ScrollView>
 
-      {/* ── Date input modal (carry-forward: replace with full BE calendar §2.2) */}
-      <Modal
-        visible={showDateModal}
-        animationType="slide"
-        transparent
-        onRequestClose={() => {
-          setDateModalError(null);
-          setDateModalNotice(null);
-          setShowDateModal(false);
-        }}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>{t('profile.dateModalTitle')}</Text>
-            <Text style={styles.modalHint}>{t('profile.dateModalHint')}</Text>
-            <TextInput
-              style={styles.modalInput}
-              value={dateInputText}
-              onChangeText={setDateInputText}
-              placeholder="2026-11-20"
-              placeholderTextColor={T.input.placeholder}
-              keyboardType={Platform.OS === 'ios' ? 'numbers-and-punctuation' : 'default'}
-              maxLength={10}
-              autoFocus
-              accessibilityLabel={t('profile.fieldDueDate')}
-            />
-            {dateModalError !== null && (
-              <Text style={styles.modalErrorText} accessibilityRole="alert">
-                {dateModalError}
-              </Text>
-            )}
-            {dateModalNotice !== null && (
-              <Text style={styles.modalNoticeText} accessibilityRole="text">
-                {dateModalNotice}
-              </Text>
-            )}
-            <View style={styles.modalBtnRow}>
-              <TouchableOpacity
-                style={styles.modalBtnSecondary}
-                onPress={() => {
-                  setDateModalError(null);
-                  setDateModalNotice(null);
-                  setShowDateModal(false);
-                }}
-                accessibilityRole="button"
-                accessibilityLabel={t('profile.dateModalCancel')}
-              >
-                <Text style={styles.modalBtnSecondaryText}>{t('profile.dateModalCancel')}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.modalBtnPrimary}
-                onPress={handleDateConfirm}
-                accessibilityRole="button"
-                accessibilityLabel={t('profile.dateModalConfirm')}
-              >
-                <Text style={styles.modalBtnPrimaryText}>{t('profile.dateModalConfirm')}</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
 
       {/* ── LMP helper modal (§2.4) ──────────────────────────────────────────── */}
       <Modal

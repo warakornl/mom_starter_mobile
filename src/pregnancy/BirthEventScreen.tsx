@@ -65,6 +65,7 @@ import {
   shouldWarnAdmissionFarFromBirth,
   buildHospitalStayFields,
 } from './hospitalStayLogic';
+import { BuddhistDateField } from './BuddhistDateField';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -118,9 +119,6 @@ export function BirthEventScreen({
   const [hospitalErrorMsg, setHospitalErrorMsg] = useState<string | null>(null);
 
   // ── Date picker modals ────────────────────────────────────────────────────
-  // Birth date modal
-  const [showDateModal, setShowDateModal] = useState(false);
-  const [dateInputText, setDateInputText] = useState<string>('');
   // Hospital admission modal
   const [showAdmissionModal, setShowAdmissionModal] = useState(false);
   const [admissionInputText, setAdmissionInputText] = useState<string>('');
@@ -131,44 +129,31 @@ export function BirthEventScreen({
   // ── UI state ──────────────────────────────────────────────────────────────
   const [saving, setSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  // mobile-reviewer fix (cluster 6 review, พ.ศ. round-trip trap): inline guard
-  // message shown UNDER the date modal input when a typed year looks like a
-  // Buddhist-Era (พ.ศ.) year instead of the raw Gregorian year the field
-  // actually stores. Cleared whenever the modal input changes.
-  const [dateModalGuardMsg, setDateModalGuardMsg] = useState<string | null>(null);
 
   // ── Validation ────────────────────────────────────────────────────────────
   const canSave = birthDate.length === 10 && !saving && hospitalErrorMsg == null;
 
   // ─── Handlers ────────────────────────────────────────────────────────────
 
-  function handleDateConfirm(): void {
-    const trimmed = dateInputText.trim();
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
-      Alert.alert(t('birth.dateFormatAlertTitle'), t('birth.dateFormatAlertMsg'));
-      return;
-    }
-
-    // mobile-reviewer fix (cluster 6 review, พ.ศ. round-trip trap): the field
-    // DISPLAYS via formatCivilDate (which shows พ.ศ. = Gregorian+543) but is
-    // TYPED/STORED as raw Gregorian YYYY-MM-DD. A mother who sees "พ.ศ. 2569"
-    // on screen and types "2569" back into this field would silently record a
-    // birth date 543 years in the future. year > 2100 is not a plausible
-    // Gregorian birth year in this app — reject inline (no Continue-anyway
-    // path for BE-year values; this is a data-corruption trap, not a
-    // borderline typo like a 1-2 day future slip).
-    const year = Number(trimmed.slice(0, 4));
-    if (year > 2100) {
-      setDateModalGuardMsg(t('birth.dateFormatAlertMsg'));
-      return;
-    }
-    setDateModalGuardMsg(null);
-
-    // Soft guard: birth date should not be in the future (§5 — non-blocking typo hint).
-    // The server enforces the actual bound; this is a UX convenience only.
-    // (year > 2100 is handled above and never reaches this Continue-anyway path.)
+  // Task #40: the BE/CE year-trap guard (mobile-reviewer fix, cluster 6
+  // review, พ.ศ. round-trip trap) now lives in ONE shared place —
+  // buddhistDateGuard.ts / BuddhistDateField (guardMode="reject" — a typed
+  // year > 2100 is REJECTED inline, no silent correction, no Continue-anyway
+  // path — see buddhistDateGuard.ts's isBuddhistEraYear, threshold
+  // year > 2100). The field DISPLAYS via formatCivilDate (which shows พ.ศ. =
+  // Gregorian+543) but is TYPED/STORED as raw Gregorian YYYY-MM-DD; a mother
+  // who sees "พ.ศ. 2569" on screen and types "2569" back into this field
+  // would otherwise silently record a birth date 543 years in the future.
+  //
+  // The birth-date field's soft future-date warning (§5 — non-blocking typo
+  // hint, Continue-anyway Alert) runs strictly AFTER that guard has already
+  // passed (BuddhistDateField's guardMode="reject" returns early on a
+  // detected BE year — the Continue-anyway branch below is provably
+  // unreachable for any BE-era year value), via BuddhistDateField's
+  // onPreCommit hook.
+  function handleBirthDatePreCommit(candidate: string): 'commit' | 'defer' {
     const today = localCivilToday();
-    if (trimmed > today) {
+    if (candidate > today) {
       Alert.alert(
         t('birth.futureDateTitle'),
         t('birth.futureDateMessage'),
@@ -177,17 +162,19 @@ export function BirthEventScreen({
           {
             text: t('birth.futureDateContinue'),
             onPress: () => {
-              setBirthDate(trimmed);
-              setShowDateModal(false);
+              setBirthDate(candidate);
               setErrorMsg(null);
             },
           },
         ],
       );
-      return;
+      return 'defer'; // Alert owns the eventual commit — BuddhistDateField closes its modal now but does not call onChange itself.
     }
-    setBirthDate(trimmed);
-    setShowDateModal(false);
+    return 'commit'; // No future-date concern — commit immediately.
+  }
+
+  function handleBirthDateChange(committed: string): void {
+    setBirthDate(committed);
     setErrorMsg(null);
   }
 
@@ -387,32 +374,27 @@ export function BirthEventScreen({
           {t('birth.fieldBirthDate')}
           <Text style={styles.required}>{' *'}</Text>
         </Text>
-        <TouchableOpacity
+        <BuddhistDateField
           testID="birth-date"
-          style={styles.dateField}
-          onPress={() => {
-            setDateInputText(birthDate);
-            setShowDateModal(true);
-          }}
-          accessibilityRole="button"
-          accessibilityLabel={
-            birthDate
-              ? `${t('birth.fieldBirthDate')}, ${formatCivilDate(birthDate, locale)}`
-              : `${t('birth.fieldBirthDate')}, ${t('birth.datePlaceholder')}`
-          }
-        >
-          <Text
-            style={[
-              styles.dateFieldText,
-              !birthDate && styles.dateFieldPlaceholder,
-            ]}
-          >
-            {birthDate ? formatCivilDate(birthDate, locale) : t('birth.datePlaceholder')}
-          </Text>
-          <Text style={styles.chevron} accessibilityElementsHidden={true}>
-            {' ›'}
-          </Text>
-        </TouchableOpacity>
+          modalInputTestID="birth-date-modal-input"
+          variant="modal"
+          guardMode="reject"
+          value={birthDate}
+          onChange={handleBirthDateChange}
+          a11yLabel={t('birth.fieldBirthDate')}
+          placeholder={t('birth.datePlaceholder')}
+          displayValue={birthDate ? formatCivilDate(birthDate, locale) : undefined}
+          modalTitle={t('birth.dateModalTitle')}
+          modalHint={t('birth.dateModalHint')}
+          modalPlaceholder={t('birth.dateModalPlaceholder')}
+          modalCancelLabel={t('birth.dateModalCancel')}
+          modalConfirmLabel={t('birth.dateModalConfirm')}
+          formatErrorMessage={t('birth.dateFormatAlertMsg')}
+          onFormatErrorAlert={(title, message) => Alert.alert(title, message)}
+          formatErrorAlertTitle={t('birth.dateFormatAlertTitle')}
+          beRejectedMessage={t('birth.dateFormatAlertMsg')}
+          onPreCommit={handleBirthDatePreCommit}
+        />
 
         {/* ── Delivery type — optional, 4 chips (§4.2.2) ─────────────────── */}
         <Text style={styles.fieldLabel}>
@@ -586,78 +568,6 @@ export function BirthEventScreen({
           )}
         </TouchableOpacity>
       </ScrollView>
-
-      {/* ── Date input modal ──────────────────────────────────────────────── */}
-      <Modal
-        visible={showDateModal}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setShowDateModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>
-              {t('birth.dateModalTitle')}
-            </Text>
-            <Text style={styles.modalHint}>
-              {t('birth.dateModalHint')}
-            </Text>
-            <TextInput
-              testID="birth-date-modal-input"
-              style={styles.modalInput}
-              value={dateInputText}
-              onChangeText={(v) => {
-                setDateInputText(v);
-                setDateModalGuardMsg(null);
-              }}
-              // Fixed (task #40 tail): now sourced from the catalog
-              // ('birth.dateModalPlaceholder') instead of a hardcoded
-              // literal. Same neutral 'YYYY-MM-DD' format token in both
-              // locales — it's a format token, not translatable prose, so
-              // no stale year example and no locale-digit gap.
-              placeholder={t('birth.dateModalPlaceholder')}
-              placeholderTextColor={T.input.placeholder}
-              keyboardType="numeric"
-              autoFocus
-              accessibilityLabel={t('birth.fieldBirthDate')}
-              maxLength={10}
-            />
-            {/* mobile-reviewer fix (พ.ศ. round-trip trap): inline guard shown
-             * when the typed year looks like a Buddhist-Era year (>2100) —
-             * no silent +543-year data corruption, no Continue-anyway path. */}
-            {dateModalGuardMsg != null && (
-              <Text
-                testID="birth-date-modal-guard-msg"
-                style={styles.modalGuardText}
-                accessibilityLiveRegion="polite"
-              >
-                {dateModalGuardMsg}
-              </Text>
-            )}
-            <View style={styles.modalBtns}>
-              <TouchableOpacity
-                style={styles.modalCancelBtn}
-                onPress={() => {
-                  setDateModalGuardMsg(null);
-                  setShowDateModal(false);
-                }}
-                accessibilityRole="button"
-                accessibilityLabel={t('birth.dateModalCancel')}
-              >
-                <Text style={styles.modalCancelText}>{t('birth.dateModalCancel')}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.modalConfirmBtn}
-                onPress={handleDateConfirm}
-                accessibilityRole="button"
-                accessibilityLabel={t('birth.dateModalConfirm')}
-              >
-                <Text style={styles.modalConfirmText}>{t('birth.dateModalConfirm')}</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
 
       {/* ── Hospital admission date modal ─────────────────────────────────── */}
       <Modal

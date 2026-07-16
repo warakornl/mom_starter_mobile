@@ -330,15 +330,8 @@ export function ManageConsentsScreen({
                     style={styles.row}
                     onPress={() => handleToggle(type, !isOn)}
                     accessibilityRole="switch"
-                    // mobile-reviewer 🟡 (cluster 6 review): these three fragments are
-                    // hardcoded Thai, bypassing i18n/EN locale. REPORTED — needs
-                    // catalog keys 'consent.manage.row.stateOn' ('เปิดอยู่' / 'On'),
-                    // 'consent.manage.row.stateOff' ('ปิดอยู่' / 'Off'), and
-                    // 'consent.manage.row.toggleHint' ('กดสองครั้งเพื่อเปลี่ยน' /
-                    // 'Double tap to change'). Left as literals here (cannot edit
-                    // messages.ts — shared file) until those keys land.
                     accessibilityLabel={
-                      `${t(ROW_TITLE_KEY[type] as Parameters<typeof t>[0])}, ${isOn ? 'เปิดอยู่' : 'ปิดอยู่'}, กดสองครั้งเพื่อเปลี่ยน`
+                      `${t(ROW_TITLE_KEY[type] as Parameters<typeof t>[0])}, ${isOn ? t('consent.manage.row.stateOn') : t('consent.manage.row.stateOff')}, ${t('consent.manage.row.toggleHint')}`
                     }
                   >
                     <View style={styles.rowLeft}>
@@ -461,7 +454,7 @@ export function ManageConsentsScreen({
                 onPress={handleWithdrawConfirm}
                 accessibilityRole="button"
                 accessibilityLabel={
-                  `${t(`consent.manage.withdraw_confirm.${confirmWithdrawType}.title` as Parameters<typeof t>[0])}, ยืนยัน`
+                  `${t(`consent.manage.withdraw_confirm.${confirmWithdrawType}.title` as Parameters<typeof t>[0])}, ${t('consent.manage.confirmA11ySuffix')}`
                 }
               >
                 <Text style={styles.sheetSecondaryBtnLabel}>

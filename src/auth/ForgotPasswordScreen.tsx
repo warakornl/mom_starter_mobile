@@ -92,10 +92,7 @@ export function ForgotPasswordScreen({
   const resendCoolingDown = Date.now() < resendCooldownUntil;
 
   // 🟡 UX fix: resend button greys out for 60s with no explanation, reading as
-  // broken. Tick a countdown so the copy stays honest ("Resend link · 47s").
-  // TODO(i18n owner): add a templated key e.g.
-  //   'forgot.resendCooldown': 'ส่งอีกครั้งใน {seconds} วินาที'
-  // and swap the plain concatenation below for t('forgot.resendCooldown', { seconds }).
+  // broken. Tick a countdown so the copy stays honest via t('forgot.resendCooldown').
   const [nowTick, setNowTick] = useState(Date.now());
   useEffect(() => {
     if (!resendCoolingDown) return;
@@ -200,7 +197,7 @@ export function ForgotPasswordScreen({
               ) : (
                 <Text style={[styles.resendText, (resendCoolingDown || loading) && styles.resendTextDisabled]}>
                   {resendCoolingDown
-                    ? `${t('forgot.resend')} · ${resendSecondsLeft}s`
+                    ? t('forgot.resendCooldown', { seconds: resendSecondsLeft })
                     : t('forgot.resend')}
                 </Text>
               )}

@@ -263,10 +263,7 @@ export function ProfileSetupScreen({
       setDateModalError(null);
       // Surface a calm inline notice (not Alert) when we auto-corrected a BE year,
       // so the correction is never silent.
-      // TODO(i18n owner): 'profile.dateFormatAlertMsg' is a TEMPORARY fallback —
-      // add a dedicated key 'profile.dateBeAutoConvertedNotice' explaining the
-      // BE→CE auto-conversion (see REPORT) and swap it in here.
-      setDateModalNotice(wasBe ? t('profile.dateFormatAlertMsg') : null);
+      setDateModalNotice(wasBe ? t('profile.dateBeAutoConvertedNotice') : null);
       // AC-15: user confirmed a date — mark form dirty.
       onDirty?.();
     } else {

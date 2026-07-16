@@ -365,28 +365,30 @@ describe('SupplyItemPickerScreen — FW-1: new i18n copy scanned by the REAL fw1
 });
 
 describe('SupplyItemPickerScreen — review fix: "แนะนำ" (suggested) group label', () => {
+  // t() is mocked to echo the key in this suite — assert the real catalog key
+  // ('supplyItemPicker.suggestedGroupLabel') is used, not a hardcoded literal.
   it('shows the suggested-group label when both a suggested item and a non-suggested item exist', () => {
     mockGetSupplyItems.mockReturnValue([DIAPER_ITEM, FEEDING_ITEM]); // diaper_change → 'diapers' suggested
     const tree = SupplyItemPickerScreen(baseProps) as React.ReactElement; // activityType: diaper_change
     const texts = collectText(tree);
-    expect(texts).toContain('แนะนำ');
+    expect(texts).toContain('supplyItemPicker.suggestedGroupLabel');
   });
 
   it('does NOT show the label when every item is in the suggested category (label would be redundant)', () => {
     mockGetSupplyItems.mockReturnValue([DIAPER_ITEM]);
     const tree = SupplyItemPickerScreen(baseProps) as React.ReactElement;
     const texts = collectText(tree);
-    expect(texts).not.toContain('แนะนำ');
+    expect(texts).not.toContain('supplyItemPicker.suggestedGroupLabel');
   });
 
   it('does NOT show the label when no item matches the suggested category', () => {
     mockGetSupplyItems.mockReturnValue([FEEDING_ITEM]); // activityType diaper_change suggests 'diapers'
     const tree = SupplyItemPickerScreen(baseProps) as React.ReactElement;
     const texts = collectText(tree);
-    expect(texts).not.toContain('แนะนำ');
+    expect(texts).not.toContain('supplyItemPicker.suggestedGroupLabel');
   });
 
-  it('the fallback "แนะนำ" copy passes the real FW-1 scanner (no brand/promo)', () => {
+  it('the catalog "แนะนำ" copy passes the real FW-1 scanner (no brand/promo)', () => {
     const { isFW1Clean, scanForFW1Violations } = jest.requireActual<
       typeof import('./fw1Scanner')
     >('./fw1Scanner');

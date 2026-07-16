@@ -79,14 +79,6 @@ const SUGGESTED_CATEGORY: Record<MappingActivityType, SupplyCategory> = {
 /** New mapping default per-use quantity (mother can change on Screen 1 later). */
 const DEFAULT_QTY = 1;
 
-// i18n GAP (REPORT to system-analyst/i18n owner — do NOT edit messages.ts from
-// this cluster): no 'supplyItemPicker.suggestedGroupLabel' key exists yet.
-// Add it (th + en) so the "suggested first" sort order is visible to the
-// mother as a real group label, not just an invisible sort. Local fallback
-// unblocks the UI now; replace with t('supplyItemPicker.suggestedGroupLabel')
-// once the key lands.
-const SUGGESTED_GROUP_LABEL_FALLBACK_TH = 'แนะนำ';
-
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
 /**
@@ -237,7 +229,7 @@ export function SupplyItemPickerScreen(
                */}
               {showSuggestedLabel && index === 0 && (
                 <Text style={styles.groupLabel}>
-                  {SUGGESTED_GROUP_LABEL_FALLBACK_TH}
+                  {t('supplyItemPicker.suggestedGroupLabel')}
                 </Text>
               )}
               <TouchableOpacity

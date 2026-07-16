@@ -57,6 +57,7 @@ import { v4 as uuidv4 } from 'uuid';
 import type { TokenStorage } from '../auth/tokenStorage';
 import { useT } from '../i18n/LanguageContext';
 import { T } from '../theme/tokens';
+import { CloseIcon } from '../icons/CloseIcon';
 import { consumptionMappingStore } from './consumptionMappingStore';
 import { supplySyncStore } from '../sync/supplySyncStore';
 import { consentStore } from '../consent/consentStore';
@@ -344,7 +345,7 @@ export function AutoDecrementSettingsScreen(
                     accessibilityLabel={t('autoDecrement.unlinkItem.a11yLabel')}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   >
-                    <Text style={styles.unlinkText}>✕</Text>
+                    <CloseIcon color={T.color.text.primary} size={17} />
                   </TouchableOpacity>
                 </View>
                 );
@@ -477,11 +478,6 @@ const styles = StyleSheet.create({
     minHeight: 48,
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  unlinkText: {
-    color: T.color.text.primary,
-    fontSize: T.type.body.size,
-    lineHeight: T.type.body.lineHeight,
   },
   linkBtn: {
     marginTop: T.spacing[3],

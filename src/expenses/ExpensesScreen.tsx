@@ -82,6 +82,7 @@ import { toCivilDate, parseCivilDate } from '../calendar/dateTimePickerFormat';
 import { formatCivilDate, formatYearMonth } from '../i18n/messages';
 import type { Locale } from '../auth/types';
 import { T } from '../theme/tokens';
+import { ReceiptIcon } from '../icons/ReceiptIcon';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -1203,7 +1204,9 @@ export function ExpensesScreen({ tokenStorage, apiBaseUrl }: ExpensesScreenProps
         }
         ListEmptyComponent={
           <View testID="expenses-empty" style={styles.emptyContainer}>
-            <Text style={styles.emptyIcon}>{'🧾'}</Text>
+            <View accessibilityElementsHidden={true}>
+              <ReceiptIcon color={T.color.text.primary} size={40} />
+            </View>
             <Text style={styles.emptyHeadline}>
               {isCurrentMonth
                 ? t('expenses.emptyHeadline')
@@ -1467,9 +1470,6 @@ const styles = StyleSheet.create({
     paddingTop: 32,
     paddingBottom: 20,
     gap: 10,
-  },
-  emptyIcon: {
-    fontSize: 40,
   },
   emptyHeadline: {
     fontFamily: T.type.label.fontFamily,                                    // Sarabun-SemiBold (from IBMPlexSans-SemiBold)

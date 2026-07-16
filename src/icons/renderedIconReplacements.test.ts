@@ -181,12 +181,30 @@ const GUARD_CASES: GuardCase[] = [
   },
 ];
 
+/**
+ * Strips single-line `//` comments before scanning for a rendered glyph.
+ * This is deliberately narrow (task #40 explicitly says code-comment review
+ * markers like 🔴🟡🟢, and historical "🟡 fix: ..." annotations quoting the
+ * old glyph in prose, are OUT OF SCOPE and must not be flagged). Only JSX/
+ * string-literal occurrences of the glyph (i.e. still-rendered code) fail.
+ */
+function stripLineComments(src: string): string {
+  return src
+    .split('\n')
+    .map((line) => {
+      const idx = line.indexOf('//');
+      return idx === -1 ? line : line.slice(0, idx);
+    })
+    .join('\n');
+}
+
 describe('Fail-on-revert guard — no rendered emoji/glyph icon remains (task #40 Wave 2)', () => {
   for (const { file, forbidden } of GUARD_CASES) {
     for (const glyph of forbidden) {
       it(`${file} — does not render the "${glyph}" glyph`, () => {
         const src = fs.readFileSync(path.join(REPO_ROOT, file), 'utf-8');
-        expect(src).not.toContain(glyph);
+        const codeOnly = stripLineComments(src);
+        expect(codeOnly).not.toContain(glyph);
       });
     }
   }

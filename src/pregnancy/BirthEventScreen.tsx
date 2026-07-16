@@ -678,7 +678,7 @@ export function BirthEventScreen({
               style={styles.modalInput}
               value={admissionInputText}
               onChangeText={setAdmissionInputText}
-              placeholder={'2026-06-29'}
+              placeholder={t('birth.dateModalPlaceholder')}
               placeholderTextColor={T.input.placeholder}
               keyboardType="numeric"
               autoFocus
@@ -726,7 +726,7 @@ export function BirthEventScreen({
               style={styles.modalInput}
               value={dischargeInputText}
               onChangeText={setDischargeInputText}
-              placeholder={'2026-06-29'}
+              placeholder={t('birth.dateModalPlaceholder')}
               placeholderTextColor={T.input.placeholder}
               keyboardType="numeric"
               autoFocus

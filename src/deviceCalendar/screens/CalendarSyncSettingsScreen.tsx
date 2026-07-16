@@ -33,6 +33,7 @@ import {
   Linking,
 } from 'react-native';
 import { T } from '../../theme/tokens';
+import { useT } from '../../i18n/LanguageContext';
 import { CalendarSyncConsentSheet } from './CalendarSyncConsentSheet';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
@@ -62,32 +63,6 @@ export interface CalendarSyncSettingsScreenProps {
   onToggleOn?: () => void;
 }
 
-// ─── Copy ─────────────────────────────────────────────────────────────────────
-
-const C = {
-  title:              'ปฏิทินในเครื่อง',
-  subtitle:           'ซิงก์นัดฝากครรภ์ไปยังปฏิทินในเครื่องของคุณ',
-  toggleLabel:        'เพิ่มนัดลงปฏิทิน',
-  toggleEnabled:      'เปิดอยู่',
-  toggleDisabled:     'ปิดอยู่',
-  privacyRow:         'ระดับความเป็นส่วนตัว',
-  privacyGeneric:     'ซ่อนชื่อนัด (ปลอดภัยกว่า)',
-  privacyDescriptive: 'แสดงชื่อนัด',
-  disableRow:         'ปิดการซิงก์ปฏิทิน',
-  offlineStrip:       'คุณออฟไลน์อยู่ การซิงก์ใหม่จะทำเมื่อมีอินเทอร์เน็ต',
-  osDeniedTitle:      'สิทธิ์ปฏิทินถูกปฏิเสธ',
-  osDeniedBody:       'เปิดสิทธิ์ปฏิทินในการตั้งค่าเครื่อง เพื่อให้แอปเพิ่มนัดได้',
-  osDeniedBtn:        'ไปที่การตั้งค่า',
-  statusEnabled:      'เปิดใช้งาน',
-  statusDisabled:     'ปิดใช้งาน',
-  disableDialogTitle: 'ปิดการซิงก์ปฏิทิน',
-  disableDialogMsg:   'จะให้ลบนัดที่เพิ่มลงปฏิทินแล้วด้วยหรือไม่?',
-  disableDelete:      'ปิดและลบนัดออกจากปฏิทิน',
-  disableKeep:        'ปิดและเก็บนัดไว้',
-  disableCancel:      'ยกเลิก',
-  back:               'ย้อนกลับ',
-} as const;
-
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export function CalendarSyncSettingsScreen({
@@ -103,6 +78,7 @@ export function CalendarSyncSettingsScreen({
   onDisableFeature,
   onToggleOn,
 }: CalendarSyncSettingsScreenProps) {
+  const { t } = useT();
   const [showConsentSheet, setShowConsentSheet] = useState(false);
 
   // Toggle handler — if turning ON and no consent yet, show consent sheet first
@@ -122,20 +98,20 @@ export function CalendarSyncSettingsScreen({
 
   function handleDisable() {
     Alert.alert(
-      C.disableDialogTitle,
-      C.disableDialogMsg,
+      t('calendarSync.disableDialogTitle'),
+      t('calendarSync.disableDialogMsg'),
       [
         {
-          text: C.disableCancel,
+          text: t('calendarSync.disableCancel'),
           style: 'cancel',
         },
         {
-          text: C.disableDelete,
+          text: t('calendarSync.disableDelete'),
           style: 'destructive',
           onPress: () => onDisableFeature?.('delete'),
         },
         {
-          text: C.disableKeep,
+          text: t('calendarSync.disableKeep'),
           onPress: () => onDisableFeature?.('keep'),
         },
       ],
@@ -154,10 +130,10 @@ export function CalendarSyncSettingsScreen({
 
   // Privacy level display label
   const privacyLabel =
-    privacyLevel === 'generic' ? C.privacyGeneric : C.privacyDescriptive;
+    privacyLevel === 'generic' ? t('calendarSync.privacyGeneric') : t('calendarSync.privacyDescriptive');
 
   // Status badge
-  const statusLabel   = featureEnabled ? C.statusEnabled : C.statusDisabled;
+  const statusLabel   = featureEnabled ? t('calendarSync.statusEnabled') : t('calendarSync.statusDisabled');
   const statusStyle   = featureEnabled ? s.statusEnabled : s.statusDisabled;
 
   return (
@@ -167,10 +143,10 @@ export function CalendarSyncSettingsScreen({
         style={s.backBtn}
         onPress={onBack}
         accessibilityRole="button"
-        accessibilityLabel={C.back}
+        accessibilityLabel={t('calendarSync.back')}
         testID="calendar-sync-back-btn"
       >
-        <Text style={s.backBtnText}>{C.back}</Text>
+        <Text style={s.backBtnText}>{t('calendarSync.back')}</Text>
       </TouchableOpacity>
 
       <ScrollView contentContainerStyle={s.scroll}>
@@ -180,9 +156,9 @@ export function CalendarSyncSettingsScreen({
           accessibilityRole="header"
           testID="calendar-sync-settings-title"
         >
-          {C.title}
+          {t('calendarSync.title')}
         </Text>
-        <Text style={s.subtitle}>{C.subtitle}</Text>
+        <Text style={s.subtitle}>{t('calendarSync.subtitle')}</Text>
 
         {/* CS-9 Offline strip — non-blocking */}
         {isOffline && (
@@ -190,9 +166,9 @@ export function CalendarSyncSettingsScreen({
             style={s.offlineStrip}
             accessible
             accessibilityRole="alert"
-            accessibilityLabel={C.offlineStrip}
+            accessibilityLabel={t('calendarSync.offlineStrip')}
           >
-            <Text style={s.offlineStripText}>{C.offlineStrip}</Text>
+            <Text style={s.offlineStripText}>{t('calendarSync.offlineStrip')}</Text>
           </View>
         )}
 
@@ -202,10 +178,10 @@ export function CalendarSyncSettingsScreen({
             style={s.attentionBanner}
             accessible
             accessibilityRole="alert"
-            accessibilityLabel={C.osDeniedTitle + '. ' + C.osDeniedBody}
+            accessibilityLabel={`${t('calendarSync.osDeniedTitle')}. ${t('calendarSync.osDeniedBody')}`}
           >
-            <Text style={s.attentionTitle}>{C.osDeniedTitle}</Text>
-            <Text style={s.attentionBody}>{C.osDeniedBody}</Text>
+            <Text style={s.attentionTitle}>{t('calendarSync.osDeniedTitle')}</Text>
+            <Text style={s.attentionBody}>{t('calendarSync.osDeniedBody')}</Text>
             <TouchableOpacity
               style={s.attentionBtn}
               // 🔴 fix: was a dead button (no onPress) — CS-6 recovery path was
@@ -213,10 +189,10 @@ export function CalendarSyncSettingsScreen({
               // re-grant calendar permission.
               onPress={() => { void Linking.openSettings(); }}
               accessibilityRole="button"
-              accessibilityLabel={C.osDeniedBtn}
+              accessibilityLabel={t('calendarSync.osDeniedBtn')}
               testID="calendar-sync-os-settings-btn"
             >
-              <Text style={s.attentionBtnText}>{C.osDeniedBtn}</Text>
+              <Text style={s.attentionBtnText}>{t('calendarSync.osDeniedBtn')}</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -228,7 +204,7 @@ export function CalendarSyncSettingsScreen({
             accessible={false}
           >
             <View style={s.rowContent}>
-              <Text style={s.rowLabel}>{C.toggleLabel}</Text>
+              <Text style={s.rowLabel}>{t('calendarSync.toggleLabel')}</Text>
               <View style={statusStyle}>
                 <Text style={s.statusText}>{statusLabel}</Text>
               </View>
@@ -238,7 +214,7 @@ export function CalendarSyncSettingsScreen({
               onValueChange={handleToggle}
               testID="calendar-sync-toggle"
               accessibilityRole="switch"
-              accessibilityLabel={C.toggleLabel}
+              accessibilityLabel={t('calendarSync.toggleLabel')}
               accessibilityState={{ checked: featureEnabled }}
               thumbColor={T.color.surface.base}
               trackColor={{
@@ -256,11 +232,11 @@ export function CalendarSyncSettingsScreen({
               style={s.row}
               onPress={onNavigateToPrivacyLevel}
               accessibilityRole="button"
-              accessibilityLabel={`${C.privacyRow}: ${privacyLabel}`}
-              accessibilityHint="เปิดหน้าเลือกระดับความเป็นส่วนตัว"
+              accessibilityLabel={`${t('calendarSync.privacyRow')}: ${privacyLabel}`}
+              accessibilityHint={t('calendarSync.privacyRowA11yHint')}
               testID="calendar-sync-privacy-row"
             >
-              <Text style={s.rowLabel}>{C.privacyRow}</Text>
+              <Text style={s.rowLabel}>{t('calendarSync.privacyRow')}</Text>
               <View style={s.rowRight}>
                 <Text style={s.rowValue}>{privacyLabel}</Text>
                 <Text style={s.chevron} aria-hidden>›</Text>
@@ -276,10 +252,10 @@ export function CalendarSyncSettingsScreen({
               style={s.row}
               onPress={handleDisable}
               accessibilityRole="button"
-              accessibilityLabel={C.disableRow}
+              accessibilityLabel={t('calendarSync.disableRow')}
               testID="calendar-sync-disable-btn"
             >
-              <Text style={[s.rowLabel, s.destructive]}>{C.disableRow}</Text>
+              <Text style={[s.rowLabel, s.destructive]}>{t('calendarSync.disableRow')}</Text>
             </TouchableOpacity>
           </View>
         )}

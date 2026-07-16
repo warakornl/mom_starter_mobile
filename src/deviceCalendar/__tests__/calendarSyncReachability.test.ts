@@ -36,6 +36,15 @@ jest.mock('react-native', () => ({
   Platform:          { OS: 'ios' },
 }));
 
+// CalendarSyncSettingsScreen now imports useT() (i18n) which transitively
+// imports expo-secure-store — an ESM native module ts-jest cannot transform.
+// Mock it here (same pattern as settingsLanguageRow.test.ts).
+jest.mock('expo-secure-store', () => ({
+  getItemAsync: jest.fn(() => Promise.resolve(null)),
+  setItemAsync: jest.fn(() => Promise.resolve()),
+  deleteItemAsync: jest.fn(() => Promise.resolve()),
+}));
+
 // ─── Route type tests ─────────────────────────────────────────────────────────
 
 // Verify route types are present in the param list

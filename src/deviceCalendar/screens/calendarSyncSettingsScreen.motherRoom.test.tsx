@@ -27,6 +27,10 @@ jest.mock('./CalendarSyncConsentSheet', () => ({
   CalendarSyncConsentSheet: 'CalendarSyncConsentSheet',
 }));
 
+jest.mock('../../i18n/LanguageContext', () => ({
+  useT: () => ({ t: (k: string) => k, locale: 'th', setLocale: jest.fn() }),
+}));
+
 import React from 'react';
 import { CalendarSyncSettingsScreen } from './CalendarSyncSettingsScreen';
 

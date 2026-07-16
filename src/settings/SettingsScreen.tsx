@@ -107,25 +107,17 @@ export function SettingsScreen({
         )}
 
         {/* Calendar Sync row — CS-4 entry point (calendar-sync-ui.md §3.1) */}
-        {/* mobile-reviewer 🟡 (cluster 6 review): title + a11y label/hint are
-         * hardcoded Thai, bypassing i18n (no English translation, ever).
-         * REPORTED — needs catalog keys 'settings.calendarSync.title'
-         * ('ซิงก์ปฏิทินในเครื่อง' / 'Sync calendar on device'),
-         * 'settings.calendarSync.a11yLabel' (same string, reusable), and
-         * 'settings.calendarSync.a11yHint' ('เปิดการตั้งค่าปฏิทิน' / 'Opens
-         * calendar settings'). Left as literals here (cannot edit
-         * messages.ts — shared file) until those keys land. */}
         {onCalendarSync && (
           <TouchableOpacity
             testID="settings-calendar-sync-btn"
             style={styles.menuRow}
             onPress={onCalendarSync}
             accessibilityRole="button"
-            accessibilityLabel="ซิงก์ปฏิทินในเครื่อง"
-            accessibilityHint="เปิดการตั้งค่าปฏิทิน"
+            accessibilityLabel={t('settings.calendarSync.a11yLabel')}
+            accessibilityHint={t('settings.calendarSync.a11yHint')}
           >
             <View style={styles.menuRowTextGroup}>
-              <Text style={styles.menuRowText}>ซิงก์ปฏิทินในเครื่อง</Text>
+              <Text style={styles.menuRowText}>{t('settings.calendarSync.title')}</Text>
             </View>
             <Text style={styles.menuRowChevron}>›</Text>
           </TouchableOpacity>

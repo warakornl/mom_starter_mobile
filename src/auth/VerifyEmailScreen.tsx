@@ -36,6 +36,7 @@ import {
   ActivityIndicator,
   ScrollView,
 } from 'react-native';
+import { EnvelopeIcon } from '../icons/EnvelopeIcon';
 
 import {
   handleResend,
@@ -211,8 +212,7 @@ export function VerifyEmailScreen({
 
       {/* Envelope illustration area */}
       <View style={styles.illustration} accessibilityElementsHidden={true}>
-        {/* Placeholder — swap for react-native-svg envelope when svg dep lands */}
-        <Text style={styles.envelopeEmoji}>✉️</Text>
+        <EnvelopeIcon color={T.color.text.heading} size={64} />
       </View>
 
       {/* Headline block */}
@@ -342,10 +342,6 @@ const styles = StyleSheet.create({
   illustration: {
     alignItems: 'center',
     paddingVertical: T.spacing[4],                    // 16dp
-  },
-  envelopeEmoji: {
-    fontSize: 64,
-    lineHeight: 80,
   },
 
   headlineBlock: {

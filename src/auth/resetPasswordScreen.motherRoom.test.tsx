@@ -3,6 +3,12 @@
  * TDD: ห้องแม่ Phase 2 B1 reskin — ResetPasswordScreen
  */
 
+jest.mock('react-native-svg', () => ({
+  __esModule: true,
+  default: 'Svg', Svg: 'Svg', Path: 'Path', Circle: 'Circle', Rect: 'Rect',
+  Line: 'Line', G: 'G', Ellipse: 'Ellipse',
+}));
+
 jest.mock('react-native', () => ({
   View: 'View', Text: 'Text', TextInput: 'TextInput', TouchableOpacity: 'TouchableOpacity',
   ActivityIndicator: 'ActivityIndicator', ScrollView: 'ScrollView',

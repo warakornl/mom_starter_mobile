@@ -45,6 +45,8 @@ import { createAuthClient } from './authApiClient';
 import { useT } from '../i18n/LanguageContext';
 import { takePendingLoginSuccessToast } from './loginSuccessToast';
 import { T } from '../theme/tokens';
+import { EyeIcon } from '../icons/EyeIcon';
+import { EyeOffIcon } from '../icons/EyeOffIcon';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -243,9 +245,13 @@ export function LoginScreen({
             accessibilityRole="button"
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Text style={styles.eyeIcon} accessibilityElementsHidden={true}>
-              {showPassword ? '🙈' : '👁'}
-            </Text>
+            <View accessibilityElementsHidden={true}>
+              {showPassword ? (
+                <EyeOffIcon color={T.color.text.primary} size={20} />
+              ) : (
+                <EyeIcon color={T.color.text.primary} size={20} />
+              )}
+            </View>
           </TouchableOpacity>
         </View>
 
@@ -382,7 +388,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  eyeIcon: { fontSize: 18 },
 
   fieldError: {
     fontFamily: T.type.body.fontFamily,            // Sarabun-Regular

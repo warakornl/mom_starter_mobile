@@ -60,6 +60,8 @@ import { InMemoryTokenStorage } from './tokenStorage';
 import { useT } from '../i18n/LanguageContext';
 import { clearResetToken } from '../deepLink/resetDeepLink';
 import { T } from '../theme/tokens';
+import { EyeIcon } from '../icons/EyeIcon';
+import { EyeOffIcon } from '../icons/EyeOffIcon';
 
 // ─── Props ────────────────────────────────────────────────────────────────────
 
@@ -280,7 +282,13 @@ export function ResetPasswordScreen({
             accessibilityLabel={showNewPassword ? t('login.hidePassword') : t('login.showPassword')}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Text style={styles.eyeIcon}>{showNewPassword ? '🙈' : '👁'}</Text>
+            <View accessibilityElementsHidden={true}>
+              {showNewPassword ? (
+                <EyeOffIcon color={T.color.text.primary} size={18} />
+              ) : (
+                <EyeIcon color={T.color.text.primary} size={18} />
+              )}
+            </View>
           </TouchableOpacity>
         </View>
         <Text style={styles.passwordHint}>{t('reset.passwordHint')}</Text>
@@ -319,7 +327,13 @@ export function ResetPasswordScreen({
             accessibilityLabel={showConfirm ? t('login.hidePassword') : t('login.showPassword')}
             hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           >
-            <Text style={styles.eyeIcon}>{showConfirm ? '🙈' : '👁'}</Text>
+            <View accessibilityElementsHidden={true}>
+              {showConfirm ? (
+                <EyeOffIcon color={T.color.text.primary} size={18} />
+              ) : (
+                <EyeIcon color={T.color.text.primary} size={18} />
+              )}
+            </View>
           </TouchableOpacity>
         </View>
         {showMismatch && (
@@ -472,9 +486,6 @@ const styles = StyleSheet.create({
     height: T.input.height,                           // 52dp (match input)
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  eyeIcon: {
-    fontSize: 18,
   },
   passwordHint: {
     fontFamily: T.type.caption.fontFamily,            // Sarabun-Regular

@@ -52,6 +52,7 @@ import { consentStore } from '../consent/consentStore';
 import { consentQueue } from '../consent/consentSync';
 import { refreshCalendarBridgeConsent } from '../deviceCalendar/deviceCalendarSingleton';
 import { useT } from '../i18n/LanguageContext';
+import type { MessageKey } from '../i18n/messages';
 import type { ConsentType } from '../consent/types';
 import {
   CONSENT_SECTION_ORDER,
@@ -123,7 +124,7 @@ function initialGrantedState(): Record<ConsentType, boolean> {
 
 // ─── Row i18n keys ────────────────────────────────────────────────────────────
 
-const ROW_TITLE_KEY: Record<ConsentType, string> = {
+const ROW_TITLE_KEY: Record<ConsentType, MessageKey> = {
   general_health:        'consent.general_health.title',
   cloud_storage:         'consent.cloud_storage.title',
   pdf_egress:            'consent.pdf_egress.title',
@@ -133,7 +134,7 @@ const ROW_TITLE_KEY: Record<ConsentType, string> = {
   calendar_sync:         'consent.calendar_sync.title',
 };
 
-const ROW_CAPTION_KEY: Record<ConsentType, string> = {
+const ROW_CAPTION_KEY: Record<ConsentType, MessageKey> = {
   general_health:        'consent.manage.row.general_health.caption',
   cloud_storage:         'consent.manage.row.cloud_storage.caption',
   pdf_egress:            'consent.manage.row.pdf_egress.caption',
@@ -347,7 +348,7 @@ export function ManageConsentsScreen({
                     onPress={() => handleToggle(type, !isOn)}
                     accessibilityRole="switch"
                     accessibilityLabel={
-                      `${t(ROW_TITLE_KEY[type] as Parameters<typeof t>[0])}, ${isOn ? t('consent.manage.row.stateOn') : t('consent.manage.row.stateOff')}, ${t('consent.manage.row.toggleHint')}`
+                      `${t(ROW_TITLE_KEY[type])}, ${isOn ? t('consent.manage.row.stateOn') : t('consent.manage.row.stateOff')}, ${t('consent.manage.row.toggleHint')}`
                     }
                   >
                     <View style={styles.rowLeft}>
@@ -363,10 +364,10 @@ export function ManageConsentsScreen({
                       )}
                       <View style={styles.rowTextGroup}>
                         <Text style={styles.rowTitle}>
-                          {t(ROW_TITLE_KEY[type] as Parameters<typeof t>[0])}
+                          {t(ROW_TITLE_KEY[type])}
                         </Text>
                         <Text style={styles.rowCaption}>
-                          {t(ROW_CAPTION_KEY[type] as Parameters<typeof t>[0])}
+                          {t(ROW_CAPTION_KEY[type])}
                         </Text>
                         {pendingSync && (
                           <Text

@@ -973,6 +973,10 @@ const th = {
   'consent.child_health.title': 'สุขภาพและอาการของลูก',
   'consent.child_health.body_copy': 'ข้อมูลนี้เป็นข้อมูลสุขภาพของลูกคุณ ซึ่งกฎหมายคุ้มครองเป็นพิเศษ คุณกำลังให้ความยินยอมในฐานะผู้ใช้อำนาจปกครอง เราจะเก็บ อาการของลูกและบันทึกสุขภาพที่คุณจดไว้ เพื่อบันทึกในเครื่อง ซิงค์ และรวมในรายงาน PDF ให้คุณหมอ',
   'consent.child_health.parental_note': 'ข้อมูลของลูก · คุณยินยอมในฐานะผู้ปกครอง',
+  // calendar_sync (#7): writes prenatal appointments to the on-device calendar
+  // (not third-party sharing). Copy aligned with the shipped calendarSync.* strings.
+  'consent.calendar_sync.title': 'ซิงก์ปฏิทินในเครื่อง',
+  'consent.calendar_sync.data_copy': 'เพิ่มนัดฝากครรภ์ลงปฏิทินในเครื่อง',
   'consent.child_health.browse_note': 'การดูคำแนะนำอาการโดยไม่บันทึกไม่ต้องการความยินยอมนี้',
   'consent.child_health.grant_btn': 'ยินยอม (ในฐานะผู้ปกครอง)',
   'consent.child_health.parental_attest_label': 'ฉันเป็นผู้ปกครอง/ผู้ใช้อำนาจปกครองของเด็กคนนี้',
@@ -2450,6 +2454,10 @@ const en: MsgShape = {
   'consent.child_health.title': 'Log your baby\'s health and symptoms',
   'consent.child_health.body_copy': 'This is your baby\'s health data, which the law protects specially. You are giving consent as the parent or legal guardian. We store your baby\'s symptoms and the health notes you record — to log them on your device, sync, and include them in a PDF for your doctor.',
   'consent.child_health.parental_note': 'Baby\'s data — you consent as parent',
+  // calendar_sync (#7): writes prenatal appointments to the on-device calendar
+  // (not third-party sharing). Copy aligned with the shipped calendarSync.* strings.
+  'consent.calendar_sync.title': 'Calendar sync',
+  'consent.calendar_sync.data_copy': 'Add prenatal appointments to your device\'s calendar',
   'consent.child_health.browse_note': 'Browsing symptom guidance without saving does not require this consent',
   'consent.child_health.grant_btn': 'Grant (as parent)',
   'consent.child_health.parental_attest_label': 'I am the parent / legal guardian of this child',

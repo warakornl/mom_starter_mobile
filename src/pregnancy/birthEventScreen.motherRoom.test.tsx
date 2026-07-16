@@ -194,27 +194,10 @@ describe('BirthEventScreen — ห้องแม่ Phase 2 B4 reskin', () => {
     expect(typeof p.onPreCommit).toBe('function');
   });
 
-  it('source-level guard: BirthEventScreen rejects any typed year > 2100 inline (no Continue-anyway path)', () => {
-    // Reads the actual component source and proves the >2100 guard exists
-    // AND runs strictly before the pre-existing future-date Continue-anyway
-    // Alert — i.e. the Continue-anyway path is provably unreachable for any
-    // BE-era year value. This is a source-level fail-on-revert check
-    // (same technique as manageConsentsScreenTheme.test.ts) rather than a
-    // full render, because this test harness mocks useState to always
-    // return the initializer, making dateInputText unobservable via render.
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const fs = require('fs') as typeof import('fs');
-    // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const path = require('path') as typeof import('path');
-    const source = fs.readFileSync(path.join(__dirname, 'BirthEventScreen.tsx'), 'utf8');
-
-    const guardIdx = source.indexOf('year > 2100');
-    const continueIdx = source.indexOf("t('birth.futureDateContinue')");
-    expect(guardIdx).toBeGreaterThan(-1);
-    expect(continueIdx).toBeGreaterThan(-1);
-    // The >2100 guard's early `return` must appear BEFORE the Continue-anyway
-    // Alert in source order, proving the Continue-anyway branch can never be
-    // reached with a BE-era year value.
-    expect(guardIdx).toBeLessThan(continueIdx);
-  });
+  // NOTE: the former "source-level guard" test (asserting `year > 2100` appears
+  // in BirthEventScreen source) was REMOVED — the BE-year guard now lives in the
+  // shared buddhistDateGuard.ts, so that string survives only in comments and the
+  // test became vacuous (green on comment text). The real reject behavior is
+  // proven by BuddhistDateField.rntl.test.tsx (guardMode="reject" render+press),
+  // and the screen-level wiring by the delegation test above.
 });

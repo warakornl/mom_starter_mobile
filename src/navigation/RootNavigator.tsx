@@ -40,7 +40,7 @@
  */
 
 import React, { useRef, useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, Alert } from 'react-native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import type { RootStackParamList } from './types';
@@ -347,31 +347,54 @@ function StackNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps): React
    *   4. Backfill future appointments if feature enabled successfully
    */
   const handleCalGrantConsent = React.useCallback(async (): Promise<void> => {
-    // 1. POST consent granted (no health data in body — INV-CAL-2)
-    await deviceCalendarBridge.grantConsent('v1.0');
-    // 2. Update local consent state and sync to bridge
-    consentStore.setGranted('calendar_sync', true, 'v1.0');
-    syncCalendarBridgeConsentFromStore();
-    // 3. Request OS permission + enable feature (OS prompt fires inside enableFeature)
-    const result = await deviceCalendarBridge.enableFeature();
-    // 4. Backfill future appointments if the OS permission was granted
-    if (result === 'ok') {
-      await backfillCalendarFromStore(localCivilToday());
+    try {
+      // 1. POST consent granted (no health data in body — INV-CAL-2)
+      await deviceCalendarBridge.grantConsent('v1.0');
+      // 2. Update local consent state and sync to bridge
+      consentStore.setGranted('calendar_sync', true, 'v1.0');
+      syncCalendarBridgeConsentFromStore();
+      // 3. Request OS permission + enable feature (OS prompt fires inside enableFeature)
+      const result = await deviceCalendarBridge.enableFeature();
+      // 4. Backfill future appointments if the OS permission was granted
+      if (result === 'ok') {
+        await backfillCalendarFromStore(localCivilToday());
+      }
+    } catch (err) {
+      // Bug fix: previously unhandled — a thrown error (e.g. the native
+      // ExpoCalendar module unavailable, see expoCalendarGateway.ts) left the
+      // mother with no feedback at all (toggle silently stayed off).
+      // CAL-SA-50b: log op + result code only — NEVER the raw error/stack.
+      console.warn('[calendarSync] enable failed: op=grantConsent result=error');
+      Alert.alert(t('calendarSync.enableErrorTitle'), t('calendarSync.enableErrorBody'), [
+        { text: t('calendarSync.enableErrorOk') },
+      ]);
+      void err; // intentionally not logged/rethrown (K-8)
+    } finally {
+      refreshCalSyncState();
     }
-    refreshCalSyncState();
-  }, [refreshCalSyncState]);
+  }, [refreshCalSyncState, t]);
 
   /**
    * onToggleOn — called when the user toggles ON and consent is already granted.
    * Requests OS permission and enables the feature (no consent POST needed).
    */
   const handleCalToggleOn = React.useCallback(async (): Promise<void> => {
-    const result = await deviceCalendarBridge.enableFeature();
-    if (result === 'ok') {
-      await backfillCalendarFromStore(localCivilToday());
+    try {
+      const result = await deviceCalendarBridge.enableFeature();
+      if (result === 'ok') {
+        await backfillCalendarFromStore(localCivilToday());
+      }
+    } catch (err) {
+      // Bug fix — see handleCalGrantConsent above for full root-cause context.
+      console.warn('[calendarSync] enable failed: op=toggleOn result=error');
+      Alert.alert(t('calendarSync.enableErrorTitle'), t('calendarSync.enableErrorBody'), [
+        { text: t('calendarSync.enableErrorOk') },
+      ]);
+      void err;
+    } finally {
+      refreshCalSyncState();
     }
-    refreshCalSyncState();
-  }, [refreshCalSyncState]);
+  }, [refreshCalSyncState, t]);
 
   /**
    * onDisableFeature — US-9 disable flow.
@@ -1275,6 +1298,9 @@ function StackNavigator({ tokenStorage, apiBaseUrl }: RootNavigatorProps): React
               nav.navigate('SupplyItemPicker', { activityType })
             }
             onNavigateConsent={() => nav.navigate('ManageConsents')}
+            // Bug fix: refresh the mapping list on focus (return from
+            // SupplyItemPickerScreen after linking) — see screen for root cause.
+            navigation={nav}
           />
         )}
       </Stack.Screen>

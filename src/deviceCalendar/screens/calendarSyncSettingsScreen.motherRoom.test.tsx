@@ -27,6 +27,8 @@ jest.mock('./CalendarSyncConsentSheet', () => ({
   CalendarSyncConsentSheet: 'CalendarSyncConsentSheet',
 }));
 
+jest.mock('react-native-safe-area-context', () => ({ SafeAreaView: 'SafeAreaView' }));
+
 jest.mock('../../i18n/LanguageContext', () => ({
   useT: () => ({ t: (k: string) => k, locale: 'th', setLocale: jest.fn() }),
 }));
@@ -61,6 +63,21 @@ const baseProps = {
   featureEnabled: true,
   osPermissionGranted: false, // CS-6 banner only renders when denied
 };
+
+describe('CalendarSyncSettingsScreen — bug fix: footer/bottom safe-area space (Bug #2a)', () => {
+  // ROOT CAUSE (owner report "ไม่เว้นที่ไว้ให้ footer"): the screen root was a
+  // plain react-native View with no SafeAreaView / bottom-inset handling —
+  // same root-cause class as AutoDecrementSettingsScreen (Bug #3a). On iOS
+  // devices with a home indicator, the last row (privacy level / disable) sat
+  // under/flush against the safe area. FAIL-ON-REVERT: reverting the root to
+  // a plain 'View' makes this test fail (no SafeAreaView in the tree).
+  it('root element is SafeAreaView with edges=["bottom"] (matches SettingsScreen convention)', () => {
+    const tree = CalendarSyncSettingsScreen(baseProps) as React.ReactElement;
+    expect(tree.type).toBe('SafeAreaView');
+    const props = tree.props as Record<string, unknown>;
+    expect(props.edges).toEqual(['bottom']);
+  });
+});
 
 describe('CalendarSyncSettingsScreen — CS-6 OS-settings recovery button', () => {
   it('FAIL-ON-REVERT: os-settings button onPress calls Linking.openSettings()', () => {

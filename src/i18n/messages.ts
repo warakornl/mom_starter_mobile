@@ -292,6 +292,9 @@ const th = {
   'calendarSync.disableKeep': 'ปิดและเก็บนัดไว้',
   'calendarSync.disableCancel': 'ยกเลิก',
   'calendarSync.back': 'ย้อนกลับ',
+  'calendarSync.enableErrorTitle': 'เปิดใช้งานไม่สำเร็จ',
+  'calendarSync.enableErrorBody': 'ไม่สามารถเชื่อมต่อปฏิทินในเครื่องได้ในขณะนี้ กรุณาลองใหม่อีกครั้ง',
+  'calendarSync.enableErrorOk': 'ตกลง',
 
   // ── Calendar Sync Privacy Level screen (CS-5/CS-5b) — mirrors
   // CalendarSyncPrivacyLevelScreen.tsx's C object. Reuses calendarSync.back /
@@ -1884,6 +1887,9 @@ const en: MsgShape = {
   'calendarSync.disableKeep': 'Turn off and keep appointments',
   'calendarSync.disableCancel': 'Cancel',
   'calendarSync.back': 'Back',
+  'calendarSync.enableErrorTitle': "Couldn't turn on",
+  'calendarSync.enableErrorBody': "We couldn't connect to your device calendar right now. Please try again.",
+  'calendarSync.enableErrorOk': 'OK',
 
   // ── Calendar Sync Privacy Level screen (CS-5/CS-5b) ───────────────────────────
   'calendarSyncPrivacyLevel.title': 'Privacy level',

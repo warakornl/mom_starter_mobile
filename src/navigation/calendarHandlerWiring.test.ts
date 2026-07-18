@@ -239,6 +239,7 @@ import React from 'react';
 import { RootNavigator } from './RootNavigator';
 import { CalendarSyncSettingsScreen } from '../deviceCalendar/screens/CalendarSyncSettingsScreen';
 import { deviceCalendarBridge } from '../deviceCalendar/deviceCalendarSingleton';
+import { Alert as MockAlert } from 'react-native';
 
 // ─── Typed mock handles ───────────────────────────────────────────────────────
 
@@ -462,6 +463,78 @@ describe('[CalendarHandlerWiring] CalendarSyncSettings.onToggleOn → real handl
     await noOpToggleOn();
 
     expect(mockEnableFeature).not.toHaveBeenCalled();
+  });
+});
+
+// ── Suite 2b: bug fix — thrown errors surface to the mother instead of vanishing ──
+//
+// ROOT CAUSE (owner report "เปิดใช้งานกับการ sync ปฏิทินในเครื่องไม่ได้"):
+// enableFeature()/grantConsent() previously had no try/catch anywhere on the
+// call path (screen → navigator handler → bridge). If the bridge throws
+// (e.g. the native ExpoCalendar module is unavailable — Expo Go cannot load
+// expo-calendar at all, see expoCalendarGateway.ts header comment), the
+// rejection propagates unhandled: refreshCalSyncState() never runs, no error
+// UI appears, and the toggle silently stays off. Fixed by wrapping the bridge
+// calls so a failure is caught, logged safely (no health data — CAL-SA-50b),
+// state is still refreshed, and Alert.alert surfaces a retry-able message.
+
+describe('[CalendarHandlerWiring] bug fix: thrown bridge errors surface via Alert, not silently', () => {
+  let StackNavigatorFn: StackNavigatorFnType;
+
+  beforeAll(() => {
+    StackNavigatorFn = getStackNavigatorFn();
+  });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
+  it(
+    'onGrantConsent: if bridge.enableFeature() throws, the handler does not rethrow ' +
+    'and Alert.alert is called (FAIL-ON-REVERT: no try/catch → this test throws instead of asserting)',
+    async () => {
+      mockEnableFeature.mockRejectedValueOnce(new Error('Cannot find native module \'ExpoCalendar\''));
+
+      const navMock = { navigate: jest.fn(), goBack: jest.fn() };
+      const screenElement = getCalendarSyncSettingsElement(StackNavigatorFn, navMock);
+      const { onGrantConsent } = screenElement.props as { onGrantConsent?: () => Promise<void> };
+
+      await expect(onGrantConsent!()).resolves.toBeUndefined();
+
+      const alertMock = (MockAlert as unknown as { alert: jest.Mock }).alert;
+      expect(alertMock).toHaveBeenCalled();
+    },
+  );
+
+  it(
+    'onToggleOn: if bridge.enableFeature() throws, the handler does not rethrow ' +
+    'and Alert.alert is called',
+    async () => {
+      mockEnableFeature.mockRejectedValueOnce(new Error('Cannot find native module \'ExpoCalendar\''));
+
+      const navMock = { navigate: jest.fn(), goBack: jest.fn() };
+      const screenElement = getCalendarSyncSettingsElement(StackNavigatorFn, navMock);
+      const { onToggleOn } = screenElement.props as { onToggleOn?: () => Promise<void> };
+
+      await expect(onToggleOn!()).resolves.toBeUndefined();
+
+      const alertMock = (MockAlert as unknown as { alert: jest.Mock }).alert;
+      expect(alertMock).toHaveBeenCalled();
+    },
+  );
+
+  it('onGrantConsent: Alert message never includes the raw error/stack (K-8 no PII/internal detail leak)', async () => {
+    mockEnableFeature.mockRejectedValueOnce(new Error('some internal stack trace detail'));
+
+    const navMock = { navigate: jest.fn(), goBack: jest.fn() };
+    const screenElement = getCalendarSyncSettingsElement(StackNavigatorFn, navMock);
+    const { onGrantConsent } = screenElement.props as { onGrantConsent?: () => Promise<void> };
+
+    await onGrantConsent!();
+
+    const alertMock = (MockAlert as unknown as { alert: jest.Mock }).alert;
+    const [, body] = alertMock.mock.calls[0] as [string, string];
+    expect(body).not.toMatch(/internal stack trace/);
   });
 });
 

@@ -36,6 +36,12 @@ jest.mock('react-native', () => ({
   Platform:          { OS: 'ios' },
 }));
 
+// CalendarSyncSettingsScreen now imports SafeAreaView from
+// react-native-safe-area-context (bug fix — footer/bottom safe-area space).
+// That package's real module is ESM and not transformed here — mock it
+// (same pattern as calendarSyncSettingsScreen.motherRoom.test.tsx).
+jest.mock('react-native-safe-area-context', () => ({ SafeAreaView: 'SafeAreaView' }));
+
 // CalendarSyncSettingsScreen now imports useT() (i18n) which transitively
 // imports expo-secure-store — an ESM native module ts-jest cannot transform.
 // Mock it here (same pattern as settingsLanguageRow.test.ts).

@@ -27,7 +27,13 @@
       ],
       "@react-native-community/datetimepicker",
       "expo-secure-store",
-      "expo-font"
+      "expo-font",
+      [
+        "expo-calendar",
+        {
+          "calendarPermission": "แอปต้องการสิทธิ์เข้าถึงปฏิทินในเครื่อง เพื่อเพิ่มนัดหมายที่คุณบันทึกไว้ลงในปฏิทินของคุณ"
+        }
+      ]
     ],
     "ios": {
       "supportsTablet": false,

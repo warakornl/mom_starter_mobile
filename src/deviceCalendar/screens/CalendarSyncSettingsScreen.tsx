@@ -32,6 +32,7 @@ import {
   Alert,
   Linking,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { T } from '../../theme/tokens';
 import { useT } from '../../i18n/LanguageContext';
 import { CalendarSyncConsentSheet } from './CalendarSyncConsentSheet';
@@ -137,7 +138,11 @@ export function CalendarSyncSettingsScreen({
   const statusStyle   = featureEnabled ? s.statusEnabled : s.statusDisabled;
 
   return (
-    <View style={s.screen} testID="calendar-sync-settings-screen">
+    // Bug fix (owner report "ไม่เว้นที่ไว้ให้ footer"): plain View gave no
+    // bottom safe-area space, so the last row (privacy level / disable) sat
+    // under/flush against the iOS home indicator. SafeAreaView edges=['bottom']
+    // matches the convention already used by SettingsScreen.
+    <SafeAreaView style={s.screen} edges={['bottom']} testID="calendar-sync-settings-screen">
       {/* Back button */}
       <TouchableOpacity
         style={s.backBtn}
@@ -267,7 +272,7 @@ export function CalendarSyncSettingsScreen({
         onGrant={handleConsentGrant}
         onDecline={handleConsentDecline}
       />
-    </View>
+    </SafeAreaView>
   );
 }
 

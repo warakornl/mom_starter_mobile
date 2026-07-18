@@ -26,6 +26,12 @@ jest.mock('react', () => {
   return {
     ...actual,
     useState: jest.fn((init: unknown) => [init, jest.fn()]),
+    // Plain-function-call harness has no fiber/reconciler, so real useEffect
+    // would never flush. Run the effect body synchronously (once per call,
+    // matching a "fresh mount") so the navigation.addListener('focus', ...)
+    // wiring (Bug #3 fix) is exercised the same way handleToggle/handleUnlink
+    // already are via the useState shim above.
+    useEffect: jest.fn((effect: () => void) => { effect(); }),
   };
 });
 
@@ -47,6 +53,8 @@ jest.mock('react-native', () => ({
   ActivityIndicator: 'ActivityIndicator',
   Platform: { OS: 'ios' },
 }));
+
+jest.mock('react-native-safe-area-context', () => ({ SafeAreaView: 'SafeAreaView' }));
 
 jest.mock('../i18n/LanguageContext', () => ({
   useT: jest.fn(() => ({
@@ -506,6 +514,62 @@ describe('AutoDecrementSettingsScreen — review fix: toggle/unlink trigger a re
 
     expect(consumptionMappingStore.enqueueDelete).toHaveBeenCalledTimes(1);
     expect(setStateSpy).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('AutoDecrementSettingsScreen — bug fix: footer/bottom safe-area space (Bug #3a)', () => {
+  // ROOT CAUSE (owner report "ไม่เว้นที่ไว้ให้ footer"): the screen root was a
+  // plain react-native View — no SafeAreaView, no bottom-inset handling — so
+  // on iOS devices with a home indicator, the ScrollView's last content (the
+  // final activity section's "Link an item" affordance) sits flush against
+  // (or under) the home-indicator safe area. FAIL-ON-REVERT: reverting the
+  // root to a plain 'View' makes this test fail (no SafeAreaView in the tree).
+  it('root element is SafeAreaView with edges=["bottom"] (matches SettingsScreen convention)', () => {
+    const tree = AutoDecrementSettingsScreen(baseProps) as React.ReactElement;
+    expect(tree.type).toBe('SafeAreaView');
+    const props = tree.props as Record<string, unknown>;
+    expect(props.edges).toEqual(['bottom']);
+  });
+});
+
+describe('AutoDecrementSettingsScreen — bug fix: refresh on focus after linking (Bug #3)', () => {
+  // ROOT CAUSE (owner report "ไม่สามารถเชื่อมต่อของใช้ได้"): this screen is
+  // stateless except for its own toggle/unlink forceRerender tick. Navigating
+  // to SupplyItemPickerScreen, picking an item (which enqueueCreate's a new
+  // mapping into the store), then goBack() does NOT remount this screen —
+  // React Navigation keeps it mounted. With no focus subscription, the screen
+  // never re-reads consumptionMappingStore.getAll(), so the newly linked item
+  // never appears — it looks exactly like "linking failed" to the mother.
+  //
+  // FAIL-ON-REVERT: if the navigation.addListener('focus', ...) wiring is
+  // removed, this test fails because addListener is never called with 'focus'.
+  it('subscribes to the navigation focus event so the mapping list refreshes on return from the picker', () => {
+    const setStateSpy = jest.fn();
+    const useStateMock = React.useState as unknown as jest.Mock;
+    useStateMock.mockReturnValueOnce([0, setStateSpy]);
+
+    const listeners: Record<string, () => void> = {};
+    const navigation = {
+      addListener: jest.fn((event: string, cb: () => void) => {
+        listeners[event] = cb;
+        return jest.fn(); // unsubscribe
+      }),
+    };
+
+    AutoDecrementSettingsScreen({ ...baseProps, navigation } as never) as React.ReactElement;
+
+    expect(navigation.addListener).toHaveBeenCalledWith('focus', expect.any(Function));
+
+    // Simulate returning from SupplyItemPickerScreen after a successful pick —
+    // firing the registered 'focus' callback must trigger a re-render.
+    listeners.focus?.();
+    expect(setStateSpy).toHaveBeenCalled();
+  });
+
+  it('does not throw when navigation prop is omitted (existing prop-only call sites/tests)', () => {
+    expect(() => {
+      AutoDecrementSettingsScreen(baseProps) as React.ReactElement;
+    }).not.toThrow();
   });
 });
 

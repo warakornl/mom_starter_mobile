@@ -43,7 +43,7 @@
  *   auto-stock-decrement-functional.md §9.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -52,6 +52,7 @@ import {
   ScrollView,
   Switch,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { v4 as uuidv4 } from 'uuid';
 
 import type { TokenStorage } from '../auth/tokenStorage';
@@ -78,6 +79,13 @@ export interface AutoDecrementSettingsScreenProps {
   onNavigateItemPicker?: (activityType: MappingActivityType) => void;
   /** Called to navigate to consent flow. */
   onNavigateConsent?: (consentType: ConsentType) => void;
+  /**
+   * Optional navigation object (subset of React Navigation's prop), used ONLY
+   * to subscribe to the 'focus' event (bug fix — see forceRerender-on-focus
+   * effect below). Screen stays hook-minimal/testable-as-plain-function:
+   * omit this prop and the screen behaves exactly as before (no subscription).
+   */
+  navigation?: { addListener: (event: 'focus', cb: () => void) => () => void };
 }
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -177,6 +185,7 @@ export function AutoDecrementSettingsScreen(
     onNavigateSubUnitSetup,
     onNavigateItemPicker,
     onNavigateConsent,
+    navigation,
   } = props;
 
   // useT is mocked as a plain function in unit tests — safe to call here.
@@ -189,6 +198,27 @@ export function AutoDecrementSettingsScreen(
   // to re-render, so the Switch never visually flips and unlinked rows never
   // disappear (review fix — mutation-without-re-render bug).
   const [, forceRerender] = useState(0);
+
+  /**
+   * Bug fix (owner report "ไม่สามารถเชื่อมต่อของใช้ได้" — can't link supplies):
+   * this screen reads consumptionMappingStore.getAll() synchronously at render
+   * time (offline-first, no loading state). Navigating to SupplyItemPickerScreen,
+   * picking an item (enqueueCreate), then goBack() does NOT remount this screen
+   * — React Navigation keeps prior screens mounted. With no focus subscription,
+   * this screen never re-ran, so the newly linked item never appeared, even
+   * though the store write succeeded. Subscribing to 'focus' and bumping the
+   * same forceRerender tick used by toggle/unlink fixes this at the root.
+   * Optional-navigation-prop keeps the screen testable as a plain function
+   * (existing unit tests omit `navigation` and are unaffected).
+   */
+  useEffect(() => {
+    if (!navigation) return;
+    const unsubscribe = navigation.addListener('focus', () => {
+      forceRerender((n) => n + 1);
+    });
+    return unsubscribe;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [navigation]);
 
   // Synchronous reads — in-memory store is always populated from local DB.
   // No loading state: offline-first means data is always available locally.
@@ -232,7 +262,11 @@ export function AutoDecrementSettingsScreen(
   // ── Render ──
 
   return (
-    <View style={styles.root}>
+    // Bug fix (owner report "ไม่เว้นที่ไว้ให้ footer"): plain View gave no
+    // bottom safe-area space, so the last section's content sat under/flush
+    // against the iOS home indicator. SafeAreaView edges=['bottom'] matches
+    // the convention already used by SettingsScreen.
+    <SafeAreaView style={styles.root} edges={['bottom']}>
       {/* Nav bar */}
       <View style={styles.navBar}>
         <TouchableOpacity
@@ -368,7 +402,7 @@ export function AutoDecrementSettingsScreen(
           );
         })}
       </ScrollView>
-    </View>
+    </SafeAreaView>
   );
 }
 

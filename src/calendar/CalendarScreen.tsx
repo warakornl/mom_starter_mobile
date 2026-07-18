@@ -62,6 +62,8 @@ import { useT } from '../i18n/LanguageContext';
 import { formatCivilDate, formatYearMonth, interpolate, WEEKDAYS } from '../i18n/messages';
 import { kickCountSyncStore } from '../kickCount/kickCountSyncStore';
 import { getKickCountSessionsForDate } from './kickCountAgenda';
+import { feedingSessionStore } from '../autoStockDecrement/feedingSessionStore';
+import { getFeedingSessionsForDate } from './feedingAgenda';
 import { calendarSyncStore } from '../sync/calendarSyncStore';
 import { createCalendarSyncClient } from '../sync/syncClient';
 import { executePush } from '../sync/pushOrchestrator';
@@ -333,6 +335,22 @@ function occurrenceStatusLabel(
     missed: 'calendar.status.missed',
   };
   return t(keyMap[status]);
+}
+
+/**
+ * Feeding-session kind label (bug fix — feeding log now appears on the
+ * calendar). FW-1: neutral copy only via i18n keys, no brand/product names.
+ */
+function feedingKindLabel(
+  kind: 'breastfeed' | 'pump' | 'formula',
+  t: (key: MessageKey) => string,
+): string {
+  const keyMap: Record<'breastfeed' | 'pump' | 'formula', MessageKey> = {
+    breastfeed: 'calendar.feeding.breastfeed',
+    pump: 'calendar.feeding.pump',
+    formula: 'calendar.feeding.formula',
+  };
+  return t(keyMap[kind]);
 }
 
 // ─── Dot indicator per day ────────────────────────────────────────────────────
@@ -638,6 +656,25 @@ export function CalendarScreen({
       ? []
       : getKickCountSessionsForDate(
           kickCountSyncStore.getActiveSessions(),
+          selectedDate,
+          bucketCivilDay,
+        ),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [selectedDate, refreshKey, lifecycle],
+  );
+
+  // Feeding sessions for the selected day.
+  // Bug fix (owner report "บันทึกการให้นมไม่ขึ้นในปฏิทิน"): feedingSessionStore
+  // was written to by FeedingLogScreen but never read anywhere else — the
+  // calendar had no concept of feeding sessions at all. Wired here exactly
+  // like kickCountItems above (same refreshKey/focus-refresh mechanism, same
+  // civil-date bucketing, same lifecycle='ended' loss-state suppression).
+  // Security (K-8): NEVER log amountSubUnits/volumeMl/durationSeconds/note.
+  const feedingItems = useMemo(
+    () => lifecycle === 'ended'
+      ? []
+      : getFeedingSessionsForDate(
+          feedingSessionStore.getAll(),
           selectedDate,
           bucketCivilDay,
         ),
@@ -1058,7 +1095,7 @@ export function CalendarScreen({
         </View>
 
         {/* ── Agenda list ──────────────────────────────────────────────── */}
-        {selectedItems.length === 0 && kickCountItems.length === 0 ? (
+        {selectedItems.length === 0 && kickCountItems.length === 0 && feedingItems.length === 0 ? (
           <View style={styles.emptyState}>
             <PandanEmptyState />
             <Text style={styles.emptyText}>{t('calendar.empty')}</Text>
@@ -1156,6 +1193,32 @@ export function CalendarScreen({
               </Text>
               {kc.timeLabel.length > 0 && (
                 <Text style={styles.agendaTime}>{kc.timeLabel}</Text>
+              )}
+            </View>
+          </View>
+        ))}
+
+        {/* ── Feeding-session rows ───────────────────────────────────────
+            Bug fix (owner report "บันทึกการให้นมไม่ขึ้นในปฏิทิน"): feeding
+            sessions logged in FeedingLogScreen now appear here, on the day
+            they were logged. Display is read-only (no navigation — SD-9:
+            no health in route params).
+            Security (K-8): never renders amountSubUnits/volumeMl/durationSeconds.
+            testID="calendar-feeding-item" — used by Maestro / jest queries. */}
+        {feedingItems.map((fs) => (
+          <View
+            key={fs.id}
+            testID="calendar-feeding-item"
+            style={styles.agendaItem}
+            accessibilityLabel={feedingKindLabel(fs.kind, t)}
+          >
+            <View style={[styles.agendaDot, styles.dotJade]} />
+            <View style={styles.agendaContent}>
+              <Text style={styles.agendaTitle}>
+                {feedingKindLabel(fs.kind, t)}
+              </Text>
+              {fs.timeLabel.length > 0 && (
+                <Text style={styles.agendaTime}>{fs.timeLabel}</Text>
               )}
             </View>
           </View>
@@ -1343,6 +1406,12 @@ const styles = StyleSheet.create({
    * (amber-600 / accent.milestone) per ห้องแม่ palette (roselle/amber/jade only).
    */
   dotViolet: { backgroundColor: T.color.accent.milestone },
+  /**
+   * Feeding-session dot (bug fix — feeding sessions now appear on the calendar).
+   * jade-800 (accent.botanical) — distinct from dotSage (jade-600/success) while
+   * staying in-palette (roselle/amber/jade only, no new hex).
+   */
+  dotJade: { backgroundColor: T.color.accent.botanical },
 
   todayBtn: {
     alignSelf: 'center',

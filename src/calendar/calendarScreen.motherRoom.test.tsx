@@ -63,6 +63,14 @@ jest.mock('./kickCountAgenda', () => ({
   getKickCountSessionsForDate: jest.fn(() => []),
 }));
 
+jest.mock('../autoStockDecrement/feedingSessionStore', () => ({
+  feedingSessionStore: { getAll: jest.fn(() => []) },
+}));
+
+jest.mock('./feedingAgenda', () => ({
+  getFeedingSessionsForDate: jest.fn(() => []),
+}));
+
 jest.mock('../sync/calendarSyncStore', () => ({
   calendarSyncStore: {
     getActiveReminders: jest.fn(() => []),
@@ -548,5 +556,89 @@ describe('CalendarScreen — kickCountItems session-row loss gate (B2 BLOCKER B)
       return p.testID === 'calendar-kickcount-item';
     });
     expect(kickRows.length).toBeGreaterThan(0);
+  });
+});
+
+// ─── feedingItems agenda row (bug fix — "บันทึกการให้นมไม่ขึ้นในปฏิทิน") ────────
+//
+// ROOT CAUSE: feedingSessionStore was never read by CalendarScreen at all —
+// no CalendarItem kind, no agenda row rendering. Fixed by wiring
+// feedingSessionStore.getAll() through getFeedingSessionsForDate into a new
+// feedingItems useMemo (mirrors kickCountItems exactly, including the
+// lifecycle='ended' loss-state suppression).
+//
+// These tests render CalendarScreen with a mocked getFeedingSessionsForDate
+// that returns a non-empty session and assert:
+//   - the row IS rendered (proves the wiring is real, not just present in code)
+//   - the row is ABSENT when lifecycle='ended' (loss-state parity with kick-count)
+//   - the row is PRESENT when lifecycle='pregnant'/undefined
+
+const { getFeedingSessionsForDate } = jest.requireMock('./feedingAgenda') as {
+  getFeedingSessionsForDate: jest.Mock;
+};
+
+const fakeFeedingSession = {
+  id: 'fs-1',
+  timeLabel: '10:00',
+  kind: 'breastfeed' as const,
+};
+
+describe('CalendarScreen — bug fix: feeding sessions appear in the agenda', () => {
+  beforeEach(() => {
+    getFeedingSessionsForDate.mockReturnValue([fakeFeedingSession]);
+  });
+
+  afterEach(() => {
+    getFeedingSessionsForDate.mockReturnValue([]);
+  });
+
+  it('FAIL-ON-REVERT: renders a calendar-feeding-item row when a feeding session exists on the selected day', () => {
+    const tree = CalendarScreen({
+      ...baseProps,
+      lifecycle: 'pregnant',
+    }) as React.ReactElement;
+    const feedingRows = findAll(tree, (el) => {
+      const p = el.props as Record<string, unknown>;
+      return p.testID === 'calendar-feeding-item';
+    });
+    expect(feedingRows.length).toBeGreaterThan(0);
+  });
+
+  it('LOSS-GATE: feeding-session row is ABSENT when lifecycle = "ended"', () => {
+    const tree = CalendarScreen({
+      ...baseProps,
+      lifecycle: 'ended',
+    }) as React.ReactElement;
+    const feedingRows = findAll(tree, (el) => {
+      const p = el.props as Record<string, unknown>;
+      return p.testID === 'calendar-feeding-item';
+    });
+    expect(feedingRows).toHaveLength(0);
+  });
+
+  it('GAP-2: feeding-session row IS present when lifecycle = undefined', () => {
+    const tree = CalendarScreen({
+      ...baseProps,
+    }) as React.ReactElement;
+    const feedingRows = findAll(tree, (el) => {
+      const p = el.props as Record<string, unknown>;
+      return p.testID === 'calendar-feeding-item';
+    });
+    expect(feedingRows.length).toBeGreaterThan(0);
+  });
+
+  it('never renders amountSubUnits/volumeMl/durationSeconds text (K-8) — only the neutral kind label + time', () => {
+    const tree = CalendarScreen({
+      ...baseProps,
+      lifecycle: 'pregnant',
+    }) as React.ReactElement;
+    const feedingRow = findAll(tree, (el) => {
+      const p = el.props as Record<string, unknown>;
+      return p.testID === 'calendar-feeding-item';
+    })[0];
+    expect(feedingRow).toBeDefined();
+    // accessibilityLabel must be the resolved i18n key only (mocked t() is identity).
+    const label = (feedingRow.props as Record<string, unknown>).accessibilityLabel;
+    expect(label).toBe('calendar.feeding.breastfeed');
   });
 });

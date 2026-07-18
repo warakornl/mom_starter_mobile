@@ -655,6 +655,17 @@ const th = {
    */
   'calendar.kickCount.label': 'นับลูกดิ้น: {count} ครั้ง',
 
+  /**
+   * Feeding-session agenda row labels (bug fix — feeding log now appears on
+   * the calendar). FW-1: neutral copy only, no brand/product names — reuses
+   * the same terms as feedingLog.breastfeed/pump + autoDecrement's formula
+   * label so the vocabulary is consistent app-wide.
+   * Security K-8: displayed to the owner only; never logged.
+   */
+  'calendar.feeding.breastfeed': 'ให้นมแม่',
+  'calendar.feeding.pump': 'ปั๊มนม',
+  'calendar.feeding.formula': 'ให้นมผง',
+
   // ── Appointments (นัดหมาย) ────────────────────────────────────────────────────
   'appointment.navTitleNew': 'นัดหมายใหม่',
   'appointment.navTitleEdit': 'แก้ไขนัดหมาย',
@@ -2184,6 +2195,11 @@ const en: MsgShape = {
   'calendar.syncError': 'Sync failed — try again',
   /** Kick-count agenda row label (feat-kickcount-in-calendar). {count} = movementCount. */
   'calendar.kickCount.label': 'Kick count: {count}',
+
+  /** Feeding-session agenda row labels (bug fix — feeding log now appears on the calendar). */
+  'calendar.feeding.breastfeed': 'Breastfeed',
+  'calendar.feeding.pump': 'Pump',
+  'calendar.feeding.formula': 'Formula feed',
 
   // ── Appointments ──────────────────────────────────────────────────────────────
   'appointment.navTitleNew': 'New appointment',

@@ -131,6 +131,7 @@ const styles = StyleSheet.create({
     minHeight: 34,
     justifyContent: 'center',
     alignItems: 'center',
+    marginRight: T.spacing[1],              // 4dp — nudge off the flex-end edge (owner: "ชิดขวามากเกินไป")
   },
   langToggleText: {
     fontFamily: T.type.caption.fontFamily,  // Sarabun-Regular

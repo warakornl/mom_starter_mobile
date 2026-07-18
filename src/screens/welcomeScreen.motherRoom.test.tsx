@@ -205,6 +205,59 @@ describe('WelcomeScreen — ห้องแม่ Phase 2 B1 reskin', () => {
     expect(s.borderRadius).toBe(T.radius.pill);
   });
 
+  // ── Lang toggle nudged left off the screen edge (bug: "ชิดขวามากเกินไป") ────
+  // Owner: toggle sat flush against the right edge; asked to nudge ~3px left.
+  // Fix: marginRight T.spacing[1] (4dp) on langToggle itself — does NOT touch
+  // topBar/justifyContent or headlineBlock (Welcome centering is fragile).
+
+  it('lang toggle has marginRight T.spacing[1] (4dp) so it is not flush to the edge', () => {
+    const toggle = findFirst(
+      tree,
+      (el) => (el.props as Record<string, unknown>).testID === 'lang-toggle',
+    );
+    const s = flatStyle((toggle!.props as Record<string, unknown>).style);
+    expect(s.marginRight).toBe(T.spacing[1]); // 4dp
+  });
+
+  it('lang toggle hitSlop is still >=12 on every edge (48dp target preserved)', () => {
+    const toggle = findFirst(
+      tree,
+      (el) => (el.props as Record<string, unknown>).testID === 'lang-toggle',
+    );
+    const hitSlop = (toggle!.props as Record<string, unknown>).hitSlop as Record<string, number>;
+    expect(hitSlop.top).toBeGreaterThanOrEqual(12);
+    expect(hitSlop.bottom).toBeGreaterThanOrEqual(12);
+    expect(hitSlop.left).toBeGreaterThanOrEqual(12);
+    expect(hitSlop.right).toBeGreaterThanOrEqual(12);
+  });
+
+  it('topBar still uses flex-end (only the toggle moved, not the row alignment)', () => {
+    const topBar = findFirst(
+      tree,
+      (el) => {
+        if (el.type !== 'View') return false;
+        const s = flatStyle((el.props as Record<string, unknown>).style);
+        return s.justifyContent === 'flex-end';
+      },
+    );
+    expect(topBar).not.toBeNull();
+  });
+
+  it('headlineBlock is unaffected by the toggle nudge (still centered, no paddingHorizontal)', () => {
+    const headline = findFirst(
+      tree,
+      (el) => {
+        if (el.type !== 'View') return false;
+        const s = flatStyle((el.props as Record<string, unknown>).style);
+        return s.justifyContent === 'center' && s.paddingBottom === T.spacing[6];
+      },
+    );
+    expect(headline).not.toBeNull();
+    const s = flatStyle((headline!.props as Record<string, unknown>).style);
+    expect(s.alignItems).toBe('center');
+    expect(s.paddingHorizontal).toBeUndefined();
+  });
+
   // ── Typography — no IBM Plex, no banned hex ────────────────────────────────
 
   it('no Text elements use IBMPlexSans font family', () => {
